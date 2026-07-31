@@ -2113,41 +2113,52 @@ function resolveCoinflip(serverSeed, clientSeed, nonce, gameId, opponentUuid) {
   }
 }
 
-app.post('/api/coinflip/create', express.json(), async (req, res) => {
-  const { supabaseUrl, supabaseKey } = getSupabaseConfig()
+function getCoinflipItemIds(value) {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.map(String).filter(isUuidLike))].slice(0, 100)
+}
+
+function getCoinflipWagerValue(items) {
+  if (!Array.isArray(items)) return 0
+  return items.reduce((total, item) => {
+    const value = Number(item?.value)
+    return total + (Number.isSafeInteger(value) && value > 0 ? value : 0)
+  }, 0)
+}
+
+app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
   if (!supabaseUrl || !supabaseKey) {
     res.status(500).json({ ok: false, error: 'supabase config missing' })
     return
   }
 
   const payload = req.body || {}
-  const creator_uuid = String(payload.creator_uuid || '')
+  const creator_uuid = String(req.identity.profileId)
   const creator_username = String(payload.creator_username || '')
   const creator_side = String(payload.creator_side || '').trim().toLowerCase() === 'tails'
     ? 'tails'
     : 'heads'
   const assigned_opponent_side = creator_side === 'heads' ? 'tails' : 'heads'
-  const creator_items = Array.isArray(payload.creator_items) ? payload.creator_items : []
   const creator_avatar_url = payload.creator_avatar_url || payload.creator_avatar || null
-
-  if (!creator_uuid) {
-    res.status(400).json({ ok: false, error: 'creator_uuid is required' })
-    return
-  }
 
   try {
     const gameId = crypto.randomUUID()
     const serverSeed = crypto.randomBytes(32).toString('hex')
     const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
     const clientSeed = crypto.randomBytes(16).toString('hex')
-    const itemIds = Array.isArray(payload.item_ids) ? payload.item_ids.filter(Boolean) : []
-    let verifiedCreatorItems = creator_items
+    const requestedItemIds = Array.isArray(payload.item_ids) ? payload.item_ids : []
+    const itemIds = getCoinflipItemIds(requestedItemIds)
+    if (itemIds.length === 0 || itemIds.length !== requestedItemIds.length) {
+      return res.status(400).json({ ok: false, error: 'Select one or more valid, unique items.' })
+    }
+    let verifiedCreatorItems = []
 
     // If item ids provided, ensure they exist and belong to the creator to prevent dupes
     if (itemIds.length > 0) {
       try {
         const checkUrl = `${supabaseUrl}/rest/v1/inventory_items?select=*&user_id=eq.${encodeURIComponent(creator_uuid)}&id=in.(${itemIds.join(',')})`
-        const checkRes = await fetch(checkUrl, { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } })
+        const checkRes = await fetch(checkUrl, { headers: getSupabaseAdminHeaders(supabaseKey) })
         if (!checkRes.ok) {
           const txt = await checkRes.text()
           console.warn('[api/coinflip/create] inventory check failed', checkRes.status, txt)
@@ -2164,6 +2175,10 @@ app.post('/api/coinflip/create', express.json(), async (req, res) => {
         console.warn('[api/coinflip/create] inventory check error', err)
         return res.status(500).json({ ok: false, error: 'failed to verify inventory items' })
       }
+    }
+
+    if (getCoinflipWagerValue(verifiedCreatorItems) <= 0) {
+      return res.status(400).json({ ok: false, error: 'Coinflip items must have a positive value.' })
     }
 
     const insertPayload = [{
@@ -2187,12 +2202,10 @@ app.post('/api/coinflip/create', express.json(), async (req, res) => {
 
     const response = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
       method: 'POST',
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
+      headers: getSupabaseAdminHeaders(supabaseKey, {
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
-      },
+      }),
       body: JSON.stringify(insertPayload),
     })
 
@@ -2210,22 +2223,6 @@ app.post('/api/coinflip/create', express.json(), async (req, res) => {
     }
 
     const createdRoom = Array.isArray(data) ? data[0] : data
-    // Remove the creator's inventory items (only those owned by the creator)
-    try {
-      if (itemIds.length > 0) {
-        const deleteUrl = `${supabaseUrl}/rest/v1/inventory_items?user_id=eq.${encodeURIComponent(creator_uuid)}&id=in.(${itemIds.join(',')})`
-        await fetch(deleteUrl, {
-          method: 'DELETE',
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-        })
-      }
-    } catch (err) {
-      console.warn('[api/coinflip/create] failed to remove creator inventory items', err)
-    }
-
     io.emit('coinflip:created', createdRoom)
     res.json({ ok: true, data: createdRoom })
     return
@@ -2274,8 +2271,8 @@ app.post(
 )
 
 // Join a coinflip: update the game with opponent data and delete opponent inventory items
-app.post('/api/coinflip/join', express.json(), async (req, res) => {
-  const { supabaseUrl, supabaseKey } = getSupabaseConfig()
+app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
   if (!supabaseUrl || !supabaseKey) {
     res.status(500).json({ ok: false, error: 'supabase config missing' })
     return
@@ -2283,9 +2280,8 @@ app.post('/api/coinflip/join', express.json(), async (req, res) => {
 
   const payload = req.body || {}
   const roomId = payload.roomId || payload.id || null
-  const opponent_uuid = String(payload.opponent_uuid || '')
+  const opponent_uuid = String(req.identity.profileId)
   const opponent_username = String(payload.opponent_username || '')
-  const opponent_items = Array.isArray(payload.opponent_items) ? payload.opponent_items : []
   const opponent_avatar_url = payload.opponent_avatar_url || payload.opponent_avatar || null
 
   if (!roomId) {
@@ -2299,7 +2295,9 @@ app.post('/api/coinflip/join', express.json(), async (req, res) => {
 
     // Fetch room to ensure it exists and is joinable
     try {
-      const roomRes = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?id=eq.${roomId}` , { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } })
+      const roomRes = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?id=eq.${encodeURIComponent(roomId)}`, {
+        headers: getSupabaseAdminHeaders(supabaseKey),
+      })
       if (!roomRes.ok) {
         const txt = await roomRes.text()
         console.warn('[api/coinflip/join] failed to fetch room', roomRes.status, txt)
@@ -2325,20 +2323,17 @@ app.post('/api/coinflip/join', express.json(), async (req, res) => {
       return res.status(500).json({ ok: false, error: 'failed to validate room' })
     }
 
-    if (!opponent_uuid) {
-      return res.status(400).json({ ok: false, error: 'opponent_uuid is required' })
+    const requestedItemIds = Array.isArray(payload.item_ids) ? payload.item_ids : []
+    const itemIds = getCoinflipItemIds(requestedItemIds)
+    if (itemIds.length === 0 || itemIds.length !== requestedItemIds.length) {
+      return res.status(400).json({ ok: false, error: 'Select one or more valid, unique items.' })
     }
-
-    const itemIds = Array.isArray(payload.item_ids) ? payload.item_ids.filter(Boolean) : []
-    if (itemIds.length === 0) {
-      return res.status(400).json({ ok: false, error: 'at least one opponent item is required' })
-    }
-    let verifiedOpponentItems = opponent_items
+    let verifiedOpponentItems = []
     // Verify opponent owns the items
     if (itemIds.length > 0) {
       try {
         const checkUrl = `${supabaseUrl}/rest/v1/inventory_items?select=*&user_id=eq.${encodeURIComponent(opponent_uuid)}&id=in.(${itemIds.join(',')})`
-        const checkRes = await fetch(checkUrl, { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } })
+        const checkRes = await fetch(checkUrl, { headers: getSupabaseAdminHeaders(supabaseKey) })
         if (!checkRes.ok) {
           const txt = await checkRes.text()
           console.warn('[api/coinflip/join] inventory check failed', checkRes.status, txt)
@@ -2355,6 +2350,15 @@ app.post('/api/coinflip/join', express.json(), async (req, res) => {
         console.warn('[api/coinflip/join] inventory check error', err)
         return res.status(500).json({ ok: false, error: 'failed to verify opponent inventory items' })
       }
+    }
+
+    const creatorWagerValue = getCoinflipWagerValue(roomObj.creator_items)
+    const opponentWagerValue = getCoinflipWagerValue(verifiedOpponentItems)
+    if (creatorWagerValue <= 0 || opponentWagerValue <= 0) {
+      return res.status(409).json({ ok: false, error: 'Both coinflip wagers must have a positive value.' })
+    }
+    if (opponentWagerValue * 10 < creatorWagerValue * 9 || opponentWagerValue * 10 > creatorWagerValue * 11) {
+      return res.status(400).json({ ok: false, error: 'Your wager must be within 10% of the creator wager.' })
     }
 
     // Legacy open games migrated before encrypted commitments use the already
@@ -2397,15 +2401,13 @@ app.post('/api/coinflip/join', express.json(), async (req, res) => {
     }
 
     // The null-opponent/result filters make the seat claim atomic if two users join at once.
-    const updateUrl = `${supabaseUrl}/rest/v1/coinflip_games?id=eq.${roomId}&opponent_uuid=is.null&result=is.null&canceled=eq.false`
+    const updateUrl = `${supabaseUrl}/rest/v1/coinflip_games?id=eq.${encodeURIComponent(roomId)}&opponent_uuid=is.null&result=is.null&canceled=eq.false`
     const response = await fetch(updateUrl, {
       method: 'PATCH',
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
+      headers: getSupabaseAdminHeaders(supabaseKey, {
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
-      },
+      }),
       body: JSON.stringify(updatePayload),
     })
 
