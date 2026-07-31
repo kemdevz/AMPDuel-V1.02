@@ -378,8 +378,15 @@ export default function Coinflip() {
           from { stroke-dashoffset: var(--coinflip-countdown-start, 0); }
           to { stroke-dashoffset: 100; }
         }
+        @keyframes coinflip-row-winner-in {
+          from { opacity: 0; transform: scale(0); }
+          to { opacity: 1; transform: scale(1); }
+        }
         .coinflip-row-countdown-stroke {
           animation: coinflip-row-countdown var(--coinflip-countdown-duration, 5000ms) forwards linear;
+        }
+        .coinflip-row-winner-coin {
+          animation: coinflip-row-winner-in 150ms forwards;
         }
         .coinflip-row-avatar {
           box-shadow: 0 0 0 0 rgba(108, 99, 255, 0);
@@ -716,30 +723,63 @@ function CoinflipRowResult({ room, side, onReveal }) {
   }, [room?.id, room?.result])
 
   if (revealed) {
-    return <img className="h-full w-full object-contain" alt={side} src={side === 'heads' ? '/heads.png' : '/tails.png'} />
-  }
-
-  return (
-    <div className="relative grid h-14 w-14 place-items-center" role="timer" aria-label={`${remainingSeconds} seconds until result`}>
-      <svg viewBox="0 0 104 104" className="absolute inset-0 h-full w-full" aria-hidden="true">
+    return (
+      <svg
+        className="h-full w-full"
+        viewBox="-50 -50 100 100"
+        fill="none"
+        role="img"
+        aria-label={`${side} won the coinflip`}
+      >
         <circle
-          cx="52"
-          cy="52"
           r="49"
           fill="#171925"
           strokeWidth="2"
           stroke="#6c63ff"
           pathLength="100"
           strokeDasharray="100"
-          transform="rotate(-90 52 52)"
-          className="coinflip-row-countdown-stroke"
-          style={{
-            '--coinflip-countdown-start': 0,
-            '--coinflip-countdown-duration': `${ROW_RESULT_COUNTDOWN_MS}ms`,
-          }}
+          transform="rotate(-90)"
+        />
+        <image
+          x="-50"
+          y="-50"
+          width="100"
+          height="100"
+          href={side === 'heads' ? '/heads.png' : '/tails.png'}
+          className="coinflip-row-winner-coin"
         />
       </svg>
-      <span className="relative z-10 text-base font-bold text-[#e1e4f2]">{remainingSeconds}</span>
+    )
+  }
+
+  return (
+    <div className="relative h-16 w-16" role="timer" aria-label={`${remainingSeconds} seconds until result`}>
+      <svg viewBox="-50 -50 100 100" fill="none" className="h-full w-full" aria-hidden="true">
+        <circle
+          r="49"
+          fill="#171925"
+          strokeWidth="2"
+          stroke="#6c63ff"
+          pathLength="100"
+          strokeDasharray="100"
+          transform="rotate(-90)"
+            className="coinflip-row-countdown-stroke"
+            style={{
+              '--coinflip-countdown-start': 0,
+              '--coinflip-countdown-duration': `${ROW_RESULT_COUNTDOWN_MS}ms`,
+            }}
+        />
+        <text
+          fontSize="32"
+          fontWeight="bold"
+          fill="white"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          style={{ fontFamily: 'Poppins' }}
+        >
+          {remainingSeconds}
+        </text>
+      </svg>
     </div>
   )
 }
@@ -929,7 +969,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
       </div>
 
       {/* Winner Indicator */}
-      <div className="relative justify-self-center xl:w-14 xl:h-14 w-14 h-14">
+      <div className="relative h-16 w-16 justify-self-center xl:h-16 xl:w-16">
         {isCompleted ? (
           <CoinflipRowResult
             room={room}
@@ -941,14 +981,16 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
 
       {/* Action Buttons */}
       <div className="flex justify-center gap-2 justify-self-center xl:ml-auto xl:flex-col xl:justify-self-end">
-        <button
-          className="min-w-24 rounded-md border border-solid px-5 text-base font-semibold transition-none h-[34px] leading-[34px] py-0 cursor-pointer border-[#5E55D9]/40 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] text-white shadow-[0_2px_8px_rgba(108,99,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-          onClick={() => { if (!joinDisabled && typeof onJoin === 'function') onJoin() }}
-          disabled={joinDisabled}
-        >
-          Join
-        </button>
+        {canJoin && (
+          <button
+            className="min-w-24 rounded-md border border-solid px-5 text-base font-semibold transition-none h-[34px] leading-[34px] py-0 cursor-pointer border-[#5E55D9]/40 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] text-white shadow-[0_2px_8px_rgba(108,99,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            onClick={() => { if (!joinDisabled && typeof onJoin === 'function') onJoin() }}
+            disabled={joinDisabled}
+          >
+            Join
+          </button>
+        )}
         <button
           type="button"
           onClick={onView}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getInventoryItemAccent } from './InventoryItemCard'
 import { notifications } from './Notifications'
@@ -15,9 +15,16 @@ export const VIEW_MODAL_CONFIG = Object.freeze({
       heads: '/heads.png',
       tails: '/tails.png',
     },
+    coinSprite: {
+      heads: '/heads-DP1YEEmi.png',
+      tails: '/tails-CsX-cqG2.png',
+    },
   },
   animation: {
-    durationMs: 2600,
+    spriteColumns: 10,
+    spriteRows: 12,
+    spriteFps: 60,
+    winnerRevealMs: 4000,
     backdropInMs: 180,
     modalInMs: 180,
     closeMs: 160,
@@ -50,17 +57,106 @@ function normalizeItem(item, index) {
   }
 }
 
-function CoinAnimation({ side, onComplete }) {
+function CoinAnimation({ side }) {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return undefined
+
+    const context = canvas.getContext('2d')
+    if (!context) return undefined
+
+    const {
+      spriteColumns,
+      spriteRows,
+      spriteFps,
+    } = VIEW_MODAL_CONFIG.animation
+    const totalFrames = spriteColumns * spriteRows
+    const frameDuration = 1000 / spriteFps
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+    const canvasSize = isMobile ? 300 : 340
+    const sprite = new Image()
+    let animationFrame = null
+    let animationStart = null
+    let drawnFrame = -1
+    let disposed = false
+
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
+
+    const drawFrame = (frameIndex) => {
+      if (disposed || !sprite.naturalWidth || !sprite.naturalHeight) return
+
+      const sourceWidth = sprite.naturalWidth / spriteColumns
+      const sourceHeight = sprite.naturalHeight / spriteRows
+      const sourceX = (frameIndex % spriteColumns) * sourceWidth
+      const sourceY = Math.floor(frameIndex / spriteColumns) * sourceHeight
+      const destinationSize = Math.min(canvas.width, canvas.height)
+
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(
+        sprite,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        (canvas.width - destinationSize) / 2,
+        (canvas.height - destinationSize) / 2,
+        destinationSize,
+        destinationSize,
+      )
+      drawnFrame = frameIndex
+    }
+
+    const animate = (timestamp) => {
+      if (disposed) return
+      if (animationStart === null) animationStart = timestamp
+
+      const frameIndex = Math.min(
+        totalFrames - 1,
+        Math.floor((timestamp - animationStart) / frameDuration),
+      )
+      if (frameIndex !== drawnFrame) drawFrame(frameIndex)
+
+      if (frameIndex < totalFrames - 1) {
+        animationFrame = window.requestAnimationFrame(animate)
+      }
+    }
+
+    const start = () => {
+      if (disposed) return
+      animationStart = null
+      drawnFrame = -1
+      drawFrame(0)
+      animationFrame = window.requestAnimationFrame(animate)
+    }
+
+    sprite.decoding = 'async'
+    sprite.src = VIEW_MODAL_CONFIG.assets.coinSprite[side]
+    if (sprite.complete && sprite.naturalWidth > 0) {
+      start()
+    } else {
+      sprite.onload = start
+    }
+
+    return () => {
+      disposed = true
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
+      sprite.onload = null
+      sprite.onerror = null
+    }
+  }, [side])
+
   return (
-    <div
-      className={`view-modal__coin-animation view-modal__coin-animation--${side}`}
-      style={{ '--coin-animation-duration': `${VIEW_MODAL_CONFIG.animation.durationMs}ms` }}
-      onAnimationEnd={onComplete}
+    <canvas
+      ref={canvasRef}
+      className="view-modal__sprite-canvas"
       role="img"
       aria-label={`${side} won the coinflip`}
-    >
-      <img src={VIEW_MODAL_CONFIG.assets.coin[side]} alt="" draggable={false} />
-    </div>
+    />
   )
 }
 
@@ -321,6 +417,13 @@ export default function CoinflipViewModal({
 
   useEffect(() => {
     setWinnerVisible(false)
+    if (!completed) return undefined
+
+    const timer = window.setTimeout(() => {
+      setWinnerVisible(true)
+    }, VIEW_MODAL_CONFIG.animation.winnerRevealMs)
+
+    return () => window.clearTimeout(timer)
   }, [completed, room?.id, room?.result])
 
   const close = useCallback(() => {
@@ -411,7 +514,10 @@ export default function CoinflipViewModal({
 
             <div className="view-modal__game-info">
               {completed ? (
-                <CoinAnimation side={winnerSide} onComplete={() => setWinnerVisible(true)} />
+                <CoinAnimation
+                  key={`${room?.id || room?.room_id || 'coinflip'}:${winnerSide}`}
+                  side={winnerSide}
+                />
               ) : (
                 <p className="view-modal__versus">Vs</p>
               )}
@@ -494,18 +600,6 @@ const VIEW_MODAL_STYLES = `
 
   @keyframes view-modal-shrink-out {
     to { transform: scale(.98); opacity: 0; }
-  }
-
-  @keyframes view-modal-coin-heads {
-    0% { transform: translateY(30px) rotateY(0deg) scale(.72); filter: drop-shadow(0 8px 8px rgba(0,0,0,.3)); }
-    48% { transform: translateY(-32px) rotateY(900deg) scale(1.08); filter: drop-shadow(0 34px 18px rgba(0,0,0,.18)); }
-    100% { transform: translateY(0) rotateY(1800deg) scale(1); filter: drop-shadow(0 12px 14px rgba(0,0,0,.35)); }
-  }
-
-  @keyframes view-modal-coin-tails {
-    0% { transform: translateY(30px) rotateY(0deg) scale(.72); filter: drop-shadow(0 8px 8px rgba(0,0,0,.3)); }
-    48% { transform: translateY(-32px) rotateY(990deg) scale(1.08); filter: drop-shadow(0 34px 18px rgba(0,0,0,.18)); }
-    100% { transform: translateY(0) rotateY(1980deg) scale(1); filter: drop-shadow(0 12px 14px rgba(0,0,0,.35)); }
   }
 
   .view-modal__backdrop {
@@ -724,28 +818,11 @@ const VIEW_MODAL_STYLES = `
     align-items: center;
   }
 
-  .view-modal__coin-animation {
-    display: grid;
-    width: 160px;
-    height: 160px;
-    place-items: center;
-    perspective: 900px;
-  }
-
-  .view-modal__coin-animation img {
-    width: 132px;
-    height: 132px;
+  .view-modal__sprite-canvas {
+    display: block;
+    width: 240px;
+    height: 240px;
     object-fit: contain;
-    transform-style: preserve-3d;
-    will-change: transform, filter;
-  }
-
-  .view-modal__coin-animation--heads img {
-    animation: view-modal-coin-heads var(--coin-animation-duration) cubic-bezier(.2,.7,.2,1) forwards;
-  }
-
-  .view-modal__coin-animation--tails img {
-    animation: view-modal-coin-tails var(--coin-animation-duration) cubic-bezier(.2,.7,.2,1) forwards;
   }
 
   .view-modal__versus {
@@ -1072,14 +1149,9 @@ const VIEW_MODAL_STYLES = `
   }
 
   @media (max-width: 768px) {
-    .view-modal__coin-animation {
+    .view-modal__sprite-canvas {
       width: 150px;
       height: 150px;
-    }
-
-    .view-modal__coin-animation img {
-      width: 116px;
-      height: 116px;
     }
   }
 
@@ -1127,10 +1199,6 @@ const VIEW_MODAL_STYLES = `
     .view-modal__backdrop,
     .view-modal__surface,
     .view-modal__surface--closing {
-      animation-duration: 1ms;
-    }
-
-    .view-modal__coin-animation img {
       animation-duration: 1ms;
     }
 
