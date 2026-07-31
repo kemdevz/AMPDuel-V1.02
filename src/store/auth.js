@@ -54,6 +54,22 @@ const sendLoginWebhook = async (user) => {
   }
 }
 
+let profileUpdateSocket = null
+let profileUpdateHandler = null
+
+const subscribeToProfileUpdates = (socket) => {
+  if (!socket || profileUpdateSocket === socket) return
+  if (profileUpdateSocket && profileUpdateHandler) {
+    profileUpdateSocket.off('profile:updated', profileUpdateHandler)
+  }
+
+  profileUpdateSocket = socket
+  profileUpdateHandler = (profile) => {
+    useAuth.getState().applyProfileUpdate(profile)
+  }
+  socket.on('profile:updated', profileUpdateHandler)
+}
+
 export const useAuth = create((set) => ({
   user: null,
   balance: 0,
@@ -80,7 +96,7 @@ export const useAuth = create((set) => ({
       loading: false,
       fairness: null,
     })
-    connectSocket()
+    subscribeToProfileUpdates(connectSocket())
   },
 
   async logout() {
@@ -99,6 +115,19 @@ export const useAuth = create((set) => ({
       balance,
       user: state.user ? { ...state.user, balance } : state.user,
     }))
+  },
+
+  applyProfileUpdate(profileData) {
+    if (!profileData) return
+    set((state) => {
+      const currentProfileId = String(state.user?.profile_id || state.user?.id || '')
+      if (!currentProfileId || currentProfileId !== String(profileData.id || profileData.profile_id || '')) {
+        return state
+      }
+
+      const user = normalizeUser({ ...state.user, ...profileData, profile_id: currentProfileId })
+      return { user, balance: user.balance }
+    })
   },
 
   setAuthModalOpen(isOpen) {

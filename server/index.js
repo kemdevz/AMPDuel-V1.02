@@ -316,6 +316,29 @@ async function loadProfileById(profileId) {
   return Array.isArray(rows) ? rows[0] || null : rows
 }
 
+async function emitProfileUpdates(profileIds) {
+  const uniqueProfileIds = [...new Set(
+    profileIds.map((profileId) => String(profileId || '').trim()).filter(Boolean),
+  )]
+
+  try {
+    const profiles = await Promise.all(uniqueProfileIds.map((profileId) => loadProfileById(profileId)))
+    const profilesById = new Map(
+      profiles.filter(Boolean).map((profile) => [String(profile.id), profile]),
+    )
+
+    for (const socket of io.sockets.sockets.values()) {
+      const profileId = String(socket.data.identity?.profileId || '')
+      const profile = profilesById.get(profileId)
+      if (!profile) continue
+      socket.data.profile = profile
+      socket.emit('profile:updated', profile)
+    }
+  } catch (error) {
+    console.warn('[profile] failed to emit realtime profile updates', error)
+  }
+}
+
 async function getAuthenticatedIdentityFromHeaders(headers) {
   const cookies = parseCookies(headers?.cookie)
   const sessionPayload = decodeSignedToken(cookies[SESSION_COOKIE_NAME], 'session')
@@ -2399,6 +2422,7 @@ app.post('/api/coinflip/join', express.json(), async (req, res) => {
       return res.status(409).json({ ok: false, error: 'room was already joined' })
     }
 
+    await emitProfileUpdates([roomObj.creator_uuid, opponent_uuid])
     io.emit('coinflip:updated', updatedRoom || { id: roomId })
     res.json({ ok: true, data: updatedRoom })
     return

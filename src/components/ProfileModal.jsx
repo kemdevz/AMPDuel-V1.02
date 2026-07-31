@@ -1150,7 +1150,13 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
     }
   }, [isOpen, onClose])
 
-  const account = useMemo(() => ({ ...user, ...profile }), [profile, user])
+  const account = useMemo(() => ({
+    ...user,
+    ...profile,
+    played: user?.played ?? profile?.played,
+    won: user?.won ?? profile?.won,
+    lost: user?.lost ?? profile?.lost,
+  }), [profile, user])
   const hasAdminPanelAccess = canAccessAdminPanel(account?.role)
   const visibleTabs = hasAdminPanelAccess
     ? tabs
