@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Settings, ChevronDown } from 'lucide-react'
 import { connectSocket } from '../lib/socket'
@@ -15,6 +15,7 @@ const RESOLVED_ROOM_LIFETIME_MS = 60_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const ROW_RESULT_COUNTDOWN_MS = 5_000
 const RECENT_RESULT_LIMIT = 100
+const AUTOMATIC_VIEW_OPEN_DELAY_MS = 140
 
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
@@ -138,6 +139,28 @@ export default function Coinflip() {
   const [rooms, setRooms] = useState([])
   const [recentResults, setRecentResults] = useState([])
   const socketRef = useRef(null)
+  const viewOpenTimerRef = useRef(null)
+
+  const openViewRoom = useCallback((room, delayMs = 0) => {
+    if (viewOpenTimerRef.current) {
+      window.clearTimeout(viewOpenTimerRef.current)
+      viewOpenTimerRef.current = null
+    }
+
+    if (delayMs <= 0) {
+      setViewRoom(room)
+      return
+    }
+
+    viewOpenTimerRef.current = window.setTimeout(() => {
+      viewOpenTimerRef.current = null
+      setViewRoom(room)
+    }, delayMs)
+  }, [])
+
+  useEffect(() => () => {
+    if (viewOpenTimerRef.current) window.clearTimeout(viewOpenTimerRef.current)
+  }, [])
 
   useEffect(() => {
     const socket = connectSocket()
@@ -205,11 +228,14 @@ export default function Coinflip() {
       setRooms((prev) => normalized.canceled
         ? prev.filter((existing) => existing.id !== normalized.id)
         : prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-      setViewRoom((current) => {
-        if (normalized.canceled && current?.id === normalized.id) return null
-        if (normalized.result && isParticipant) return normalized
-        return current?.id === normalized.id ? { ...current, ...normalized } : current
-      })
+      if (normalized.result && isParticipant) {
+        openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
+      } else {
+        setViewRoom((current) => {
+          if (normalized.canceled && current?.id === normalized.id) return null
+          return current?.id === normalized.id ? { ...current, ...normalized } : current
+        })
+      }
     }
 
     socket.on('coinflip:created', handleCreated)
@@ -219,7 +245,7 @@ export default function Coinflip() {
       socket.off('coinflip:created', handleCreated)
       socket.off('coinflip:updated', handleUpdated)
     }
-  }, [])
+  }, [openViewRoom])
 
   useEffect(() => {
     let isMounted = true
@@ -484,7 +510,7 @@ export default function Coinflip() {
                   key={room.id}
                   room={room}
                   onJoin={() => setJoinRoom(room)}
-                  onView={() => setViewRoom(room)}
+                  onView={() => openViewRoom(room)}
                   onProfileOpen={setSelectedProfile}
                 />
               ))
@@ -522,7 +548,7 @@ export default function Coinflip() {
 
           return [newRoom, ...prev]
         })
-        setViewRoom(normalized)
+        openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
       }} />}
       {joinRoom && (
         <CoinflipJoinModal
@@ -532,7 +558,7 @@ export default function Coinflip() {
             if (updatedRoom) {
               const normalized = normalizeRoom(updatedRoom)
               setRooms((prev) => prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-              setViewRoom(normalized)
+              openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
             }
             setJoinRoom(null)
           }}
@@ -541,13 +567,13 @@ export default function Coinflip() {
       {viewRoom && (
         <CoinflipViewModal
           room={viewRoom}
-          onClose={() => setViewRoom(null)}
+          onClose={() => openViewRoom(null)}
           onProfileOpen={setSelectedProfile}
           profileOpen={Boolean(selectedProfile)}
           onCanceled={(canceledRoom) => {
             const canceledId = canceledRoom?.id || canceledRoom?.room_id
             setRooms((prev) => prev.filter((existing) => existing.id !== canceledId))
-            setViewRoom(null)
+            openViewRoom(null)
             window.dispatchEvent(new CustomEvent('wallet:updated'))
           }}
         />
