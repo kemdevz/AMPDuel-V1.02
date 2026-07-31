@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/flame.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BloxyBattles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Temporary global error overlay to surface runtime errors during development.
+      (function () {
+        function showError(msg) {
+          try {
+            var el = document.getElementById('__dev_error_overlay__')
+            if (!el) {
+              el = document.createElement('div')
+              el.id = '__dev_error_overlay__'
+              el.style.position = 'fixed'
+              el.style.left = '0'
+              el.style.top = '0'
+              el.style.right = '0'
+              el.style.bottom = '0'
+              el.style.background = 'rgba(0,0,0,0.85)'
+              el.style.color = 'white'
+              el.style.zIndex = '99999'
+              el.style.padding = '20px'
+              el.style.overflow = 'auto'
+              el.style.fontFamily = 'monospace'
+              document.body.appendChild(el)
+            }
+            el.innerText = String(msg).slice(0, 20000)
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        window.addEventListener('error', function (ev) {
+          showError(ev && ev.error && ev.error.stack ? ev.error.stack : ev.message || String(ev))
+        })
+        window.addEventListener('unhandledrejection', function (ev) {
+          showError(ev && ev.reason ? (ev.reason.stack || ev.reason) : String(ev))
+        })
+      })()
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

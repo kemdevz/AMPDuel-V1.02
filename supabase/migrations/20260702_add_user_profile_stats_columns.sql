@@ -1,0 +1,4 @@
+ALTER TABLE public.user_profiles
+  ADD COLUMN IF NOT EXISTS played integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS won integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS lost integer DEFAULT 0;
