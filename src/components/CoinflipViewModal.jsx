@@ -198,7 +198,7 @@ function shortenIdentifier(value, maxLength = 24) {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
 }
 
-function FairnessModal({ gameId, serverSeedHash, onClose }) {
+function FairnessModal({ gameId, serverSeedHash, resolved, onClose }) {
   const fields = [
     {
       id: 'game-id',
@@ -206,12 +206,12 @@ function FairnessModal({ gameId, serverSeedHash, onClose }) {
       value: gameId,
       copiedMessage: 'Game ID copied to clipboard!',
     },
-    {
+    ...(resolved ? [{
       id: 'server-seed-hash',
       label: 'Hashed Server Seed',
       value: serverSeedHash,
       copiedMessage: 'Hashed Server Seed copied to clipboard!',
-    },
+    }] : []),
   ]
 
   const copyValue = async (value, copiedMessage) => {
@@ -467,6 +467,7 @@ export default function CoinflipViewModal({
           <FairnessModal
             gameId={room?.id || room?.room_id || 'Unavailable'}
             serverSeedHash={room?.server_seed_hash || 'Unavailable'}
+            resolved={completed}
             onClose={() => setFairnessOpen(false)}
           />
         )}

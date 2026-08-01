@@ -696,7 +696,10 @@ function CoinflipRowResult({ room, side, onReveal }) {
   const getRemainingMs = () => {
     const resolvedAt = new Date(room?.resolved_at || Date.now()).getTime()
     const elapsed = Number.isFinite(resolvedAt) ? Date.now() - resolvedAt : 0
-    return Math.max(0, ROW_RESULT_COUNTDOWN_MS - elapsed)
+    return Math.min(
+      ROW_RESULT_COUNTDOWN_MS,
+      Math.max(0, ROW_RESULT_COUNTDOWN_MS - elapsed),
+    )
   }
 
   const [initialRemainingMs, setInitialRemainingMs] = useState(getRemainingMs)
