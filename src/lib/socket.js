@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client'
 
 const DEFAULT_SERVER_URL = 'http://localhost:4000'
-const SERVER_URL = (import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_SERVER_URL || '').replace(/\/+$/,'') || DEFAULT_SERVER_URL
+const CONFIGURED_SERVER_URL = (import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_SERVER_URL || '').replace(/\/+$/,'')
 
 let socket = null
 
@@ -15,7 +15,9 @@ export function connectSocket() {
     if (!socket.connected) socket.connect()
     return socket
   }
-  const url = import.meta.env.DEV ? DEFAULT_SERVER_URL : SERVER_URL
+  // Passing no URL makes Socket.IO use the page's origin. This is the correct
+  // production default when Express and the frontend are served together.
+  const url = import.meta.env.DEV ? DEFAULT_SERVER_URL : CONFIGURED_SERVER_URL || undefined
   socket = io(url, {
     withCredentials: true,
     autoConnect: true,

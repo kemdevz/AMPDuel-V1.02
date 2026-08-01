@@ -236,7 +236,15 @@ function parseCookies(cookieHeader) {
   return cookies
 }
 
-function setSessionCookie(res, identity) {
+function isSecureRequest(req) {
+  const forwardedProtocol = String(req?.headers?.['x-forwarded-proto'] || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+  return Boolean(req?.secure) || forwardedProtocol === 'https' || process.env.NODE_ENV === 'production'
+}
+
+function setSessionCookie(res, identity, req) {
   const token = encodeSignedToken({
     kind: 'session',
     profileId: identity.profileId,
@@ -245,15 +253,15 @@ function setSessionCookie(res, identity) {
     sessionId: identity.sessionId,
     exp: Date.now() + SESSION_TTL_SECONDS * 1000,
   })
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  const secure = isSecureRequest(req) ? '; Secure' : ''
   res.setHeader(
     'Set-Cookie',
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}${secure}`,
   )
 }
 
-function clearSessionCookie(res) {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+function clearSessionCookie(res, req) {
+  const secure = isSecureRequest(req) ? '; Secure' : ''
   res.setHeader(
     'Set-Cookie',
     `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
@@ -1569,7 +1577,7 @@ app.post('/api/auth/roblox/verify', express.json({ limit: '8kb' }), async (req, 
       subject,
       robloxId: challenge.robloxId,
     }, req)
-    setSessionCookie(res, identity)
+    setSessionCookie(res, identity, req)
     res.json({ ok: true, user: { ...profile, id: subject, profile_id: profile.id, roblox_id: String(challenge.robloxId) } })
   } catch (error) {
     console.error('[auth/roblox/verify] failed', error)
@@ -1610,7 +1618,7 @@ app.delete('/api/auth/session', requireAuthenticatedUser, async (req, res) => {
   } catch (error) {
     console.warn('[auth/session] failed to delete session', error)
   }
-  clearSessionCookie(res)
+  clearSessionCookie(res, req)
   res.json({ ok: true })
 })
 
