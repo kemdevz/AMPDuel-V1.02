@@ -14,6 +14,7 @@ const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F7
 const RESOLVED_ROOM_LIFETIME_MS = 60_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const ROW_RESULT_COUNTDOWN_MS = 5_000
+const ROW_RESULT_REVEAL_LEAD_MS = 500
 const RECENT_RESULT_LIMIT = 100
 const CREATOR_VIEW_OPEN_DELAY_MS = 140
 
@@ -439,14 +440,16 @@ export default function Coinflip() {
           to { stroke-dashoffset: 100; }
         }
         @keyframes coinflip-row-winner-in {
-          from { opacity: 0; transform: scale(0); }
-          to { opacity: 1; transform: scale(1); }
+          0% { opacity: 0; transform: scale(.62) rotate(-12deg); }
+          65% { opacity: 1; transform: scale(1.06) rotate(2deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0deg); }
         }
         .coinflip-row-countdown-stroke {
           animation: coinflip-row-countdown var(--coinflip-countdown-duration, 5000ms) forwards linear;
         }
         .coinflip-row-winner-coin {
-          animation: coinflip-row-winner-in 150ms forwards;
+          animation: coinflip-row-winner-in 450ms cubic-bezier(.22, 1, .36, 1) forwards;
+          transform-origin: center;
         }
         .coinflip-row-avatar {
           box-shadow: 0 0 0 0 rgba(108, 99, 255, 0);
@@ -762,13 +765,14 @@ function CoinflipRowResult({ room, side, onReveal }) {
   const getRemainingMs = () => getRowResultRemainingMs(room)
   const [initialRemainingMs, setInitialRemainingMs] = useState(getRemainingMs)
   const [remainingSeconds, setRemainingSeconds] = useState(() => Math.max(1, Math.ceil(getRemainingMs() / 1000)))
-  const [revealed, setRevealed] = useState(() => getRemainingMs() <= 0)
+  const [revealed, setRevealed] = useState(() => getRemainingMs() <= ROW_RESULT_REVEAL_LEAD_MS)
 
   useEffect(() => {
     const remainingMs = getRemainingMs()
     setInitialRemainingMs(remainingMs)
+    const revealDelayMs = Math.max(0, remainingMs - ROW_RESULT_REVEAL_LEAD_MS)
 
-    if (remainingMs <= 0) {
+    if (revealDelayMs <= 0) {
       setRevealed(true)
       onReveal?.()
       return undefined
@@ -785,7 +789,7 @@ function CoinflipRowResult({ room, side, onReveal }) {
       window.clearInterval(interval)
       setRevealed(true)
       onReveal?.()
-    }, remainingMs)
+    }, revealDelayMs)
 
     return () => {
       window.clearInterval(interval)
@@ -824,6 +828,7 @@ function CoinflipRowResult({ room, side, onReveal }) {
   }
 
   const elapsedPercent = 100 - ((initialRemainingMs / ROW_RESULT_COUNTDOWN_MS) * 100)
+  const countdownAnimationMs = Math.max(1, initialRemainingMs - ROW_RESULT_REVEAL_LEAD_MS)
   return (
     <div className="relative h-16 w-16" role="timer" aria-label={`${remainingSeconds} seconds until result`}>
       <svg viewBox="-50 -50 100 100" fill="none" className="h-full w-full" aria-hidden="true">
@@ -838,7 +843,7 @@ function CoinflipRowResult({ room, side, onReveal }) {
           className="coinflip-row-countdown-stroke"
           style={{
             '--coinflip-countdown-start': elapsedPercent,
-            '--coinflip-countdown-duration': `${initialRemainingMs}ms`,
+            '--coinflip-countdown-duration': `${countdownAnimationMs}ms`,
           }}
         />
         <text
@@ -889,11 +894,13 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const isCompleted = Boolean(room.opponent_uuid && room.result)
   const winner = isCompleted ? room.result || room.winner || null : null
   const [rowResultVisible, setRowResultVisible] = useState(
-    () => isCompleted && getRowResultRemainingMs(room) <= 0,
+    () => isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS,
   )
 
   useEffect(() => {
-    setRowResultVisible(Boolean(isCompleted && getRowResultRemainingMs(room) <= 0))
+    setRowResultVisible(Boolean(
+      isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS
+    ))
   }, [isCompleted, room.id, room.resolved_at, room.result])
 
   const creatorWon = rowResultVisible && (room.winner_uuid
