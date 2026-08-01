@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getInventoryItemAccent } from './InventoryItemCard'
 import { notifications } from './Notifications'
@@ -15,16 +15,12 @@ export const VIEW_MODAL_CONFIG = Object.freeze({
       heads: '/heads.png',
       tails: '/tails.png',
     },
-    coinSprite: {
-      heads: '/heads-DP1YEEmi.png',
-      tails: '/tails-CsX-cqG2.png',
+    coinAnimation: {
+      heads: '/heads.webm',
+      tails: '/tails.webm',
     },
   },
   animation: {
-    spriteColumns: 10,
-    spriteRows: 12,
-    spriteFps: 60,
-    winnerRevealMs: 4000,
     backdropInMs: 180,
     modalInMs: 180,
     closeMs: 160,
@@ -57,104 +53,18 @@ function normalizeItem(item, index) {
   }
 }
 
-function CoinAnimation({ side }) {
-  const canvasRef = useRef(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return undefined
-
-    const context = canvas.getContext('2d')
-    if (!context) return undefined
-
-    const {
-      spriteColumns,
-      spriteRows,
-      spriteFps,
-    } = VIEW_MODAL_CONFIG.animation
-    const totalFrames = spriteColumns * spriteRows
-    const frameDuration = 1000 / spriteFps
-    const isMobile = window.matchMedia('(max-width: 768px)').matches
-    const canvasSize = isMobile ? 300 : 340
-    const sprite = new Image()
-    let animationFrame = null
-    let animationStart = null
-    let drawnFrame = -1
-    let disposed = false
-
-    canvas.width = canvasSize
-    canvas.height = canvasSize
-    context.imageSmoothingEnabled = true
-    context.imageSmoothingQuality = 'high'
-
-    const drawFrame = (frameIndex) => {
-      if (disposed || !sprite.naturalWidth || !sprite.naturalHeight) return
-
-      const sourceWidth = sprite.naturalWidth / spriteColumns
-      const sourceHeight = sprite.naturalHeight / spriteRows
-      const sourceX = (frameIndex % spriteColumns) * sourceWidth
-      const sourceY = Math.floor(frameIndex / spriteColumns) * sourceHeight
-      const destinationSize = Math.min(canvas.width, canvas.height)
-
-      context.clearRect(0, 0, canvas.width, canvas.height)
-      context.drawImage(
-        sprite,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-        (canvas.width - destinationSize) / 2,
-        (canvas.height - destinationSize) / 2,
-        destinationSize,
-        destinationSize,
-      )
-      drawnFrame = frameIndex
-    }
-
-    const animate = (timestamp) => {
-      if (disposed) return
-      if (animationStart === null) animationStart = timestamp
-
-      const frameIndex = Math.min(
-        totalFrames - 1,
-        Math.floor((timestamp - animationStart) / frameDuration),
-      )
-      if (frameIndex !== drawnFrame) drawFrame(frameIndex)
-
-      if (frameIndex < totalFrames - 1) {
-        animationFrame = window.requestAnimationFrame(animate)
-      }
-    }
-
-    const start = () => {
-      if (disposed) return
-      animationStart = null
-      drawnFrame = -1
-      drawFrame(0)
-      animationFrame = window.requestAnimationFrame(animate)
-    }
-
-    sprite.decoding = 'async'
-    sprite.src = VIEW_MODAL_CONFIG.assets.coinSprite[side]
-    if (sprite.complete && sprite.naturalWidth > 0) {
-      start()
-    } else {
-      sprite.onload = start
-    }
-
-    return () => {
-      disposed = true
-      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
-      sprite.onload = null
-      sprite.onerror = null
-    }
-  }, [side])
-
+function CoinAnimation({ side, onComplete }) {
   return (
-    <canvas
-      ref={canvasRef}
-      className="view-modal__sprite-canvas"
-      role="img"
+    <video
+      className="view-modal__coin-video"
+      src={VIEW_MODAL_CONFIG.assets.coinAnimation[side]}
+      autoPlay
+      muted
+      playsInline
+      preload="auto"
+      disablePictureInPicture
+      onEnded={onComplete}
+      onError={onComplete}
       aria-label={`${side} won the coinflip`}
     />
   )
@@ -417,13 +327,6 @@ export default function CoinflipViewModal({
 
   useEffect(() => {
     setWinnerVisible(false)
-    if (!completed) return undefined
-
-    const timer = window.setTimeout(() => {
-      setWinnerVisible(true)
-    }, VIEW_MODAL_CONFIG.animation.winnerRevealMs)
-
-    return () => window.clearTimeout(timer)
   }, [completed, room?.id, room?.result])
 
   const close = useCallback(() => {
@@ -517,6 +420,7 @@ export default function CoinflipViewModal({
                 <CoinAnimation
                   key={`${room?.id || room?.room_id || 'coinflip'}:${winnerSide}`}
                   side={winnerSide}
+                  onComplete={() => setWinnerVisible(true)}
                 />
               ) : (
                 <p className="view-modal__versus">Vs</p>
@@ -818,11 +722,16 @@ const VIEW_MODAL_STYLES = `
     align-items: center;
   }
 
-  .view-modal__sprite-canvas {
+  .view-modal__coin-video {
     display: block;
     width: 240px;
     height: 240px;
     object-fit: contain;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    transform: scale(2.85);
+    transform-origin: center;
   }
 
   .view-modal__versus {
@@ -1149,9 +1058,10 @@ const VIEW_MODAL_STYLES = `
   }
 
   @media (max-width: 768px) {
-    .view-modal__sprite-canvas {
+    .view-modal__coin-video {
       width: 150px;
       height: 150px;
+      transform: scale(2.25);
     }
   }
 
