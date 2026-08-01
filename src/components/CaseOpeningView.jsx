@@ -376,7 +376,7 @@ export default function CaseOpeningView({ item, onBack }) {
         }
 
         .case-open-thumb .case-open-thumb-image-inferno {
-          transform: scale(1.105);
+          transform: translateY(3px) scale(1.105);
         }
 
         .case-open-meta-copy {
