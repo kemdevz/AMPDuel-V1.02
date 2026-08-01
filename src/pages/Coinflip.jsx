@@ -82,13 +82,20 @@ function parseCoinflipValue(value) {
 }
 
 function getRoomValueDetails(room) {
-  const itemValue = Array.isArray(room?.creator_items)
-    ? room.creator_items.reduce((sum, item) => sum + Number(item?.value ?? 0), 0)
+  const getItemsValue = (items) => Array.isArray(items)
+    ? items.reduce((sum, item) => {
+        const value = Number(item?.value ?? 0)
+        return sum + (Number.isFinite(value) && value > 0 ? value : 0)
+      }, 0)
     : 0
 
+  const creatorItemValue = getItemsValue(room?.creator_items)
+  const opponentItemValue = getItemsValue(room?.opponent_items)
+
   const fallbackValue = parseCoinflipValue(room?.value ?? room?.total_value ?? room?.totalValue ?? room?.numericValue ?? 0)
-  const numericValue = fallbackValue > 0 ? fallbackValue : itemValue
-  const range = room?.range || room?.value_range || `${formatCoinflipValue(numericValue * 0.9)} - ${formatCoinflipValue(numericValue * 1.1)}`
+  const creatorValue = creatorItemValue > 0 ? creatorItemValue : fallbackValue
+  const numericValue = creatorValue + opponentItemValue
+  const range = room?.range || room?.value_range || `${formatCoinflipValue(creatorValue * 0.9)} - ${formatCoinflipValue(creatorValue * 1.1)}`
 
   return {
     numericValue,
