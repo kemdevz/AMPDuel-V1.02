@@ -16,7 +16,6 @@ const ROOM_EXIT_ANIMATION_MS = 500
 const ROW_RESULT_COUNTDOWN_MS = 5_000
 const RECENT_RESULT_LIMIT = 100
 const CREATOR_VIEW_OPEN_DELAY_MS = 140
-const OPPONENT_RESULT_VIEW_OPEN_DELAY_MS = ROW_RESULT_COUNTDOWN_MS
 
 function getRowResultRemainingMs(room) {
   if (room?._skipResultCountdown && room?.result) return 0
@@ -150,12 +149,16 @@ export default function Coinflip() {
   const socketRef = useRef(null)
   const viewOpenTimerRef = useRef(null)
   const handledResolvedRoomIdsRef = useRef(new Set())
+  const dismissedViewRoomIdsRef = useRef(new Set())
 
   const openViewRoom = useCallback((room, delayMs = 0) => {
     if (viewOpenTimerRef.current) {
       window.clearTimeout(viewOpenTimerRef.current)
       viewOpenTimerRef.current = null
     }
+
+    const roomId = String(room?.id || room?.room_id || '')
+    if (roomId) dismissedViewRoomIdsRef.current.delete(roomId)
 
     if (delayMs <= 0) {
       setViewRoom(room)
@@ -166,6 +169,16 @@ export default function Coinflip() {
       viewOpenTimerRef.current = null
       setViewRoom(room)
     }, delayMs)
+  }, [])
+
+  const closeViewRoom = useCallback((room) => {
+    const roomId = String(room?.id || room?.room_id || '')
+    if (roomId) dismissedViewRoomIdsRef.current.add(roomId)
+    if (viewOpenTimerRef.current) {
+      window.clearTimeout(viewOpenTimerRef.current)
+      viewOpenTimerRef.current = null
+    }
+    setViewRoom(null)
   }, [])
 
   useEffect(() => () => {
@@ -209,11 +222,12 @@ export default function Coinflip() {
       activeProfileId &&
       activeProfileId === String(normalized.opponent_uuid || ''),
     )
-    if (isFirstResolvedUpdate && isJoiningOpponent) {
-      openViewRoom(normalized, Math.min(
-        OPPONENT_RESULT_VIEW_OPEN_DELAY_MS,
-        getRowResultRemainingMs(normalized),
-      ))
+    if (
+      isFirstResolvedUpdate &&
+      isJoiningOpponent &&
+      !dismissedViewRoomIdsRef.current.has(roomId)
+    ) {
+      openViewRoom(normalized)
       return
     }
 
@@ -610,10 +624,7 @@ export default function Coinflip() {
             if (updatedRoom) {
               const normalized = normalizeRoom(updatedRoom)
               setRooms((prev) => prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-              openViewRoom(normalized, Math.min(
-                OPPONENT_RESULT_VIEW_OPEN_DELAY_MS,
-                getRowResultRemainingMs(normalized),
-              ))
+              openViewRoom(normalized)
             }
             setJoinRoom(null)
           }}
@@ -622,13 +633,13 @@ export default function Coinflip() {
       {viewRoom && (
         <CoinflipViewModal
           room={viewRoom}
-          onClose={() => openViewRoom(null)}
+          onClose={() => closeViewRoom(viewRoom)}
           onProfileOpen={setSelectedProfile}
           profileOpen={Boolean(selectedProfile)}
           onCanceled={(canceledRoom) => {
             const canceledId = canceledRoom?.id || canceledRoom?.room_id
             setRooms((prev) => prev.filter((existing) => existing.id !== canceledId))
-            openViewRoom(null)
+            closeViewRoom(canceledRoom || viewRoom)
             window.dispatchEvent(new CustomEvent('wallet:updated'))
           }}
         />
