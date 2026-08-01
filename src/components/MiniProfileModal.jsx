@@ -522,21 +522,23 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
         .miniProfileAction {
           width: 100%;
           max-width: 360px;
-          min-height: 46px;
+          min-height: 42px;
           padding: 0 20px;
-          border: none;
+          border: 1px solid rgba(94, 85, 217, .4);
           border-radius: 8px;
-          background: linear-gradient(180deg, #8079ff 0%, #6c63ff 45%, #5a51e6 100%);
+          background: linear-gradient(135deg, #5b52e2, #4038c0);
+          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
           color: #fff;
           font-size: 1rem;
           font-weight: 600;
           cursor: pointer;
           transform-origin: center;
-          transition: transform .13s cubic-bezier(.22, 1, .36, 1), filter .14s ease;
+          transition: transform .13s cubic-bezier(.22, 1, .36, 1), background .15s ease, opacity .15s ease;
         }
 
         .miniProfileAction:hover:not(:disabled) {
-          filter: brightness(1.07);
+          background: linear-gradient(135deg, #6c63ff, #5147d9);
+          opacity: .95;
         }
 
         .miniProfileAction:active:not(:disabled) {

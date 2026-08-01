@@ -1692,7 +1692,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                       Unlink Discord
                     </button>
                   ) : (
-                    <button type="button" className="profileModalDiscordButton shrink-0 rounded-md border-none bg-[#6c63ff] px-3 py-[7px] text-[11px] font-semibold text-white transition-[filter] duration-[140ms] ease-out hover:brightness-[1.07] active:scale-[.98] sm:px-4 sm:py-[9px] sm:text-xs">
+                    <button type="button" className="profileModalDiscordButton shrink-0 rounded-[8px] border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-3 py-[7px] text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] transition-[transform,background,opacity] duration-[140ms] ease-out hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)] hover:opacity-95 active:scale-[.98] sm:px-4 sm:py-[9px] sm:text-xs">
                       Link Discord
                     </button>
                   )}

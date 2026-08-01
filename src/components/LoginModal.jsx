@@ -29,7 +29,7 @@ function ModalButton({ children, className = "", variant = "primary", ...props }
     "inline-flex h-[48px] items-center justify-center gap-2 rounded-[8px] text-[15px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-45";
   const variants = {
     primary:
-      "border border-[#5e55d9]/70 bg-[linear-gradient(135deg,#6c63ff_0%,#367bff_100%)] text-white shadow-[0_0_28px_rgba(108,99,255,0.22),inset_0_1px_0_rgba(255,255,255,0.18)] hover:brightness-110",
+      "border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2_0%,#4038c0_100%)] text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] hover:bg-[linear-gradient(135deg,#6c63ff_0%,#5147d9_100%)] hover:opacity-95",
     secondary:
       "border border-[#2a2f45] bg-[#161a28] text-white hover:border-[#3a4160] hover:bg-[#1b2030]",
   };
@@ -334,10 +334,7 @@ export default function LoginModal({ isOpen, onClose }) {
                   <button
                     type="submit"
                     disabled={!canStart || loading}
-                    className="mt-1 flex w-full items-center justify-center rounded-lg py-3.5 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                    style={{
-                      background: "linear-gradient(135deg, #6C63FF 0%, #5147D9 100%)",
-                    }}
+                    className="mt-1 flex min-h-[42px] w-full items-center justify-center rounded-[8px] border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2_0%,#4038c0_100%)] py-3.5 font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] transition-[transform,background,opacity] hover:bg-[linear-gradient(135deg,#6c63ff_0%,#5147d9_100%)] hover:opacity-95 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin text-white/80" /> : "Continue"}
                   </button>

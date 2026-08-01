@@ -307,25 +307,27 @@ export default function CoinTipModal({
           display: flex;
           width: 100%;
           min-width: 120px;
-          height: 40px;
+          min-height: 42px;
           padding: 0 20px;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          border: none;
-          border-radius: 6px;
-          background: linear-gradient(180deg, #8079ff 0%, #6c63ff 45%, #5a51e6 100%);
+          border: 1px solid rgba(94, 85, 217, .4);
+          border-radius: 8px;
+          background: linear-gradient(135deg, #5b52e2, #4038c0);
+          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
           color: #fff;
           font-size: 14.4px;
           font-weight: 600;
           letter-spacing: .01em;
           cursor: pointer;
           transform-origin: center;
-          transition: transform .13s cubic-bezier(.22, 1, .36, 1), filter .14s ease;
+          transition: transform .13s cubic-bezier(.22, 1, .36, 1), background .15s ease, opacity .15s ease;
         }
 
         .tipUserButton:hover:not(:disabled) {
-          filter: brightness(1.07);
+          background: linear-gradient(135deg, #6c63ff, #5147d9);
+          opacity: .95;
         }
 
         .tipUserButton:active:not(:disabled) {

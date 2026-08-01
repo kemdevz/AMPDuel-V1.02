@@ -150,9 +150,9 @@ export default function BalanceTypesModal({ isOpen, onClose }) {
 
 const BALANCE_TYPES_MODAL_STYLES = `
   .balance-types-modal__backdrop {
-    --accent-gradient: linear-gradient(180deg, #8079ff 0%, #6c63ff 45%, #5a51e6 100%);
+    --accent-gradient: linear-gradient(135deg, #5b52e2, #4038c0);
     --font-weight-btn: 600;
-    --radius-sm: 6px;
+    --radius-sm: 8px;
     --dur-fast: .13s;
     --ease-out: cubic-bezier(.22, 1, .36, 1);
     --press-scale: .98;
@@ -313,15 +313,17 @@ const BALANCE_TYPES_MODAL_STYLES = `
 
   .balance-types-modal__button {
     width: 100%;
+    min-height: 42px;
     background: var(--accent-gradient);
-    border: none;
+    border: 1px solid rgba(94, 85, 217, .4);
     color: #fff;
     font-weight: var(--font-weight-btn);
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     font-size: 15px;
     cursor: pointer;
-    transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+    box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+    transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -329,7 +331,8 @@ const BALANCE_TYPES_MODAL_STYLES = `
   }
 
   .balance-types-modal__button:hover {
-    filter: brightness(1.07);
+    background: linear-gradient(135deg, #6c63ff, #5147d9);
+    opacity: .95;
   }
 
   .balance-types-modal__button:active {
