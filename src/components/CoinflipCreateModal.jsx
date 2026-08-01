@@ -409,9 +409,10 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                 className="_settingsBtn_2jqwz_531"
                 onClick={() => setSettingsOpen((prev) => !prev)}
                 aria-expanded={settingsOpen}
+                aria-label="Game Settings"
+                title="Game Settings"
               >
                 <SettingsCogIcon />
-                Game Settings
               </button>
               {settingsOpen && (
                 <div className="_settingsDropdown_2jqwz_552">
@@ -1136,7 +1137,8 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 
 ._settingsBtn_2jqwz_531 {
   height: 42px;
-  padding: 0 14px;
+  width: 42px;
+  padding: 0;
   border-radius: 8px;
   border: 1px solid #252839;
   background: #20222f;
@@ -1146,7 +1148,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
   white-space: nowrap;
   transition: background .15s, border-color .15s, color .15s;
   position: relative;
