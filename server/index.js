@@ -2994,6 +2994,16 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
   let gameCreated = false
 
   try {
+    const activeGames = await adminRest(
+      `mines_games?profile_id=eq.${encodeURIComponent(profileId)}&game_state=eq.active&select=id&limit=1`,
+    )
+    if (Array.isArray(activeGames) && activeGames.length > 0) {
+      return res.status(409).json({
+        ok: false,
+        error: 'You already have an active Mines game.',
+      })
+    }
+
     // Check user balance
     const profile = await loadProfileById(profileId)
     if (!profile) {
