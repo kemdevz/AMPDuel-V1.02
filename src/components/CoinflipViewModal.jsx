@@ -467,7 +467,7 @@ export default function CoinflipViewModal({
           <FairnessModal
             gameId={room?.id || room?.room_id || 'Unavailable'}
             serverSeedHash={room?.server_seed_hash || 'Unavailable'}
-            resolved={completed}
+            resolved={completed && winnerVisible}
             onClose={() => setFairnessOpen(false)}
           />
         )}

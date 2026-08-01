@@ -693,51 +693,33 @@ function SortDropdown({ value, onChange, className = '' }) {
 }
 
 function CoinflipRowResult({ room, side, onReveal }) {
-  const getRemainingMs = () => {
-    const resolvedAt = new Date(room?.resolved_at || Date.now()).getTime()
-    const elapsed = Number.isFinite(resolvedAt) ? Date.now() - resolvedAt : 0
-    return Math.min(
-      ROW_RESULT_COUNTDOWN_MS,
-      Math.max(0, ROW_RESULT_COUNTDOWN_MS - elapsed),
-    )
-  }
-
-  const [initialRemainingMs, setInitialRemainingMs] = useState(getRemainingMs)
-  const [remainingSeconds, setRemainingSeconds] = useState(() => Math.max(1, Math.ceil(getRemainingMs() / 1000)))
-  const [revealed, setRevealed] = useState(() => getRemainingMs() <= 0)
+  const [remainingSeconds, setRemainingSeconds] = useState(ROW_RESULT_COUNTDOWN_MS / 1000)
+  const [revealed, setRevealed] = useState(false)
 
   useEffect(() => {
-    const remainingMs = getRemainingMs()
-    setInitialRemainingMs(remainingMs)
-
-    if (remainingMs <= 0) {
-      setRevealed(true)
-      onReveal?.()
-      return undefined
-    }
-
+    const deadline = performance.now() + ROW_RESULT_COUNTDOWN_MS
     setRevealed(false)
-    setRemainingSeconds(Math.max(1, Math.ceil(remainingMs / 1000)))
+    setRemainingSeconds(ROW_RESULT_COUNTDOWN_MS / 1000)
     const interval = window.setInterval(() => {
-      setRemainingSeconds(Math.max(1, Math.ceil(getRemainingMs() / 1000)))
-    }, 250)
+      const seconds = Math.ceil((deadline - performance.now()) / 1000)
+      setRemainingSeconds(Math.min(5, Math.max(1, seconds)))
+    }, 100)
     const timeout = window.setTimeout(() => {
       window.clearInterval(interval)
       setRevealed(true)
       onReveal?.()
-    }, remainingMs)
+    }, ROW_RESULT_COUNTDOWN_MS)
 
     return () => {
       window.clearInterval(interval)
       window.clearTimeout(timeout)
     }
-  }, [room?.id, room?.resolved_at, room?.result])
+  }, [room?.id, room?.result])
 
   if (revealed) {
     return <img className="h-full w-full object-contain" alt={side} src={side === 'heads' ? '/heads.png' : '/tails.png'} />
   }
 
-  const elapsedPercent = 100 - ((initialRemainingMs / ROW_RESULT_COUNTDOWN_MS) * 100)
   return (
     <div className="relative grid h-14 w-14 place-items-center" role="timer" aria-label={`${remainingSeconds} seconds until result`}>
       <svg viewBox="0 0 104 104" className="absolute inset-0 h-full w-full" aria-hidden="true">
@@ -753,8 +735,8 @@ function CoinflipRowResult({ room, side, onReveal }) {
           transform="rotate(-90 52 52)"
           className="coinflip-row-countdown-stroke"
           style={{
-            '--coinflip-countdown-start': elapsedPercent,
-            '--coinflip-countdown-duration': `${initialRemainingMs}ms`,
+            '--coinflip-countdown-start': 0,
+            '--coinflip-countdown-duration': `${ROW_RESULT_COUNTDOWN_MS}ms`,
           }}
         />
       </svg>
@@ -795,17 +777,11 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const joinDisabled = !canJoin || isCreator
   const isCompleted = Boolean(room.opponent_uuid && room.result)
   const winner = isCompleted ? room.result || room.winner || null : null
-  const resolvedAtMs = new Date(room.resolved_at || Date.now()).getTime()
-  const [rowResultVisible, setRowResultVisible] = useState(
-    () => isCompleted && Date.now() - resolvedAtMs >= ROW_RESULT_COUNTDOWN_MS,
-  )
+  const [rowResultVisible, setRowResultVisible] = useState(false)
 
   useEffect(() => {
-    const nextResolvedAtMs = new Date(room.resolved_at || Date.now()).getTime()
-    setRowResultVisible(
-      Boolean(isCompleted && Date.now() - nextResolvedAtMs >= ROW_RESULT_COUNTDOWN_MS),
-    )
-  }, [isCompleted, room.id, room.resolved_at, room.result])
+    setRowResultVisible(false)
+  }, [room.id, room.result])
 
   const creatorWon = rowResultVisible && (room.winner_uuid
     ? String(room.winner_uuid) === String(room.creator_uuid)
