@@ -15,7 +15,7 @@ const RESOLVED_ROOM_LIFETIME_MS = 60_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const ROW_RESULT_COUNTDOWN_MS = 5_000
 const RECENT_RESULT_LIMIT = 100
-const AUTOMATIC_VIEW_OPEN_DELAY_MS = 140
+const AUTOMATIC_VIEW_OPEN_DELAY_MS = ROW_RESULT_COUNTDOWN_MS
 
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
