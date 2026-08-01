@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import DepositModal from './DepositModal'
-import InventoryItemCard, { inventoryItemCardStyles } from './InventoryItemCard'
+import InventoryItemCard, {
+  getInventoryItemAccent,
+  getInventoryItemCardStyle,
+  inventoryItemCardStyles,
+} from './InventoryItemCard'
 import { useAuth } from '../store/auth'
 import { supabase } from '../lib/supabaseClient'
 import { notifications } from './Notifications'
@@ -103,14 +107,132 @@ function ItemsIcon() {
   )
 }
 
-function StockItemCard({ item, selected, onToggleSelect }) {
+function MinusIcon() {
   return (
-    <InventoryItemCard
-      item={item}
-      selected={selected}
-      onToggleSelect={() => onToggleSelect(item.displayKey)}
-      compact
-    />
+    <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M416 208H32c-17.67 0-32 14.33-32 32v32c0 17.67 14.33 32 32 32h384c17.67 0 32-14.33 32-32v-32c0-17.67-14.33-32-32-32z" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M416 208H272V64c0-17.67-14.33-32-32-32h-32c-17.67 0-32 14.33-32 32v144H32c-17.67 0-32 14.33-32 32v32c0 17.67 14.33 32 32 32h144v144c0 17.67 14.33 32 32 32h32c17.67 0 32-14.33 32-32V304h144c17.67 0 32-14.33 32-32v-32c0-17.67-14.33-32-32-32z" />
+    </svg>
+  )
+}
+
+function groupStockItems(items) {
+  const groups = new Map()
+
+  items.forEach((item) => {
+    const groupIdentity = JSON.stringify([
+      item.item_id || item.catalog_item_id || '',
+      item.name || '',
+      Number(item.value ?? 0),
+      item.image_url || '',
+    ])
+    const displayKey = `stock:${groupIdentity}`
+    const existing = groups.get(displayKey)
+
+    if (existing) {
+      existing.instances.push(item)
+      existing.availableQuantity = existing.instances.length
+      return
+    }
+
+    groups.set(displayKey, {
+      ...item,
+      displayKey,
+      instances: [item],
+      availableQuantity: 1,
+    })
+  })
+
+  return [...groups.values()]
+}
+
+function StockItemCard({ item, quantity, onToggleSelect, onQuantityChange }) {
+  const selected = quantity > 0
+  const maxQuantity = item.availableQuantity
+  const accentColor = getInventoryItemAccent(item)
+  const cardStyle = getInventoryItemCardStyle(item)
+
+  if (selected) {
+    cardStyle.background = `linear-gradient(to top, rgba(${accentColor}, 0.35) 0%, rgba(${accentColor}, 0) 100%), rgb(39, 45, 70)`
+    cardStyle['--item-border-bottom'] = `rgba(${accentColor}, 0.95)`
+    cardStyle['--item-border-side'] = `rgba(${accentColor}, 0.45)`
+  }
+
+  return (
+    <div
+      className={`_itemBox_150j2_575 _stockItemCard_150j2_local${selected ? ' _selectedStockItem_150j2_local' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onClick={() => onToggleSelect(item.displayKey)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onToggleSelect(item.displayKey)
+        }
+      }}
+      style={cardStyle}
+    >
+      <img src={item.image_url || COIN_ICON} alt="" className="_blurritem_150j2_721" draggable={false} />
+      <div className="_imageWrapper_150j2_679">
+        <img src={item.image_url || COIN_ICON} alt={item.name} className="_itemImage_150j2_697 _normalImage_150j2_717" draggable={false} />
+        <div className="_chanceBadge_150j2_757">x{maxQuantity}</div>
+      </div>
+
+      <div className="_stockItemDetails_150j2_local">
+        {selected ? (
+          <div className="_qtyWrap_150j2_local" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="_qtyMinusBtn_150j2_local"
+              aria-label="Decrease"
+              onClick={() => onQuantityChange(item.displayKey, quantity - 1, maxQuantity)}
+              disabled={quantity <= 0}
+            >
+              <MinusIcon />
+            </button>
+            <input
+              type="number"
+              min="0"
+              max={maxQuantity}
+              className="_qtyInput_150j2_local"
+              value={quantity}
+              aria-label={`${item.name} quantity`}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              onChange={(event) => onQuantityChange(item.displayKey, event.target.value, maxQuantity)}
+            />
+            <button
+              type="button"
+              className="_qtyPlusBtn_150j2_local"
+              aria-label="Increase"
+              onClick={() => onQuantityChange(item.displayKey, quantity + 1, maxQuantity)}
+              disabled={quantity >= maxQuantity}
+              style={quantity >= maxQuantity ? { opacity: 0.5 } : undefined}
+            >
+              <PlusIcon />
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="_itemName_150j2_751">{item.name}</p>
+            <p className="_itemPrice_150j2_753">
+              <span className="_itemPriceInner_150j2_local">
+                <img src={COIN_ICON} alt="Bobux" />
+                <span className="_itemPriceAmount_150j2_local">{formatNumber(item.value || 0)}</span>
+              </span>
+            </p>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -146,6 +268,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
   const [inventoryError, setInventoryError] = useState(null)
   const [stockError, setStockError] = useState(null)
   const [selectedItemIds, setSelectedItemIds] = useState([])
+  const [selectedStockQuantities, setSelectedStockQuantities] = useState({})
   const [exchangeLoading, setExchangeLoading] = useState(false)
   const [exchangeError, setExchangeError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -200,6 +323,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
     if (!isOpen) return undefined
 
     setSelectedItemIds([])
+    setSelectedStockQuantities({})
     if (mode === 'items') {
       void loadInventoryItems()
     } else {
@@ -233,12 +357,12 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
     ...item,
     displayKey: item.id || item.item_id || item.uuid || `${item.name || 'inventory'}-${index}`,
   }))
-  const stockRows = stockItems.map((item, index) => ({
-    ...item,
-    displayKey: item.uuid || item.id || `${item.name || 'stock'}-${index}`,
-  }))
+  const stockRows = groupStockItems(stockItems)
   const selectedInventoryItems = inventoryRows.filter((item) => selectedItemIds.includes(item.displayKey))
-  const selectedStockItems = stockRows.filter((item) => selectedItemIds.includes(item.displayKey))
+  const selectedStockItems = stockRows.flatMap((item) => {
+    const quantity = Math.max(0, Math.min(item.availableQuantity, Number(selectedStockQuantities[item.displayKey]) || 0))
+    return item.instances.slice(0, quantity)
+  })
   const inventoryValue = inventoryRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
   const selectedInventoryValue = selectedInventoryItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
   const selectedStockValue = selectedStockItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
@@ -251,14 +375,55 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
   const selectedCurrentItems = isCoinsToItems ? selectedStockItems : selectedInventoryItems
   const currentValue = isCoinsToItems ? selectedStockValue : selectedInventoryValue
   const currentRowIds = currentRows.map((item) => item.displayKey).filter(Boolean)
-  const allCurrentRowsSelected = currentRowIds.length > 0 && currentRowIds.every((id) => selectedItemIds.includes(id))
+  const allCurrentRowsSelected = currentRows.length > 0 && (isCoinsToItems
+    ? currentRows.every((item) => Number(selectedStockQuantities[item.displayKey]) === item.availableQuantity)
+    : currentRowIds.every((id) => selectedItemIds.includes(id)))
 
   const toggleSelectedItem = (itemKey) => {
     setSelectedItemIds((current) => (current.includes(itemKey) ? current.filter((value) => value !== itemKey) : [...current, itemKey]))
   }
 
+  const setStockQuantity = (itemKey, nextQuantity, maxQuantity) => {
+    const normalizedQuantity = Math.max(0, Math.min(maxQuantity, Math.trunc(Number(nextQuantity) || 0)))
+    setSelectedStockQuantities((current) => {
+      if (normalizedQuantity === 0) {
+        const next = { ...current }
+        delete next[itemKey]
+        return next
+      }
+      return { ...current, [itemKey]: normalizedQuantity }
+    })
+  }
+
+  const toggleSelectedStockItem = (itemKey) => {
+    setSelectedStockQuantities((current) => {
+      if (Number(current[itemKey]) > 0) {
+        const next = { ...current }
+        delete next[itemKey]
+        return next
+      }
+      return { ...current, [itemKey]: 1 }
+    })
+  }
+
   const handleSelectAll = () => {
     if (currentRows.length === 0) return
+
+    if (isCoinsToItems) {
+      setSelectedStockQuantities((current) => {
+        const next = { ...current }
+        if (allCurrentRowsSelected) {
+          currentRows.forEach((item) => delete next[item.displayKey])
+        } else {
+          currentRows.forEach((item) => {
+            next[item.displayKey] = item.availableQuantity
+          })
+        }
+        return next
+      })
+      return
+    }
+
     setSelectedItemIds((current) => {
       if (currentRowIds.every((id) => current.includes(id))) {
         return current.filter((id) => !currentRowIds.includes(id))
@@ -300,6 +465,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
         window.dispatchEvent(new CustomEvent('wallet:updated'))
         setStockItems((current) => current.filter((item) => !stockIds.includes(item.uuid || item.id)))
         setSelectedItemIds([])
+        setSelectedStockQuantities({})
         notifications.success('Purchase completed successfully!')
       } catch (error) {
         console.error('[ExchangeModal] coins-to-items purchase failed', error)
@@ -427,13 +593,13 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
                 </div>
               ) : currentRows.length > 0 ? (
                 currentRows.map((item) => (
-                  <div key={item.displayKey} style={{ cursor: 'pointer' }}>
-                    <StockItemCard
-                      item={item}
-                      selected={selectedItemIds.includes(item.displayKey)}
-                      onToggleSelect={toggleSelectedItem}
-                    />
-                  </div>
+                  <StockItemCard
+                    key={item.displayKey}
+                    item={item}
+                    quantity={Number(selectedStockQuantities[item.displayKey]) || 0}
+                    onToggleSelect={toggleSelectedStockItem}
+                    onQuantityChange={setStockQuantity}
+                  />
                 ))
               ) : (
                 <div className="_emptyState_150j2_1037">
@@ -802,6 +968,28 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             transform: scale(1.03);
           }
 
+          ._stockItemCard_150j2_local {
+            justify-content: space-between;
+            overflow: hidden;
+          }
+
+          ._stockItemCard_150j2_local:hover,
+          ._selectedStockItem_150j2_local {
+            transform: scale(1.03);
+          }
+
+          ._selectedStockItem_150j2_local::after {
+            position: absolute;
+            content: "";
+            width: 10px;
+            height: 10px;
+            background-color: var(--item-dot-color, rgba(108,99,255,1));
+            border-radius: 30%;
+            top: 10px;
+            right: 10px;
+            z-index: 2;
+          }
+
           ._imageWrapper_150j2_679 {
             position: relative;
             width: 100%;
@@ -824,6 +1012,11 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
 
           ._normalImage_150j2_717 {
             z-index: 1;
+          }
+
+          ._stockItemCard_150j2_local ._imageWrapper_150j2_679 {
+            height: 125px;
+            flex-shrink: 0;
           }
 
           ._blurritem_150j2_721 {
@@ -855,6 +1048,21 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             text-align: center;
             margin-top: 4px;
             overflow: hidden;
+          }
+
+          ._stockItemDetails_150j2_local {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            margin-top: 5px;
+          }
+
+          ._selectedStockItem_150j2_local ._stockItemDetails_150j2_local {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            bottom: 4px;
+            margin-top: 0;
           }
 
           ._itemName_150j2_751 {
@@ -927,6 +1135,75 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             font-size: 12px;
             font-weight: 700;
             pointer-events: none;
+          }
+
+          ._qtyWrap_150j2_local {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding: 4px;
+          }
+
+          ._selectedStockItem_150j2_local ._qtyWrap_150j2_local {
+            margin-top: 0;
+          }
+
+          ._qtyMinusBtn_150j2_local {
+            background: #ef4444;
+            border: none;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #fff;
+            font-size: 14px;
+          }
+
+          ._qtyPlusBtn_150j2_local {
+            background: #10b981;
+            border: none;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #fff;
+            font-size: 14px;
+          }
+
+          ._qtyPlusBtn_150j2_local:disabled,
+          ._qtyMinusBtn_150j2_local:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+          }
+
+          ._qtyInput_150j2_local {
+            width: 50px;
+            padding: 4px;
+            border-radius: 4px;
+            background: #1c1f2e;
+            border: none;
+            color: #fff;
+            font-size: .85rem;
+            text-align: center;
+            outline: none;
+          }
+
+          ._qtyInput_150j2_local::-webkit-outer-spin-button,
+          ._qtyInput_150j2_local::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+
+          ._qtyInput_150j2_local[type=number] {
+            -moz-appearance: textfield;
           }
 
           ._emptyState_150j2_1037 {
@@ -1199,6 +1476,26 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
               align-items: center !important;
               justify-content: center !important;
               gap: 1px !important;
+            }
+            ._stockItemDetails_150j2_local {
+              width: 100% !important;
+              margin-top: 5px !important;
+              overflow: visible !important;
+              flex: 1 !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: center !important;
+              gap: 1px !important;
+              padding: 0 !important;
+            }
+            ._selectedStockItem_150j2_local ._stockItemDetails_150j2_local {
+              position: absolute !important;
+              left: 6px !important;
+              right: 6px !important;
+              bottom: 6px !important;
+              margin: 0 !important;
+              flex: none !important;
             }
             ._itemName_150j2_751 {
               display: block !important;
