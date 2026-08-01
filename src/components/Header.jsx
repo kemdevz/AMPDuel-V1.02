@@ -402,15 +402,6 @@ export default function Header({ onOpenProfileModal }) {
     setNotificationsOpen(false)
   }
 
-  const handleWalletClick = () => {
-    setInventoryOpen(true)
-    setWalletOpen(false)
-    setExchangeOpen(false)
-    setMenuOpen(false)
-    setVolumeOpen(false)
-    setNotificationsOpen(false)
-  }
-
   const handleWalletPopupClick = (event) => {
     event.stopPropagation()
 
@@ -434,10 +425,6 @@ export default function Header({ onOpenProfileModal }) {
     setMenuOpen(false)
     setVolumeOpen(false)
     setNotificationsOpen(false)
-  }
-
-  const handleWalletModeToggle = (event) => {
-    event.stopPropagation()
   }
 
   const handleWalletSelection = (selection) => {
@@ -525,24 +512,20 @@ export default function Header({ onOpenProfileModal }) {
             <button
               type="button"
               className="relative inline-flex cursor-pointer items-center gap-1.5 overflow-hidden border-0 bg-[#20222f] px-2.5 py-2 text-white transition-none hover:opacity-90 sm:gap-2.5 sm:px-4 sm:py-2.5"
-              title="Open inventory"
-              onClick={handleWalletClick}
+              title="Choose balance type"
+              aria-label="Choose balance type"
+              aria-haspopup="menu"
+              aria-expanded={walletOpen}
+              onClick={handleWalletPopupClick}
             >
               <img
                 src={COIN_ICON}
                 alt="bobux"
                 draggable={false}
-                onClick={(event) => event.stopPropagation()}
                 style={{ width: "18px", height: "18px", objectFit: "contain" }}
               />
 
-              <span
-                className="inline-flex items-center gap-1.5 tabular-nums whitespace-nowrap leading-none"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  handleWalletPopupClick(event)
-                }}
-              >
+              <span className="inline-flex items-center gap-1.5 tabular-nums whitespace-nowrap leading-none">
                 <span>
                   <AnimatedNumber className="hidden sm:inline" value={walletDisplayAmount} />
                   <AnimatedNumber className="sm:hidden" value={walletDisplayAmount} />
