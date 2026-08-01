@@ -8,6 +8,7 @@ import PromoCodeModal from "./PromoCodeModal";
 import { apiRequest } from "../lib/apiClient";
 import { supabase } from "../lib/supabaseClient";
 import ExchangeModal from "./ExchangeModal";
+import BalanceTypesModal from "./BalanceTypesModal";
 import { useAuth } from "../store/auth";
 
 const COIN_ICON = "/bobux.png";
@@ -192,6 +193,7 @@ export default function Header({ onOpenProfileModal }) {
   const [promoCodeOpen, setPromoCodeOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsPosition, setNotificationsPosition] = useState({ x: 0, y: 0 })
+  const [balanceTypesOpen, setBalanceTypesOpen] = useState(false)
   const avatarButtonRef = useRef(null)
   const menuRef = useRef(null)
   const volumeButtonRef = useRef(null)
@@ -660,6 +662,10 @@ export default function Header({ onOpenProfileModal }) {
                   tabIndex={-1}
                   data-orientation="vertical"
                   data-radix-collection-item=""
+                  onClick={() => {
+                    setWalletOpen(false)
+                    setBalanceTypesOpen(true)
+                  }}
                 >
                   <div className="flex w-full items-center justify-center gap-2">
                     <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/5">
@@ -1071,6 +1077,7 @@ export default function Header({ onOpenProfileModal }) {
       <LoginModal isOpen={loginOpen && !user} onClose={() => setLoginOpen(false)} />
       <GiveawayCreateModal isOpen={giveawayOpen} onClose={() => setGiveawayOpen(false)} />
       <PromoCodeModal isOpen={promoCodeOpen} onClose={() => setPromoCodeOpen(false)} />
+      <BalanceTypesModal isOpen={balanceTypesOpen} onClose={() => setBalanceTypesOpen(false)} />
     </header>
   );
 }
