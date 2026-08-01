@@ -447,16 +447,14 @@ export default function Coinflip() {
           to { stroke-dashoffset: 100; }
         }
         @keyframes coinflip-row-winner-in {
-          0% { opacity: 0; transform: scale(.62) rotate(-12deg); }
-          65% { opacity: 1; transform: scale(1.06) rotate(2deg); }
-          100% { opacity: 1; transform: scale(1) rotate(0deg); }
+          from { opacity: 0; transform: scale(0); }
+          to { opacity: 1; transform: scale(1); }
         }
         .coinflip-row-countdown-stroke {
           animation: coinflip-row-countdown var(--coinflip-countdown-duration, 5000ms) forwards linear;
         }
         .coinflip-row-winner-coin {
-          animation: coinflip-row-winner-in 450ms cubic-bezier(.22, 1, .36, 1) forwards;
-          transform-origin: center;
+          animation: coinflip-row-winner-in 150ms forwards;
         }
         .coinflip-row-avatar {
           box-shadow: 0 0 0 0 rgba(108, 99, 255, 0);
