@@ -300,6 +300,7 @@ function FastIcon({ active }) {
 export default function CaseOpeningView({ item, onBack }) {
   const user = useAuth((state) => state.user);
   const setBalance = useAuth((state) => state.setBalance);
+  const applyProfileUpdate = useAuth((state) => state.applyProfileUpdate);
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
   const drops = useMemo(() => getItemsWithRollRanges(item.items || []), [item.items]);
   const [fairnessOpen, setFairnessOpen] = useState(false);
@@ -326,6 +327,7 @@ export default function CaseOpeningView({ item, onBack }) {
   const timersRef = useRef([]);
   const frameRef = useRef(null);
   const pendingOpeningIdRef = useRef(null);
+  const pendingBalanceRef = useRef(null);
 
   const totalPrice = priceToNumber(item.price) * quantity;
   const serverSeedHash = String(fairness?.server_seed_hash || "Unavailable");
@@ -363,7 +365,13 @@ export default function CaseOpeningView({ item, onBack }) {
     frameRef.current = null;
   };
 
-  useEffect(() => () => clearAnimationWork(), []);
+  useEffect(() => () => {
+    clearAnimationWork();
+    if (pendingBalanceRef.current !== null) {
+      setBalance(pendingBalanceRef.current);
+      pendingBalanceRef.current = null;
+    }
+  }, [setBalance]);
 
   useEffect(() => {
     if (!user) {
@@ -446,6 +454,10 @@ export default function CaseOpeningView({ item, onBack }) {
   const finishSpin = () => {
     if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
+    if (pendingBalanceRef.current !== null) {
+      setBalance(pendingBalanceRef.current);
+      pendingBalanceRef.current = null;
+    }
     setHasResult(true);
     setActiveReelIndex(REEL_STOP_INDEX);
     setSpinning(false);
@@ -552,7 +564,11 @@ export default function CaseOpeningView({ item, onBack }) {
       });
       if (selected.length !== quantity) throw new Error("The server returned an incomplete case result.");
 
-      setBalance(Number(response.balance || 0));
+      const finalBalance = Number(response.balance || 0);
+      const totalPayout = selected.reduce((total, result) => total + Number(result.value || 0), 0);
+      setBalance(Math.max(0, finalBalance - totalPayout));
+      pendingBalanceRef.current = finalBalance;
+      if (response.stats) applyProfileUpdate(response.stats);
       if (response.fairness) {
         setFairness(response.fairness);
         setClientSeed(response.fairness.client_seed || clientSeed);

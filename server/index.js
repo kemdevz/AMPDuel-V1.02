@@ -2243,9 +2243,25 @@ app.post('/api/cases/open', express.json({ limit: '8kb' }), requireAuthenticated
       p_rolls: rolls,
     })
 
+    let updatedStats = null
+    try {
+      const updatedProfile = await loadProfileById(req.identity.profileId)
+      if (updatedProfile) {
+        updatedStats = {
+          id: updatedProfile.id,
+          played: Number(updatedProfile.played || 0),
+          won: Number(updatedProfile.won || 0),
+          lost: Number(updatedProfile.lost || 0),
+        }
+      }
+    } catch (profileError) {
+      console.warn('[api/cases/open] profile stats refresh failed', profileError?.message || profileError)
+    }
+
     res.json({
       ok: true,
       ...result,
+      stats: updatedStats,
       fairness: {
         seed_id: state.seed_id,
         server_seed_hash: state.server_seed_hash,
