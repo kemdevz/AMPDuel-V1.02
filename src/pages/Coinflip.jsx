@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Settings, ChevronDown } from 'lucide-react'
 import { connectSocket } from '../lib/socket'
-import { supabase } from '../lib/supabaseClient'
+import { apiRequest } from '../lib/apiClient'
+import { isUuidLike, supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 import CoinflipCreateModal from '../components/CoinflipCreateModal'
 import CoinflipJoinModal from '../components/CoinflipJoinModal'
 import CoinflipViewModal from '../components/CoinflipViewModal'
 import { getInventoryItemCardStyle } from '../components/InventoryItemCard'
 import MiniProfileModal from '../components/MiniProfileModal'
+import TipUserModal from '../components/TipUserModal'
+import CoinTipModal from '../components/CoinTipModal'
+import { notifications } from '../components/Notifications'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const RESOLVED_ROOM_LIFETIME_MS = 60_000
@@ -147,11 +151,20 @@ function normalizeCoinflipPreviewItem(item) {
 }
 
 export default function Coinflip() {
+  const user = useAuth((state) => state.user)
+  const balance = useAuth((state) => state.balance)
+  const setBalance = useAuth((state) => state.setBalance)
+  const walletSelection = useAuth((state) => state.walletSelection)
+  const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen)
   const [sortBy, setSortBy] = useState('Highest to Lowest')
   const [createOpen, setCreateOpen] = useState(false)
   const [joinRoom, setJoinRoom] = useState(null)
   const [viewRoom, setViewRoom] = useState(null)
   const [selectedProfile, setSelectedProfile] = useState(null)
+  const [tipRecipient, setTipRecipient] = useState(null)
+  const [isUserTipSubmitting, setIsUserTipSubmitting] = useState(false)
+  const [userCoinTipAmount, setUserCoinTipAmount] = useState('')
+  const [showUserCoinTipInChat, setShowUserCoinTipInChat] = useState(false)
   const [rooms, setRooms] = useState([])
   const [recentResults, setRecentResults] = useState([])
   const socketRef = useRef(null)
@@ -426,6 +439,117 @@ export default function Coinflip() {
     return () => { isMounted = false }
   }, [])
 
+  const getTipRecipientId = (recipient) => String(
+    recipient?.profile_id ||
+    recipient?.user_id ||
+    recipient?.uuid ||
+    recipient?.id ||
+    '',
+  ).trim()
+
+  const openTipModal = (recipient) => {
+    setSelectedProfile(null)
+    if (viewRoom) closeViewRoom(viewRoom)
+
+    if (!user) {
+      setAuthModalOpen(true)
+      return
+    }
+
+    setTipRecipient(recipient)
+  }
+
+  const handleUserItemTip = async (items) => {
+    if (isUserTipSubmitting || !tipRecipient || !Array.isArray(items) || items.length === 0) return
+
+    const recipientId = getTipRecipientId(tipRecipient)
+    const senderId = String(user?.profile_id || user?.id || '').trim()
+    const itemIds = items.map((item) => item.id).filter(Boolean)
+
+    if (!isUuidLike(recipientId)) {
+      notifications.error("This user's profile could not be found.")
+      return
+    }
+    if (recipientId === senderId) {
+      notifications.error('You cannot tip items to yourself.')
+      return
+    }
+    if (itemIds.length === 0) {
+      notifications.error('Select at least one item to tip.')
+      return
+    }
+
+    setIsUserTipSubmitting(true)
+    try {
+      await apiRequest('/api/tips/items', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_profile_id: recipientId,
+          item_ids: itemIds,
+          show_in_chat: false,
+        }),
+      })
+
+      notifications.tippedUser(tipRecipient.username || tipRecipient.name || 'user')
+      window.dispatchEvent(new CustomEvent('wallet:updated'))
+      setTipRecipient(null)
+    } catch (error) {
+      console.error('[Coinflip] failed to tip inventory items', error)
+      notifications.error(error?.message || 'Failed to tip items.')
+    } finally {
+      setIsUserTipSubmitting(false)
+    }
+  }
+
+  const handleUserCoinTip = async () => {
+    if (isUserTipSubmitting || !tipRecipient || !user) return
+
+    const amount = Number(userCoinTipAmount)
+    const recipientId = getTipRecipientId(tipRecipient)
+    const senderId = String(user.profile_id || user.id || '').trim()
+
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
+      notifications.invalidTipAmount()
+      return
+    }
+    if (amount > Number(balance || 0)) {
+      notifications.insufficientCoins()
+      return
+    }
+    if (!isUuidLike(recipientId)) {
+      notifications.error("This user's profile could not be found.")
+      return
+    }
+    if (recipientId === senderId) {
+      notifications.error('You cannot tip coins to yourself.')
+      return
+    }
+
+    setIsUserTipSubmitting(true)
+    try {
+      const result = await apiRequest('/api/tips/coins', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_profile_id: recipientId,
+          amount,
+          show_in_chat: showUserCoinTipInChat,
+        }),
+      })
+
+      setBalance(Number(result?.balance ?? (Number(balance || 0) - amount)))
+      window.dispatchEvent(new CustomEvent('wallet:updated'))
+      notifications.tippedUser(tipRecipient.username || tipRecipient.name || 'user')
+      setUserCoinTipAmount('')
+      setShowUserCoinTipInChat(false)
+      setTipRecipient(null)
+    } catch (error) {
+      console.error('[Coinflip] failed to tip coins', error)
+      notifications.error(error?.message || 'Failed to tip coins.')
+    } finally {
+      setIsUserTipSubmitting(false)
+    }
+  }
+
   return (
     <div className="flex-1 overflow-x-hidden overflow-y-auto bg-transparent">
       <style>{`
@@ -656,6 +780,33 @@ export default function Coinflip() {
         isOpen={Boolean(selectedProfile)}
         player={selectedProfile}
         onClose={() => setSelectedProfile(null)}
+        onTip={openTipModal}
+      />
+      <TipUserModal
+        isOpen={Boolean(tipRecipient) && walletSelection === 'items'}
+        recipient={tipRecipient}
+        isSubmitting={isUserTipSubmitting}
+        onClose={() => {
+          if (!isUserTipSubmitting) setTipRecipient(null)
+        }}
+        onSubmit={handleUserItemTip}
+      />
+      <CoinTipModal
+        isOpen={Boolean(tipRecipient) && walletSelection === 'coins'}
+        recipient={tipRecipient}
+        amount={userCoinTipAmount}
+        showInChat={showUserCoinTipInChat}
+        isSubmitting={isUserTipSubmitting}
+        onAmountChange={setUserCoinTipAmount}
+        onShowInChatChange={setShowUserCoinTipInChat}
+        onClose={() => {
+          if (!isUserTipSubmitting) {
+            setUserCoinTipAmount('')
+            setShowUserCoinTipInChat(false)
+            setTipRecipient(null)
+          }
+        }}
+        onSubmit={handleUserCoinTip}
       />
     </div>
   )
