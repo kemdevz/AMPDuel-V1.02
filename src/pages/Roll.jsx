@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { notifications } from '../components/Notifications'
+import { apiRequest } from '../lib/apiClient'
+import { useAuth } from '../store/auth'
+import { useSocket } from '../lib/socket'
 
 const ROUND_COUNTDOWN_MS = 13_000
 const ROLL_DURATION_MS = 5_000
@@ -58,14 +61,21 @@ function getCardStep() {
   return 168
 }
 
-function RollCard({ multiplier, amount, index }) {
+function RollCard({ multiplier, amount, index, items, chosenMultiplier }) {
   const winnings = Math.floor(amount * multiplier)
   const color = cardColor(winnings)
-  const pet = PETS[(index * 7 + Math.round(multiplier * 100)) % PETS.length]
+  const safeItems = Array.isArray(items) && items.length > 0 ? items : PETS
+  const item = safeItems[index % safeItems.length]
+  
+  // If chosenMultiplier is provided, color code win/lose cards
+  // Cards below chosen multiplier are red (losing cards - "under" your multiplier)
+  // Cards at or above chosen multiplier are normal (winning cards)
+  const isRedCard = chosenMultiplier ? multiplier < chosenMultiplier : false
+  const cardColorClass = chosenMultiplier ? (isRedCard ? 'red' : 'normal') : ''
 
   return (
     <div
-      className="rollCard"
+      className={`rollCard ${cardColorClass}`}
       style={{
         background: `linear-gradient(to top, rgba(${color}, .18) 0%, rgba(${color}, 0) 100%), #272d46`,
         '--roll-card-border-bottom': `rgba(${color}, .7)`,
@@ -73,10 +83,10 @@ function RollCard({ multiplier, amount, index }) {
       }}
     >
       <div className="rollImageWrapper">
-        <img src={pet.image} alt={pet.name} className="rollItemImage" draggable={false} />
+        <img src={item.image_url || item.image} alt={item.name} className="rollItemImage" draggable={false} />
       </div>
       <div className="rollItemDetails">
-        <p className="rollItemName">{pet.name}</p>
+        <p className="rollItemName">{item.name}</p>
         <p className="rollCardWin">
           <img src="/bobux.png" alt="" className="rollBobuxIcon" />
           {winnings.toLocaleString('en-US')}
@@ -88,6 +98,11 @@ function RollCard({ multiplier, amount, index }) {
 }
 
 export default function Roll() {
+  const user = useAuth((state) => state.user)
+  const balance = useAuth((state) => state.balance)
+  const setBalance = useAuth((state) => state.setBalance)
+  const socket = useSocket()
+  
   const [amount, setAmount] = useState(String(DEFAULT_AMOUNT))
   const [multiplier, setMultiplier] = useState('')
   const [phase, setPhase] = useState('countdown')
@@ -97,6 +112,11 @@ export default function Roll() {
   const [history, setHistory] = useState(INITIAL_HISTORY)
   const [entries, setEntries] = useState([])
   const [round, setRound] = useState(0)
+  const [gameData, setGameData] = useState(null)
+  const [items, setItems] = useState([])
+  const [multipliers, setMultipliers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const requestInFlight = useRef(false)
   const reelViewportRef = useRef(null)
   const roundStartedAtRef = useRef(Date.now())
   const rollTimeoutRef = useRef(null)
@@ -106,12 +126,14 @@ export default function Roll() {
   const playedAmount = entries.reduce((total, entry) => total + entry.amount, 0)
   const reelAmount = playedAmount > 0 ? playedAmount : 10_000
   const roundMultipliers = useMemo(() => {
-    const shift = (round * 9) % BASE_MULTIPLIERS.length
-    const values = BASE_MULTIPLIERS.map((_, index) => BASE_MULTIPLIERS[(index + shift) % BASE_MULTIPLIERS.length])
-    selectedMultiplierRef.current = values[WINNER_INDEX]
-    return values
-  }, [round])
-  const idleMultipliers = useMemo(() => BASE_MULTIPLIERS.slice(0, 30), [])
+    const safeMultipliers = Array.isArray(multipliers) && multipliers.length > 0 ? multipliers : BASE_MULTIPLIERS
+    selectedMultiplierRef.current = safeMultipliers[WINNER_INDEX]
+    return safeMultipliers
+  }, [round, multipliers])
+  const idleMultipliers = useMemo(() => {
+    const safeMultipliers = Array.isArray(multipliers) && multipliers.length > 0 ? multipliers : BASE_MULTIPLIERS
+    return safeMultipliers.slice(0, 30)
+  }, [multipliers])
 
   const beginRoll = useCallback(() => {
     setPhase('rolling')
@@ -151,6 +173,115 @@ export default function Roll() {
     return () => window.cancelAnimationFrame(frame)
   }, [beginRoll, phase])
 
+  // Fetch initial game state and listen for socket updates
+  useEffect(() => {
+    const fetchGameState = async () => {
+      try {
+        const response = await apiRequest('/api/roll/state')
+        if (response.ok) {
+          setGameData(response.round)
+          setEntries(response.bets || [])
+          setItems(response.items || [])
+          setMultipliers(response.multipliers || [])
+          setLoading(false)
+          
+          // Sync phase with server
+          if (response.round?.game_state === 'rolling') {
+            setPhase('rolling')
+            setReelStarted(true)
+          } else if (response.round?.game_state === 'ended') {
+            setPhase('result')
+          } else {
+            setPhase('countdown')
+          }
+        } else {
+          // Fallback to static data if backend fails
+          console.warn('Backend unavailable, using fallback data')
+          setItems(PETS.map(pet => ({ name: pet.name, image_url: pet.image, value: 10000 })))
+          setMultipliers(BASE_MULTIPLIERS)
+          setLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to fetch roll state:', err)
+        // Fallback to static data
+        setItems(PETS.map(pet => ({ name: pet.name, image_url: pet.image, value: 10000 })))
+        setMultipliers(BASE_MULTIPLIERS)
+        setLoading(false)
+      }
+    }
+
+    fetchGameState()
+
+    // Listen for socket events
+    if (socket) {
+      const handleNewRound = (data) => {
+        setGameData(data.round)
+        setMultipliers(data.multipliers)
+        setEntries([])
+        setPhase('countdown')
+        roundStartedAtRef.current = Date.now()
+      }
+
+      const handleRolling = (data) => {
+        setGameData(data.round)
+        setPhase('rolling')
+        beginRoll()
+      }
+
+      const handleBet = (bet) => {
+        setEntries((current) => {
+          // Prevent duplicate bets
+          if (current.some(b => b.id === bet.id)) {
+            return current
+          }
+          return [...current, bet]
+        })
+      }
+
+      const handleEnded = (data) => {
+        setGameData(data.round)
+        setHistory((current) => [data.result, ...current].slice(0, 10))
+        setPhase('result')
+        setTimeout(() => {
+          roundStartedAtRef.current = Date.now()
+          setRound((current) => current + 1)
+          setTimeLeft(ROUND_COUNTDOWN_MS)
+          setPhase('countdown')
+        }, 900)
+      }
+
+      const handleBetResult = (data) => {
+        if (data.bet.profile_id === user?.profile_id && data.bet.won) {
+          setBalance((current) => Number(current) + data.bet.actual_win)
+          window.dispatchEvent(new CustomEvent('wallet:updated'))
+          notifications.success(`You won ${data.bet.actual_win.toLocaleString()} coins!`)
+        }
+      }
+
+      const handleWalletUpdated = (data) => {
+        if (data.profileId === user?.profile_id) {
+          setBalance(data.balance)
+        }
+      }
+
+      socket.on('roll:new_round', handleNewRound)
+      socket.on('roll:rolling', handleRolling)
+      socket.on('roll:bet', handleBet)
+      socket.on('roll:ended', handleEnded)
+      socket.on('roll:bet_result', handleBetResult)
+      socket.on('wallet:updated', handleWalletUpdated)
+
+      return () => {
+        socket.off('roll:new_round', handleNewRound)
+        socket.off('roll:rolling', handleRolling)
+        socket.off('roll:bet', handleBet)
+        socket.off('roll:ended', handleEnded)
+        socket.off('roll:bet_result', handleBetResult)
+        socket.off('wallet:updated', handleWalletUpdated)
+      }
+    }
+  }, [socket, user?.profile_id, beginRoll])
+
   useEffect(() => () => {
     if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)
   }, [])
@@ -160,23 +291,76 @@ export default function Roll() {
     setAmount(String(normalized))
   }
 
-  const placeEntry = () => {
+  const placeEntry = async () => {
     const amountValue = Math.floor(Number(amount))
     const multiplierValue = Number(multiplier)
     if (!Number.isFinite(amountValue) || amountValue < 5_000) {
       notifications.error('Minimum play is 5,000 coins')
       return
     }
-    if (!Number.isFinite(multiplierValue) || multiplierValue < 1.01 || multiplierValue > 100) {
-      notifications.error('Multiplier must be between 1.01x and 100x')
+    if (!Number.isFinite(multiplierValue) || multiplierValue < 1.01 || multiplierValue > 10) {
+      notifications.error('Multiplier must be between 1.01x and 10x')
       return
     }
-    setEntries((current) => [
-      ...current,
-      { id: `${Date.now()}-${current.length}`, username: 'You', amount: amountValue, multiplier: multiplierValue },
-    ])
-    setMultiplier('')
-    notifications.success('Play placed')
+
+    if (Number(balance || 0) < amountValue) {
+      notifications.error('Insufficient balance')
+      return
+    }
+
+    // Prevent multiple bets in quick succession
+    if (requestInFlight.current) {
+      notifications.error('Please wait for the bet to be processed')
+      return
+    }
+
+    requestInFlight.current = true
+
+    // Fallback mode - if no backend, just simulate the bet with real balance
+    if (!gameData?.id || gameData.id === 'fallback-round') {
+      setBalance(Number(balance || 0) - amountValue)
+      window.dispatchEvent(new CustomEvent('wallet:updated'))
+      setEntries((current) => [
+        ...current,
+        { 
+          id: `fallback-${Date.now()}`, 
+          username: user?.username || 'You', 
+          amount: amountValue,
+          bet_amount: amountValue,
+          multiplier: multiplierValue,
+          chosen_multiplier: multiplierValue
+        },
+      ])
+      setMultiplier('')
+      requestInFlight.current = false
+      notifications.success('Play placed (demo mode)')
+      return
+    }
+
+    try {
+      const response = await apiRequest('/api/roll/bet', {
+        method: 'POST',
+        body: JSON.stringify({
+          round_id: gameData.id,
+          bet_amount: amountValue,
+          chosen_multiplier: multiplierValue,
+        }),
+      })
+
+      if (response.ok) {
+        // Don't add to entries here - let socket handle it to prevent duplicates
+        setMultiplier('')
+        setBalance(Number(balance || 0) - amountValue)
+        window.dispatchEvent(new CustomEvent('wallet:updated'))
+        notifications.success('Play placed')
+      } else {
+        notifications.error(response.error || 'Failed to place bet')
+      }
+    } catch (err) {
+      notifications.error('Failed to place bet')
+    } finally {
+      requestInFlight.current = false
+    }
   }
 
   const timerLabel = phase === 'countdown' ? 'ROLLING IN ' : 'ROLLING...'
@@ -200,9 +384,21 @@ export default function Roll() {
           <div className="rollSpinnerInner" ref={reelViewportRef}>
             {phase === 'countdown' ? (
               <div className="rollReelIdle">
-                {idleMultipliers.concat(idleMultipliers).map((value, index) => (
-                  <RollCard key={`idle-${index}`} multiplier={value} amount={reelAmount} index={index} />
-                ))}
+                {(idleMultipliers || []).concat(idleMultipliers || []).map((value, index) => {
+                  // Find the user's bet and their chosen multiplier
+                  const userBet = entries.find(e => e.profile_id === user?.profile_id || e.username === user?.username)
+                  const chosenMultiplier = userBet?.chosen_multiplier || userBet?.multiplier
+                  return (
+                    <RollCard 
+                      key={`idle-${index}`} 
+                      multiplier={value} 
+                      amount={reelAmount} 
+                      index={index} 
+                      items={items} 
+                      chosenMultiplier={chosenMultiplier}
+                    />
+                  )
+                })}
               </div>
             ) : (
               <div
@@ -212,9 +408,21 @@ export default function Roll() {
                   transition: reelStarted ? `transform ${ROLL_DURATION_MS / 1000}s cubic-bezier(.05, .85, .25, 1)` : 'none',
                 }}
               >
-                {roundMultipliers.map((value, index) => (
-                  <RollCard key={`${round}-${index}`} multiplier={value} amount={reelAmount} index={index + round} />
-                ))}
+                {(roundMultipliers || []).map((value, index) => {
+                  // Find the user's bet and their chosen multiplier
+                  const userBet = entries.find(e => e.profile_id === user?.profile_id || e.username === user?.username)
+                  const chosenMultiplier = userBet?.chosen_multiplier || userBet?.multiplier
+                  return (
+                    <RollCard 
+                      key={`${round}-${index}`} 
+                      multiplier={value} 
+                      amount={reelAmount} 
+                      index={index + round} 
+                      items={items} 
+                      chosenMultiplier={chosenMultiplier}
+                    />
+                  )
+                })}
               </div>
             )}
           </div>
@@ -282,7 +490,7 @@ export default function Roll() {
 
           <div className="rollHistoryStrip">
             <div className="rollHistoryList">
-              {history.map((value, index) => (
+              {(history || []).map((value, index) => (
                 <button
                   type="button"
                   className={`rollHistoryChip rollHistory-${historyTone(value)}`}
@@ -304,21 +512,26 @@ export default function Roll() {
           <div className="rollBetList">
             {entries.length === 0 ? (
               <div className="rollEmptyState">No plays placed yet.</div>
-            ) : entries.slice().sort((a, b) => b.amount - a.amount).map((entry) => (
-              <div className="rollBetRow" key={entry.id}>
-                <span className="rollBetUser">
-                  <button type="button" className="rollBetAvatarBtn" title={entry.username}>
-                    <span className="rollBetAvatarFallback">{entry.username[0]}</span>
-                  </button>
-                  <span className="rollBetUsername">{entry.username}</span>
-                </span>
-                <span className="rollBetMult">{entry.multiplier.toFixed(2)}x</span>
-                <span className="rollBetAmount">
-                  <img src="/bobux.png" alt="" className="rollBobuxIconSm" />
-                  {entry.amount.toLocaleString('en-US')}
-                </span>
-              </div>
-            ))}
+            ) : (entries || []).slice().sort((a, b) => (b.amount || 0) - (a.amount || 0)).map((entry) => {
+              const username = entry.username || 'Unknown'
+              const multiplier = entry.multiplier || entry.chosen_multiplier || 1
+              const amount = entry.amount || entry.bet_amount || 0
+              return (
+                <div className="rollBetRow" key={entry.id}>
+                  <span className="rollBetUser">
+                    <button type="button" className="rollBetAvatarBtn" title={username}>
+                      <span className="rollBetAvatarFallback">{username[0] || '?'}</span>
+                    </button>
+                    <span className="rollBetUsername">{username}</span>
+                  </span>
+                  <span className="rollBetMult">{multiplier.toFixed(2)}x</span>
+                  <span className="rollBetAmount">
+                    <img src="/bobux.png" alt="" className="rollBobuxIconSm" />
+                    {amount.toLocaleString('en-US')}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -355,6 +568,9 @@ const ROLL_STYLES = `
   @keyframes roll-reel-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .rollCard { width: 160px; height: 100%; flex-shrink: 0; margin-right: 8px; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; position: relative; border: none; box-sizing: border-box; overflow: hidden; }
   .rollCard::before { content: ""; position: absolute; inset: 0; border-radius: 6px; padding: 2px; background: linear-gradient(to bottom, transparent 0%, var(--roll-card-border-side, rgba(108,99,255,.25)) 55%, var(--roll-card-border-bottom, rgba(108,99,255,.7)) 100%); mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); pointer-events: none; z-index: 0; }
+  .rollCard.red { filter: drop-shadow(0 0 12px rgba(255, 50, 50, 0.8)); }
+  .rollCard.red::before { background: linear-gradient(to bottom, transparent 0%, rgba(255, 50, 50, .25) 55%, rgba(255, 50, 50, .5) 100%); }
+  .rollCard.normal { opacity: 1; }
   .rollImageWrapper { position: relative; width: 100%; height: 90px; overflow: hidden; border-radius: 8px; flex-shrink: 0; margin-top: 12px; }
   .rollItemImage { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; position: absolute; inset: 0; z-index: 1; }
   .rollItemDetails { position: relative; z-index: 1; text-align: center; margin-top: 5px; }

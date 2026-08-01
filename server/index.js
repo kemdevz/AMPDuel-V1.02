@@ -3312,6 +3312,335 @@ app.post('/api/mines/cashout', express.json({ limit: '24kb' }), requireAuthentic
   }
 })
 
+// Roll game functions
+// In-memory state for roll game
+const rollState = {
+  currentRound: null,
+  bets: [],
+  countdownStarted: null,
+  lastResult: null,
+  timerInterval: null
+}
+
+function startRollCountdown() {
+  if (rollState.timerInterval) {
+    clearInterval(rollState.timerInterval)
+  }
+
+  // Create new round
+  const serverSeed = crypto.randomBytes(32).toString('hex')
+  const clientSeed = crypto.randomBytes(16).toString('hex')
+  const nonce = Math.floor(Date.now() / 1000)
+  const multipliers = generateRollMultipliers(serverSeed, clientSeed, nonce, 60)
+  const resultMultiplier = multipliers[40]
+
+  rollState.currentRound = {
+    id: crypto.randomUUID(),
+    serverSeed,
+    clientSeed,
+    nonce,
+    multipliers,
+    resultMultiplier,
+    game_state: 'countdown',
+    created_at: new Date().toISOString(),
+  }
+  rollState.bets = []
+  rollState.countdownStarted = Date.now()
+
+  // Broadcast new round
+  io.emit('roll:new_round', {
+    round: {
+      id: rollState.currentRound.id,
+      game_state: 'countdown',
+      created_at: rollState.currentRound.created_at,
+      result_multiplier: 0,
+    },
+    multipliers: rollState.currentRound.multipliers,
+  })
+
+  // Start countdown
+  const COUNTDOWN_MS = 13_000
+  rollState.timerInterval = setTimeout(() => {
+    endRollCountdown()
+  }, COUNTDOWN_MS)
+}
+
+function endRollCountdown() {
+  if (!rollState.currentRound) return
+
+  rollState.currentRound.game_state = 'rolling'
+  rollState.currentRound.started_at = new Date().toISOString()
+
+  // Broadcast rolling state
+  io.emit('roll:rolling', {
+    round: {
+      id: rollState.currentRound.id,
+      game_state: 'rolling',
+      result_multiplier: rollState.currentRound.resultMultiplier,
+    },
+  })
+
+  // Calculate winnings after 5 seconds
+  setTimeout(() => {
+    processRollResults()
+  }, 5_000)
+}
+
+function processRollResults() {
+  if (!rollState.currentRound) return
+
+  const resultMultiplier = rollState.currentRound.resultMultiplier
+  const winnings = []
+
+  for (const bet of rollState.bets) {
+    const won = resultMultiplier >= bet.chosen_multiplier
+    const actualWin = won ? Math.floor(bet.bet_amount * resultMultiplier) : 0
+
+    if (won && actualWin > 0) {
+      winnings.push({ profileId: bet.profile_id, amount: actualWin })
+    }
+
+    // Update bet result
+    io.emit('roll:bet_result', {
+      bet: {
+        ...bet,
+        won,
+        actual_win: actualWin,
+      },
+      result: resultMultiplier,
+    })
+  }
+
+  // Distribute winnings
+  winnings.forEach(async ({ profileId, amount }) => {
+    try {
+      const profile = await loadProfileById(profileId)
+      if (profile) {
+        await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
+          method: 'PATCH',
+          body: { balance: Number(profile.balance) + amount },
+        })
+        
+        // Notify user of winnings
+        io.emit('wallet:updated', { profileId, balance: Number(profile.balance) + amount })
+      }
+    } catch (err) {
+      console.error('[roll] Failed to distribute winnings:', err)
+    }
+  })
+
+  rollState.currentRound.game_state = 'ended'
+  rollState.currentRound.ended_at = new Date().toISOString()
+  rollState.lastResult = resultMultiplier
+
+  // Broadcast results
+  io.emit('roll:ended', {
+    round: rollState.currentRound,
+    result: resultMultiplier,
+  })
+
+  // Start new round after delay
+  setTimeout(() => {
+    startRollCountdown()
+  }, 3_000)
+}
+
+function getRollItems(supabaseUrl, supabaseKey, count = 60) {
+  return fetch(`${supabaseUrl}/rest/v1/items?select=*&order=value.desc&limit=${count}`, {
+    headers: getSupabaseAdminHeaders(supabaseKey),
+    signal: AbortSignal.timeout(10_000),
+  }).then(res => res.json()).then(items => Array.isArray(items) ? items : [])
+}
+
+function generateRollMultipliers(serverSeed, clientSeed, nonce, count = 60) {
+  const message = `${clientSeed}:${nonce}`
+  const digest = crypto.createHmac('sha256', serverSeed).update(message).digest('hex')
+  
+  const multipliers = []
+  for (let i = 0; i < count; i++) {
+    const hashIndex = (i * 2) % digest.length
+    const hashValue = Number.parseInt(digest.slice(hashIndex, hashIndex + 2), 16)
+    // Generate multiplier between 1.00 and 10.00 (much smaller range)
+    const multiplier = 1.0 + (hashValue / 255) * 9.0
+    multipliers.push(Math.round(multiplier * 100) / 100)
+  }
+  
+  return multipliers
+}
+
+function encryptRollServerSeed(serverSeed, supabaseKey) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return `${iv.toString('hex')}.${tag.toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptRollServerSeed(encryptedSeed, supabaseKey) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted roll server seed')
+
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    getCoinflipSeedEncryptionKey(supabaseKey),
+    Buffer.from(ivHex, 'hex'),
+  )
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, 'hex')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+// Get current roll round state
+app.get('/api/roll/state', requireAuthenticatedUser, async (req, res) => {
+  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseUrl || !supabaseKey) {
+    res.status(500).json({ ok: false, error: 'supabase config missing' })
+    return
+  }
+
+  try {
+    // Start countdown if not already running
+    if (!rollState.currentRound) {
+      startRollCountdown()
+    }
+
+    // Get items for the reel
+    let items = []
+    try {
+      items = await getRollItems(supabaseUrl, supabaseKey, 60)
+    } catch (err) {
+      // Fallback to static items if items table doesn't exist
+      items = [
+        { name: 'Huge Cat', image_url: 'https://biggamesapi.io/image/14976374906', value: 10000 },
+        { name: 'Huge Pumpkin Cat', image_url: 'https://biggamesapi.io/image/14976529226', value: 15000 },
+        { name: 'Huge Santa Paws', image_url: 'https://biggamesapi.io/image/14976542836', value: 20000 },
+        { name: 'Huge Festive Cat', image_url: 'https://biggamesapi.io/image/15281989250', value: 18000 },
+        { name: 'Huge Forest Wyvern', image_url: 'https://biggamesapi.io/image/14976435839', value: 25000 },
+        { name: 'Huge Hacked Cat', image_url: 'https://biggamesapi.io/image/14976449581', value: 30000 },
+        { name: 'Huge Gargoyle Dragon', image_url: 'https://biggamesapi.io/image/14976439876', value: 22000 },
+        { name: 'Huge Dog', image_url: 'https://biggamesapi.io/image/14976397743', value: 12000 },
+        { name: 'Huge Dragon', image_url: 'https://biggamesapi.io/image/14976414803', value: 28000 },
+        { name: 'Huge Lucky Cat', image_url: 'https://biggamesapi.io/image/14976485216', value: 16000 },
+      ]
+    }
+
+    // Calculate time remaining
+    const COUNTDOWN_MS = 13_000
+    const timeRemaining = rollState.countdownStarted 
+      ? Math.max(0, COUNTDOWN_MS - (Date.now() - rollState.countdownStarted))
+      : COUNTDOWN_MS
+
+    res.json({
+      ok: true,
+      round: {
+        id: rollState.currentRound?.id || 'pending',
+        game_state: rollState.currentRound?.game_state || 'countdown',
+        created_at: rollState.currentRound?.created_at || new Date().toISOString(),
+        started_at: rollState.currentRound?.started_at || null,
+        ended_at: rollState.currentRound?.ended_at || null,
+        result_multiplier: rollState.currentRound?.resultMultiplier || 0,
+        time_remaining: timeRemaining,
+      },
+      bets: rollState.bets,
+      items,
+      multipliers: rollState.currentRound?.multipliers || [],
+      last_result: rollState.lastResult,
+    })
+  } catch (err) {
+    console.error('[api/roll/state] error', err)
+    res.status(500).json({ ok: false, error: String(err) })
+  }
+})
+
+// Place bet on roll round
+app.post('/api/roll/bet', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const payload = req.body || {}
+  const profileId = String(req.identity.profileId)
+  const roundId = String(payload.round_id || '')
+  const betAmount = Number(payload.bet_amount) || 0
+  const chosenMultiplier = Number(payload.chosen_multiplier) || 0
+
+  if (betAmount < 5000) {
+    return res.status(400).json({ ok: false, error: 'Minimum bet is 5,000 coins.' })
+  }
+
+  if (chosenMultiplier < 1.01 || chosenMultiplier > 100) {
+    return res.status(400).json({ ok: false, error: 'Multiplier must be between 1.01x and 100x.' })
+  }
+
+  try {
+    // Check user balance
+    const profile = await loadProfileById(profileId)
+    if (!profile) {
+      return res.status(404).json({ ok: false, error: 'Profile not found.' })
+    }
+
+    if (Number(profile.balance || 0) < betAmount) {
+      return res.status(400).json({ ok: false, error: 'Insufficient balance.' })
+    }
+
+    // Check if round exists and is in countdown
+    if (!rollState.currentRound || rollState.currentRound.game_state !== 'countdown') {
+      return res.status(400).json({ ok: false, error: 'Round is not accepting bets.' })
+    }
+
+    // Check if user already bet on this round
+    if (rollState.bets.some(bet => bet.profile_id === profileId)) {
+      return res.status(400).json({ ok: false, error: 'You already have a bet on this round.' })
+    }
+
+    // Deduct bet from balance
+    await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
+      method: 'PATCH',
+      body: { balance: Number(profile.balance) - betAmount },
+    })
+
+    // Create bet in memory
+    const potentialWin = Math.floor(betAmount * chosenMultiplier)
+    const bet = {
+      id: crypto.randomUUID(),
+      round_id: rollState.currentRound.id,
+      profile_id: profileId,
+      username: profile.username || req.identity.username || 'Unknown',
+      avatar_url: profile.avatar_url || req.identity.avatar_url,
+      bet_amount: betAmount,
+      amount: betAmount,
+      chosen_multiplier: chosenMultiplier,
+      multiplier: chosenMultiplier,
+      potential_win: potentialWin,
+      created_at: new Date().toISOString(),
+    }
+
+    rollState.bets.push(bet)
+
+    // Broadcast new bet
+    io.emit('roll:bet', bet)
+
+    res.json({ ok: true, bet })
+  } catch (err) {
+    console.error('[api/roll/bet] error', err)
+    res.status(500).json({ ok: false, error: String(err) })
+  }
+})
+
+// Add socket handlers for roll game
+io.on('connection', (socket) => {
+  // Send current roll state on connection
+  socket.emit('roll:state', {
+    round: rollState.currentRound ? {
+      id: rollState.currentRound.id,
+      game_state: rollState.currentRound.game_state,
+      created_at: rollState.currentRound.created_at,
+      result_multiplier: rollState.currentRound.resultMultiplier,
+    } : null,
+    bets: rollState.bets,
+    multipliers: rollState.currentRound?.multipliers || [],
+    last_result: rollState.lastResult,
+  })
+})
+
 app.get('/api/games/feed', (req, res) => {
   const limit = Number(req.query.limit) || 40
   res.json({ feed: FEED.slice(0, limit) })
