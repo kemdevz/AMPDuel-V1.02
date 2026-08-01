@@ -2710,6 +2710,87 @@ function decryptMinesServerSeed(encryptedSeed, supabaseKey) {
   ]).toString('utf8')
 }
 
+function serializeMinesGame(game) {
+  if (!game || typeof game !== 'object') return game
+
+  const { server_seed_encrypted, ...publicGame } = game
+  if (publicGame.game_state === 'active') {
+    delete publicGame.mine_positions
+  }
+
+  return publicGame
+}
+
+function resolveMinesGridSize(game, supabaseKey) {
+  const encodedGridSize = Number(String(game?.client_seed || '').match(/:g([5-8])$/)?.[1])
+  if ([5, 6, 7, 8].includes(encodedGridSize)) return encodedGridSize
+
+  const storedGridSize = Number(game?.grid_size)
+  if ([5, 6, 7, 8].includes(storedGridSize)) return storedGridSize
+
+  try {
+    const serverSeed = decryptMinesServerSeed(game?.server_seed_encrypted, supabaseKey)
+    const actualMines = (Array.isArray(game?.mine_positions) ? game.mine_positions : [])
+      .map(Number)
+      .sort((a, b) => a - b)
+
+    for (const candidate of [5, 6, 7, 8]) {
+      const expectedMines = generateMinePositions(
+        candidate * candidate,
+        Number(game?.mines_count) || 3,
+        serverSeed,
+        game?.client_seed,
+        game?.nonce,
+        game?.id,
+      )
+
+      if (
+        expectedMines.length === actualMines.length &&
+        expectedMines.every((position, index) => position === actualMines[index])
+      ) {
+        return candidate
+      }
+    }
+  } catch (error) {
+    console.warn('[api/mines] failed to infer legacy grid size', error?.message || error)
+  }
+
+  return 5
+}
+
+// Restore the signed-in player's unfinished game after a refresh or route change.
+app.get('/api/mines/state', requireAuthenticatedUser, async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) {
+    res.status(500).json({ ok: false, error: 'supabase config missing' })
+    return
+  }
+
+  const profileId = String(req.identity.profileId)
+
+  try {
+    const games = await adminRest(
+      `mines_games?profile_id=eq.${encodeURIComponent(profileId)}&game_state=eq.active&order=created_at.desc&limit=1&select=*`,
+    )
+    const activeGame = Array.isArray(games) ? games[0] : null
+
+    if (!activeGame) {
+      res.json({ ok: true, game: null })
+      return
+    }
+
+    const gridSize = resolveMinesGridSize(activeGame, supabaseKey)
+    res.json({
+      ok: true,
+      game: serializeMinesGame({ ...activeGame, grid_size: gridSize }),
+    })
+  } catch (err) {
+    console.error('[api/mines/state] error', err)
+    res.status(500).json({ ok: false, error: 'Unable to restore Mines game.' })
+  }
+})
+
 // Create a new mines game
 app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
   const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
@@ -2721,12 +2802,18 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
   const payload = req.body || {}
   const profileId = String(req.identity.profileId)
   const wagerValue = Number(payload.wager_value) || 0
-  const minesCount = Math.min(Math.max(Number(payload.mines_count) || 3, 1), 24)
-  const totalPositions = 25 // 5x5 grid
+  const requestedGridSize = Number(payload.grid_size)
+  const gridSize = [5, 6, 7, 8].includes(requestedGridSize) ? requestedGridSize : 5
+  const totalPositions = gridSize * gridSize
+  const minesCount = Math.min(Math.max(Number(payload.mines_count) || 3, 1), totalPositions - 1)
 
   if (wagerValue <= 0) {
     return res.status(400).json({ ok: false, error: 'Wager must be positive.' })
   }
+
+  let balanceBeforeWager = null
+  let balanceAfterWager = null
+  let gameCreated = false
 
   try {
     // Check user balance
@@ -2735,20 +2822,22 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       return res.status(404).json({ ok: false, error: 'Profile not found.' })
     }
 
-    if (Number(profile.balance || 0) < wagerValue) {
+    balanceBeforeWager = Number(profile.balance || 0)
+    if (balanceBeforeWager < wagerValue) {
       return res.status(400).json({ ok: false, error: 'Insufficient balance.' })
     }
 
     // Deduct wager from balance
+    balanceAfterWager = balanceBeforeWager - wagerValue
     await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
       method: 'PATCH',
-      body: { balance: Number(profile.balance) - wagerValue },
+      body: { balance: balanceAfterWager },
     })
 
     // Generate game parameters
     const gameId = crypto.randomUUID()
     const serverSeed = crypto.randomBytes(32).toString('hex')
-    const clientSeed = crypto.randomBytes(16).toString('hex')
+    const clientSeed = `${crypto.randomBytes(16).toString('hex')}:g${gridSize}`
     const nonce = Math.floor(Date.now() / 1000) // Use seconds instead of milliseconds to fit in integer
 
     const minePositions = generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId)
@@ -2764,7 +2853,7 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       mine_positions: minePositions,
       game_state: 'active',
       multiplier: 1.0,
-      current_value: wagerValue,
+      current_value: 0,
       server_seed_encrypted: encryptMinesServerSeed(serverSeed, supabaseKey),
       client_seed: clientSeed,
       nonce,
@@ -2772,15 +2861,15 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
 
     const response = await fetch(`${supabaseUrl}/rest/v1/mines_games?select=*`, {
       method: 'POST',
-      headers: getSupabaseAdminHeaders(supabaseKey, { 
+      headers: getSupabaseAdminHeaders(supabaseKey, {
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
+        'Prefer': 'return=representation',
       }),
       body: JSON.stringify(gameData),
       signal: AbortSignal.timeout(10_000),
     })
-
     const responseText = await response.text()
+
     console.log('[api/mines/create] response status:', response.status)
     console.log('[api/mines/create] response text:', responseText)
 
@@ -2789,6 +2878,7 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       console.warn('[api/mines/create] game data:', JSON.stringify(gameData))
       throw new Error(`Failed to create mines game: ${responseText}`)
     }
+    gameCreated = true
 
     let createdGame
     try {
@@ -2798,15 +2888,27 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       throw new Error(`Failed to parse mines game response: ${parseError.message}`)
     }
     
-    const returnGame = Array.isArray(createdGame) ? createdGame[0] : createdGame
+    const storedGame = Array.isArray(createdGame) ? createdGame[0] : createdGame
+    const returnGame = storedGame ? { ...storedGame, grid_size: gridSize } : storedGame
 
     console.log('[api/mines/create] created game:', JSON.stringify(returnGame))
 
     // Emit real-time update
-    io.emit('mines:created', returnGame)
+    const publicGame = serializeMinesGame(returnGame)
+    io.emit('mines:created', publicGame)
 
-    res.json({ ok: true, game: returnGame })
+    res.json({ ok: true, game: publicGame })
   } catch (err) {
+    if (!gameCreated && balanceBeforeWager != null && balanceAfterWager != null) {
+      try {
+        await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${balanceAfterWager}`, {
+          method: 'PATCH',
+          body: { balance: balanceBeforeWager },
+        })
+      } catch (refundError) {
+        console.error('[api/mines/create] failed to restore wager after create error', refundError)
+      }
+    }
     console.error('[api/mines/create] error', err)
     res.status(500).json({ ok: false, error: String(err) })
   }
@@ -2825,7 +2927,7 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
   const gameId = String(payload.game_id || '')
   const position = Number(payload.position)
 
-  if (gameId === '' || isNaN(position) || position < 0 || position > 24) {
+  if (gameId === '' || !Number.isInteger(position) || position < 0 || position > 63) {
     return res.status(400).json({ ok: false, error: 'Invalid game or position.' })
   }
 
@@ -2852,6 +2954,12 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
       return res.status(400).json({ ok: false, error: 'Game is not active.' })
     }
 
+    const gridSize = resolveMinesGridSize(game, supabaseKey)
+    const totalPositions = gridSize * gridSize
+    if (position >= totalPositions) {
+      return res.status(400).json({ ok: false, error: 'Invalid game or position.' })
+    }
+
     if (game.revealed_positions.includes(position)) {
       return res.status(400).json({ ok: false, error: 'Position already revealed.' })
     }
@@ -2870,7 +2978,7 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
       updateData.current_value = 0
     } else {
       const revealedCount = newRevealedPositions.length
-      const multiplier = getMinesMultiplier(revealedCount, 25, game.mines_count)
+      const multiplier = getMinesMultiplier(revealedCount, totalPositions, game.mines_count)
       const currentValue = Math.round(game.wager_value * multiplier)
       
       updateData.multiplier = multiplier
@@ -2909,9 +3017,10 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
     // If exploded, refund nothing (already lost wager)
     // If not exploded, user can continue or cash out
 
-    io.emit('mines:updated', updatedGame)
+    const publicGame = serializeMinesGame(updatedGame)
+    io.emit('mines:updated', publicGame)
 
-    res.json({ ok: true, game: updatedGame, is_mine: isMine })
+    res.json({ ok: true, game: publicGame, is_mine: isMine })
   } catch (err) {
     console.error('[api/mines/reveal] error', err)
     res.status(500).json({ ok: false, error: String(err) })
@@ -2961,7 +3070,7 @@ app.post('/api/mines/cashout', express.json({ limit: '24kb' }), requireAuthentic
       return res.status(400).json({ ok: false, error: 'Reveal at least one position before cashing out.' })
     }
 
-    const winnings = game.current_value
+    const winnings = Number(game.current_value) || 0
 
     // Update game state
     const updateRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
@@ -3005,9 +3114,10 @@ app.post('/api/mines/cashout', express.json({ limit: '24kb' }), requireAuthentic
 
     const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
 
-    io.emit('mines:updated', updatedGame)
+    const publicGame = serializeMinesGame(updatedGame)
+    io.emit('mines:updated', publicGame)
 
-    res.json({ ok: true, game: updatedGame, winnings })
+    res.json({ ok: true, game: publicGame, winnings })
   } catch (err) {
     console.error('[api/mines/cashout] error', err)
     res.status(500).json({ ok: false, error: String(err) })

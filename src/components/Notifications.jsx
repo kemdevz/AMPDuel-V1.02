@@ -4,12 +4,19 @@ const subscribers = new Set()
 const DEFAULT_DURATION = 4000
 let notificationId = 0
 const SUCCESS_SOUND_URL = '/success-jgkLyONA.mp3'
+const ERROR_SOUND_URL = '/error-DccXaKyU.mp3'
 
-function playSuccessSound() {
+function playNotificationSound(type) {
   if (typeof window === 'undefined') return
+  const soundUrl = type === 'success'
+    ? SUCCESS_SOUND_URL
+    : type === 'error'
+      ? ERROR_SOUND_URL
+      : null
+  if (!soundUrl) return
 
   try {
-    const audio = new Audio(SUCCESS_SOUND_URL)
+    const audio = new Audio(soundUrl)
     audio.volume = 0.35
     void audio.play().catch(() => undefined)
   } catch {
@@ -18,9 +25,7 @@ function playSuccessSound() {
 }
 
 function publish(notification) {
-  if (notification?.type === 'success') {
-    playSuccessSound()
-  }
+  playNotificationSound(notification?.type)
 
   subscribers.forEach((subscriber) => subscriber(notification))
 }
