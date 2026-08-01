@@ -2439,9 +2439,27 @@ app.get('/api/games/feed', (req, res) => {
   res.json({ feed: FEED.slice(0, limit) })
 })
 
-app.get('/', (req, res) => {
-  res.send('Socket server is running')
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true })
 })
+
+const frontendDistPath = path.resolve(process.cwd(), 'dist')
+const frontendIndexPath = path.join(frontendDistPath, 'index.html')
+
+if (fs.existsSync(frontendIndexPath)) {
+  app.use(express.static(frontendDistPath))
+  app.get('*', (req, res, next) => {
+    if (req.path === '/api' || req.path.startsWith('/api/')) {
+      next()
+      return
+    }
+    res.sendFile(frontendIndexPath)
+  })
+} else {
+  app.get('/', (req, res) => {
+    res.send('Socket server is running. Start Vite for the frontend or build the production client.')
+  })
+}
 
 app.use((error, req, res, next) => {
   console.error(`[server] ${req.method} ${req.path} failed`, error)
