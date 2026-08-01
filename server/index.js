@@ -2092,6 +2092,175 @@ function getCoinflipSeedEncryptionKey(supabaseKey) {
   return crypto.createHash('sha256').update(String(secret)).digest()
 }
 
+function getCaseOpenSeedEncryptionKey() {
+  const secret = String(process.env.CASE_OPEN_SEED_SECRET || '').trim()
+  if (!secret) throw new Error('CASE_OPEN_SEED_SECRET is required for case fairness.')
+  return crypto.createHash('sha256').update(secret).digest()
+}
+
+function encryptCaseServerSeed(serverSeed) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getCaseOpenSeedEncryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  return `${iv.toString('hex')}.${cipher.getAuthTag().toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptCaseServerSeed(encryptedSeed) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted case server seed')
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    getCaseOpenSeedEncryptionKey(),
+    Buffer.from(ivHex, 'hex'),
+  )
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, 'hex')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+function createCaseFairnessSeed() {
+  const serverSeed = crypto.randomBytes(32).toString('hex')
+  return {
+    seedId: crypto.randomUUID(),
+    serverSeed,
+    serverSeedHash: crypto.createHash('sha256').update(serverSeed).digest('hex'),
+    serverSeedEncrypted: encryptCaseServerSeed(serverSeed),
+  }
+}
+
+function createCaseClientSeed() {
+  return crypto.randomBytes(9).toString('base64url').toUpperCase().slice(0, 12)
+}
+
+function getCaseRoll(serverSeed, clientSeed, nonce, caseId) {
+  const digest = crypto
+    .createHmac('sha256', serverSeed)
+    .update(`${clientSeed}:${nonce}:${caseId}`)
+    .digest('hex')
+  const fraction = Number.parseInt(digest.slice(0, 13), 16) / 0x10000000000000
+  return Math.min(99_999, Math.floor(fraction * 100_000))
+}
+
+async function ensureCaseFairnessState(profileId) {
+  const seed = createCaseFairnessSeed()
+  return callRainRpc('ensure_case_fairness_state', {
+    p_profile_id: profileId,
+    p_seed_id: seed.seedId,
+    p_server_seed_hash: seed.serverSeedHash,
+    p_server_seed_encrypted: seed.serverSeedEncrypted,
+    p_client_seed: createCaseClientSeed(),
+  })
+}
+
+function validateCaseFairnessState(state) {
+  const serverSeed = decryptCaseServerSeed(state?.server_seed_encrypted)
+  const expectedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  if (expectedHash !== state?.server_seed_hash) {
+    throw new Error('Case fairness seed commitment is invalid.')
+  }
+  return serverSeed
+}
+
+app.get('/api/cases/fairness', requireAuthenticatedUser, async (req, res) => {
+  try {
+    const state = await ensureCaseFairnessState(req.identity.profileId)
+    validateCaseFairnessState(state)
+    res.json({
+      ok: true,
+      fairness: {
+        seed_id: state.seed_id,
+        server_seed_hash: state.server_seed_hash,
+        client_seed: state.client_seed,
+        nonce: Number(state.nonce || 0),
+      },
+    })
+  } catch (error) {
+    console.error('[api/cases/fairness] error', error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load case fairness.' })
+  }
+})
+
+app.post('/api/cases/fairness/rotate', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const clientSeed = String(req.body?.client_seed || '').trim()
+  if (!clientSeed || clientSeed.length > 128) {
+    res.status(400).json({ ok: false, error: 'Client seed must contain between 1 and 128 characters.' })
+    return
+  }
+
+  try {
+    const currentState = await ensureCaseFairnessState(req.identity.profileId)
+    const previousServerSeed = validateCaseFairnessState(currentState)
+    const nextSeed = createCaseFairnessSeed()
+    const result = await callRainRpc('rotate_case_fairness_state', {
+      p_profile_id: req.identity.profileId,
+      p_expected_seed_id: currentState.seed_id,
+      p_expected_server_seed_hash: currentState.server_seed_hash,
+      p_expected_nonce: Number(currentState.nonce || 0),
+      p_previous_server_seed: previousServerSeed,
+      p_new_seed_id: nextSeed.seedId,
+      p_new_server_seed_hash: nextSeed.serverSeedHash,
+      p_new_server_seed_encrypted: nextSeed.serverSeedEncrypted,
+      p_new_client_seed: clientSeed,
+    })
+    res.json({ ok: true, fairness: result })
+  } catch (error) {
+    const message = error?.message || 'Unable to change case seed.'
+    const conflict = /fairness state changed/i.test(message)
+    console.warn('[api/cases/fairness/rotate] error', message)
+    res.status(conflict ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/cases/open', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const caseId = String(req.body?.case_id || '').trim()
+  const batchId = String(req.body?.request_id || '').trim()
+  const quantity = Number(req.body?.quantity)
+  if (!isUuidLike(caseId) || !isUuidLike(batchId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 4) {
+    res.status(400).json({ ok: false, error: 'Select a valid case and quantity between 1 and 4.' })
+    return
+  }
+
+  try {
+    const state = await ensureCaseFairnessState(req.identity.profileId)
+    const serverSeed = validateCaseFairnessState(state)
+    const nonce = Number(state.nonce || 0)
+    if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error('Case fairness nonce is invalid.')
+
+    const rolls = Array.from(
+      { length: quantity },
+      (_, index) => getCaseRoll(serverSeed, state.client_seed, nonce + index, caseId),
+    )
+    const result = await callRainRpc('complete_case_opening', {
+      p_profile_id: req.identity.profileId,
+      p_case_id: caseId,
+      p_batch_id: batchId,
+      p_expected_seed_id: state.seed_id,
+      p_expected_server_seed_hash: state.server_seed_hash,
+      p_expected_nonce: nonce,
+      p_client_seed: state.client_seed,
+      p_rolls: rolls,
+    })
+
+    res.json({
+      ok: true,
+      ...result,
+      fairness: {
+        seed_id: state.seed_id,
+        server_seed_hash: state.server_seed_hash,
+        client_seed: state.client_seed,
+        nonce: Number(result?.nonce ?? nonce + quantity),
+      },
+    })
+  } catch (error) {
+    const message = error?.message || 'Unable to open this case.'
+    const expected = /insufficient balance|unavailable|configured|fairness state changed|client seed|case roll|request id/i.test(message)
+    console.warn('[api/cases/open] error', message)
+    res.status(/fairness state changed/i.test(message) ? 409 : expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
 function encryptCoinflipServerSeed(serverSeed, supabaseKey) {
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)

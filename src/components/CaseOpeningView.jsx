@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatPriceValue } from "../Utils/FormatPriceValues";
+import { apiRequest } from "../lib/apiClient";
+import { useAuth } from "../store/auth";
+import { notifications } from "./Notifications";
 
 const COIN_ICON = "/bobux.png";
 const REEL_LENGTH = 80;
@@ -84,6 +88,207 @@ function FairnessIcon() {
   );
 }
 
+function CaseFairnessCopyIcon({ label, onCopy }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="case-fairness-copy"
+      aria-label={label}
+      role="button"
+      tabIndex={0}
+      onClick={onCopy}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onCopy();
+        }
+      }}
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function createRandomClientSeed(length = 12) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const randomValues = new Uint32Array(length);
+  window.crypto.getRandomValues(randomValues);
+  return Array.from(randomValues, (value) => alphabet[value % alphabet.length]).join("");
+}
+
+function CasesFairnessModal({ serverSeedHash, clientSeed, nonce, gameActive, onSave, onClose }) {
+  const [draftSeed, setDraftSeed] = useState(clientSeed);
+  const [activeClientSeed, setActiveClientSeed] = useState(clientSeed);
+  const [revealedSeed, setRevealedSeed] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+
+  const requestClose = () => {
+    if (closing || closeTimerRef.current) return;
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(onClose, 180);
+  };
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") requestClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    setDraftSeed(clientSeed);
+    setActiveClientSeed(clientSeed);
+  }, [clientSeed]);
+
+  const copyValue = async (value, label) => {
+    if (!value || value === "Unavailable") return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+      notifications.success(`${label} copied to clipboard!`);
+    } catch {
+      notifications.error("Unable to copy to clipboard.");
+    }
+  };
+
+  const saveSeed = async () => {
+    if (gameActive || saving) return;
+    const nextSeed = draftSeed.trim();
+    if (!nextSeed) {
+      notifications.error("Enter a client seed first.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const rotation = await onSave(nextSeed);
+      setRevealedSeed({
+        value: rotation?.previousServerSeed || "Unavailable",
+        clientSeed: rotation?.previousClientSeed || activeClientSeed,
+        nonce: Number(rotation?.previousNonce ?? nonce),
+      });
+      setActiveClientSeed(nextSeed);
+    } catch {
+      // The parent reports the server error and keeps the modal open for retrying.
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className={`case-fairness-backdrop${closing ? " is-closing" : ""}`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
+    >
+      <section
+        className={`case-fairness-surface${closing ? " is-closing" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cases-fairness-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="case-fairness-close" type="button" onClick={requestClose} aria-label="Close Cases Fairness">
+          ×
+        </button>
+        <h1 id="cases-fairness-title" className="case-fairness-header">Cases Fairness</h1>
+        <p className="case-fairness-hint">
+          Single-player house games use a separate provably-fair system that keeps you in full control, the active server seed stays hidden, only its hash is shown. Changing your client seed generates a brand-new server seed and reveals the previous one, so you can verify all your past games.
+        </p>
+
+        <div className="case-fairness-section">
+          <span className="case-fairness-section-title">Hashed Server Seed</span>
+          <div className="case-fairness-input-holder">
+            <span className="case-fairness-value" title={serverSeedHash}>{serverSeedHash}</span>
+            <CaseFairnessCopyIcon
+              label="Copy hashed server seed"
+              onCopy={() => copyValue(serverSeedHash, "Hashed Server Seed")}
+            />
+          </div>
+        </div>
+
+        <div className="case-fairness-section">
+          <span className="case-fairness-section-title">Client Seed</span>
+          <div className="case-fairness-seed-row">
+            <input
+              type="text"
+              className="case-fairness-seed-input"
+              maxLength={128}
+              placeholder="Your client seed"
+              autoComplete="off"
+              spellCheck={false}
+              value={draftSeed}
+              disabled={gameActive || saving}
+              onChange={(event) => setDraftSeed(event.target.value)}
+            />
+            <button
+              type="button"
+              className="case-fairness-random"
+              title="Generate a random 12-character seed"
+              disabled={gameActive || saving}
+              onClick={() => setDraftSeed(createRandomClientSeed())}
+            >
+              Random
+            </button>
+          </div>
+        </div>
+
+        <div className="case-fairness-section">
+          <span className="case-fairness-section-title">Nonce</span>
+          <div className="case-fairness-input-holder">
+            <span className="case-fairness-value">{nonce}</span>
+            <CaseFairnessCopyIcon label="Copy nonce" onCopy={() => copyValue(nonce, "Nonce")} />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="case-fairness-save"
+          disabled={gameActive || saving || !draftSeed.trim()}
+          onClick={() => { void saveSeed(); }}
+        >
+          {saving ? "Changing Seed..." : "Change Seed"}
+        </button>
+        <p className="case-fairness-note">
+          Entering the same client seed still rotates the server seed (and reveals the old one). You can&apos;t change it while a game is active.
+        </p>
+
+        {revealedSeed && (
+          <div className="case-fairness-reveal-box">
+            <span className="case-fairness-reveal-title">Previous Server Seed</span>
+            <span className="case-fairness-reveal-description">
+              This seed is now retired. Use it together with the client seed, nonce below to verify your past games.
+            </span>
+            <div className="case-fairness-input-holder case-fairness-reveal-value">
+              <span className="case-fairness-value" title={revealedSeed.value}>{revealedSeed.value}</span>
+              <CaseFairnessCopyIcon
+                label="Copy revealed server seed"
+                onCopy={() => copyValue(revealedSeed.value, "Previous Server Seed")}
+              />
+            </div>
+            <div className="case-fairness-reveal-meta">
+              <span>Client Seed: <b>{revealedSeed.clientSeed}</b></span>
+              <span>Nonce: <b>{revealedSeed.nonce}</b></span>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function FastIcon({ active }) {
   return (
     <svg width="19" height="19" viewBox="37.86 -1 428.21 511.45" fill={active ? "#ffe472" : "#ffffff"} aria-hidden="true">
@@ -93,7 +298,16 @@ function FastIcon({ active }) {
 }
 
 export default function CaseOpeningView({ item, onBack }) {
+  const user = useAuth((state) => state.user);
+  const setBalance = useAuth((state) => state.setBalance);
+  const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
   const drops = useMemo(() => getItemsWithRollRanges(item.items || []), [item.items]);
+  const [fairnessOpen, setFairnessOpen] = useState(false);
+  const [fairness, setFairness] = useState(null);
+  const [clientSeed, setClientSeed] = useState(() => {
+    const storedSeed = window.localStorage.getItem("bloxybattles-case-client-seed");
+    return storedSeed || createRandomClientSeed();
+  });
   const [quantity, setQuantity] = useState(1);
   const [fastSpin, setFastSpin] = useState(false);
   const [spinning, setSpinning] = useState(false);
@@ -111,8 +325,36 @@ export default function CaseOpeningView({ item, onBack }) {
   const multiWheelRefs = useRef([]);
   const timersRef = useRef([]);
   const frameRef = useRef(null);
+  const pendingOpeningIdRef = useRef(null);
 
   const totalPrice = priceToNumber(item.price) * quantity;
+  const serverSeedHash = String(fairness?.server_seed_hash || "Unavailable");
+
+  const saveClientSeed = async (nextSeed) => {
+    if (!user) {
+      setAuthModalOpen(true);
+      throw new Error("Sign in to change your case seed.");
+    }
+    try {
+      const response = await apiRequest("/api/cases/fairness/rotate", {
+        method: "POST",
+        body: JSON.stringify({ client_seed: nextSeed }),
+      });
+      const nextFairness = response?.fairness || {};
+      setFairness(nextFairness);
+      setClientSeed(nextFairness.client_seed || nextSeed);
+      window.localStorage.setItem("bloxybattles-case-client-seed", nextFairness.client_seed || nextSeed);
+      notifications.success("Client seed updated and previous server seed revealed.");
+      return {
+        previousServerSeed: nextFairness.previous_server_seed,
+        previousClientSeed: nextFairness.previous_client_seed,
+        previousNonce: nextFairness.previous_nonce,
+      };
+    } catch (error) {
+      notifications.error(error?.message || "Unable to change case seed.");
+      throw error;
+    }
+  };
 
   const clearAnimationWork = () => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -122,6 +364,32 @@ export default function CaseOpeningView({ item, onBack }) {
   };
 
   useEffect(() => () => clearAnimationWork(), []);
+
+  useEffect(() => {
+    if (!user) {
+      setFairness(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    apiRequest("/api/cases/fairness")
+      .then((response) => {
+        if (cancelled) return;
+        const nextFairness = response?.fairness || null;
+        setFairness(nextFairness);
+        if (nextFairness?.client_seed) {
+          setClientSeed(nextFairness.client_seed);
+          window.localStorage.setItem("bloxybattles-case-client-seed", nextFairness.client_seed);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) notifications.error(error?.message || "Unable to load case fairness.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!spinning) return undefined;
@@ -175,7 +443,7 @@ export default function CaseOpeningView({ item, onBack }) {
     setMultiTransitions(Array(count).fill("none"));
   };
 
-  const finishSpin = (selected) => {
+  const finishSpin = () => {
     if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     setHasResult(true);
@@ -183,13 +451,7 @@ export default function CaseOpeningView({ item, onBack }) {
     setSpinning(false);
   };
 
-  const spin = () => {
-    if (spinning || !item.items?.length) return;
-
-    clearAnimationWork();
-    const selected = Array.from({ length: quantity }, () => selectWeightedItem(item.items));
-    setHasResult(false);
-    setSpinning(true);
+  const runSpinAnimation = (selected) => {
     setActiveReelIndex(INITIAL_REEL_INDEX);
 
     if (quantity === 1) {
@@ -214,7 +476,7 @@ export default function CaseOpeningView({ item, onBack }) {
       }, startDelay + mainDuration + settlePause));
 
       timersRef.current.push(window.setTimeout(
-        () => finishSpin(selected),
+        finishSpin,
         startDelay + mainDuration + settlePause + settleDuration + 5,
       ));
       return;
@@ -244,9 +506,64 @@ export default function CaseOpeningView({ item, onBack }) {
     }, startDelay + mainDuration + 100));
 
     timersRef.current.push(window.setTimeout(
-      () => finishSpin(selected),
+      finishSpin,
       startDelay + mainDuration + 100 + settleDuration + 5,
     ));
+  };
+
+  const spin = async (demo = false) => {
+    if (spinning || !item.items?.length) return;
+    if (!demo && !user) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!demo && !fairness) {
+      notifications.error("Case fairness is still loading. Please try again.");
+      return;
+    }
+
+    clearAnimationWork();
+    setHasResult(false);
+    setSpinning(true);
+    try {
+      if (demo) {
+        runSpinAnimation(Array.from({ length: quantity }, () => selectWeightedItem(item.items)));
+        return;
+      }
+
+      const requestId = pendingOpeningIdRef.current || window.crypto.randomUUID();
+      pendingOpeningIdRef.current = requestId;
+      const response = await apiRequest("/api/cases/open", {
+        method: "POST",
+        body: JSON.stringify({ case_id: item.id, quantity, request_id: requestId }),
+      });
+      pendingOpeningIdRef.current = null;
+
+      const selected = (response?.results || []).map((result) => {
+        const catalogItem = item.items.find((candidate) =>
+          String(candidate.id || candidate.item_id) === String(result.item_id)
+          || candidate.name === result.name);
+        return {
+          ...(catalogItem || {}),
+          ...result,
+          id: String(result.item_id || catalogItem?.id || result.opening_id),
+          image: result.image_url || catalogItem?.image || "",
+        };
+      });
+      if (selected.length !== quantity) throw new Error("The server returned an incomplete case result.");
+
+      setBalance(Number(response.balance || 0));
+      if (response.fairness) {
+        setFairness(response.fairness);
+        setClientSeed(response.fairness.client_seed || clientSeed);
+      }
+      runSpinAnimation(selected);
+    } catch (error) {
+      if (error?.status) pendingOpeningIdRef.current = null;
+      setSpinning(false);
+      if (error?.status === 401) setAuthModalOpen(true);
+      notifications.error(error?.message || "Unable to open this case.");
+    }
   };
 
   return (
@@ -262,6 +579,16 @@ export default function CaseOpeningView({ item, onBack }) {
         @keyframes case-open-info-in {
           from { opacity: 0; transform: translate(-50%, 7px); }
           to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        @keyframes case-fairness-backdrop-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes case-fairness-modal-in {
+          from { opacity: 0; transform: scale(.96) translateY(8px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
         .case-open-root {
@@ -1037,6 +1364,264 @@ export default function CaseOpeningView({ item, onBack }) {
           white-space: nowrap;
         }
 
+        .case-fairness-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(0, 0, 0, .58);
+          animation: case-fairness-backdrop-in 180ms ease-out both;
+          transition: opacity 180ms ease;
+        }
+
+        .case-fairness-backdrop.is-closing { opacity: 0; }
+
+        .case-fairness-surface {
+          position: relative;
+          box-sizing: border-box;
+          width: 90%;
+          max-width: 600px;
+          max-height: 90vh;
+          margin: 0;
+          padding: 2rem;
+          overflow-x: hidden;
+          overflow-y: auto;
+          border: 1px solid #181a28;
+          border-radius: 5px;
+          background: #131520;
+          color: #e1e4f2;
+          box-shadow: 0 20px 80px #0000008c;
+          font-family: Poppins, sans-serif;
+          animation: case-fairness-modal-in .3s ease-out both;
+          transition: opacity 180ms ease, transform 180ms ease;
+        }
+
+        .case-fairness-surface.is-closing {
+          opacity: 0;
+          transform: scale(.97) translateY(6px);
+        }
+
+        .case-fairness-close {
+          position: absolute;
+          top: 12px;
+          right: 14px;
+          display: grid;
+          width: 34px;
+          height: 34px;
+          place-items: center;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: rgba(255, 255, 255, .76);
+          font-size: 25px;
+          line-height: 1;
+          cursor: pointer;
+          transition: color 140ms ease, transform 140ms ease;
+        }
+
+        .case-fairness-close:hover { color: #fff; }
+        .case-fairness-close:active { transform: scale(.92); }
+
+        .case-fairness-header {
+          margin: 0 38px 12px 0;
+          color: #fff;
+          font-size: 24px;
+          font-weight: 700;
+          line-height: 1.25;
+        }
+
+        .case-fairness-hint {
+          margin: 0 0 22px;
+          color: #a6b2d3;
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.65;
+        }
+
+        .case-fairness-section + .case-fairness-section { margin-top: 19px; }
+
+        .case-fairness-section-title {
+          display: block;
+          margin-bottom: 8px;
+          color: rgba(255, 255, 255, .68);
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .case-fairness-input-holder,
+        .case-fairness-seed-input {
+          box-sizing: border-box;
+          min-height: 42px;
+          border: 0;
+          border-radius: 6px;
+          background: #1c1f2e;
+        }
+
+        .case-fairness-input-holder {
+          display: flex;
+          min-width: 0;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 13px;
+        }
+
+        .case-fairness-value {
+          display: block;
+          min-width: 0;
+          flex: 1;
+          overflow: hidden;
+          color: rgba(255, 255, 255, .88);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 13px;
+          line-height: 1.45;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .case-fairness-copy {
+          width: 18px;
+          height: 18px;
+          flex: 0 0 18px;
+          border: 0;
+          outline: none;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          color: #fff;
+          cursor: pointer;
+          transition: color 140ms ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .case-fairness-copy:hover { color: rgba(255, 255, 255, .72); }
+        .case-fairness-copy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+
+        .case-fairness-seed-row {
+          display: flex;
+          align-items: stretch;
+          gap: 10px;
+        }
+
+        .case-fairness-seed-input {
+          width: 100%;
+          min-width: 0;
+          padding: 0 13px;
+          outline: none;
+          color: rgba(255, 255, 255, .9);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 13px;
+          transition: box-shadow 140ms ease, background 140ms ease;
+        }
+
+        .case-fairness-seed-input:focus {
+          background: #1f2335;
+          box-shadow: inset 0 0 0 1px rgba(108, 99, 255, .55);
+        }
+
+        .case-fairness-seed-input:disabled,
+        .case-fairness-random:disabled,
+        .case-fairness-save:disabled {
+          cursor: not-allowed;
+          opacity: .55;
+        }
+
+        .case-fairness-random,
+        .case-fairness-save {
+          min-height: 42px;
+          border-radius: 8px;
+          color: #fff;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform .13s cubic-bezier(.22, 1, .36, 1), background .15s ease, opacity .15s ease;
+        }
+
+        .case-fairness-random {
+          min-width: 108px;
+          padding: 0 18px;
+          border: 0;
+          background: #2a2e44;
+        }
+
+        .case-fairness-random:hover:not(:disabled) { background: #32385a; }
+
+        .case-fairness-save {
+          width: 100%;
+          margin-top: 22px;
+          padding: 0 20px;
+          border: 1px solid rgba(94, 85, 217, .4);
+          background: linear-gradient(135deg, #5b52e2, #4038c0);
+          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+        }
+
+        .case-fairness-save:hover:not(:disabled) {
+          background: linear-gradient(135deg, #6c63ff, #5147d9);
+          opacity: .95;
+        }
+
+        .case-fairness-random:active:not(:disabled),
+        .case-fairness-save:active:not(:disabled) { transform: scale(.98); }
+
+        .case-fairness-note {
+          margin: 12px 0 0;
+          color: #6c7399;
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1.55;
+          text-align: center;
+        }
+
+        .case-fairness-reveal-box {
+          margin-top: 1.4rem;
+          padding: 1rem;
+          border: 0 solid rgba(108, 99, 255, .4);
+          border-radius: 6px;
+          background: rgba(108, 99, 255, .06);
+          animation: case-fairness-modal-in .24s ease-out both;
+        }
+
+        .case-fairness-reveal-title {
+          display: block;
+          color: #e1e4f2;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .case-fairness-reveal-description {
+          display: block;
+          margin-top: 5px;
+          color: #a6b2d3;
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1.55;
+        }
+
+        .case-fairness-reveal-value {
+          margin-top: .6rem;
+          margin-bottom: 0;
+        }
+
+        .case-fairness-reveal-meta {
+          display: flex;
+          margin-top: 9px;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 6px 14px;
+          color: #6c7399;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .case-fairness-reveal-meta b {
+          color: #a6b2d3;
+          font-weight: 700;
+        }
+
         @media (max-width: 900px) {
           .case-open-header { flex-direction: column; align-items: flex-start; }
         }
@@ -1057,10 +1642,15 @@ export default function CaseOpeningView({ item, onBack }) {
           .case-open-qty button { flex: 1; }
           .case-open-primary { flex: 1; }
           .case-open-drops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .case-fairness-backdrop { padding: 12px; }
+          .case-fairness-surface { width: 100%; padding: 1.5rem; }
+          .case-fairness-seed-row { flex-direction: column; }
+          .case-fairness-random { width: 100%; }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .case-open-shell, .case-open-result, .case-open-drop { animation: none; transition: none; }
+          .case-open-shell, .case-open-result, .case-open-drop,
+          .case-fairness-backdrop, .case-fairness-surface { animation: none; transition: none; }
         }
       `}</style>
 
@@ -1070,7 +1660,12 @@ export default function CaseOpeningView({ item, onBack }) {
             <BackIcon />
             Back
           </button>
-          <button type="button" className="case-open-fairness" title="Provably fair">
+          <button
+            type="button"
+            className="case-open-fairness"
+            title="Provably fair"
+            onClick={() => setFairnessOpen(true)}
+          >
             <FairnessIcon />
             Fairness
           </button>
@@ -1208,7 +1803,7 @@ export default function CaseOpeningView({ item, onBack }) {
             ))}
           </div>
 
-          <button type="button" className="case-open-primary" disabled={spinning} onClick={spin}>
+          <button type="button" className="case-open-primary" disabled={spinning || Boolean(user && !fairness)} onClick={() => { void spin(false); }}>
             Open Case
             <span className="case-open-cost">
               <img src={COIN_ICON} alt="" draggable={false} />
@@ -1216,7 +1811,7 @@ export default function CaseOpeningView({ item, onBack }) {
             </span>
           </button>
 
-          <button type="button" className="case-open-secondary" disabled={spinning} onClick={spin}>Demo</button>
+          <button type="button" className="case-open-secondary" disabled={spinning} onClick={() => { void spin(true); }}>Demo</button>
           <button
             type="button"
             className={`case-open-fast${fastSpin ? " is-active" : ""}`}
@@ -1265,6 +1860,17 @@ export default function CaseOpeningView({ item, onBack }) {
           </div>
         </div>
       </div>
+      {fairnessOpen && createPortal(
+        <CasesFairnessModal
+          serverSeedHash={serverSeedHash}
+          clientSeed={clientSeed}
+          nonce={Number(fairness?.nonce || 0)}
+          gameActive={spinning}
+          onSave={saveClientSeed}
+          onClose={() => setFairnessOpen(false)}
+        />,
+        document.body,
+      )}
     </div>
   );
 }
