@@ -1,640 +1,77 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import CaseOpeningView from "../components/CaseOpeningView";
+import { getInventoryItemAccent } from "../components/InventoryItemCard";
+import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../store/auth";
+import { formatPriceValue } from "../Utils/FormatPriceValues";
 
 const COIN_ICON = "/bobux.png";
 const TABS = ["Official", "Community", "Your Cases"];
 
-const CASES = [
-    {
-      name: "Prism",
-      price: "521,778",
-      image: "https://i.ibb.co/cKkWGyJq/aaa.png",
-    },
-    {
-      name: "Nature",
-      price: "503,112",
-      image: "https://i.ibb.co/sJJ662Z9/nature.png",
-    },
-    {
-      name: "Spooked",
-      price: "488,667",
-      image: "https://i.ibb.co/GQKDXNyb/case3.png",
-    },
-    {
-      name: "Basket",
-      price: "481,917",
-      image: "https://i.ibb.co/1ftkTM40/case-iamge.png",
-    },
-    {
-      name: "Hunted",
-      price: "473,834",
-      image: "https://i.ibb.co/BH0kbSch/case.png",
-    },
-    {
-      name: "Crimson Rain",
-      price: "470,834",
-      image: "https://i.ibb.co/QjCygLWd/case2.png",
-    },
-    {
-      name: "Easy",
-      price: "467,778",
-      image: "https://i.ibb.co/TqBsjBZG/case6.png",
-    },
-    {
-      name: "Dementorr",
-      price: "466,667",
-      image: "https://i.ibb.co/Pzjk4sNK/dementor.png",
-    },
-    {
-      name: "Catboy",
-      price: "445,112",
-      image: "https://i.ibb.co/yBXdj9Ny/case8.png",
-    },
-    {
-      name: "Risky Pull",
-      price: "408,612",
-      image: "https://i.ibb.co/BKN66dHG/risky.png",
-    },
-    {
-      name: "Nightmare",
-      price: "407,778",
-      image: "https://i.ibb.co/PsWvjP5v/case2.png",
-    },
-    {
-      name: "Cycle",
-      price: "398,889",
-      image: "https://i.ibb.co/3YNRBmkc/case2.png",
-    },
-    {
-      name: "Meow",
-      price: "361,156",
-      image: "https://i.ibb.co/jkZQ6rR6/Kitty.png",
-    },
-    {
-      name: "Tophat Wish",
-      price: "349,445",
-      image: "https://i.ibb.co/PzjKnZPw/case-image.png",
-    },
-    {
-      name: "Blessed",
-      price: "348,750",
-      image: "https://i.ibb.co/BYVmjKc/case-image.png",
-    },
-    {
-      name: "Wormy",
-      price: "344,445",
-      image: "https://i.ibb.co/V0N80c4J/wormy.png",
-    },
-    {
-      name: "Fofo",
-      price: "325,556",
-      image: "https://i.ibb.co/sJbv8zYk/fofo.png",
-    },
-    {
-      name: "Luxury",
-      price: "309,445",
-      image: "https://i.ibb.co/whW3wVFy/case.png",
-    },
-    {
-      name: "Sakura",
-      price: "304,445",
-      image: "https://i.ibb.co/jZ8kMb9y/case.png",
-    },
-    {
-      name: "Water",
-      price: "281,389",
-      image: "https://i.ibb.co/bpLS11M/case.png",
-    },
-    {
-      name: "Zeus",
-      price: "275,084",
-      image: "https://i.ibb.co/KpLvLGSX/Robotic.png",
-    },
-    {
-      name: "Time",
-      price: "263,167",
-      image: "https://i.ibb.co/bRJcNHbH/case2.png",
-    },
-    {
-      name: "Citadel",
-      price: "251,723",
-      image: "https://i.ibb.co/67kZb33v/citadel.png",
-    },
-    {
-      name: "Gemstone",
-      price: "245,000",
-      image: "https://i.ibb.co/93tpn6Hz/case.png",
-    },
-    {
-      name: "Pyramids",
-      price: "244,706",
-      image: "https://i.ibb.co/7tM01c6t/case7.png",
-    },
-    {
-      name: "Aurantium",
-      price: "240,345",
-      image: "https://i.ibb.co/gFR178Tr/case-image.png",
-    },
-    {
-      name: "In Rainbows",
-      price: "236,075",
-      image: "https://i.ibb.co/Wv9Y76W6/case-image.png",
-    },
-    {
-      name: "Ego",
-      price: "233,612",
-      image: "https://i.ibb.co/Z6vFrdgG/case.png",
-    },
-    {
-      name: "Bluey",
-      price: "224,723",
-      image: "https://i.ibb.co/b5gwdMks/blue.png",
-    },
-    {
-      name: "Sea",
-      price: "222,945",
-      image: "https://i.ibb.co/mCjRhfTb/case.png",
-    },
-    {
-      name: "Purple Rain",
-      price: "219,806",
-      image: "https://i.ibb.co/fVHhpjRY/purple.png",
-    },
-    {
-      name: "Circus Mystery",
-      price: "217,167",
-      image: "https://i.ibb.co/QFfpGbxg/case-image.png",
-    },
-    {
-      name: "Factory",
-      price: "212,445",
-      image: "https://i.ibb.co/zV1DkxYw/case3.png",
-    },
-    {
-      name: "Banker",
-      price: "207,676",
-      image: "https://i.ibb.co/BKvRKwbM/content-2.png",
-    },
-    {
-      name: "Abyssal",
-      price: "205,750",
-      image: "https://i.ibb.co/KJhnKVw/case3.png",
-    },
-    {
-      name: "Green Giant",
-      price: "174,056",
-      image: "https://i.ibb.co/6cRJ48RB/case.png",
-    },
-    {
-      name: "KFC Dealer",
-      price: "171,725",
-      image: "https://i.ibb.co/60XB5n2S/vsvs.png",
-    },
-    {
-      name: "Heavenly One",
-      price: "166,389",
-      image: "https://i.ibb.co/kgZ9QDV9/case1.png",
-    },
-    {
-      name: "Rika",
-      price: "166,112",
-      image: "https://i.ibb.co/Dh33WpH/case10.png",
-    },
-    {
-      name: "Leviathan",
-      price: "164,794",
-      image: "https://i.ibb.co/V0qCb71T/content.png",
-    },
-    {
-      name: "Glisten",
-      price: "147,167",
-      image: "https://i.ibb.co/YT8jG65m/content.png",
-    },
-    {
-      name: "Dreams",
-      price: "142,445",
-      image: "https://i.ibb.co/93dxmnKR/case2.png",
-    },
-    {
-      name: "Fuchsia",
-      price: "127,667",
-      image: "https://i.ibb.co/7dC9fTYQ/case4.png",
-    },
-    {
-      name: "Pretty",
-      price: "106,291",
-      image: "https://i.ibb.co/hFVCxLk8/pretty.png",
-    },
-    {
-      name: "Valentine's",
-      price: "104,167",
-      image: "https://i.ibb.co/kV0t4srM/content.png",
-    },
-    {
-      name: "Shard",
-      price: "102,228",
-      image: "https://i.ibb.co/1fPf6Kt7/g-rsel-2026-03-16-204723081.png",
-    },
-    {
-      name: "Void of Infinity",
-      price: "91,889",
-      image: "https://i.ibb.co/spbGws5T/voidofinfinity.png",
-    },
-    {
-      name: "Jelly Flip",
-      price: "89,723",
-      image: "https://i.ibb.co/3y7NQ702/jelly.png",
-    },
-    {
-      name: "The Missing One",
-      price: "86,334",
-      image: "https://i.ibb.co/MDfVpbT9/themissingone.png",
-    },
-    {
-      name: "Galactic",
-      price: "77,917",
-      image: "https://i.ibb.co/35nbhWSm/case1.png",
-    },
-    {
-      name: "Prophecy",
-      price: "72,667",
-      image: "https://i.ibb.co/DHq39bPf/case2.png",
-    },
-    {
-      name: "God",
-      price: "70,867",
-      image: "https://i.ibb.co/4ZXY70nc/case-image.png",
-    },
-    {
-      name: "Mecha",
-      price: "62,500",
-      image: "https://i.ibb.co/KzNghpBJ/mecha.png",
-    },
-    {
-      name: "Cursed Pharaoh",
-      price: "61,783",
-      image: "https://i.ibb.co/4ZZ16z6v/cursedpharaoh.png",
-    },
-    {
-      name: "Kitties",
-      price: "61,286",
-      image: "https://i.ibb.co/LXFDb3rj/case.png",
-    },
-    {
-      name: "Lucky Star",
-      price: "58,334",
-      image: "https://i.ibb.co/6fm6yqw/case.png",
-    },
-    {
-      name: "Monster Energy",
-      price: "56,570",
-      image: "https://i.ibb.co/dwsjb133/case2.png",
-    },
-    {
-      name: "Star of The Night",
-      price: "56,412",
-      image: "https://i.ibb.co/ZzwmgbQd/star.png",
-    },
-    {
-      name: "Turkey",
-      price: "53,889",
-      image: "https://i.ibb.co/PsdQCVD8/case0.png",
-    },
-    {
-      name: "Kraken Seas",
-      price: "52,000",
-      image: "https://i.ibb.co/TMMKSNzj/kraken.png",
-    },
-    {
-      name: "Lucky Break",
-      price: "51,139",
-      image: "https://i.ibb.co/m53ZYsGT/luckybreak.png",
-    },
-    {
-      name: "Demonic Angel",
-      price: "49,851",
-      image: "https://i.ibb.co/848QSD4z/demonicangels.png",
-    },
-    {
-      name: "Eclipse of Heart",
-      price: "49,778",
-      image: "https://i.ibb.co/N2DNHwDq/aero.png",
-    },
-    {
-      name: "Glitcher",
-      price: "49,748",
-      image: "https://i.ibb.co/yx0X9zp/case-image.png",
-    },
-    {
-      name: "Shiny Hunter",
-      price: "45,781",
-      image: "https://i.ibb.co/QFhdQ7f0/shiny.png",
-    },
-    {
-      name: "Panda",
-      price: "44,073",
-      image: "https://i.ibb.co/HDbVr7xm/pandas.png",
-    },
-    {
-      name: "Fishy Case",
-      price: "42,500",
-      image: "https://i.ibb.co/dJBZqxGL/Fishy.png",
-    },
-    {
-      name: "Furry",
-      price: "41,112",
-      image: "https://i.ibb.co/rfmMmjts/case5.png",
-    },
-    {
-      name: "Cucumber",
-      price: "40,903",
-      image: "https://i.ibb.co/ZpkWjCzP/case1.png",
-    },
-    {
-      name: "Depression",
-      price: "39,034",
-      image: "https://i.ibb.co/sJkzt3J9/depression.png",
-    },
-    {
-      name: "Lumi Fanta",
-      price: "37,389",
-      image: "https://i.ibb.co/zHNV9sLJ/Lumi-Fanta.png",
-    },
-    {
-      name: "67 Case",
-      price: "37,334",
-      image: "https://i.ibb.co/chS1h2nx/67.png",
-    },
-    {
-      name: "Frosty",
-      price: "34,584",
-      image: "https://i.ibb.co/QvYJ2RV3/frosty.png",
-    },
-    {
-      name: "Giant",
-      price: "32,778",
-      image: "https://i.ibb.co/nNBRjzLp/giant.png",
-    },
-    {
-      name: "Bunny",
-      price: "31,806",
-      image: "https://i.ibb.co/JR0TF46F/case5.png",
-    },
-    {
-      name: "Patrick's Fantasy",
-      price: "30,278",
-      image: "https://i.ibb.co/hF4PHW0h/case1.png",
-    },
-    {
-      name: "Heartcore",
-      price: "30,139",
-      image: "https://i.ibb.co/DgMYmHPB/content.png",
-    },
-    {
-      name: "Galaxy",
-      price: "26,800",
-      image: "https://i.ibb.co/d42VJSdB/Galaxy.png",
-    },
-    {
-      name: "Infinity Blossom",
-      price: "25,824",
-      image: "https://i.ibb.co/8gpz2xWR/content.png",
-    },
-    {
-      name: "Crimson Claw",
-      price: "25,056",
-      image: "https://i.ibb.co/PvsRRqP8/crimsonclaw.png",
-    },
-    {
-      name: "Sylently's Case",
-      price: "24,445",
-      image: "https://i.ibb.co/ynNJvwJj/sylentlyscase.png",
-    },
-    {
-      name: "Computer Crash",
-      price: "23,606",
-      image: "https://i.ibb.co/9z7zh9J/computercrash.png",
-    },
-    {
-      name: "Hell Case",
-      price: "22,890",
-      image: "https://i.ibb.co/Kk0GbZw/Hell-Case.png",
-    },
-    {
-      name: "Area 51",
-      price: "22,790",
-      image: "https://i.ibb.co/9HFVD72B/area51.png",
-    },
-    {
-      name: "Ghostly Fortune",
-      price: "22,639",
-      image: "https://i.ibb.co/9HQLhMmp/ghostly.png",
-    },
-    {
-      name: "Surreal Seeker",
-      price: "21,725",
-      image: "https://i.ibb.co/PykTPpw/surrealseeker.png",
-    },
-    {
-      name: "Black n White",
-      price: "21,054",
-      image: "https://i.ibb.co/HLzSXmCY/blaccc.png",
-    },
-    {
-      name: "Doggy Vault",
-      price: "19,528",
-      image: "https://i.ibb.co/SwXyDLcr/doggyvault.png",
-    },
-    {
-      name: "Snowdrop",
-      price: "19,073",
-      image: "https://i.ibb.co/zChzF4H/snowdrop.png",
-    },
-    {
-      name: "Immortal",
-      price: "17,580",
-      image: "https://i.ibb.co/WNZw2Gdz/immortal.png",
-    },
-    {
-      name: "Sticky Flames",
-      price: "17,234",
-      image: "https://i.ibb.co/PsNLLn4W/slime.png",
-    },
-    {
-      name: "Festival",
-      price: "15,228",
-      image: "https://i.ibb.co/r12t1Ry/festival.png",
-    },
-    {
-      name: "Juicy Fruits",
-      price: "14,750",
-      image: "https://i.ibb.co/GQy0Hb87/juicyfruits.png",
-    },
-    {
-      name: "King Prince",
-      price: "13,956",
-      image: "https://i.ibb.co/gLWs5rQd/kingprince.png",
-    },
-    {
-      name: "Super Silly",
-      price: "13,778",
-      image: "https://i.ibb.co/2YcjMZ9R/supersilly.png",
-    },
-    {
-      name: "Solar Flip",
-      price: "12,889",
-      image: "https://i.ibb.co/prjskqtQ/case4.png",
-    },
-    {
-      name: "E-Girl",
-      price: "12,278",
-      image: "https://i.ibb.co/cKbXBkGB/gem.png",
-    },
-    {
-      name: "Ghostly",
-      price: "11,667",
-      image: "https://i.ibb.co/3mrXC1Rv/ghostly.png",
-    },
-    {
-      name: "Dark Shadows",
-      price: "11,187",
-      image: "https://i.ibb.co/k6zRgtSB/dark-shadows.png",
-    },
-    {
-      name: "Gold Party",
-      price: "10,360",
-      image: "https://i.ibb.co/9HNRcvQc/goldparty.png",
-    },
-    {
-      name: "Gothic Case",
-      price: "9,939",
-      image: "https://i.ibb.co/cSHGH8Sr/gothic.png",
-    },
-    {
-      name: "Snowstorm Spin",
-      price: "8,889",
-      image: "https://i.ibb.co/vxNzkWJF/snowstormspin.png",
-    },
-    {
-      name: "Scarlet Case",
-      price: "8,191",
-      image: "https://i.ibb.co/dJcMzgRc/scarlet.png",
-    },
-    {
-      name: "Queen’s Hive",
-      price: "7,689",
-      image: "https://i.ibb.co/PGcCd8Db/queenshive.png",
-    },
-    {
-      name: "%5 Clown",
-      price: "6,612",
-      image: "https://i.ibb.co/FLfdHQnf/5clown.png",
-    },
-    {
-      name: "Dreamer",
-      price: "6,312",
-      image: "https://i.ibb.co/DfwBT2Np/dreamer.png",
-    },
-    {
-      name: "Leafy Season",
-      price: "5,473",
-      image: "https://i.ibb.co/7t26PW22/leafyseason.png",
-    },
-    {
-      name: "Dray's Father",
-      price: "5,373",
-      image: "https://i.ibb.co/60FJ3Tx0/drayfather.png",
-    },
-    {
-      name: "Rockstar",
-      price: "2,612",
-      image: "https://i.ibb.co/qMt0HRYt/rockstar.png",
-    },
-    {
-      name: "Meme Madness",
-      price: "1,889",
-      image: "https://i.ibb.co/B5L0dC6M/memelords.png",
-    },
-    {
-      name: "Overlords",
-      price: "1,881",
-      image: "https://i.ibb.co/xqxBFXXp/case3.png",
-    },
-    {
-      name: "Pinky",
-      price: "1,556",
-      image: "https://i.ibb.co/211CN9gX/content.png",
-    },
-    {
-      name: "%1 Robot",
-      price: "1,552",
-      image: "https://i.ibb.co/JWRHVQT6/1-robot.png",
-    },
-    {
-      name: "Yes Or Yes",
-      price: "1,540",
-      image: "https://i.ibb.co/gZYr3Lgx/yesoryes.png",
-    },
-    {
-      name: "%70 Christmas",
-      price: "1,151",
-      image: "https://i.ibb.co/6czCRcZ0/christmas.png",
-    },
-    {
-      name: "Soul Spin",
-      price: "553",
-      image: "https://i.ibb.co/hxb9qTWF/Soul-Spin.png",
-    },
-    {
-      name: "GPT",
-      price: "413",
-      image: "https://i.ibb.co/KcbW8nX8/case-robot.png",
-    },
-    {
-      name: "Love",
-      price: "326",
-      image: "https://i.ibb.co/8gRzQwSz/love.png",
-    },
-    {
-      name: "Golden",
-      price: "220",
-      image: "https://i.ibb.co/jkzyzKxd/gold.png",
-    },
-    {
-      name: "Frozen Giftbox",
-      price: "119",
-      image: "https://i.ibb.co/PGr2W1dm/frozen.png",
-    },
-    {
-      name: "Mike Wazowski",
-      price: "99",
-      image: "https://i.ibb.co/MLSSqsD/mikewazovski.png",
-    },
-    {
-      name: "Hop & Win",
-      price: "57",
-      image: "https://i.ibb.co/B51fkL8L/content.png",
-    },
-    {
-      name: "Farmer",
-      price: "33",
-      image: "https://i.ibb.co/chrtW3C8/farmer.png",
-    },
-    {
-      name: "Pumpkins",
-      price: "11",
-      image: "https://i.ibb.co/ZpGk1mJ8/content.webp",
-    },
-  ];
+const rollNumberFormatter = new Intl.NumberFormat("en-US");
+
+function getItemsWithRollRanges(items) {
+  let nextRoll = 0;
+
+  return items.map((item) => {
+    const storedStart = Number(item.roll_range?.start);
+    const storedEnd = Number(item.roll_range?.end);
+    const hasStoredRange = Number.isInteger(storedStart) && Number.isInteger(storedEnd) && storedEnd >= storedStart;
+    const rollCount = Math.round(Number(item.chance) * 1000);
+    const rangeStart = hasStoredRange ? storedStart : nextRoll;
+    const rangeEnd = hasStoredRange ? storedEnd : rangeStart + rollCount - 1;
+    nextRoll = rangeEnd + 1;
+
+    return {
+      ...item,
+      rollRange: `${rollNumberFormatter.format(rangeStart)}–${rollNumberFormatter.format(rangeEnd)}`,
+    };
+  });
+}
 
 function priceToNumber(price) {
-  return Number(price.replaceAll(",", ""));
+  return Number(String(price ?? 0).replaceAll(",", ""));
+}
+
+function normalizeCase(row) {
+  const caseId = String(row?.uuid || row?.id || "");
+  const items = Array.isArray(row?.items) ? row.items : [];
+
+  return {
+    ...row,
+    id: caseId,
+    image: row?.image_url || row?.image || "",
+    price: Number(row?.price ?? 0),
+    active: row?.active !== false,
+    community: Boolean(row?.community),
+    items: items.map((item, index) => {
+      const rollStart = Number(item?.roll_range?.start);
+      const rollEnd = Number(item?.roll_range?.end);
+      const rangeChance = Number.isInteger(rollStart) && Number.isInteger(rollEnd) && rollEnd >= rollStart
+        ? (rollEnd - rollStart + 1) / 1000
+        : 0;
+      const normalizedItem = {
+        ...item,
+        id: String(item?.item_id || item?.id || `${caseId}-item-${index}`),
+        image: item?.image_url || item?.image || "",
+        value: Number(item?.value ?? 0),
+        chance: Number(item?.chance ?? rangeChance),
+      };
+
+      return {
+        ...normalizedItem,
+        accent: getInventoryItemAccent(normalizedItem),
+      };
+    }),
+  };
 }
 
 function SearchIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="pointer-events-none absolute left-[14px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 opacity-85"
+      className="pointer-events-none absolute left-[13px] top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
       fill="none"
       aria-hidden="true"
     >
@@ -648,7 +85,7 @@ function SearchIcon() {
   );
 }
 
-function SortIcon({ descending }) {
+function SortIcon({ ascending = false }) {
   return (
     <svg
       viewBox="0 0 16 16"
@@ -656,22 +93,27 @@ function SortIcon({ descending }) {
       xmlns="http://www.w3.org/2000/svg"
       width="16"
       height="16"
-      className={descending ? "" : "rotate-180"}
       aria-hidden="true"
     >
       <path
-        d="M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z"
+        d={ascending ? "M13 3.793V9h-2V3.864L9.914 4.95 8.5 3.536 12.036 0l3.535 3.536-1.414 1.414L13 3.793zM8 10H0V8h8v2zm6 3H0v-2h14v2zm2 3H0v-2h16v2zM6 7H0V5h6v2zM4 4H0V2h4v2z" : "M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z"}
         fillRule="evenodd"
       />
     </svg>
   );
 }
 
-function ViewIcon() {
+function ViewIcon({ caseName, onClick }) {
   return (
-    <div
-      className="pointer-events-none absolute left-2 top-2 z-[3] flex h-8 w-8 translate-y-[-6px] scale-[.98] items-center justify-center rounded-[8px] opacity-0 transition duration-150 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
-      aria-hidden="true"
+    <button
+      type="button"
+      className="pointer-events-none absolute left-2 top-2 z-[3] flex h-8 w-8 translate-y-[-6px] scale-[.98] cursor-pointer items-center justify-center rounded-[8px] border-0 bg-transparent p-0 text-white opacity-0 transition duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:scale-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6c63ff]"
+      aria-label={`Preview ${caseName}`}
+      title={`Preview ${caseName}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
     >
       <svg viewBox="0 0 24 24" width="18" height="18">
         <path
@@ -683,13 +125,118 @@ function ViewIcon() {
         />
         <circle cx="12" cy="12" r="3" fill="none" stroke="white" strokeWidth="2" />
       </svg>
-    </div>
+    </button>
   );
 }
 
-function CaseCard({ item }) {
+function CasePreviewModal({ item, onClose }) {
+  const [closing, setClosing] = useState(false);
+  const items = useMemo(() => getItemsWithRollRanges(item.items || []), [item.items]);
+
+  const requestClose = () => {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(onClose, 200);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") requestClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  });
+
+  return createPortal(
+    <div
+      className={`case-preview-backdrop${closing ? " case-preview-backdrop-closing" : ""}`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
+    >
+      <section
+        className={`case-preview-modal${closing ? " case-preview-modal-closing" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="case-preview-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button type="button" aria-label="Close" className="case-preview-close" onClick={requestClose}>×</button>
+
+        <header className="case-preview-header">
+          <div className="case-preview-header-left">
+            <div className="case-preview-thumb">
+              <img src={item.image} alt={item.name} draggable={false} />
+            </div>
+            <div className="case-preview-texts">
+              <div id="case-preview-title" className="case-preview-name">{item.name}</div>
+              <div className="case-preview-price-pill">
+                <img src={COIN_ICON} alt="Bobux" width="14" height="14" draggable={false} />
+                <span className="case-preview-price">{formatPriceValue(item.price, { compactNumbers: false })}</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="case-preview-items-wrapper">
+          <div className="case-preview-items-grid">
+            {items.map((reward) => (
+              <article
+                key={reward.id}
+                className="case-preview-item"
+                style={{
+                  background: `linear-gradient(to top, rgba(${reward.accent}, 0.18) 0%, rgba(${reward.accent}, 0) 100%), rgb(39, 45, 70)`,
+                  "--item-border-bottom": `rgba(${reward.accent}, 0.7)`,
+                  "--item-border-side": `rgba(${reward.accent}, 0.25)`,
+                }}
+              >
+                <div className="case-preview-chance-badge" title={`Roll range: ${reward.rollRange} (0–99,999)`}>
+                  <span className="case-preview-chance">%{reward.chance}</span>
+                  <span className="case-preview-range">{reward.rollRange}</span>
+                </div>
+
+                <img src={reward.image} alt="" className="case-preview-item-blur" draggable={false} />
+                <div className="case-preview-image-wrapper">
+                  <img src={reward.image} alt={reward.name} className="case-preview-item-image" draggable={false} />
+                </div>
+
+                <div className="case-preview-item-details">
+                  <p className="case-preview-item-name">{reward.name}</p>
+                  <p className="case-preview-item-price">
+                    <span>
+                      <img src={COIN_ICON} alt="Bobux" width="15" height="15" draggable={false} />
+                      <span>{formatPriceValue(reward.value, { compactNumbers: false })}</span>
+                    </span>
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function CaseCard({ item, onPreview, onOpen }) {
   return (
-    <div className="group min-w-[170px] cursor-pointer select-none" role="button" tabIndex={0}>
+    <div
+      className="group min-w-[170px] cursor-pointer select-none rounded-[6px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6c63ff] focus-visible:outline-offset-2"
+      role="button"
+      tabIndex={0}
+      aria-label={`Preview ${item.name}`}
+      onClick={() => onPreview(item)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onPreview(item);
+        }
+      }}
+    >
       <div className="relative flex flex-col items-center overflow-hidden rounded-[6px] bg-[#171925] p-[14px]">
         <div
           className="pointer-events-none absolute inset-0 opacity-90"
@@ -699,7 +246,7 @@ function CaseCard({ item }) {
           }}
         />
 
-        <ViewIcon />
+        <ViewIcon caseName={item.name} onClick={() => onPreview(item)} />
 
         <img
           alt=""
@@ -734,6 +281,10 @@ function CaseCard({ item }) {
         <button
           type="button"
           title="Open case page"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen(item);
+          }}
           className="relative z-[2] flex h-10 w-[85%] cursor-pointer select-none items-center justify-center gap-2 rounded-[8px] border-0 bg-[#1c1f2e] transition-colors hover:bg-[#202235]"
         >
           <span className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-[#e1e4f2f2]">
@@ -747,7 +298,7 @@ function CaseCard({ item }) {
               decoding="async"
               draggable={false}
             />
-            <span className="leading-none">{item.price}</span>
+            <span className="leading-none">{formatPriceValue(item.price, { compactNumbers: false })}</span>
           </span>
         </button>
       </div>
@@ -756,40 +307,553 @@ function CaseCard({ item }) {
 }
 
 export default function CasesPage() {
+  const user = useAuth((state) => state.user);
   const [activeTab, setActiveTab] = useState("Official");
   const [search, setSearch] = useState("");
   const [descending, setDescending] = useState(true);
+  const [previewCase, setPreviewCase] = useState(null);
+  const [activeCase, setActiveCase] = useState(null);
+  const [cases, setCases] = useState([]);
+  const [casesLoading, setCasesLoading] = useState(true);
+  const [casesError, setCasesError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCases = async () => {
+      setCasesLoading(true);
+      setCasesError("");
+
+      const { data, error } = await supabase
+        .from("cases")
+        .select("*")
+        .eq("active", true)
+        .order("price", { ascending: false });
+
+      if (!isMounted) return;
+      if (error) {
+        console.error("[Cases] failed to load cases", error);
+        setCases([]);
+        setCasesError("Unable to load cases right now.");
+      } else {
+        setCases((data || []).map(normalizeCase));
+      }
+      setCasesLoading(false);
+    };
+
+    void loadCases();
+
+    const casesChannel = supabase
+      .channel("cases-page-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "cases" }, () => {
+        void loadCases();
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      void supabase.removeChannel(casesChannel);
+    };
+  }, []);
 
   const visibleCases = useMemo(() => {
-    if (activeTab !== "Official") return [];
+    const currentUserId = String(user?.profile_id || user?.id || "");
+    const tabCases = cases.filter((item) => {
+      if (activeTab === "Official") return !item.community;
+      if (activeTab === "Community") return item.community;
+      return item.community && currentUserId && String(item.owner_user_id || "") === currentUserId;
+    });
 
-    return CASES.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => {
+    return tabCases.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => {
       const diff = priceToNumber(a.price) - priceToNumber(b.price);
       return descending ? -diff : diff;
     });
-  }, [activeTab, search, descending]);
+  }, [activeTab, cases, descending, search, user?.id, user?.profile_id]);
+
+  if (activeCase) {
+    return <CaseOpeningView item={activeCase} onBack={() => setActiveCase(null)} />;
+  }
 
   return (
-    <div className="relative left-1/2 min-h-screen w-screen -translate-x-1/2 overflow-x-hidden bg-[#1d202f] text-[#e1e4f2] [font-family:Poppins,sans-serif]">
+    <div className="main-container relative z-10 h-full w-full min-w-0 max-w-full overflow-x-hidden text-[#e1e4f2] [font-family:Poppins,sans-serif]">
       <style>{`
         @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap");
+
+        @keyframes case-preview-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes case-preview-fade-out {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+
+        @keyframes case-preview-open {
+          from { transform: scale(.8); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes case-preview-close {
+          from { transform: scale(1); opacity: 1; }
+          to { transform: scale(.8); opacity: 0; }
+        }
+
+        .case-preview-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, .5);
+          animation: case-preview-fade-in .5s ease-out;
+        }
+
+        .case-preview-backdrop-closing {
+          animation: case-preview-fade-out .2s ease-out forwards;
+        }
+
+        .case-preview-modal {
+          position: relative;
+          width: 90%;
+          max-width: 750px;
+          max-height: 90vh;
+          overflow-y: auto;
+          padding: 15px;
+          box-sizing: border-box;
+          border: 1px solid #181a28;
+          border-radius: 10px;
+          background: #131520;
+          color: #fff;
+          font-family: Poppins, sans-serif;
+          animation: case-preview-open .3s forwards;
+          scrollbar-width: thin;
+          scrollbar-color: #6c63ff transparent;
+        }
+
+        .case-preview-modal::-webkit-scrollbar,
+        .case-preview-items-wrapper::-webkit-scrollbar {
+          width: 4px !important;
+          background-color: transparent;
+        }
+
+        .case-preview-modal::-webkit-scrollbar-track,
+        .case-preview-items-wrapper::-webkit-scrollbar-track {
+          border-radius: 10px;
+          background-color: transparent;
+        }
+
+        .case-preview-modal::-webkit-scrollbar-thumb,
+        .case-preview-items-wrapper::-webkit-scrollbar-thumb {
+          border-radius: 50px;
+          background-color: #6c63ff;
+          opacity: .6;
+        }
+
+        .case-preview-modal-closing {
+          animation: case-preview-close .2s forwards;
+        }
+
+        .case-preview-modal::before {
+          display: none;
+          content: "";
+        }
+
+        .case-preview-close {
+          position: absolute;
+          top: 5px;
+          right: 10px;
+          z-index: 10;
+          padding: 0;
+          border: none;
+          background: none;
+          color: #fff;
+          font-size: 24px;
+          line-height: 1;
+          cursor: pointer;
+          opacity: .8;
+          transition: opacity .3s ease, transform .2s ease;
+        }
+
+        .case-preview-close:hover,
+        .case-preview-close:focus-visible {
+          opacity: 1;
+        }
+
+        .case-preview-close:focus-visible {
+          outline: 2px solid #6c63ff;
+          outline-offset: 2px;
+        }
+
+        .case-preview-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 12px;
+          margin-top: 5px;
+          margin-bottom: 10px;
+        }
+
+        .case-preview-header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .case-preview-thumb {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 72px;
+          height: 72px;
+          overflow: hidden;
+          flex-shrink: 0;
+          border-radius: 8px;
+          background: transparent;
+        }
+
+        .case-preview-thumb img {
+          width: 72px;
+          height: 72px;
+          object-fit: contain;
+        }
+
+        .case-preview-texts {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          min-width: 0;
+        }
+
+        .case-preview-name {
+          overflow: hidden;
+          color: #e1e4f2;
+          font-size: 15px;
+          font-weight: 700;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .case-preview-price-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          width: fit-content;
+          padding: 3px 8px;
+          border-radius: 6px;
+          background: #1c1f2e;
+        }
+
+        .case-preview-price {
+          color: #e1e4f2;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .case-preview-items-wrapper {
+          position: relative;
+          height: 350px;
+          margin-top: 15px;
+          padding: 12px;
+          box-sizing: border-box;
+          overflow-x: hidden;
+          overflow-y: auto;
+          border-radius: 6px;
+          background: #1c1f2e;
+          scrollbar-width: thin;
+          scrollbar-color: #6c63ff transparent;
+        }
+
+        .case-preview-items-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 8px;
+        }
+
+        .case-preview-item {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          height: 170px;
+          padding: 8px;
+          box-sizing: border-box;
+          border: none;
+          border-radius: 6px;
+          cursor: default;
+          overflow: hidden;
+          transition: transform .2s ease;
+        }
+
+        .case-preview-item::before {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          padding: 2px;
+          border-radius: 6px;
+          background: linear-gradient(to bottom, transparent 0%, var(--item-border-side, rgba(108, 99, 255, .25)) 55%, var(--item-border-bottom, rgba(108, 99, 255, .7)) 100%);
+          content: "";
+          pointer-events: none;
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+        }
+
+        .case-preview-item:hover {
+          transform: scale(1.03);
+        }
+
+        .case-preview-chance-badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          z-index: 5;
+          padding: 3px 7px;
+          border: 1px solid #252839;
+          border-radius: 6px;
+          background: #20222f;
+          color: rgba(225, 228, 242, .9);
+          font-size: 11px;
+          font-weight: 700;
+          white-space: nowrap;
+          pointer-events: none;
+        }
+
+        .case-preview-chance {
+          display: inline;
+        }
+
+        .case-preview-range {
+          display: none;
+        }
+
+        .case-preview-item:hover .case-preview-chance {
+          display: none;
+        }
+
+        .case-preview-item:hover .case-preview-range {
+          display: inline;
+        }
+
+        .case-preview-item-blur {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          z-index: 0;
+          width: 80%;
+          height: 80%;
+          opacity: .35;
+          object-fit: contain;
+          filter: blur(18px);
+          transform: translate(-50%, -60%);
+          pointer-events: none;
+        }
+
+        .case-preview-image-wrapper {
+          position: relative;
+          width: 100%;
+          height: 118px;
+          overflow: hidden;
+          flex: 0 0 118px;
+          border-radius: 8px;
+        }
+
+        .case-preview-item-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          z-index: 1;
+          width: 100%;
+          height: 100%;
+          border-radius: 8px;
+          object-fit: contain;
+        }
+
+        .case-preview-item-details {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex: 1;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 32px;
+          min-height: 32px;
+          margin-top: 4px;
+          flex: 0 0 32px;
+          gap: 1px;
+          overflow: hidden;
+          text-align: center;
+        }
+
+        .case-preview-item-name,
+        .case-preview-item-price {
+          margin: 0;
+        }
+
+        .case-preview-item-name {
+          display: block;
+          width: 100%;
+          max-width: 100%;
+          overflow: hidden;
+          color: #ccd9fa;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 14px;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .case-preview-item-price {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          max-width: 100%;
+          overflow: hidden;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 15px;
+          white-space: nowrap;
+        }
+
+        .case-preview-item-price > span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          max-width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          vertical-align: middle;
+        }
+
+        .case-preview-item-price img {
+          width: 15px;
+          height: 15px;
+          margin-right: 6px;
+          flex-shrink: 0;
+          object-fit: contain;
+        }
+
+        .case-preview-item-price > span > span {
+          display: inline-block;
+          min-width: 0;
+          overflow: hidden;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 15px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 840px) {
+          .case-preview-modal {
+            width: 95%;
+            max-height: 90vh;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .case-preview-backdrop {
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 0;
+          }
+
+          .case-preview-modal {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            padding: 12px 12px 16px;
+            overflow: hidden;
+            border: none;
+            border-radius: 0;
+          }
+
+          .case-preview-modal::before {
+            display: block;
+            width: 36px;
+            height: 4px;
+            margin: 0 auto 12px;
+            flex-shrink: 0;
+            border-radius: 2px;
+            background: #2a2e44;
+          }
+
+          .case-preview-close {
+            top: 8px;
+            right: 12px;
+            font-size: 20px;
+          }
+
+          .case-preview-header {
+            flex-shrink: 0;
+            flex-direction: row;
+            gap: 8px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            padding-right: 36px;
+          }
+
+          .case-preview-items-wrapper {
+            width: 100%;
+            height: auto;
+            min-height: 0;
+            margin-top: 0;
+            padding: 10px;
+            flex: 1;
+            overflow-y: auto;
+            border-radius: 8px;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .case-preview-items-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+          }
+
+          .case-preview-item {
+            height: 170px;
+            padding: 8px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .case-preview-backdrop,
+          .case-preview-modal,
+          .case-preview-item {
+            animation: none;
+            transition: none;
+          }
+        }
       `}</style>
 
-      <div className="relative z-10 flex h-full w-full flex-col items-center">
+      <div className="relative z-[20] flex h-full w-full flex-col items-center">
         <div className="flex min-h-screen w-full max-w-[1320px] flex-col items-center px-4 pb-4 pt-4 xl:px-12 xl:pb-8 xl:pt-8">
           <div className="flex h-full w-full flex-col gap-4">
             <div className="h-full w-full">
               <div className="mx-auto box-border w-full px-[14px] pb-[22px] min-[1100px]:max-w-[1320px] min-[1100px]:px-[18px] min-[1100px]:pb-7 max-[840px]:px-3">
                 <div className="mb-3 mt-2 box-border flex w-full flex-nowrap items-center justify-between gap-3 px-0.5 max-[840px]:flex-col max-[840px]:items-center">
-                  <div className="flex shrink-0 gap-1 rounded-[8px] bg-[#131520] p-1">
+                  <div className="flex shrink-0 gap-1 rounded-[6px] bg-[#131520] p-1">
                     {TABS.map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setActiveTab(tab)}
-                        className={`whitespace-nowrap rounded-[6px] border-0 px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+                        className={`whitespace-nowrap rounded-[4px] border-0 px-4 py-1.5 text-[13px] font-semibold transition-colors ${
                           activeTab === tab
-                            ? "bg-[#20222f] text-[#e1e4f2]"
+                            ? "bg-[#2a3048] text-[#e1e4f2]"
                             : "bg-transparent text-[#6c7399] hover:text-[#c7cce2]"
                         }`}
                       >
@@ -798,43 +862,58 @@ export default function CasesPage() {
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-2.5 max-[840px]:w-full max-[840px]:flex-wrap max-[840px]:justify-center">
-                    <div className="relative flex grow max-[840px]:w-full max-[840px]:justify-center">
+                  <div className="ml-auto flex shrink-0 items-center gap-2 max-[840px]:ml-0 max-[840px]:w-full max-[840px]:flex-nowrap max-[840px]:justify-center">
+                    <div className="relative flex max-[840px]:min-w-0 max-[840px]:flex-1">
                       <SearchIcon />
                       <input
                         type="text"
                         placeholder="Search for a case..."
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
-                        className="box-border h-10 w-[300px] rounded-[6px] border-2 border-white/[.08] bg-[#1c1f2e] px-[18px] text-center text-[.95rem] text-white/90 opacity-100 shadow-none outline-none transition-colors placeholder:text-center placeholder:text-[#e1e4f28c] focus:border-[#6c63ff73] focus:bg-[#202235] max-[840px]:w-[calc(100%-30px)]"
+                        className="box-border h-10 w-[260px] rounded-[6px] border-0 bg-[#1c1f2e] py-0 pl-10 pr-[14px] text-left text-sm text-white/[.92] shadow-none outline-none placeholder:text-left placeholder:text-white/[.45] focus:border-0 focus:bg-[#1c1f2e] focus:outline-none max-[840px]:w-full"
                       />
                     </div>
 
-                    <button
-                      type="button"
-                      title={descending ? "Price Descending" : "Price Ascending"}
-                      onClick={() => setDescending((value) => !value)}
-                      className="inline-flex h-[34px] shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-[6px] border-0 bg-[#20222f] px-[14px] text-[13px] font-bold text-[#e1e4f2] transition-colors hover:bg-[#2a2e44]"
-                    >
-                      <SortIcon descending={descending} />
-                    </button>
+              <button
+                type="button"
+                title={descending ? "Highest to Lowest" : "Lowest to Highest"}
+                aria-label={descending ? "Sort lowest to highest" : "Sort highest to lowest"}
+                onClick={() => setDescending((value) => !value)}
+                className="inline-flex h-10 w-10 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-[6px] border-0 bg-[#20222f] p-0 text-[#e1e4f2] transition-colors duration-150 hover:bg-[#2a2e44]"
+              >
+                <SortIcon ascending={!descending} />
+              </button>
                   </div>
 
-                  <div className="flex items-center gap-2.5 max-[840px]:w-full max-[840px]:justify-center" />
                 </div>
 
-                {activeTab === "Official" ? (
+                {casesLoading ? (
+                  <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#8b92b8]">
+                    Loading cases...
+                  </div>
+                ) : casesError ? (
+                  <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#ff7b87]">
+                    {casesError}
+                  </div>
+                ) : visibleCases.length > 0 ? (
                   <div
                     className="grid w-full gap-3 px-0.5"
                     style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}
                   >
                     {visibleCases.map((item) => (
-                      <CaseCard key={`${item.name}-${item.price}`} item={item} />
+                      <CaseCard
+                        key={item.id}
+                        item={item}
+                        onPreview={setPreviewCase}
+                        onOpen={setActiveCase}
+                      />
                     ))}
                   </div>
                 ) : (
-                  <div className="flex w-full justify-center px-0.5 py-8">
-                    {/* The uploaded inspected HTML only included the Official grid content. Community and Your Cases panel content was not present, so no cards are invented here. */}
+                  <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#8b92b8]">
+                    {activeTab === "Your Cases" && !user
+                      ? "Sign in to view your cases."
+                      : `No ${activeTab.toLowerCase()} cases found.`}
                   </div>
                 )}
               </div>
@@ -842,6 +921,8 @@ export default function CasesPage() {
           </div>
         </div>
       </div>
+
+      {previewCase ? <CasePreviewModal item={previewCase} onClose={() => setPreviewCase(null)} /> : null}
     </div>
   );
 }

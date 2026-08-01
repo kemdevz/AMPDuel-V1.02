@@ -8,7 +8,8 @@ const formatNumber = (value) => {
 export function getInventoryItemAccent(item) {
   const value = Number(item?.value ?? 0)
 
-  if (Number.isFinite(value) && value >= 10_000_000) return '255, 223, 0'
+  if (Number.isFinite(value) && value >= 50_000_000) return '255, 223, 0'
+  if (Number.isFinite(value) && value >= 10_000_000) return '255, 99, 71'
   if (Number.isFinite(value) && value >= 750_000) return '255, 105, 180'
   return '54, 123, 255'
 }
