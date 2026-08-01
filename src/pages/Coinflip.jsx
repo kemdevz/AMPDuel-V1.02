@@ -19,6 +19,7 @@ const CREATOR_VIEW_OPEN_DELAY_MS = 140
 const OPPONENT_RESULT_VIEW_OPEN_DELAY_MS = ROW_RESULT_COUNTDOWN_MS
 
 function getRowResultRemainingMs(room) {
+  if (room?._skipResultCountdown && room?.result) return 0
   const resolvedAt = new Date(room?.resolved_at || '').getTime()
   if (!Number.isFinite(resolvedAt)) return room?.result ? 0 : ROW_RESULT_COUNTDOWN_MS
   const elapsed = Math.max(0, Date.now() - resolvedAt)
@@ -376,7 +377,14 @@ export default function Coinflip() {
           return
         }
 
-        const normalized = Array.isArray(data) ? data.map(normalizeRoom).filter(Boolean) : []
+        const normalized = Array.isArray(data)
+          ? data
+              .map((room) => normalizeRoom({
+                ...room,
+                _skipResultCountdown: Boolean(room?.result),
+              }))
+              .filter(Boolean)
+          : []
         for (const room of normalized) {
           if (room.result && room.id) handledResolvedRoomIdsRef.current.add(String(room.id))
         }
