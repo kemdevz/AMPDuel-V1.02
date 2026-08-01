@@ -7,6 +7,7 @@ import Coinflip from './pages/Coinflip'
 import SummerEvent from './pages/SummerEvent'
 import Cases from './pages/Cases'
 import Jackpot from './pages/Jackpot'
+import Mines from './pages/Mines'
 import Placeholder from './pages/Placeholder'
 import { useAuth } from './store/auth'
 
@@ -20,6 +21,7 @@ function AppRoutes() {
     events: <SummerEvent />,
     cases: <Cases />,
     jackpot: <Jackpot />,
+    mines: <Mines />,
   }
   const caseRouteMatch = pathname.match(/^\/cases\/([^/]+)$/)
   const page = caseRouteMatch
