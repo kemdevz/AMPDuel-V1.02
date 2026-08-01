@@ -1079,7 +1079,10 @@ export default function ChatPanel({ className = "" }) {
         ));
         if (optimisticIndex >= 0) {
           const nextMessages = [...current];
-          nextMessages[optimisticIndex] = normalizedMessage;
+          nextMessages[optimisticIndex] = {
+            ...normalizedMessage,
+            _renderKey: current[optimisticIndex]._renderKey || current[optimisticIndex].id,
+          };
           return normalizeStoredMessages(nextMessages);
         }
         if (current.some((item) => item.id === normalizedMessage.id)) return current;
@@ -1382,8 +1385,9 @@ export default function ChatPanel({ className = "" }) {
       return;
     }
 
+    const clientMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const outgoingMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: clientMessageId,
       type: "message",
       level: chatAuthor.level,
       name: chatAuthor.name,
@@ -1410,6 +1414,7 @@ export default function ChatPanel({ className = "" }) {
           }
         : undefined,
       _optimistic: true,
+      _renderKey: clientMessageId,
     };
 
     setMessages((current) => normalizeStoredMessages([...current, outgoingMessage]));
@@ -1426,6 +1431,7 @@ export default function ChatPanel({ className = "" }) {
         const confirmedMessage = {
           ...result.message,
           time: formatChatMessageTime(result.message.time),
+          _renderKey: outgoingMessage._renderKey,
         };
         setMessages((current) => normalizeStoredMessages(
           current.map((message) => (
@@ -2153,7 +2159,7 @@ export default function ChatPanel({ className = "" }) {
                   null
                 ) : (
                   <ChatMessage
-                    key={message.id}
+                    key={message._renderKey || message.id}
                     message={message}
                     onReply={setReplyTo}
                     onProfileOpen={setSelectedProfile}
