@@ -61,6 +61,7 @@ function RainCaptchaOverlay({ isOpen, isSubmitting, error, onClose, onVerify }) 
         widgetIdRef.current = grecaptcha.render(containerRef.current, {
           sitekey,
           theme: "dark",
+          size: window.innerWidth < 380 ? "compact" : "normal",
           callback: (token) => verifyRef.current?.(token),
           "error-callback": () => notifications.error("Verification failed. Please try again."),
           "expired-callback": () => {
@@ -105,7 +106,9 @@ function RainCaptchaOverlay({ isOpen, isSubmitting, error, onClose, onVerify }) 
           to { opacity: 1; }
         }
       `}</style>
-      <div ref={containerRef} className="w-[300px] max-w-[calc(100vw-32px)]" />
+      <div className="flex min-h-[110px] w-[336px] max-w-[calc(100vw-32px)] items-center justify-center rounded-[12px] border border-[#252839] bg-[#171925] p-4 shadow-2xl">
+        <div ref={containerRef} className="flex max-w-full items-center justify-center" />
+      </div>
     </div>
   );
 }

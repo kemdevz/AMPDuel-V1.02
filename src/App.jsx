@@ -21,7 +21,10 @@ function AppRoutes() {
     cases: <Cases />,
     jackpot: <Jackpot />,
   }
-  const page = pages[routeName]
+  const caseRouteMatch = pathname.match(/^\/cases\/([^/]+)$/)
+  const page = caseRouteMatch
+    ? <Cases caseSlug={caseRouteMatch[1]} />
+    : pages[routeName]
 
   useEffect(() => {
     if (!page) navigate('/', { replace: true })

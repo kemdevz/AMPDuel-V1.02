@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import CaseOpeningView from "../components/CaseOpeningView";
 import { getInventoryItemAccent } from "../components/InventoryItemCard";
+import { useNavigate } from "../lib/router";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../store/auth";
 import { formatPriceValue } from "../Utils/FormatPriceValues";
@@ -34,6 +35,16 @@ function priceToNumber(price) {
   return Number(String(price ?? 0).replaceAll(",", ""));
 }
 
+function getCaseSlug(name) {
+  return String(name || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function normalizeCase(row) {
   const caseId = String(row?.uuid || row?.id || "");
   const items = Array.isArray(row?.items) ? row.items : [];
@@ -41,6 +52,7 @@ function normalizeCase(row) {
   return {
     ...row,
     id: caseId,
+    slug: getCaseSlug(row?.name),
     image: row?.image_url || row?.image || "",
     price: Number(row?.price ?? 0),
     active: row?.active !== false,
@@ -306,13 +318,13 @@ function CaseCard({ item, onPreview, onOpen }) {
   );
 }
 
-export default function CasesPage() {
+export default function CasesPage({ caseSlug = null }) {
+  const navigate = useNavigate();
   const user = useAuth((state) => state.user);
   const [activeTab, setActiveTab] = useState("Official");
   const [search, setSearch] = useState("");
   const [descending, setDescending] = useState(true);
   const [previewCase, setPreviewCase] = useState(null);
-  const [activeCase, setActiveCase] = useState(null);
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState("");
@@ -370,8 +382,34 @@ export default function CasesPage() {
     });
   }, [activeTab, cases, descending, search, user?.id, user?.profile_id]);
 
+  const activeCase = useMemo(
+    () => cases.find((item) => item.slug === String(caseSlug || "").toLowerCase()) || null,
+    [caseSlug, cases],
+  );
+
   if (activeCase) {
-    return <CaseOpeningView item={activeCase} onBack={() => setActiveCase(null)} />;
+    return <CaseOpeningView item={activeCase} onBack={() => navigate("/cases")} />;
+  }
+
+  if (caseSlug) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center px-4 text-[#e1e4f2] [font-family:Poppins,sans-serif]">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <p className="m-0 text-sm text-[#8b92b8]">
+            {casesLoading ? "Loading case..." : casesError || "This case is unavailable."}
+          </p>
+          {!casesLoading && (
+            <button
+              type="button"
+              onClick={() => navigate("/cases")}
+              className="h-[42px] cursor-pointer rounded-[8px] border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-5 font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)]"
+            >
+              Back to Cases
+            </button>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -905,7 +943,7 @@ export default function CasesPage() {
                         key={item.id}
                         item={item}
                         onPreview={setPreviewCase}
-                        onOpen={setActiveCase}
+                        onOpen={(selectedCase) => navigate(`/cases/${selectedCase.slug}`)}
                       />
                     ))}
                   </div>

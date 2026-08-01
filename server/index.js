@@ -491,19 +491,24 @@ async function verifyCaptchaToken(token, ipAddress) {
   const secret = isTestMode
     ? RECAPTCHA_TEST_SECRET_KEY
     : process.env.RECAPTCHA_SECRET_KEY || ''
+  const normalizedToken = typeof token === 'string' ? token.trim() : ''
 
   if (!secret) {
     return { ok: false, status: 503, error: 'reCAPTCHA is not configured on the server.' }
   }
 
-  if (!token || String(token).length > 2048) {
-    return { ok: false, status: 400, error: 'Complete the security check before joining.' }
+  if (!normalizedToken) {
+    return { ok: false, status: 400, error: 'Complete the security check before continuing.' }
+  }
+
+  if (normalizedToken.length > 16_384) {
+    return { ok: false, status: 400, error: 'The security check response is invalid. Please try again.' }
   }
 
   try {
     const verificationBody = new URLSearchParams({
       secret,
-      response: String(token),
+      response: normalizedToken,
     })
     if (ipAddress) verificationBody.set('remoteip', ipAddress)
 
@@ -1975,7 +1980,7 @@ app.post('/api/auth/login-webhook', requireAuthenticatedUser, express.json({ lim
   res.json(result)
 })
 
-app.post('/api/rain/join', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+app.post('/api/rain/join', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
   const ipAddress = getRequestIp(req)
   if (isRainJoinRateLimited(ipAddress)) {
     res.status(429).json({ ok: false, error: 'Too many join attempts. Please wait a moment.' })
@@ -2048,7 +2053,7 @@ app.post('/api/rain/tip', express.json({ limit: '8kb' }), requireAuthenticatedUs
   }
 })
 
-app.post('/api/promocode/redeem', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+app.post('/api/promocode/redeem', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
   const ipAddress = getRequestIp(req)
   const profileId = req.identity.profileId
   const code = String(req.body?.code || '').trim()
