@@ -15,7 +15,8 @@ const RESOLVED_ROOM_LIFETIME_MS = 60_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const ROW_RESULT_COUNTDOWN_MS = 5_000
 const RECENT_RESULT_LIMIT = 100
-const AUTOMATIC_VIEW_OPEN_DELAY_MS = ROW_RESULT_COUNTDOWN_MS
+const CREATOR_VIEW_OPEN_DELAY_MS = 140
+const OPPONENT_RESULT_VIEW_OPEN_DELAY_MS = ROW_RESULT_COUNTDOWN_MS
 
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
@@ -227,7 +228,7 @@ export default function Coinflip() {
         ? prev.filter((existing) => existing.id !== normalized.id)
         : prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
       if (normalized.result && isJoiningOpponent) {
-        openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
+        openViewRoom(normalized, OPPONENT_RESULT_VIEW_OPEN_DELAY_MS)
       } else {
         setViewRoom((current) => {
           if (normalized.canceled && current?.id === normalized.id) return null
@@ -546,7 +547,7 @@ export default function Coinflip() {
 
           return [newRoom, ...prev]
         })
-        openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
+        openViewRoom(normalized, CREATOR_VIEW_OPEN_DELAY_MS)
       }} />}
       {joinRoom && (
         <CoinflipJoinModal
@@ -556,7 +557,7 @@ export default function Coinflip() {
             if (updatedRoom) {
               const normalized = normalizeRoom(updatedRoom)
               setRooms((prev) => prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-              openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
+              openViewRoom(normalized, OPPONENT_RESULT_VIEW_OPEN_DELAY_MS)
             }
             setJoinRoom(null)
           }}
