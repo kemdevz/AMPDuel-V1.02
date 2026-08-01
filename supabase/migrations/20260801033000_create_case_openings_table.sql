@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS public.case_openings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id uuid NOT NULL,
-  batch_position smallint NOT NULL CHECK (batch_position BETWEEN 0 AND 3),
-  batch_quantity smallint NOT NULL CHECK (batch_quantity BETWEEN 1 AND 4),
+  batch_position smallint NOT NULL,
+  batch_quantity smallint NOT NULL,
   case_id uuid NOT NULL,
   user_id uuid NOT NULL,
 
@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS public.case_openings (
     CHECK (coin_payout = winning_item_value),
   CONSTRAINT case_openings_roll_range_check
     CHECK (roll_range_start <= roll_range_end AND roll BETWEEN roll_range_start AND roll_range_end),
+  CONSTRAINT case_openings_batch_position_range_check
+    CHECK (batch_position BETWEEN 0 AND 3),
+  CONSTRAINT case_openings_batch_quantity_range_check
+    CHECK (batch_quantity BETWEEN 1 AND 4),
   CONSTRAINT case_openings_batch_position_check
     CHECK (batch_position < batch_quantity),
   CONSTRAINT case_openings_resolution_time_check
