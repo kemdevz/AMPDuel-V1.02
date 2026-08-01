@@ -23,9 +23,7 @@ function isCatalogCaseArtwork(imageUrl) {
 }
 
 function getCaseArtworkSize(caseItem) {
-  const caseName = String(caseItem?.name || "").toLowerCase();
-  if (caseName.includes("inferno")) return "inferno";
-  if (caseName.includes("winter")) return "winter";
+  if (String(caseItem?.name || "").toLowerCase().includes("inferno")) return "inferno";
   if (isCatalogCaseArtwork(caseItem?.image)) return "catalog";
   return "default";
 }
@@ -375,10 +373,6 @@ export default function CaseOpeningView({ item, onBack }) {
 
         .case-open-thumb .case-open-thumb-image-catalog {
           transform: scale(1.3);
-        }
-
-        .case-open-thumb .case-open-thumb-image-winter {
-          transform: scale(1.326);
         }
 
         .case-open-thumb .case-open-thumb-image-inferno {
