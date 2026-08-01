@@ -18,6 +18,13 @@ const RECENT_RESULT_LIMIT = 100
 const CREATOR_VIEW_OPEN_DELAY_MS = 140
 const OPPONENT_RESULT_VIEW_OPEN_DELAY_MS = ROW_RESULT_COUNTDOWN_MS
 
+function getRowResultRemainingMs(room) {
+  const resolvedAt = new Date(room?.resolved_at || '').getTime()
+  if (!Number.isFinite(resolvedAt)) return room?.result ? 0 : ROW_RESULT_COUNTDOWN_MS
+  const elapsed = Math.max(0, Date.now() - resolvedAt)
+  return Math.min(ROW_RESULT_COUNTDOWN_MS, Math.max(0, ROW_RESULT_COUNTDOWN_MS - elapsed))
+}
+
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
 
@@ -141,6 +148,7 @@ export default function Coinflip() {
   const [recentResults, setRecentResults] = useState([])
   const socketRef = useRef(null)
   const viewOpenTimerRef = useRef(null)
+  const handledResolvedRoomIdsRef = useRef(new Set())
 
   const openViewRoom = useCallback((room, delayMs = 0) => {
     if (viewOpenTimerRef.current) {
@@ -162,6 +170,57 @@ export default function Coinflip() {
   useEffect(() => () => {
     if (viewOpenTimerRef.current) window.clearTimeout(viewOpenTimerRef.current)
   }, [])
+
+  const applyRoomUpdate = useCallback((incomingRoom) => {
+    const normalized = normalizeRoom(incomingRoom)
+    if (!normalized) return
+
+    const roomId = String(normalized.id || '')
+    const activeUser = useAuth.getState().user
+    const activeProfileId = String(activeUser?.profile_id || activeUser?.id || '')
+    const isFirstResolvedUpdate = Boolean(
+      normalized.result &&
+      roomId &&
+      !handledResolvedRoomIdsRef.current.has(roomId),
+    )
+
+    if (isFirstResolvedUpdate) {
+      handledResolvedRoomIdsRef.current.add(roomId)
+      if (activeProfileId === String(normalized.winner_uuid || '')) {
+        window.dispatchEvent(new CustomEvent('wallet:updated'))
+      }
+    }
+
+    setRecentResults((current) => mergeRecentCoinflipResults(current, [normalized]))
+    setRooms((current) => {
+      if (normalized.canceled) {
+        return current.filter((existing) => String(existing.id) !== roomId)
+      }
+
+      const existingIndex = current.findIndex((existing) => String(existing.id) === roomId)
+      if (existingIndex < 0) return [normalized, ...current]
+      const nextRooms = [...current]
+      nextRooms[existingIndex] = { ...nextRooms[existingIndex], ...normalized }
+      return nextRooms
+    })
+
+    const isJoiningOpponent = Boolean(
+      activeProfileId &&
+      activeProfileId === String(normalized.opponent_uuid || ''),
+    )
+    if (isFirstResolvedUpdate && isJoiningOpponent) {
+      openViewRoom(normalized, Math.min(
+        OPPONENT_RESULT_VIEW_OPEN_DELAY_MS,
+        getRowResultRemainingMs(normalized),
+      ))
+      return
+    }
+
+    setViewRoom((current) => {
+      if (normalized.canceled && current?.id === normalized.id) return null
+      return current?.id === normalized.id ? { ...current, ...normalized } : current
+    })
+  }, [openViewRoom])
 
   useEffect(() => {
     const socket = connectSocket()
@@ -211,31 +270,7 @@ export default function Coinflip() {
       }
     }
 
-    const handleUpdated = (room) => {
-      if (!room) return
-      const normalized = normalizeRoom(room)
-      const activeUser = useAuth.getState().user
-      const activeProfileId = String(activeUser?.profile_id || activeUser?.id || '')
-      const isJoiningOpponent = Boolean(
-        activeProfileId &&
-        activeProfileId === String(normalized.opponent_uuid || ''),
-      )
-      if (normalized.result && activeProfileId === String(normalized.winner_uuid || '')) {
-        window.dispatchEvent(new CustomEvent('wallet:updated'))
-      }
-      setRecentResults((current) => mergeRecentCoinflipResults(current, [normalized]))
-      setRooms((prev) => normalized.canceled
-        ? prev.filter((existing) => existing.id !== normalized.id)
-        : prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-      if (normalized.result && isJoiningOpponent) {
-        openViewRoom(normalized, OPPONENT_RESULT_VIEW_OPEN_DELAY_MS)
-      } else {
-        setViewRoom((current) => {
-          if (normalized.canceled && current?.id === normalized.id) return null
-          return current?.id === normalized.id ? { ...current, ...normalized } : current
-        })
-      }
-    }
+    const handleUpdated = (room) => applyRoomUpdate(room)
 
     socket.on('coinflip:created', handleCreated)
     socket.on('coinflip:updated', handleUpdated)
@@ -244,7 +279,7 @@ export default function Coinflip() {
       socket.off('coinflip:created', handleCreated)
       socket.off('coinflip:updated', handleUpdated)
     }
-  }, [openViewRoom])
+  }, [applyRoomUpdate])
 
   useEffect(() => {
     let isMounted = true
@@ -274,7 +309,7 @@ export default function Coinflip() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'coinflip_games' }, (payload) => {
         const game = payload.new || payload.old
         if (!game) return
-        setRecentResults((current) => mergeRecentCoinflipResults(current, [game]))
+        applyRoomUpdate(payload.eventType === 'DELETE' ? { ...game, canceled: true } : game)
       })
       .subscribe()
 
@@ -282,7 +317,7 @@ export default function Coinflip() {
       isMounted = false
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [applyRoomUpdate])
 
   // Derived stats for the stat cards
   const activeRoomsCount = rooms.filter((r) => !r.canceled && !r.result).length
@@ -342,6 +377,9 @@ export default function Coinflip() {
         }
 
         const normalized = Array.isArray(data) ? data.map(normalizeRoom).filter(Boolean) : []
+        for (const room of normalized) {
+          if (room.result && room.id) handledResolvedRoomIdsRef.current.add(String(room.id))
+        }
         setRooms((prev) => {
           // merge existing rooms with fetched ones, preferring fetched
           const byId = new Map()
@@ -564,7 +602,10 @@ export default function Coinflip() {
             if (updatedRoom) {
               const normalized = normalizeRoom(updatedRoom)
               setRooms((prev) => prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-              openViewRoom(normalized, OPPONENT_RESULT_VIEW_OPEN_DELAY_MS)
+              openViewRoom(normalized, Math.min(
+                OPPONENT_RESULT_VIEW_OPEN_DELAY_MS,
+                getRowResultRemainingMs(normalized),
+              ))
             }
             setJoinRoom(null)
           }}
@@ -699,13 +740,24 @@ function SortDropdown({ value, onChange, className = '' }) {
 }
 
 function CoinflipRowResult({ room, side, onReveal }) {
-  const [remainingSeconds, setRemainingSeconds] = useState(ROW_RESULT_COUNTDOWN_MS / 1000)
-  const [revealed, setRevealed] = useState(false)
+  const getRemainingMs = () => getRowResultRemainingMs(room)
+  const [initialRemainingMs, setInitialRemainingMs] = useState(getRemainingMs)
+  const [remainingSeconds, setRemainingSeconds] = useState(() => Math.max(1, Math.ceil(getRemainingMs() / 1000)))
+  const [revealed, setRevealed] = useState(() => getRemainingMs() <= 0)
 
   useEffect(() => {
-    const deadline = performance.now() + ROW_RESULT_COUNTDOWN_MS
+    const remainingMs = getRemainingMs()
+    setInitialRemainingMs(remainingMs)
+
+    if (remainingMs <= 0) {
+      setRevealed(true)
+      onReveal?.()
+      return undefined
+    }
+
+    const deadline = performance.now() + remainingMs
     setRevealed(false)
-    setRemainingSeconds(ROW_RESULT_COUNTDOWN_MS / 1000)
+    setRemainingSeconds(Math.max(1, Math.ceil(remainingMs / 1000)))
     const interval = window.setInterval(() => {
       const seconds = Math.ceil((deadline - performance.now()) / 1000)
       setRemainingSeconds(Math.min(5, Math.max(1, seconds)))
@@ -714,13 +766,13 @@ function CoinflipRowResult({ room, side, onReveal }) {
       window.clearInterval(interval)
       setRevealed(true)
       onReveal?.()
-    }, ROW_RESULT_COUNTDOWN_MS)
+    }, remainingMs)
 
     return () => {
       window.clearInterval(interval)
       window.clearTimeout(timeout)
     }
-  }, [room?.id, room?.result])
+  }, [room?.id, room?.resolved_at, room?.result])
 
   if (revealed) {
     return (
@@ -752,6 +804,7 @@ function CoinflipRowResult({ room, side, onReveal }) {
     )
   }
 
+  const elapsedPercent = 100 - ((initialRemainingMs / ROW_RESULT_COUNTDOWN_MS) * 100)
   return (
     <div className="relative h-16 w-16" role="timer" aria-label={`${remainingSeconds} seconds until result`}>
       <svg viewBox="-50 -50 100 100" fill="none" className="h-full w-full" aria-hidden="true">
@@ -763,11 +816,11 @@ function CoinflipRowResult({ room, side, onReveal }) {
           pathLength="100"
           strokeDasharray="100"
           transform="rotate(-90)"
-            className="coinflip-row-countdown-stroke"
-            style={{
-              '--coinflip-countdown-start': 0,
-              '--coinflip-countdown-duration': `${ROW_RESULT_COUNTDOWN_MS}ms`,
-            }}
+          className="coinflip-row-countdown-stroke"
+          style={{
+            '--coinflip-countdown-start': elapsedPercent,
+            '--coinflip-countdown-duration': `${initialRemainingMs}ms`,
+          }}
         />
         <text
           fontSize="32"
@@ -816,11 +869,13 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const joinDisabled = !canJoin || isCreator
   const isCompleted = Boolean(room.opponent_uuid && room.result)
   const winner = isCompleted ? room.result || room.winner || null : null
-  const [rowResultVisible, setRowResultVisible] = useState(false)
+  const [rowResultVisible, setRowResultVisible] = useState(
+    () => isCompleted && getRowResultRemainingMs(room) <= 0,
+  )
 
   useEffect(() => {
-    setRowResultVisible(false)
-  }, [room.id, room.result])
+    setRowResultVisible(Boolean(isCompleted && getRowResultRemainingMs(room) <= 0))
+  }, [isCompleted, room.id, room.resolved_at, room.result])
 
   const creatorWon = rowResultVisible && (room.winner_uuid
     ? String(room.winner_uuid) === String(room.creator_uuid)
