@@ -215,11 +215,9 @@ export default function Coinflip() {
       const normalized = normalizeRoom(room)
       const activeUser = useAuth.getState().user
       const activeProfileId = String(activeUser?.profile_id || activeUser?.id || '')
-      const isParticipant = Boolean(
-        activeProfileId && (
-          activeProfileId === String(normalized.creator_uuid || '') ||
-          activeProfileId === String(normalized.opponent_uuid || '')
-        ),
+      const isJoiningOpponent = Boolean(
+        activeProfileId &&
+        activeProfileId === String(normalized.opponent_uuid || ''),
       )
       if (normalized.result && activeProfileId === String(normalized.winner_uuid || '')) {
         window.dispatchEvent(new CustomEvent('wallet:updated'))
@@ -228,7 +226,7 @@ export default function Coinflip() {
       setRooms((prev) => normalized.canceled
         ? prev.filter((existing) => existing.id !== normalized.id)
         : prev.map((existing) => (existing.id === normalized.id ? { ...existing, ...normalized } : existing)))
-      if (normalized.result && isParticipant) {
+      if (normalized.result && isJoiningOpponent) {
         openViewRoom(normalized, AUTOMATIC_VIEW_OPEN_DELAY_MS)
       } else {
         setViewRoom((current) => {
