@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import { MinesIcon } from '../components/icons'
+import { apiRequest } from '../lib/apiClient'
 
 const GRID_SIZES = [5, 6, 7, 8]
 const DEFAULT_BET = 5000
@@ -408,6 +409,62 @@ const MINES_STYLES = `
   filter: saturate(.25) drop-shadow(0 5px 4px rgba(0, 0, 0, .24));
 }
 
+.mines-mine {
+  width: 60%;
+  height: 60%;
+  color: #ff6b6b;
+}
+
+.mines-error {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 6px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.mines-game-info {
+  background: rgba(108, 99, 255, 0.1);
+  border: 1px solid rgba(108, 99, 255, 0.3);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-around;
+}
+
+.mines-reset-button {
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: 1px solid #313750;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #353d5b 0%, #2a3048 45%, #212538 100%);
+  color: #aeb5d1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.13s ease, filter 0.13s ease, transform 0.13s ease;
+}
+
+.mines-reset-button:hover {
+  color: #fff;
+  filter: brightness(1.1);
+}
+
+.mines-reset-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mines-cell._revealed_lhu08_420 {
+  cursor: default;
+  opacity: 1;
+}
+
+.mines-cell._mine_lhu08_425 {
+  background: rgba(255, 107, 107, 0.2);
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
 @media (max-width: 1100px) {
   .mines-page-wrap {
     width: calc(100% - 32px);
@@ -478,11 +535,95 @@ export default function Mines() {
   const [mineCount, setMineCount] = useState(3)
   const [gridSize, setGridSize] = useState(5)
   const [muted, setMuted] = useState(false)
+  const [game, setGame] = useState(null)
+  const [revealedPositions, setRevealedPositions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const cells = useMemo(() => Array.from({ length: gridSize * gridSize }, (_, index) => index), [gridSize])
   const sliderPercentage = ((mineCount - 1) / 23) * 100
 
   const updateMineCount = (value) => {
     setMineCount(Math.min(24, Math.max(1, Number(value) || 1)))
+  }
+
+  const createGame = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await apiRequest('/api/mines/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          wager_value: amount,
+          mines_count: mineCount,
+        }),
+      })
+      if (response.ok) {
+        setGame(response.game)
+        setRevealedPositions([])
+      } else {
+        setError(response.error || 'Failed to create game')
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to create game')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const revealPosition = async (position) => {
+    if (!game || game.game_state !== 'active' || revealedPositions.includes(position)) return
+
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await apiRequest('/api/mines/reveal', {
+        method: 'POST',
+        body: JSON.stringify({
+          game_id: game.id,
+          position,
+        }),
+      })
+      if (response.ok) {
+        setGame(response.game)
+        setRevealedPositions(response.game.revealed_positions)
+      } else {
+        setError(response.error || 'Failed to reveal position')
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to reveal position')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const cashOut = async () => {
+    if (!game || game.game_state !== 'active') return
+
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await apiRequest('/api/mines/cashout', {
+        method: 'POST',
+        body: JSON.stringify({
+          game_id: game.id,
+        }),
+      })
+      if (response.ok) {
+        setGame(response.game)
+      } else {
+        setError(response.error || 'Failed to cash out')
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to cash out')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetGame = () => {
+    setGame(null)
+    setRevealedPositions([])
+    setError(null)
   }
 
   return (
@@ -578,7 +719,35 @@ export default function Mines() {
               </div>
 
               <div className="_actions_lhu08_380 mines-actions">
-                <button className="_primaryAction_lhu08_383 _btnPrimary_sd554_43 mines-play-button" type="button">Play</button>
+                {game ? (
+                  <>
+                    <button 
+                      className="_primaryAction_lhu08_383 _btnPrimary_sd554_43 mines-play-button" 
+                      type="button"
+                      onClick={cashOut}
+                      disabled={loading || game.game_state !== 'active'}
+                    >
+                      Cash Out {game.game_state === 'active' ? `(${formatAmount(game.current_value)})` : ''}
+                    </button>
+                    <button 
+                      className="_secondaryAction_lhu08_383 _btnSecondary_sd554_43 mines-reset-button" 
+                      type="button"
+                      onClick={resetGame}
+                      disabled={loading}
+                    >
+                      New Game
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    className="_primaryAction_lhu08_383 _btnPrimary_sd554_43 mines-play-button" 
+                    type="button"
+                    onClick={createGame}
+                    disabled={loading}
+                  >
+                    {loading ? 'Creating...' : 'Play'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -593,16 +762,42 @@ export default function Mines() {
           </div>
 
             <div className="_boardBox_lhu08_149 mines-board-wrap">
+              {error && (
+                <div className="_error_lhu08_500 mines-error" style={{ color: '#ff6b6b', marginBottom: '10px', fontSize: '0.9rem' }}>
+                  {error}
+                </div>
+              )}
               <div
                 className="_grid_lhu08_404 mines-grid"
                 style={{ '--mines-grid-size': gridSize }}
                 aria-label={`${gridSize} by ${gridSize} Mines board`}
               >
-                {cells.map((cell) => (
-                  <button key={cell} type="button" className="_cell_lhu08_412 _disabled_lhu08_424 mines-cell" disabled aria-label={`Unrevealed cell ${cell + 1}`}>
-                    <img src={UNREVEALED_GEM_IMAGE} alt="Unrevealed" className="_gemIcon_lhu08_430 _gemIconGray_lhu08_431 mines-gem" />
-                  </button>
-                ))}
+                {cells.map((cell) => {
+                  const isRevealed = revealedPositions.includes(cell)
+                  const isMine = game?.mine_positions?.includes(cell)
+                  const isDisabled = !game || game.game_state !== 'active' || isRevealed || loading
+                  
+                  return (
+                    <button 
+                      key={cell} 
+                      type="button" 
+                      className={`_cell_lhu08_412 mines-cell ${isRevealed ? '_revealed_lhu08_420' : ''} ${isMine && isRevealed ? '_mine_lhu08_425' : ''}`}
+                      disabled={isDisabled}
+                      onClick={() => revealPosition(cell)}
+                      aria-label={isRevealed ? (isMine ? 'Mine' : 'Safe') : `Unrevealed cell ${cell + 1}`}
+                    >
+                      {isRevealed ? (
+                        isMine ? (
+                          <img src={SMALL_BOMB_IMAGE} alt="Mine" className="_mineIcon_lhu08_430 mines-mine" />
+                        ) : (
+                          <img src={UNREVEALED_GEM_IMAGE} alt="Safe" className="_gemIcon_lhu08_430 mines-gem" style={{ opacity: 1, filter: 'none' }} />
+                        )
+                      ) : (
+                        <img src={UNREVEALED_GEM_IMAGE} alt="Unrevealed" className="_gemIcon_lhu08_430 _gemIconGray_lhu08_431 mines-gem" />
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>

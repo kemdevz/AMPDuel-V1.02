@@ -1375,6 +1375,25 @@ io.on('connection', (socket) => {
     }
   })
 
+  // Mines real-time events: broadcast created/updated mines games
+  socket.on('mines:create', (payload) => {
+    try {
+      if (!payload || !payload.game) return
+      io.emit('mines:created', payload.game)
+    } catch (err) {
+      console.warn('[socket] mines:create handler error', err)
+    }
+  })
+
+  socket.on('mines:update', (payload) => {
+    try {
+      if (!payload || !payload.game) return
+      io.emit('mines:updated', payload.game)
+    } catch (err) {
+      console.warn('[socket] mines:update handler error', err)
+    }
+  })
+
   socket.on('disconnect', () => {
     clearTimeout(unidentifiedPresenceTimer)
     emitOnlineCount()
@@ -2628,6 +2647,369 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
     return
   } catch (err) {
     console.error('[api/coinflip/join] error', err)
+    res.status(500).json({ ok: false, error: String(err) })
+  }
+})
+
+// Mines game functions
+function getMinesMultiplier(revealedCount, totalPositions, minesCount) {
+  const safePositions = totalPositions - minesCount
+  if (revealedCount === 0) return 1.0
+  
+  let multiplier = 1.0
+  for (let i = 0; i < revealedCount; i++) {
+    const remainingSafe = safePositions - i
+    const remainingTotal = totalPositions - i
+    multiplier *= remainingTotal / remainingSafe
+  }
+  
+  // Apply house edge (3%)
+  multiplier *= 0.97
+  
+  return Math.round(multiplier * 100) / 100
+}
+
+function generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId) {
+  const message = `${clientSeed}:${nonce}:${gameId}`
+  const digest = crypto.createHmac('sha256', serverSeed).update(message).digest('hex')
+  
+  const positions = []
+  const available = Array.from({ length: totalPositions }, (_, i) => i)
+  
+  for (let i = 0; i < minesCount && available.length > 0; i++) {
+    const hashIndex = (i * 2) % digest.length
+    const hashValue = Number.parseInt(digest.slice(hashIndex, hashIndex + 2), 16)
+    const randomIndex = hashValue % available.length
+    positions.push(available.splice(randomIndex, 1)[0])
+  }
+  
+  return positions.sort((a, b) => a - b)
+}
+
+function encryptMinesServerSeed(serverSeed, supabaseKey) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return `${iv.toString('hex')}.${tag.toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptMinesServerSeed(encryptedSeed, supabaseKey) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted mines server seed')
+
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    getCoinflipSeedEncryptionKey(supabaseKey),
+    Buffer.from(ivHex, 'hex'),
+  )
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, 'hex')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+// Create a new mines game
+app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseUrl || !supabaseKey) {
+    res.status(500).json({ ok: false, error: 'supabase config missing' })
+    return
+  }
+
+  const payload = req.body || {}
+  const profileId = String(req.identity.profileId)
+  const wagerValue = Number(payload.wager_value) || 0
+  const minesCount = Math.min(Math.max(Number(payload.mines_count) || 3, 1), 24)
+  const totalPositions = 25 // 5x5 grid
+
+  if (wagerValue <= 0) {
+    return res.status(400).json({ ok: false, error: 'Wager must be positive.' })
+  }
+
+  try {
+    // Check user balance
+    const profile = await loadProfileById(profileId)
+    if (!profile) {
+      return res.status(404).json({ ok: false, error: 'Profile not found.' })
+    }
+
+    if (Number(profile.balance || 0) < wagerValue) {
+      return res.status(400).json({ ok: false, error: 'Insufficient balance.' })
+    }
+
+    // Deduct wager from balance
+    await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
+      method: 'PATCH',
+      body: { balance: Number(profile.balance) - wagerValue },
+    })
+
+    // Generate game parameters
+    const gameId = crypto.randomUUID()
+    const serverSeed = crypto.randomBytes(32).toString('hex')
+    const clientSeed = crypto.randomBytes(16).toString('hex')
+    const nonce = Math.floor(Date.now() / 1000) // Use seconds instead of milliseconds to fit in integer
+
+    const minePositions = generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId)
+
+    const gameData = {
+      id: gameId,
+      profile_id: profileId,
+      username: profile.username,
+      avatar_url: profile.avatar_url,
+      wager_value: wagerValue,
+      mines_count: minesCount,
+      revealed_positions: [],
+      mine_positions: minePositions,
+      game_state: 'active',
+      multiplier: 1.0,
+      current_value: wagerValue,
+      server_seed_encrypted: encryptMinesServerSeed(serverSeed, supabaseKey),
+      client_seed: clientSeed,
+      nonce,
+    }
+
+    const response = await fetch(`${supabaseUrl}/rest/v1/mines_games?select=*`, {
+      method: 'POST',
+      headers: getSupabaseAdminHeaders(supabaseKey, { 
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }),
+      body: JSON.stringify(gameData),
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    const responseText = await response.text()
+    console.log('[api/mines/create] response status:', response.status)
+    console.log('[api/mines/create] response text:', responseText)
+
+    if (!response.ok) {
+      console.warn('[api/mines/create] failed to create game', response.status, responseText)
+      console.warn('[api/mines/create] game data:', JSON.stringify(gameData))
+      throw new Error(`Failed to create mines game: ${responseText}`)
+    }
+
+    let createdGame
+    try {
+      createdGame = responseText ? JSON.parse(responseText) : null
+    } catch (parseError) {
+      console.error('[api/mines/create] failed to parse response:', responseText)
+      throw new Error(`Failed to parse mines game response: ${parseError.message}`)
+    }
+    
+    const returnGame = Array.isArray(createdGame) ? createdGame[0] : createdGame
+
+    console.log('[api/mines/create] created game:', JSON.stringify(returnGame))
+
+    // Emit real-time update
+    io.emit('mines:created', returnGame)
+
+    res.json({ ok: true, game: returnGame })
+  } catch (err) {
+    console.error('[api/mines/create] error', err)
+    res.status(500).json({ ok: false, error: String(err) })
+  }
+})
+
+// Reveal a position in mines game
+app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseUrl || !supabaseKey) {
+    res.status(500).json({ ok: false, error: 'supabase config missing' })
+    return
+  }
+
+  const payload = req.body || {}
+  const profileId = String(req.identity.profileId)
+  const gameId = String(payload.game_id || '')
+  const position = Number(payload.position)
+
+  if (gameId === '' || isNaN(position) || position < 0 || position > 24) {
+    return res.status(400).json({ ok: false, error: 'Invalid game or position.' })
+  }
+
+  try {
+    const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+      headers: getSupabaseAdminHeaders(supabaseKey),
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    if (!gameRes.ok) {
+      const txt = await gameRes.text()
+      console.warn('[api/mines/reveal] failed to fetch game', gameRes.status, txt)
+      return res.status(404).json({ ok: false, error: 'Game not found.' })
+    }
+
+    const gameData = await gameRes.json()
+    const game = Array.isArray(gameData) ? gameData[0] : gameData
+
+    if (!game || game.profile_id !== profileId) {
+      return res.status(403).json({ ok: false, error: 'You can only reveal your own games.' })
+    }
+
+    if (game.game_state !== 'active') {
+      return res.status(400).json({ ok: false, error: 'Game is not active.' })
+    }
+
+    if (game.revealed_positions.includes(position)) {
+      return res.status(400).json({ ok: false, error: 'Position already revealed.' })
+    }
+
+    const minePositions = Array.isArray(game.mine_positions) ? game.mine_positions : []
+    const newRevealedPositions = [...game.revealed_positions, position]
+    const isMine = minePositions.includes(position)
+
+    let updateData = {
+      revealed_positions: newRevealedPositions,
+    }
+
+    if (isMine) {
+      updateData.game_state = 'exploded'
+      updateData.multiplier = 0
+      updateData.current_value = 0
+    } else {
+      const revealedCount = newRevealedPositions.length
+      const multiplier = getMinesMultiplier(revealedCount, 25, game.mines_count)
+      const currentValue = Math.round(game.wager_value * multiplier)
+      
+      updateData.multiplier = multiplier
+      updateData.current_value = currentValue
+    }
+
+    const updateRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+      method: 'PATCH',
+      headers: getSupabaseAdminHeaders(supabaseKey, { 
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }),
+      body: JSON.stringify(updateData),
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    const responseText = await updateRes.text()
+    console.log('[api/mines/reveal] response status:', updateRes.status)
+    console.log('[api/mines/reveal] response text:', responseText)
+
+    if (!updateRes.ok) {
+      console.warn('[api/mines/reveal] failed to update game', updateRes.status, responseText)
+      throw new Error(`Failed to update mines game: ${responseText}`)
+    }
+
+    let updatedGameData
+    try {
+      updatedGameData = responseText ? JSON.parse(responseText) : null
+    } catch (parseError) {
+      console.error('[api/mines/reveal] failed to parse response:', responseText)
+      throw new Error(`Failed to parse mines game response: ${parseError.message}`)
+    }
+    
+    const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
+
+    // If exploded, refund nothing (already lost wager)
+    // If not exploded, user can continue or cash out
+
+    io.emit('mines:updated', updatedGame)
+
+    res.json({ ok: true, game: updatedGame, is_mine: isMine })
+  } catch (err) {
+    console.error('[api/mines/reveal] error', err)
+    res.status(500).json({ ok: false, error: String(err) })
+  }
+})
+
+// Cash out from mines game
+app.post('/api/mines/cashout', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseUrl || !supabaseKey) {
+    res.status(500).json({ ok: false, error: 'supabase config missing' })
+    return
+  }
+
+  const payload = req.body || {}
+  const profileId = String(req.identity.profileId)
+  const gameId = String(payload.game_id || '')
+
+  if (gameId === '') {
+    return res.status(400).json({ ok: false, error: 'Invalid game ID.' })
+  }
+
+  try {
+    const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+      headers: getSupabaseAdminHeaders(supabaseKey),
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    if (!gameRes.ok) {
+      const txt = await gameRes.text()
+      console.warn('[api/mines/cashout] failed to fetch game', gameRes.status, txt)
+      return res.status(404).json({ ok: false, error: 'Game not found.' })
+    }
+
+    const gameData = await gameRes.json()
+    const game = Array.isArray(gameData) ? gameData[0] : gameData
+
+    if (!game || game.profile_id !== profileId) {
+      return res.status(403).json({ ok: false, error: 'You can only cash out your own games.' })
+    }
+
+    if (game.game_state !== 'active') {
+      return res.status(400).json({ ok: false, error: 'Game is not active.' })
+    }
+
+    if (game.revealed_positions.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Reveal at least one position before cashing out.' })
+    }
+
+    const winnings = game.current_value
+
+    // Update game state
+    const updateRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+      method: 'PATCH',
+      headers: getSupabaseAdminHeaders(supabaseKey, { 
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }),
+      body: JSON.stringify({
+        game_state: 'cashed_out',
+        cashed_out_at: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    const responseText = await updateRes.text()
+    console.log('[api/mines/cashout] response status:', updateRes.status)
+    console.log('[api/mines/cashout] response text:', responseText)
+
+    if (!updateRes.ok) {
+      console.warn('[api/mines/cashout] failed to update game', updateRes.status, responseText)
+      throw new Error(`Failed to update mines game: ${responseText}`)
+    }
+
+    let updatedGameData
+    try {
+      updatedGameData = responseText ? JSON.parse(responseText) : null
+    } catch (parseError) {
+      console.error('[api/mines/cashout] failed to parse response:', responseText)
+      throw new Error(`Failed to parse mines game response: ${parseError.message}`)
+    }
+
+    // Add winnings to user balance
+    const profile = await loadProfileById(profileId)
+    if (profile) {
+      await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
+        method: 'PATCH',
+        body: { balance: Number(profile.balance) + winnings },
+      })
+    }
+
+    const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
+
+    io.emit('mines:updated', updatedGame)
+
+    res.json({ ok: true, game: updatedGame, winnings })
+  } catch (err) {
+    console.error('[api/mines/cashout] error', err)
     res.status(500).json({ ok: false, error: String(err) })
   }
 })
