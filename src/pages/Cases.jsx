@@ -39,6 +39,11 @@ function isCatalogCaseArtwork(imageUrl) {
   return String(imageUrl || "").includes("biggamesapi.io/image/");
 }
 
+function shouldEnlargeCaseArtwork(caseItem) {
+  return isCatalogCaseArtwork(caseItem?.image)
+    || String(caseItem?.name || "").toLowerCase().includes("inferno");
+}
+
 function getCaseSlug(name) {
   return String(name || "")
     .normalize("NFKD")
@@ -187,7 +192,7 @@ function CasePreviewModal({ item, onClose }) {
               <img
                 src={item.image}
                 alt={item.name}
-                className={isCatalogCaseArtwork(item.image) ? "case-preview-thumb-image-catalog" : ""}
+                className={shouldEnlargeCaseArtwork(item) ? "case-preview-thumb-image-enlarged" : ""}
                 draggable={false}
               />
             </div>
@@ -243,7 +248,7 @@ function CasePreviewModal({ item, onClose }) {
 }
 
 function CaseCard({ item, onPreview, onOpen }) {
-  const usesCatalogArtwork = isCatalogCaseArtwork(item.image);
+  const usesEnlargedArtwork = shouldEnlargeCaseArtwork(item);
 
   return (
     <div
@@ -293,7 +298,7 @@ function CaseCard({ item, onPreview, onOpen }) {
               alt={item.name}
               width="120"
               height="120"
-              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${usesCatalogArtwork ? "scale-[1.3]" : ""}`}
+              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${usesEnlargedArtwork ? "scale-[1.3]" : ""}`}
               loading="lazy"
               decoding="async"
               draggable={false}
@@ -571,7 +576,7 @@ export default function CasesPage({ caseSlug = null }) {
           object-fit: contain;
         }
 
-        .case-preview-thumb .case-preview-thumb-image-catalog {
+        .case-preview-thumb .case-preview-thumb-image-enlarged {
           transform: scale(1.3);
         }
 
