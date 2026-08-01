@@ -6,12 +6,10 @@ const formatNumber = (value) => {
 }
 
 export function getInventoryItemAccent(item) {
-  const name = String(item?.name || '').toLowerCase()
-  const isRainbow = /rainbow|prismatic|iridescent|holo|shiny/.test(name)
-  const isGolden = /gold|golden|mythic|legendary|royal|supreme|ancient|divine/.test(name)
+  const value = Number(item?.value ?? 0)
 
-  if (isRainbow) return '255, 105, 180'
-  if (isGolden) return '255, 223, 0'
+  if (Number.isFinite(value) && value >= 10_000_000) return '255, 223, 0'
+  if (Number.isFinite(value) && value >= 750_000) return '255, 105, 180'
   return '54, 123, 255'
 }
 
