@@ -22,9 +22,10 @@ function isCatalogCaseArtwork(imageUrl) {
   return String(imageUrl || "").includes("biggamesapi.io/image/");
 }
 
-function shouldEnlargeCaseArtwork(caseItem) {
-  return isCatalogCaseArtwork(caseItem?.image)
-    || String(caseItem?.name || "").toLowerCase().includes("inferno");
+function getCaseArtworkSize(caseItem) {
+  if (String(caseItem?.name || "").toLowerCase().includes("inferno")) return "inferno";
+  if (isCatalogCaseArtwork(caseItem?.image)) return "catalog";
+  return "default";
 }
 
 function getItemsWithRollRanges(items) {
@@ -370,8 +371,12 @@ export default function CaseOpeningView({ item, onBack }) {
           object-fit: contain;
         }
 
-        .case-open-thumb .case-open-thumb-image-enlarged {
+        .case-open-thumb .case-open-thumb-image-catalog {
           transform: scale(1.3);
+        }
+
+        .case-open-thumb .case-open-thumb-image-inferno {
+          transform: scale(1.105);
         }
 
         .case-open-meta-copy {
@@ -1077,7 +1082,7 @@ export default function CaseOpeningView({ item, onBack }) {
               <img
                 src={item.image}
                 alt={item.name}
-                className={shouldEnlargeCaseArtwork(item) ? "case-open-thumb-image-enlarged" : ""}
+                className={`case-open-thumb-image-${getCaseArtworkSize(item)}`}
                 draggable={false}
               />
             </div>

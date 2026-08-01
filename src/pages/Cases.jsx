@@ -39,9 +39,10 @@ function isCatalogCaseArtwork(imageUrl) {
   return String(imageUrl || "").includes("biggamesapi.io/image/");
 }
 
-function shouldEnlargeCaseArtwork(caseItem) {
-  return isCatalogCaseArtwork(caseItem?.image)
-    || String(caseItem?.name || "").toLowerCase().includes("inferno");
+function getCaseArtworkSize(caseItem) {
+  if (String(caseItem?.name || "").toLowerCase().includes("inferno")) return "inferno";
+  if (isCatalogCaseArtwork(caseItem?.image)) return "catalog";
+  return "default";
 }
 
 function getCaseSlug(name) {
@@ -192,7 +193,7 @@ function CasePreviewModal({ item, onClose }) {
               <img
                 src={item.image}
                 alt={item.name}
-                className={shouldEnlargeCaseArtwork(item) ? "case-preview-thumb-image-enlarged" : ""}
+                className={`case-preview-thumb-image-${getCaseArtworkSize(item)}`}
                 draggable={false}
               />
             </div>
@@ -248,7 +249,7 @@ function CasePreviewModal({ item, onClose }) {
 }
 
 function CaseCard({ item, onPreview, onOpen }) {
-  const usesEnlargedArtwork = shouldEnlargeCaseArtwork(item);
+  const artworkSize = getCaseArtworkSize(item);
 
   return (
     <div
@@ -298,7 +299,7 @@ function CaseCard({ item, onPreview, onOpen }) {
               alt={item.name}
               width="120"
               height="120"
-              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${usesEnlargedArtwork ? "scale-[1.3]" : ""}`}
+              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "scale-[1.105]" : ""}`}
               loading="lazy"
               decoding="async"
               draggable={false}
@@ -576,8 +577,12 @@ export default function CasesPage({ caseSlug = null }) {
           object-fit: contain;
         }
 
-        .case-preview-thumb .case-preview-thumb-image-enlarged {
+        .case-preview-thumb .case-preview-thumb-image-catalog {
           transform: scale(1.3);
+        }
+
+        .case-preview-thumb .case-preview-thumb-image-inferno {
+          transform: scale(1.105);
         }
 
         .case-preview-texts {
