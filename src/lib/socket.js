@@ -40,3 +40,40 @@ export function refreshSocketAuthentication() {
   socket.connect()
   return socket
 }
+
+import { useEffect, useState } from 'react'
+
+export function useSocket() {
+  const [socketInstance, setSocketInstance] = useState(socket)
+
+  useEffect(() => {
+    if (!socket) {
+      const newSocket = connectSocket()
+      setSocketInstance(newSocket)
+    } else {
+      setSocketInstance(socket)
+    }
+
+    const handleConnect = () => {
+      setSocketInstance(socket)
+    }
+
+    const handleDisconnect = () => {
+      setSocketInstance(null)
+    }
+
+    if (socket) {
+      socket.on('connect', handleConnect)
+      socket.on('disconnect', handleDisconnect)
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('connect', handleConnect)
+        socket.off('disconnect', handleDisconnect)
+      }
+    }
+  }, [])
+
+  return socketInstance
+}

@@ -1375,24 +1375,202 @@ io.on('connection', (socket) => {
     }
   })
 
-  // Mines real-time events: broadcast created/updated mines games
-  socket.on('mines:create', (payload) => {
+  // Mines real-time events
+  socket.on('mines:reveal', async (payload, acknowledge) => {
     try {
-      if (!payload || !payload.game) return
-      io.emit('mines:created', payload.game)
+      const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+      if (!supabaseUrl || !supabaseKey) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'supabase config missing' })
+        return
+      }
+
+      const profileId = String(socket.data.identity?.profileId)
+      const gameId = String(payload.game_id || '')
+      const position = Number(payload.position)
+
+      if (gameId === '' || isNaN(position) || position < 0 || position > 24) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Invalid game or position.' })
+        return
+      }
+
+      // Optimistic: Fetch game and calculate result
+      const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+        headers: getSupabaseAdminHeaders(supabaseKey),
+        signal: AbortSignal.timeout(2_000),
+      })
+
+      if (!gameRes.ok) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game not found.' })
+        return
+      }
+
+      const gameData = await gameRes.json()
+      const game = Array.isArray(gameData) ? gameData[0] : gameData
+
+      if (!game || game.profile_id !== profileId) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You can only reveal your own games.' })
+        return
+      }
+
+      if (game.game_state !== 'active') {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game is not active.' })
+        return
+      }
+
+      if (game.revealed_positions.includes(position)) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Position already revealed.' })
+        return
+      }
+
+      const minePositions = Array.isArray(game.mine_positions) ? game.mine_positions : []
+      const newRevealedPositions = [...game.revealed_positions, position]
+      const isMine = minePositions.includes(position)
+
+      let updateData = {
+        revealed_positions: newRevealedPositions,
+      }
+
+      if (isMine) {
+        updateData.game_state = 'exploded'
+        updateData.multiplier = 0
+        updateData.current_value = 0
+      } else {
+        const revealedCount = newRevealedPositions.length
+        const multiplier = getMinesMultiplier(revealedCount, 25, game.mines_count)
+        const currentValue = Math.round(game.wager_value * multiplier)
+        
+        updateData.multiplier = multiplier
+        updateData.current_value = currentValue
+      }
+
+      // Create optimistic game object for immediate response
+      const optimisticGame = { ...game, ...updateData }
+      const publicGame = serializeMinesGame(optimisticGame)
+      
+      // Respond immediately with optimistic result
+      if (typeof acknowledge === 'function') acknowledge({ ok: true, game: publicGame, is_mine: isMine })
+      
+      // Update database in background
+      fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+        method: 'PATCH',
+        headers: getSupabaseAdminHeaders(supabaseKey, { 
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        }),
+        body: JSON.stringify(updateData),
+        signal: AbortSignal.timeout(2_000),
+      }).then(updateRes => {
+        if (updateRes.ok) {
+          updateRes.json().then(updatedGameData => {
+            const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
+            const finalPublicGame = serializeMinesGame(updatedGame)
+            io.emit('mines:updated', finalPublicGame)
+          })
+        }
+      }).catch(err => {
+        console.error('[socket] mines:reveal background update error', err)
+      })
     } catch (err) {
-      console.warn('[socket] mines:create handler error', err)
+      console.error('[socket] mines:reveal error', err)
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: String(err) })
     }
   })
 
-  socket.on('mines:update', (payload) => {
+  socket.on('mines:cashout', async (payload, acknowledge) => {
     try {
-      if (!payload || !payload.game) return
-      io.emit('mines:updated', payload.game)
+      const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+      if (!supabaseUrl || !supabaseKey) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'supabase config missing' })
+        return
+      }
+
+      const profileId = String(socket.data.identity?.profileId)
+      const gameId = String(payload.game_id || '')
+
+      if (gameId === '') {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Invalid game ID.' })
+        return
+      }
+
+      const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+        headers: getSupabaseAdminHeaders(supabaseKey),
+        signal: AbortSignal.timeout(2_000),
+      })
+
+      if (!gameRes.ok) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game not found.' })
+        return
+      }
+
+      const gameData = await gameRes.json()
+      const game = Array.isArray(gameData) ? gameData[0] : gameData
+
+      if (!game || game.profile_id !== profileId) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You can only cash out your own games.' })
+        return
+      }
+
+      if (game.game_state !== 'active') {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game is not active.' })
+        return
+      }
+
+      if (game.revealed_positions.length === 0) {
+        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Reveal at least one position before cashing out.' })
+        return
+      }
+
+      const winnings = game.current_value
+
+      // Create optimistic game object for immediate response
+      const optimisticGame = { 
+        ...game, 
+        game_state: 'cashed_out',
+        cashed_out_at: new Date().toISOString()
+      }
+      const publicGame = serializeMinesGame(optimisticGame)
+      
+      // Respond immediately with optimistic result
+      if (typeof acknowledge === 'function') acknowledge({ ok: true, game: publicGame, winnings })
+      
+      // Update database in background
+      fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
+        method: 'PATCH',
+        headers: getSupabaseAdminHeaders(supabaseKey, { 
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        }),
+        body: JSON.stringify({
+          game_state: 'cashed_out',
+          cashed_out_at: new Date().toISOString(),
+        }),
+        signal: AbortSignal.timeout(2_000),
+      }).then(async updateRes => {
+        if (updateRes.ok) {
+          const updatedGameData = await updateRes.json()
+          const profile = await loadProfileById(profileId)
+          
+          if (profile) {
+            await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
+              method: 'PATCH',
+              body: { balance: Number(profile.balance) + winnings },
+            })
+          }
+
+          const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
+          const finalPublicGame = serializeMinesGame(updatedGame)
+          io.emit('mines:updated', finalPublicGame)
+        }
+      }).catch(err => {
+        console.error('[socket] mines:cashout background update error', err)
+      })
     } catch (err) {
-      console.warn('[socket] mines:update handler error', err)
+      console.error('[socket] mines:cashout error', err)
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: String(err) })
     }
   })
+
+
 
   socket.on('disconnect', () => {
     clearTimeout(unidentifiedPresenceTimer)

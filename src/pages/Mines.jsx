@@ -4,6 +4,7 @@ import { MinesIcon } from '../components/icons'
 import { apiRequest } from '../lib/apiClient'
 import { notifications } from '../components/Notifications'
 import { useAuth } from '../store/auth'
+import { useSocket } from '../lib/socket'
 
 const GRID_SIZES = [5, 6, 7, 8]
 const DEFAULT_BET = 5000
@@ -54,6 +55,7 @@ export default function Mines() {
   const balance = useAuth((state) => state.balance)
   const setBalance = useAuth((state) => state.setBalance)
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen)
+  const socket = useSocket()
   const [amount, setAmount] = useState(DEFAULT_BET)
   const [mineCount, setMineCount] = useState(3)
   const [gridSize, setGridSize] = useState(5)
@@ -213,31 +215,114 @@ export default function Mines() {
 
     requestInFlight.current = true
     setPendingPosition(position)
+    
+    // Client-side optimistic update for instant feedback
+    const optimisticRevealed = [...revealedPositions, position]
+    const minePositions = Array.isArray(game.mine_positions) ? game.mine_positions : []
+    const isMine = minePositions.includes(position)
+    
+    setRevealedPositions(optimisticRevealed)
+    
+    if (isMine) {
+      playMinesSound('mine')
+      // Optimistically update game state - reveal all mines when exploded
+      const allMinePositions = minePositions || []
+      const allRevealed = [...new Set([...revealedPositions, position, ...allMinePositions])]
+      
+      // Update both game state and revealed positions together
+      setGame({ 
+        ...game, 
+        revealed_positions: allRevealed,
+        game_state: 'exploded',
+        multiplier: 0,
+        current_value: 0
+      })
+      setRevealedPositions(allRevealed)
+    } else {
+      const totalSafeCells = gridSize * gridSize - Number(game.mines_count || mineCount)
+      const progress = optimisticRevealed.length / Math.max(1, totalSafeCells)
+      playMinesSound(progress < 1 / 3 ? 'gem0' : progress < 2 / 3 ? 'gem1' : 'gem2')
+      // Calculate optimistic multiplier
+      let multiplier = 1.0
+      for (let i = 0; i < optimisticRevealed.length; i++) {
+        const remainingSafe = totalSafeCells - i
+        const remainingTotal = gridSize * gridSize - i
+        multiplier *= remainingTotal / remainingSafe
+      }
+      multiplier *= 0.97 // House edge
+      multiplier = Math.round(multiplier * 100) / 100
+      const currentValue = Math.round(game.wager_value * multiplier)
+      
+      setGame({ 
+        ...game, 
+        revealed_positions: optimisticRevealed,
+        multiplier,
+        current_value: currentValue
+      })
+    }
+    
     setLoading(true)
     try {
-      const response = await apiRequest('/api/mines/reveal', {
-        method: 'POST',
-        body: JSON.stringify({
-          game_id: game.id,
-          position,
-        }),
-      })
-      if (response.ok) {
+      if (socket?.connected) {
+        // Use socket for faster response
+        const response = await new Promise((resolve, reject) => {
+          socket.emit('mines:reveal', {
+            game_id: game.id,
+            position,
+          }, (ack) => {
+            if (ack.ok) {
+              resolve(ack)
+            } else {
+              reject(new Error(ack.error || 'Failed to reveal'))
+            }
+          })
+          
+          // Timeout fallback to HTTP
+          setTimeout(() => reject(new Error('Socket timeout')), 3000)
+        })
+        
+        // Reconcile with server response
         setGame(response.game)
-        setRevealedPositions(response.game.revealed_positions)
-        const isMine = response.is_mine === true
-        if (isMine) {
-          playMinesSound('mine')
+        // If game exploded, ensure all mines are revealed
+        if (response.game.game_state === 'exploded') {
+          const allMinePositions = Array.isArray(response.game.mine_positions) ? response.game.mine_positions : []
+          const allRevealed = [...new Set([...response.game.revealed_positions, ...allMinePositions])]
+          setRevealedPositions(allRevealed)
         } else {
-          const totalSafeCells = gridSize * gridSize - Number(response.game.mines_count || mineCount)
-          const progress = response.game.revealed_positions.length / Math.max(1, totalSafeCells)
-          playMinesSound(progress < 1 / 3 ? 'gem0' : progress < 2 / 3 ? 'gem1' : 'gem2')
+          setRevealedPositions(response.game.revealed_positions)
         }
       } else {
-        notifications.error(getMinesErrorMessage(response.error, 'Unable to reveal that tile. Please try again.'))
+        // Fallback to HTTP
+        const response = await apiRequest('/api/mines/reveal', {
+          method: 'POST',
+          body: JSON.stringify({
+            game_id: game.id,
+            position,
+          }),
+        })
+        if (response.ok) {
+          // Reconcile with server response
+          setGame(response.game)
+          // If game exploded, ensure all mines are revealed
+          if (response.game.game_state === 'exploded') {
+            const allMinePositions = Array.isArray(response.game.mine_positions) ? response.game.mine_positions : []
+            const allRevealed = [...new Set([...response.game.revealed_positions, ...allMinePositions])]
+            setRevealedPositions(allRevealed)
+          } else {
+            setRevealedPositions(response.game.revealed_positions)
+          }
+        } else {
+          notifications.error(getMinesErrorMessage(response.error, 'Unable to reveal that tile. Please try again.'))
+          // Revert optimistic update on error
+          setRevealedPositions(revealedPositions)
+          setGame(game)
+        }
       }
     } catch (err) {
       notifications.error(getMinesErrorMessage(err, 'Unable to reveal that tile. Please try again.'))
+      // Revert optimistic update on error
+      setRevealedPositions(revealedPositions)
+      setGame(game)
     } finally {
       requestInFlight.current = false
       setPendingPosition(null)
@@ -249,23 +334,63 @@ export default function Mines() {
     if (requestInFlight.current || !canCashOut) return
 
     requestInFlight.current = true
+    const winnings = Number(game.current_value || 0)
+    
+    // Client-side optimistic update for instant feedback
+    setGame({ 
+      ...game, 
+      game_state: 'cashed_out',
+      cashed_out_at: new Date().toISOString()
+    })
+    setBalance(Number(balance || 0) + winnings)
+    window.dispatchEvent(new CustomEvent('wallet:updated'))
+    
     setLoading(true)
     try {
-      const response = await apiRequest('/api/mines/cashout', {
-        method: 'POST',
-        body: JSON.stringify({
-          game_id: game.id,
-        }),
-      })
-      if (response.ok) {
+      if (socket?.connected) {
+        // Use socket for faster response
+        const response = await new Promise((resolve, reject) => {
+          socket.emit('mines:cashout', {
+            game_id: game.id,
+          }, (ack) => {
+            if (ack.ok) {
+              resolve(ack)
+            } else {
+              reject(new Error(ack.error || 'Failed to cash out'))
+            }
+          })
+          
+          // Timeout fallback to HTTP
+          setTimeout(() => reject(new Error('Socket timeout')), 3000)
+        })
+        
+        // Reconcile with server response
         setGame(response.game)
-        setBalance(Number(balance || 0) + Number(response.winnings || 0))
-        window.dispatchEvent(new CustomEvent('wallet:updated'))
       } else {
-        notifications.error(getMinesErrorMessage(response.error, 'Unable to cash out. Please try again.'))
+        // Fallback to HTTP
+        const response = await apiRequest('/api/mines/cashout', {
+          method: 'POST',
+          body: JSON.stringify({
+            game_id: game.id,
+          }),
+        })
+        if (response.ok) {
+          // Reconcile with server response
+          setGame(response.game)
+        } else {
+          notifications.error(getMinesErrorMessage(response.error, 'Unable to cash out. Please try again.'))
+          // Revert optimistic update on error
+          setGame(game)
+          setBalance(Number(balance || 0) - winnings)
+          window.dispatchEvent(new CustomEvent('wallet:updated'))
+        }
       }
     } catch (err) {
       notifications.error(getMinesErrorMessage(err, 'Unable to cash out. Please try again.'))
+      // Revert optimistic update on error
+      setGame(game)
+      setBalance(Number(balance || 0) - winnings)
+      window.dispatchEvent(new CustomEvent('wallet:updated'))
     } finally {
       requestInFlight.current = false
       setLoading(false)
@@ -416,8 +541,8 @@ export default function Mines() {
         ._cell_lhu08_412:hover:not(._revealed_lhu08_424):not(._mine_lhu08_240):not(._disabled_lhu08_424){background:var(--surface-1);transform:translateY(-1px)}
         ._cell_lhu08_412:active:not(._revealed_lhu08_424):not(._mine_lhu08_240):not(._disabled_lhu08_424){transform:translateY(0) scale(.97)}
         ._disabled_lhu08_424{cursor:not-allowed;opacity:.5}
-        ._revealed_lhu08_424{background:#22c55e24!important;animation:_reveal_lhu08_424 .18s ease-out}
-        ._mine_lhu08_240{background:#ef444424!important;animation:_shake_lhu08_1 .4s ease-out}
+        ._revealed_lhu08_424{background:#22c55e24!important;animation:_reveal_lhu08_424 .01s ease-out}
+        ._mine_lhu08_240{background:#ef444424!important;animation:_shake_lhu08_1 .05s ease-out}
         ._gemIcon_lhu08_430{width:70%;height:70%;-o-object-fit:contain;object-fit:contain;transition:filter .15s ease,transform .15s ease}
         ._gemIconGray_lhu08_431{filter:grayscale(1) brightness(.7);opacity:.9}
         ._gemIconColored_lhu08_432{filter:none;opacity:1}
@@ -668,13 +793,13 @@ export default function Mines() {
                 {cells.map((cell) => {
                   const isRevealed = revealedPositions.includes(cell)
                   const isMine = game?.mine_positions?.includes(cell)
-                  const showMine = Boolean(isMine && game?.game_state !== 'active')
+                  const showMine = Boolean(isMine && (game?.game_state !== 'active' || isRevealed))
                   const showGem = Boolean(!showMine && isRevealed)
-                  const isDisabled = !isGameActive || isRevealed || uiBusy
+                  const isDisabled = !isGameActive || isRevealed || uiBusy || game?.game_state === 'exploded'
 
                   return (
                     <button
-                      key={cell}
+                      key={`${cell}-${isRevealed}-${showMine}`}
                       type="button"
                       className={`_cell_lhu08_412 mines-cell ${isDisabled ? '_disabled_lhu08_424' : ''} ${showGem ? '_revealed_lhu08_424' : ''} ${showMine ? '_mine_lhu08_240' : ''}`}
                       disabled={isDisabled}
