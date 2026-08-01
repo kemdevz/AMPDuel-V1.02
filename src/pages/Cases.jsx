@@ -35,6 +35,10 @@ function priceToNumber(price) {
   return Number(String(price ?? 0).replaceAll(",", ""));
 }
 
+function isCatalogCaseArtwork(imageUrl) {
+  return String(imageUrl || "").includes("biggamesapi.io/image/");
+}
+
 function getCaseSlug(name) {
   return String(name || "")
     .normalize("NFKD")
@@ -180,7 +184,12 @@ function CasePreviewModal({ item, onClose }) {
         <header className="case-preview-header">
           <div className="case-preview-header-left">
             <div className="case-preview-thumb">
-              <img src={item.image} alt={item.name} draggable={false} />
+              <img
+                src={item.image}
+                alt={item.name}
+                className={isCatalogCaseArtwork(item.image) ? "case-preview-thumb-image-catalog" : ""}
+                draggable={false}
+              />
             </div>
             <div className="case-preview-texts">
               <div id="case-preview-title" className="case-preview-name">{item.name}</div>
@@ -234,6 +243,8 @@ function CasePreviewModal({ item, onClose }) {
 }
 
 function CaseCard({ item, onPreview, onOpen }) {
+  const usesCatalogArtwork = isCatalogCaseArtwork(item.image);
+
   return (
     <div
       className="group min-w-[170px] cursor-pointer select-none rounded-[6px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6c63ff] focus-visible:outline-offset-2"
@@ -282,7 +293,7 @@ function CaseCard({ item, onPreview, onOpen }) {
               alt={item.name}
               width="120"
               height="120"
-              className="h-[120px] w-[120px] object-cover drop-shadow-[0_10px_16px_rgba(0,0,0,.45)]"
+              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] transition-transform duration-200 ${usesCatalogArtwork ? "scale-[1.3] group-hover:scale-[1.36]" : "group-hover:scale-[1.04]"}`}
               loading="lazy"
               decoding="async"
               draggable={false}
@@ -558,6 +569,10 @@ export default function CasesPage({ caseSlug = null }) {
           width: 72px;
           height: 72px;
           object-fit: contain;
+        }
+
+        .case-preview-thumb .case-preview-thumb-image-catalog {
+          transform: scale(1.3);
         }
 
         .case-preview-texts {

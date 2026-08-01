@@ -18,6 +18,10 @@ function priceToNumber(price) {
   return Number(String(price).replaceAll(",", ""));
 }
 
+function isCatalogCaseArtwork(imageUrl) {
+  return String(imageUrl || "").includes("biggamesapi.io/image/");
+}
+
 function getItemsWithRollRanges(items) {
   let nextRoll = 0;
 
@@ -359,6 +363,10 @@ export default function CaseOpeningView({ item, onBack }) {
           width: 56px;
           height: 56px;
           object-fit: contain;
+        }
+
+        .case-open-thumb .case-open-thumb-image-catalog {
+          transform: scale(1.3);
         }
 
         .case-open-meta-copy {
@@ -1061,7 +1069,12 @@ export default function CaseOpeningView({ item, onBack }) {
         <div className="case-open-header">
           <div className="case-open-case-meta">
             <div className="case-open-thumb">
-              <img src={item.image} alt={item.name} draggable={false} />
+              <img
+                src={item.image}
+                alt={item.name}
+                className={isCatalogCaseArtwork(item.image) ? "case-open-thumb-image-catalog" : ""}
+                draggable={false}
+              />
             </div>
             <div className="case-open-meta-copy">
               <div className="case-open-name">{item.name}</div>
