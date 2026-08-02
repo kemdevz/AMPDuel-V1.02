@@ -12,6 +12,7 @@ import { notifications } from "./Notifications";
 import { getLevelStyle } from "../lib/levelStyles";
 import { getRoleStyle } from "../lib/roleStyles";
 import { loadRecaptcha, RECAPTCHA_TEST_SITE_KEY } from "../lib/recaptcha";
+import { MessageCircle, X } from "lucide-react";
 
 const COIN_ICON = "/bobux.png";
 const LEGACY_CHAT_MESSAGES_STORAGE_KEY = "bloxy_chat_messages_v1";
@@ -961,6 +962,7 @@ export default function ChatPanel({ className = "" }) {
   const [isUserTipSubmitting, setIsUserTipSubmitting] = useState(false);
   const [userCoinTipAmount, setUserCoinTipAmount] = useState("");
   const [showUserCoinTipInChat, setShowUserCoinTipInChat] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const RAIN_DURATION_SECONDS = 30 * 60;
   const JOIN_WINDOW_SECONDS = 5 * 60;
   const messagesEndRef = useRef(null);
@@ -979,6 +981,24 @@ export default function ChatPanel({ className = "" }) {
     }),
     [user],
   );
+
+  useEffect(() => {
+    if (!mobileChatOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setMobileChatOpen(false);
+    };
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setMobileChatOpen(false);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [mobileChatOpen]);
   const visibleMessages = useMemo(() => {
     const uniqueMessages = normalizeStoredMessages(messages);
     const ignoredProfileIds = new Set(
@@ -1449,7 +1469,27 @@ export default function ChatPanel({ className = "" }) {
   }
 
   return (
-    <aside className={`relative hidden h-full max-h-full min-h-0 w-[min(25.3rem,calc(17.25rem+11.5vw))] flex-shrink-0 overflow-visible box-border transition-all duration-300 lg:block ${className}`}>
+    <>
+      <button
+        type="button"
+        className="fixed bottom-[max(14px,env(safe-area-inset-bottom))] right-3 z-[70] grid h-12 w-12 place-content-center rounded-full border border-white/[0.08] bg-[linear-gradient(135deg,#6c63ff,#5147d9)] text-white shadow-[0_8px_24px_rgba(0,0,0,.38)] lg:hidden"
+        aria-label="Open chat"
+        aria-expanded={mobileChatOpen}
+        onClick={() => setMobileChatOpen(true)}
+      >
+        <MessageCircle className="h-5 w-5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Close chat"
+        className={`fixed inset-0 z-[80] bg-black/60 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden ${
+          mobileChatOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={() => setMobileChatOpen(false)}
+      />
+      <aside className={`fixed bottom-0 top-0 z-[90] flex h-[100dvh] max-h-[100dvh] min-h-0 w-[min(92vw,25rem)] flex-shrink-0 flex-col overflow-visible box-border bg-[#171925] shadow-[-18px_0_45px_rgba(0,0,0,.4)] transition-[right] duration-300 lg:relative lg:right-auto lg:z-auto lg:h-full lg:max-h-full lg:w-[min(25.3rem,calc(17.25rem+11.5vw))] lg:bg-transparent lg:shadow-none ${
+        mobileChatOpen ? "right-0" : "-right-full"
+      } ${className}`}>
       <style>{`
         @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap");
 
@@ -2115,8 +2155,20 @@ export default function ChatPanel({ className = "" }) {
         </div>
       ) : null}
 
-      <div className="h-full overflow-hidden">
-        <div className="relative box-border flex h-full min-w-0 flex-grow flex-col pb-[18px] [--px:1.4375rem] lg:pt-0">
+      <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-white/[0.06] px-4 pt-[env(safe-area-inset-top)] lg:hidden">
+        <span className="text-sm font-semibold text-white">Chat</span>
+        <button
+          type="button"
+          className="grid h-10 w-10 place-content-center rounded-lg border-0 bg-white/[0.04] text-[#a6b2d3]"
+          aria-label="Close chat"
+          onClick={() => setMobileChatOpen(false)}
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="relative box-border flex h-full min-w-0 flex-grow flex-col pb-[max(18px,env(safe-area-inset-bottom))] [--px:1rem] sm:[--px:1.4375rem] lg:pt-0">
           <div className="shrink-0 px-[--px] pt-0">
             <div className="-mx-[9px]">
               <RainBar
@@ -2175,6 +2227,7 @@ export default function ChatPanel({ className = "" }) {
           <ChatInput replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onSend={sendMessage} user={user} onlineCount={onlineCount} />
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

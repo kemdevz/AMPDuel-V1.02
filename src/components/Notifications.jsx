@@ -262,7 +262,9 @@ export default function Notifications() {
 
         .appNotificationsViewport {
           position: fixed;
-          inset: 16px;
+          left: 16px;
+          bottom: 16px;
+          width: min(350px, calc(100vw - 32px));
           z-index: 9999;
           display: flex;
           flex-direction: column-reverse;
@@ -275,7 +277,8 @@ export default function Notifications() {
         .appNotification {
           position: relative;
           display: flex;
-          max-width: 350px;
+          width: fit-content;
+          max-width: 100%;
           padding: 10px 14px 14px;
           overflow: hidden;
           align-items: center;
@@ -390,12 +393,32 @@ export default function Notifications() {
 
         @media (max-width: 640px) {
           .appNotificationsViewport {
-            align-items: stretch;
+            left: 10px;
+            bottom: max(10px, env(safe-area-inset-bottom));
+            width: min(280px, calc(100vw - 20px));
+            gap: 6px;
+            align-items: flex-start;
           }
 
           .appNotification {
-            width: 100%;
-            max-width: none;
+            width: auto;
+            max-width: 100%;
+            padding: 7px 10px 10px;
+            border-radius: 7px;
+            font-size: 12px;
+            line-height: 1.25;
+          }
+
+          .appNotificationIcon,
+          .appNotificationIconError,
+          .appNotificationIconSuccess {
+            width: 18px;
+            min-width: 18px;
+            height: 18px;
+          }
+
+          .appNotificationMessage {
+            margin: 3px 7px;
           }
         }
       `}</style>

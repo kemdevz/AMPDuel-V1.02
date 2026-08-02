@@ -239,7 +239,7 @@ export default function LoginModal({ isOpen, onClose }) {
           {/* Content panel — fixed height (matches modal), scrolls internally per step instead of resizing the modal */}
           <div className="no-scrollbar flex h-full min-h-0 w-full flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-9 sm:py-7">
             {/* Mobile-only logo since the art panel is hidden below md */}
-            <img src={LOGO} alt="BloxyPot" draggable={false} className="mb-4 h-[27px] w-auto shrink-0 select-none sm:mb-6 sm:h-[31px] md:hidden" />
+            <img src={LOGO} alt="BloxyPot" draggable={false} className="mb-4 h-[27px] w-auto max-w-[150px] shrink-0 self-start object-contain select-none sm:mb-6 sm:h-[31px] sm:max-w-[180px] md:hidden" />
 
             {step === 1 ? (
               <div className="flex min-h-full flex-1 flex-col justify-center gap-4 py-2 sm:gap-5 sm:py-0">
