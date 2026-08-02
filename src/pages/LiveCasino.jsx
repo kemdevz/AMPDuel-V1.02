@@ -85,8 +85,8 @@ export default function LiveCasino() {
                       <SearchIcon />
                       <input
                         type="text"
-                        placeholder={`Search for ${activeCategory}...`}
-                        aria-label={`Search for ${activeCategory}`}
+                        placeholder={`Search Live ${activeCategory}...`}
+                        aria-label={`Search Live ${activeCategory}`}
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         className="box-border h-10 w-[260px] rounded-[6px] border-0 bg-[#1c1f2e] py-0 pl-10 pr-[14px] text-left text-sm text-white/[.92] shadow-none outline-none placeholder:text-left placeholder:text-white/[.45] focus:border-0 focus:bg-[#1c1f2e] focus:outline-none max-[840px]:w-full"
