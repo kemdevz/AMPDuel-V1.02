@@ -124,12 +124,13 @@ const FEED = [
 ]
 
 const BETNEX_CATALOG_CACHE_MS = 5 * 60 * 1000
+const BETNEX_CURRENCY = 'USD'
 const BETNEX_PROVIDERS = [
-  { id: 'PRAGMATICLIVE', label: 'Pragmatic Play', categories: ['Blackjack', 'Baccarat'] },
-  { id: 'EVOLUTIONLIVE', label: 'Evolution', categories: ['Blackjack', 'Baccarat'] },
-  { id: 'HACKSAW', label: 'Hacksaw Gaming', categories: ['Slots'] },
-  { id: 'BGAMING', label: 'BGaming', categories: ['Slots'] },
-  { id: 'PRAGMATICSLOTS', label: 'Pragmatic Play', categories: ['Slots'] },
+  { id: 'PRAGMATICLIVE', currencyId: 'PPLIVE', label: 'Pragmatic Play', categories: ['Blackjack', 'Baccarat'] },
+  { id: 'EVOLUTIONLIVE', currencyId: 'EVOLIVEROW', label: 'Evolution', categories: ['Blackjack', 'Baccarat'] },
+  { id: 'HACKSAW', currencyId: 'HACKSAWLATAM', label: 'Hacksaw Gaming', categories: ['Slots'] },
+  { id: 'BGAMING', currencyId: 'BG', label: 'BGaming', categories: ['Slots'] },
+  { id: 'PRAGMATICSLOTS', currencyId: 'PP', label: 'Pragmatic Play', categories: ['Slots'] },
 ]
 const BETNEX_FEATURED_GAMES = {
   PRAGMATICLIVE: {
@@ -336,13 +337,40 @@ function getBetnexGames(response) {
   return []
 }
 
+async function getBetnexCurrencyGames(providerCode, currency = BETNEX_CURRENCY) {
+  const apiKey = String(process.env.BETNEX_API_KEY || '').trim()
+  if (!apiKey) throw new Error('Live Casino is not configured yet.')
+  const baseUrl = String(
+    process.env.BETNEX_API_BASE_URL || 'http://livecasinoapi.betnex.co:8011/casino',
+  ).replace(/\/+$/, '')
+  const url = new URL(`${baseUrl}/filtergames`)
+  url.searchParams.set('providercode', providerCode)
+  url.searchParams.set('currency', currency)
+
+  const response = await fetch(url, {
+    headers: {
+      'x-betnex-key': apiKey,
+      Accept: 'application/json',
+      'User-Agent': 'BloxyBattlesServer/1.0',
+    },
+    signal: AbortSignal.timeout(25_000),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data) {
+    const error = new Error(data?.message || data?.msg || 'Unable to load the USD-compatible game catalog.')
+    error.status = response.status
+    throw error
+  }
+  return data
+}
+
 function getBetnexGameCategory(game, provider) {
   const name = String(game?.name || '')
   if (provider.categories.includes('Blackjack') && /blackjack/i.test(name)) return 'Blackjack'
   if (provider.categories.includes('Baccarat') && /baccarat/i.test(name)) return 'Baccarat'
 
   if (provider.id === 'HACKSAW' || provider.id === 'PRAGMATICSLOTS') return 'Slots'
-  if (provider.id === 'BGAMING' && /slot/i.test(String(game?.type || ''))) return 'Slots'
+  if (provider.id === 'BGAMING' && /slot/i.test(String(game?.type || game?.game_type || ''))) return 'Slots'
   return null
 }
 
@@ -406,7 +434,7 @@ function selectFeaturedBetnexGames(games, provider) {
       for (const game of categoryGames) {
         if (selected.length >= categoryLimit) break
         if (selectedIds.has(game.id) || /first person/i.test(game.name)) continue
-        selected.push(game)
+        selected.push({ ...game, launchAvailable: true })
         selectedIds.add(game.id)
       }
     }
@@ -424,10 +452,13 @@ async function loadBetnexCatalog() {
   betnexCatalogRequest = (async () => {
     const api = getBetnexClient()
     const responses = await Promise.allSettled(
-      BETNEX_PROVIDERS.map(async (provider) => ({
-        provider,
-        response: await api.getGames(provider.id),
-      })),
+      BETNEX_PROVIDERS.map(async (provider) => {
+        const [catalogResponse, currencyResponse] = await Promise.all([
+          api.getGames(provider.id),
+          getBetnexCurrencyGames(provider.currencyId),
+        ])
+        return { provider, catalogResponse, currencyResponse }
+      }),
     )
 
     const games = responses.flatMap((result) => {
@@ -435,9 +466,26 @@ async function loadBetnexCatalog() {
         console.warn('[live-casino] provider catalog failed', result.reason?.message || result.reason)
         return []
       }
-      const { provider, response } = result.value
-      const normalizedGames = getBetnexGames(response)
-        .map((game, index) => normalizeBetnexGame(game, provider, index))
+      const { provider, catalogResponse, currencyResponse } = result.value
+      const catalogGames = getBetnexGames(catalogResponse)
+      const catalogByName = new Map(catalogGames.map((game) => [
+        String(game?.name || game?.game_name || '').trim().toLowerCase(),
+        game,
+      ]))
+      const localImages = BETNEX_LOCAL_SLOT_IMAGES[provider.id] || {}
+      const normalizedGames = getBetnexGames(currencyResponse)
+        .filter((game) => Number(game?.status ?? 1) === 1)
+        .map((game, index) => {
+          const name = String(game?.game_name || game?.name || '').trim()
+          const catalogGame = catalogByName.get(name.toLowerCase()) || {}
+          return normalizeBetnexGame({
+            ...catalogGame,
+            ...game,
+            id: game?.game_uid || game?.id,
+            name,
+            img: localImages[name] || catalogGame?.img || catalogGame?.image || catalogGame?.image_url,
+          }, provider, index)
+        })
         .filter(Boolean)
       return selectFeaturedBetnexGames(normalizedGames, provider)
     })
@@ -3888,7 +3936,7 @@ app.post('/api/betnex/callback', express.json({ limit: '64kb' }), async (req, re
     const callback = verifyCallback(req.body, apiKey)
     const betUsd = Number(callback.bet_amount)
     const winUsd = Number(callback.win_amount)
-    if (!Number.isFinite(betUsd) || !Number.isFinite(winUsd) || betUsd < 0 || winUsd < 0) {
+    if (!Number.isFinite(betUsd) || !Number.isFinite(winUsd)) {
       throw new Error('Invalid callback amounts.')
     }
 
