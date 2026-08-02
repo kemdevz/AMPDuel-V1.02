@@ -48,6 +48,7 @@ export default function LiveCasinoGame({ providerId, gameId }) {
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
   const closedSessionRef = useRef('')
+  const frameRevealTimerRef = useRef(null)
 
   useEffect(() => {
     let mounted = true
@@ -114,6 +115,10 @@ export default function LiveCasinoGame({ providerId, gameId }) {
   useEffect(() => () => {
     void closeSession(true)
   }, [closeSession])
+
+  useEffect(() => () => {
+    if (frameRevealTimerRef.current) window.clearTimeout(frameRevealTimerRef.current)
+  }, [])
 
   const returnToCasino = async () => {
     if (closing) return
@@ -182,11 +187,19 @@ export default function LiveCasinoGame({ providerId, gameId }) {
             <iframe
               src={launch.launchUrl}
               title={game?.name || 'Live Casino game'}
-              className="absolute inset-0 h-full w-full border-0 bg-[#080a10]"
+              className={`absolute inset-0 h-full w-full border-0 bg-black transition-opacity duration-300 ${
+                frameLoading ? 'opacity-0' : 'opacity-100'
+              }`}
               allow="autoplay; fullscreen; clipboard-read; clipboard-write"
               allowFullScreen
               referrerPolicy="strict-origin-when-cross-origin"
-              onLoad={() => setFrameLoading(false)}
+              onLoad={() => {
+                if (frameRevealTimerRef.current) window.clearTimeout(frameRevealTimerRef.current)
+                frameRevealTimerRef.current = window.setTimeout(() => {
+                  setFrameLoading(false)
+                  frameRevealTimerRef.current = null
+                }, 800)
+              }}
             />
           ) : null}
 
