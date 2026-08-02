@@ -216,11 +216,14 @@ export default function PromoBanner() {
         }
 
         .heroProgressBar {
+          margin: 0;
+          font-family: Poppins, sans-serif;
           height: 14px;
           padding: 3px;
-          border: 1px solid rgba(94,85,217,0.25);
           border-radius: 6px;
-          background: rgba(42,46,68,0.85);
+          background: #2a2e44d9;
+          border: 1px solid rgba(94,85,217,.25);
+          cursor: default;
         }
 
         .heroProgressFill {
