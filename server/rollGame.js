@@ -8,6 +8,8 @@ const ROLL_DURATION_MS = 5_000
 const RESULT_HOLD_MS = 3_000
 const MIN_ROLL_WAGER = 5_000
 const MAX_ROLL_WAGER = 10_000_000
+const MIN_ROLL_MULTIPLIER = 1.01
+const MAX_ROLL_MULTIPLIER = 100
 const ITEM_CATALOG_CACHE_MS = 10 * 60 * 1000
 const ITEM_GROUP_TARGETS = Object.freeze({ huge: 57, titanic: 2, gargantuan: 1 })
 
@@ -690,6 +692,14 @@ export function registerRollGame({
 
     if (!Number.isSafeInteger(wagerAmount) || wagerAmount < MIN_ROLL_WAGER || wagerAmount > MAX_ROLL_WAGER) {
       res.status(400).json({ ok: false, error: 'Play amount must be between 5,000 and 10,000,000 coins.' })
+      return
+    }
+    if (
+      !Number.isFinite(targetMultiplier)
+      || targetMultiplier < MIN_ROLL_MULTIPLIER
+      || targetMultiplier > MAX_ROLL_MULTIPLIER
+    ) {
+      res.status(400).json({ ok: false, error: 'Multiplier must be between 1.01x and 100x.' })
       return
     }
 

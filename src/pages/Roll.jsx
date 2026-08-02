@@ -12,6 +12,7 @@ const ROLL_REEL_COPIES = 3
 const ROLL_ANIMATION_CARD_DISTANCE = 35
 const DEFAULT_AMOUNT = 5_000
 const MAX_ROLL_WAGER = 10_000_000
+const MAX_ROLL_MULTIPLIER = 100
 const BET_CUTOFF_BUFFER_MS = 100
 
 const BASE_MULTIPLIERS = [
@@ -409,8 +410,8 @@ export default function Roll() {
       notifications.error('Maximum play is 10,000,000 coins')
       return
     }
-    if (!Number.isFinite(multiplierValue) || multiplierValue < 1.01 || multiplierValue > 10) {
-      notifications.error('Multiplier must be between 1.01x and 10x')
+    if (!Number.isFinite(multiplierValue) || multiplierValue < 1.01 || multiplierValue > MAX_ROLL_MULTIPLIER) {
+      notifications.error('Multiplier must be between 1.01x and 100x')
       return
     }
 
@@ -559,7 +560,7 @@ export default function Roll() {
                     type="text"
                     inputMode="decimal"
                     className="rollInput rollMultInput"
-                    placeholder="1.01x - 10x"
+                    placeholder="1.01x - 100x"
                     value={multiplier}
                     onChange={(event) => setMultiplier(event.target.value.replace(',', '.').replace(/[^\d.]/g, ''))}
                     onKeyDown={(event) => { if (event.key === 'Enter') placeEntry() }}
