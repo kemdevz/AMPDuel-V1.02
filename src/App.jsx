@@ -18,6 +18,7 @@ function AppRoutes() {
   const routeName = pathname.replace(/^\/+|\/+$/g, '')
   const pages = {
     '': <Home />,
+    battles: <Placeholder title="Case Battles" />,
     coinflip: <Coinflip />,
     events: <SummerEvent />,
     cases: <Cases />,

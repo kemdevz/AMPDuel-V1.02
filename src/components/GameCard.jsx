@@ -1,9 +1,11 @@
+import { Link } from '../lib/router'
+
 export default function GameCard({ game }) {
   return (
-    <a
+    <Link
       data-game-card="true"
       className="relative flex-shrink-0 select-none no-underline w-[215px] pb-5 rounded-[8px] overflow-hidden sm:w-[240px] md:w-[265px]"
-      href={game.href}
+      to={game.href}
       data-discover="true"
       style={{
         textDecoration: 'none',
@@ -31,6 +33,6 @@ export default function GameCard({ game }) {
         <h3 className="font-bold text-xl uppercase text-[#EEF2FB]">{game.title}</h3>
         <h4 className="text-[12px] font-semibold uppercase text-[#EEF2FB]/70">{game.subtitle}</h4>
       </div>
-    </a>
+    </Link>
   )
 }

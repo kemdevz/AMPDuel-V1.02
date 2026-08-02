@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../store/auth'
 import { getLevelStyle } from '../lib/levelStyles'
+import { getLevelProgress } from '../lib/levelProgression'
 
 const PROMO_IMAGE = 'https://i.ibb.co/v450phsZ/rounded-corners.png'
 
@@ -37,8 +38,10 @@ export default function PromoBanner() {
   const isGuest = !user
   const displayName = user?.username || 'Guest'
   const currentLevel = user?.level ?? 1
+  const maxLevel = user?.max_level ?? 200
+  const levelProgress = getLevelProgress(currentLevel, user?.xp, maxLevel)
   const avatarSrc = user?.avatar_headshot_url || user?.avatar_url || ''
-  const progressWidth = isGuest ? '4%' : `${Math.min(100, Math.max(4, currentLevel / 2))}%`
+  const progressWidth = isGuest ? '0%' : `${levelProgress.percent}%`
 
   return (
     <div className="heroWrap">
@@ -60,7 +63,13 @@ export default function PromoBanner() {
                   <div className="heroProgressFill" style={{ width: progressWidth }} />
                 </div>
                 <div className="heroLevelRow">
-                  <span className="heroLevelLabel">CURRENT LEVEL</span>
+                  <span className="heroLevelLabel">
+                    {isGuest
+                      ? 'CURRENT LEVEL'
+                      : levelProgress.isMaxLevel
+                        ? 'MAX LEVEL'
+                        : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP`}
+                  </span>
                   <span
                     style={{
                       ...getLevelStyle(currentLevel),
