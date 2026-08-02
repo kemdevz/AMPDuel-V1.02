@@ -2279,6 +2279,32 @@ app.get('/api/public-profiles', async (req, res) => {
   res.json({ ok: true, profiles: Array.isArray(rows) ? rows : [] })
 })
 
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const sort = ['played', 'profit', 'least-profit'].includes(String(req.query.sort))
+      ? String(req.query.sort)
+      : 'played'
+    const profiles = await adminRest(
+      'user_profiles?select=id,username,avatar_url,avatar_headshot_url,level,played,won,lost&limit=1000',
+    )
+    const leaders = (Array.isArray(profiles) ? profiles : [])
+      .map((profile) => {
+        const played = Number(profile.played) || 0
+        const profit = (Number(profile.won) || 0) - (Number(profile.lost) || 0)
+        return { ...profile, stat: sort === 'played' ? played : profit }
+      })
+      .filter((profile) => profile.username && (sort === 'played' ? profile.stat > 0 : true))
+      .sort((left, right) => sort === 'least-profit' ? left.stat - right.stat : right.stat - left.stat)
+      .slice(0, 50)
+
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30')
+    res.json({ ok: true, leaders })
+  } catch (error) {
+    console.error('[leaderboard] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load the leaderboard.' })
+  }
+})
+
 app.get('/api/inventory', requireAuthenticatedUser, async (req, res) => {
   const rows = await adminRest(
     `inventory_items?select=*&user_id=eq.${encodeURIComponent(req.identity.profileId)}&order=created_at.desc`,

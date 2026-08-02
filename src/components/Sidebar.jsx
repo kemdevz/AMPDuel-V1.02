@@ -4,8 +4,27 @@ import { NavLink } from '../lib/router'
 import { navSections } from '../data'
 import { XIcon, DiscordIcon } from './icons'
 
-function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal }) {
+function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal, onOpenLeaderboardModal }) {
   const requiresLogin = path === 'sessions' || path === 'profile'
+
+  if (path === 'leaderboard') {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenLeaderboardModal?.()
+            onNavigate?.()
+          }}
+          className={`group flex w-full items-center gap-4 rounded-lg px-4 py-[10px] text-[15.5px] font-medium text-[#aeb4dd] transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-white ${isCollapsed ? 'justify-center' : ''}`}
+          title={isCollapsed ? name : ''}
+        >
+          <Icon className="h-[22px] w-[22px] shrink-0 text-[#8f96c8] transition-colors duration-300 group-hover:text-white" />
+          {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
+        </button>
+      </li>
+    )
+  }
 
   if (requiresLogin) {
     const disabled = !isLoggedIn
@@ -84,7 +103,7 @@ function SectionLabel({ children, isCollapsed }) {
   )
 }
 
-export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose, onOpenProfileModal }) {
+export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose, onOpenProfileModal, onOpenLeaderboardModal }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
@@ -131,6 +150,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
                   isLoggedIn={isLoggedIn}
                   onNavigate={onMobileClose}
                   onOpenProfileModal={onOpenProfileModal}
+                  onOpenLeaderboardModal={onOpenLeaderboardModal}
                 />
               ))}
             </ul>
