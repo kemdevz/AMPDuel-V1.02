@@ -653,12 +653,12 @@ export default function Mines() {
         80%{transform:translate(3px)}
         to{transform:translate(0)}
         }
-        @media (max-width: 900px){._pageWrap_lhu08_2{min-height:auto;justify-content:flex-start}
-        ._middle_lhu08_133{flex-direction:column}
-        ._leftColumn_lhu08_141{order:1;border-right:none;border-bottom:1px solid rgba(255,255,255,.06);padding:12px 14px 10px;gap:10px}
-        ._boardBox_lhu08_149{order:2;padding:12px 14px 10px}
-        .mines-page-active ._boardBox_lhu08_149{order:1}
-        .mines-page-active ._leftColumn_lhu08_141{order:2;border-top:1px solid rgba(255,255,255,.06);border-bottom:0}
+        @media (max-width: 900px){.mines-page{height:auto;min-height:100%;flex:0 0 auto;overflow:visible}
+        ._pageWrap_lhu08_2{height:auto;min-height:auto;justify-content:flex-start}
+        ._modal_lhu08_121{height:auto;overflow:hidden}
+        ._middle_lhu08_133{height:auto;flex-direction:column}
+        ._leftColumn_lhu08_141{order:2;width:100%;box-sizing:border-box;flex:0 0 auto;border-top:1px solid rgba(255,255,255,.06);border-right:none;border-bottom:0;padding:12px 14px 10px;gap:10px}
+        ._boardBox_lhu08_149{order:1;width:100%;box-sizing:border-box;flex:0 0 auto;padding:12px 14px 10px}
         ._grid_lhu08_404{gap:6px}
         }
         @media (max-width: 740px){._pageWrap_lhu08_2{padding:4px 8px env(safe-area-inset-bottom,12px) 8px}
