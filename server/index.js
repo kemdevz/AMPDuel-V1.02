@@ -2820,6 +2820,9 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
 })
 
 // Mines game functions
+const MIN_MINES_WAGER = 5_000
+const MAX_MINES_WAGER = 10_000_000
+
 function getMinesMultiplier(revealedCount, totalPositions, minesCount) {
   const safePositions = totalPositions - minesCount
   if (revealedCount === 0) return 1.0
@@ -3089,8 +3092,15 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
   const totalPositions = gridSize * gridSize
   const minesCount = Math.min(Math.max(Number(payload.mines_count) || 3, 1), totalPositions - 1)
 
-  if (wagerValue <= 0) {
-    return res.status(400).json({ ok: false, error: 'Wager must be positive.' })
+  if (
+    !Number.isSafeInteger(wagerValue)
+    || wagerValue < MIN_MINES_WAGER
+    || wagerValue > MAX_MINES_WAGER
+  ) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Wager must be between 5,000 and 10,000,000 coins.',
+    })
   }
 
   let balanceBeforeWager = null
