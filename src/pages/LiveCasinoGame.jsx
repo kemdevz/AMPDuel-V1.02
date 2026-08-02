@@ -72,7 +72,6 @@ export default function LiveCasinoGame({ providerId, gameId }) {
 
         const launchResult = await requestGameLaunch(selectedGame)
         if (!mounted) return
-        console.log('[Live Casino Game] Launch result:', launchResult)
         setLaunch(launchResult)
       } catch (requestError) {
         if (!mounted) return
@@ -213,7 +212,6 @@ export default function LiveCasinoGame({ providerId, gameId }) {
                 frameLoading ? 'opacity-0' : 'opacity-100'
               }`}
               allow="autoplay; fullscreen; clipboard-read; clipboard-write"
-              allowFullScreen
               referrerPolicy="strict-origin-when-cross-origin"
               onLoad={() => {
                 if (frameRevealTimerRef.current) window.clearTimeout(frameRevealTimerRef.current)
