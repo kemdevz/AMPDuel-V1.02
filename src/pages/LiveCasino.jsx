@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { apiRequest } from '../lib/apiClient'
 
 const CATEGORIES = ['Blackjack', 'Baccarat', 'Slots']
 
@@ -33,13 +34,53 @@ function SortIcon({ ascending = false }) {
   )
 }
 
+function CasinoGameCard({ game }) {
+  return (
+    <div className="group w-full min-w-0 select-none overflow-hidden rounded-[6px] bg-[#11131d]" title={game.name}>
+      <img
+        src={game.image}
+        alt={game.name}
+        width="220"
+        height="174"
+        className="block h-[174px] w-full object-cover transition-transform duration-200 group-hover:scale-[1.025]"
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+      />
+    </div>
+  )
+}
+
 export default function LiveCasino() {
   const [activeCategory, setActiveCategory] = useState('Blackjack')
   const [search, setSearch] = useState('')
   const [descending, setDescending] = useState(true)
+  const [games, setGames] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  // The casino API will populate this collection in the next integration step.
-  const games = []
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    setError('')
+
+    apiRequest('/api/live-casino/games')
+      .then((result) => {
+        if (!mounted) return
+        setGames(Array.isArray(result?.games) ? result.games : [])
+      })
+      .catch((requestError) => {
+        if (!mounted) return
+        setGames([])
+        setError(requestError?.message || 'Unable to load Live Casino games right now.')
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => { mounted = false }
+  }, [])
+
   const visibleGames = useMemo(() => {
     const query = search.trim().toLowerCase()
 
@@ -105,27 +146,27 @@ export default function LiveCasino() {
                   </div>
                 </div>
 
-                {visibleGames.length > 0 ? (
+                {loading ? (
+                  <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#8b92b8]">
+                    Loading {activeCategory.toLowerCase()} games...
+                  </div>
+                ) : error ? (
+                  <div className="flex w-full justify-center px-0.5 py-8 text-center text-sm text-[#ff7b87]">
+                    {error}
+                  </div>
+                ) : visibleGames.length > 0 ? (
                   <div
-                    className="grid w-full gap-3 px-0.5"
-                    style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}
+                    className="grid w-full grid-cols-[repeat(auto-fill,minmax(145px,1fr))] gap-3 px-0.5 max-[360px]:grid-cols-2"
                   >
                     {visibleGames.map((game) => (
-                      <button
-                        key={game.id}
-                        type="button"
-                        className="group min-h-[220px] overflow-hidden rounded-[8px] border-0 bg-[#171925] text-left text-[#e1e4f2]"
-                      >
-                        {game.image ? <img src={game.image} alt="" className="h-[170px] w-full object-cover" /> : null}
-                        <span className="block px-3 py-2.5 text-sm font-semibold">{game.name}</span>
-                      </button>
+                      <CasinoGameCard key={`${game.providerId}-${game.id}`} game={game} />
                     ))}
                   </div>
                 ) : (
                   <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#8b92b8]">
                     {search.trim()
                       ? `No ${activeCategory.toLowerCase()} games match your search.`
-                      : `${activeCategory} games will appear here once the live casino API is connected.`}
+                      : `No ${activeCategory.toLowerCase()} games are currently available.`}
                   </div>
                 )}
               </div>

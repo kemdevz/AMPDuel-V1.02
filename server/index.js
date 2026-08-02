@@ -5,6 +5,7 @@ import http from 'http'
 import path from 'path'
 import crypto from 'crypto'
 import { Server } from 'socket.io'
+import { Betnex } from '@betnex/sdk'
 import { registerRollGame } from './rollGame.js'
 
 function isUuidLike(value) {
@@ -121,6 +122,226 @@ const FEED = [
     createdAt: new Date(Date.now() - 13 * 60 * 1000).toISOString(),
   },
 ]
+
+const BETNEX_CATALOG_CACHE_MS = 5 * 60 * 1000
+const BETNEX_PROVIDERS = [
+  { id: 'PRAGMATICLIVE', label: 'Pragmatic Play', categories: ['Blackjack', 'Baccarat'] },
+  { id: 'EVOLUTIONLIVE', label: 'Evolution', categories: ['Blackjack', 'Baccarat'] },
+  { id: 'HACKSAW', label: 'Hacksaw Gaming', categories: ['Slots'] },
+  { id: 'BGAMING', label: 'BGaming', categories: ['Slots'] },
+]
+const BETNEX_FEATURED_GAMES = {
+  PRAGMATICLIVE: {
+    Blackjack: [
+      'ONE Blackjack',
+      'Bet Behind Pro Blackjack',
+      'ONE Blackjack 2',
+      'Brazilian ONE Blackjack',
+      'Dutch ONE Blackjack',
+      'Turkish ONE Blackjack 1',
+      'BlackjackX 1',
+      'BlackjackX 2',
+      'BlackjackX 3',
+      'BlackjackX 4',
+    ],
+    Baccarat: [
+      'Squeeze Baccarat',
+      'Baccarat 3',
+      'Baccarat 8',
+      'Speed Baccarat 11',
+      'Speed Baccarat 12',
+      'Speed Baccarat 13',
+      'Speed Baccarat 15',
+      'Mega Baccarat',
+      'Privé Lounge Baccarat 1',
+      'Privé Lounge Baccarat 2',
+    ],
+  },
+  EVOLUTIONLIVE: {
+    Blackjack: [
+      'Infinite Blackjack',
+      'Speed Blackjack E',
+      'Blackjack VIP 12',
+      'Speed VIP Blackjack K',
+      'Speed VIP Blackjack J',
+      'Blackjack Diamond VIP',
+      'Blackjack Fortune VIP',
+      'Blackjack Grand VIP',
+      'Blackjack Platinum VIP',
+      'Blackjack VIP Alpha',
+    ],
+    Baccarat: [
+      'Baccarat Squeeze',
+      'Speed Baccarat 3',
+      'Speed Baccarat F',
+      'Emperor Speed Baccarat A',
+      'Emperor Speed Baccarat B',
+      'Baccarat Control Squeeze',
+      'No Commission Baccarat',
+      'No Commission Speed Baccarat A',
+      'No Commission Speed Baccarat B',
+      'No Commission Speed Baccarat C',
+    ],
+  },
+  HACKSAW: {
+    Slots: [
+      'Wanted Dead or a Wild',
+      'Chaos Crew 2',
+      'Le Bandit',
+      'Hand of Anubis',
+      'RIP City',
+      'SixSixSix',
+      "Stack 'Em",
+      'Chaos Crew',
+      'Fist Of Destruction',
+      'Chaos Crew 3',
+    ],
+  },
+  BGAMING: {
+    Slots: [
+      'Elvis Frog in Vegas',
+      'Elvis Frog TRUEWAYS',
+      'Gold Rush with Johnny Cash',
+      'Aloha King Elvis',
+      'Snoop Dogg Dollars',
+      'Aztec Magic Deluxe',
+      'Wild West TRUEWAYS',
+      'Fruit Million',
+      'Gemhalla',
+      'Aztec Magic Bonanza',
+    ],
+  },
+}
+let betnexClient = null
+let betnexCatalogCache = { expiresAt: 0, games: null }
+let betnexCatalogRequest = null
+
+function getBetnexClient() {
+  const apiKey = String(process.env.BETNEX_API_KEY || '').trim()
+  if (!apiKey) {
+    const error = new Error('Live Casino is not configured yet.')
+    error.status = 503
+    throw error
+  }
+
+  if (!betnexClient) {
+    betnexClient = new Betnex(apiKey, {
+      timeout: 20_000,
+      retries: 2,
+      debug: false,
+    })
+  }
+  return betnexClient
+}
+
+function getBetnexGames(response) {
+  if (Array.isArray(response)) return response
+  if (Array.isArray(response?.games)) return response.games
+  if (Array.isArray(response?.payload?.games)) return response.payload.games
+  if (Array.isArray(response?.payload)) return response.payload
+  if (Array.isArray(response?.data?.games)) return response.data.games
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+function getBetnexGameCategory(game, provider) {
+  const name = String(game?.name || '')
+  if (provider.categories.includes('Blackjack') && /blackjack/i.test(name)) return 'Blackjack'
+  if (provider.categories.includes('Baccarat') && /baccarat/i.test(name)) return 'Baccarat'
+
+  if (provider.id === 'HACKSAW') return 'Slots'
+  if (provider.id === 'BGAMING' && /slot/i.test(String(game?.type || ''))) return 'Slots'
+  return null
+}
+
+function normalizeBetnexGame(game, provider, index) {
+  const category = getBetnexGameCategory(game, provider)
+  if (!category) return null
+
+  const id = String(game?.id || game?.game_uid || game?.uid || '')
+  const name = String(game?.name || game?.game_name || '').trim()
+  const image = String(game?.img || game?.image || game?.image_url || game?.thumbnail || '').trim()
+  if (!id || !name || !image) return null
+
+  return {
+    id,
+    name,
+    image,
+    category,
+    provider: provider.label,
+    providerId: provider.id,
+    order: index,
+  }
+}
+
+function selectFeaturedBetnexGames(games, provider) {
+  const featuredByCategory = BETNEX_FEATURED_GAMES[provider.id] || {}
+
+  return provider.categories.flatMap((category) => {
+    const categoryGames = games.filter((game) => game.category === category)
+    const gameByName = new Map(categoryGames.map((game) => [game.name.toLowerCase(), game]))
+    const selected = (featuredByCategory[category] || [])
+      .map((name) => gameByName.get(name.toLowerCase()))
+      .filter(Boolean)
+
+    if (category !== 'Slots' && selected.length < 10) {
+      const selectedIds = new Set(selected.map((game) => game.id))
+      for (const game of categoryGames) {
+        if (selected.length >= 10) break
+        if (selectedIds.has(game.id) || /first person/i.test(game.name)) continue
+        selected.push(game)
+        selectedIds.add(game.id)
+      }
+    }
+
+    return selected.slice(0, 10)
+  })
+}
+
+async function loadBetnexCatalog() {
+  if (Array.isArray(betnexCatalogCache.games) && betnexCatalogCache.expiresAt > Date.now()) {
+    return betnexCatalogCache.games
+  }
+  if (betnexCatalogRequest) return betnexCatalogRequest
+
+  betnexCatalogRequest = (async () => {
+    const api = getBetnexClient()
+    const responses = await Promise.allSettled(
+      BETNEX_PROVIDERS.map(async (provider) => ({
+        provider,
+        response: await api.getGames(provider.id),
+      })),
+    )
+
+    const games = responses.flatMap((result) => {
+      if (result.status !== 'fulfilled') {
+        console.warn('[live-casino] provider catalog failed', result.reason?.message || result.reason)
+        return []
+      }
+      const { provider, response } = result.value
+      const normalizedGames = getBetnexGames(response)
+        .map((game, index) => normalizeBetnexGame(game, provider, index))
+        .filter(Boolean)
+      return selectFeaturedBetnexGames(normalizedGames, provider)
+    })
+
+    if (games.length === 0) {
+      const error = new Error('Live Casino games are temporarily unavailable.')
+      error.status = 502
+      throw error
+    }
+
+    betnexCatalogCache = {
+      expiresAt: Date.now() + BETNEX_CATALOG_CACHE_MS,
+      games,
+    }
+    return games
+  })().finally(() => {
+    betnexCatalogRequest = null
+  })
+
+  return betnexCatalogRequest
+}
 
 const RAIN_DURATION_SECONDS = 30 * 60
 const RAIN_JOIN_WINDOW_SECONDS = 5 * 60
@@ -3395,6 +3616,12 @@ const rollGame = registerRollGame({
 app.get('/api/games/feed', (req, res) => {
   const limit = Number(req.query.limit) || 40
   res.json({ feed: FEED.slice(0, limit) })
+})
+
+app.get('/api/live-casino/games', async (req, res) => {
+  const games = await loadBetnexCatalog()
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=240')
+  res.json({ ok: true, games })
 })
 
 app.get('/api/health', (req, res) => {
