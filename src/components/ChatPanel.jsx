@@ -12,7 +12,7 @@ import { notifications } from "./Notifications";
 import { getLevelStyle } from "../lib/levelStyles";
 import { getRoleStyle } from "../lib/roleStyles";
 import { loadRecaptcha, RECAPTCHA_TEST_SITE_KEY } from "../lib/recaptcha";
-import { MessageCircle, X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 
 const COIN_ICON = "/bobux.png";
 const LEGACY_CHAT_MESSAGES_STORAGE_KEY = "bloxy_chat_messages_v1";
@@ -1472,12 +1472,14 @@ export default function ChatPanel({ className = "" }) {
     <>
       <button
         type="button"
-        className="fixed bottom-[max(14px,env(safe-area-inset-bottom))] right-3 z-[70] grid h-12 w-12 place-content-center rounded-full border border-white/[0.08] bg-[linear-gradient(135deg,#6c63ff,#5147d9)] text-white shadow-[0_8px_24px_rgba(0,0,0,.38)] lg:hidden"
+        className={`fixed right-0 top-[58%] z-[70] h-11 w-7 -translate-y-1/2 place-content-center rounded-l-[7px] border border-r-0 border-white/[0.08] bg-[#20222f] text-[#8b85ff] shadow-[-4px_4px_14px_rgba(0,0,0,.3)] transition-opacity lg:hidden ${
+          mobileChatOpen ? "pointer-events-none hidden opacity-0" : "grid opacity-100"
+        }`}
         aria-label="Open chat"
         aria-expanded={mobileChatOpen}
         onClick={() => setMobileChatOpen(true)}
       >
-        <MessageCircle className="h-5 w-5" />
+        <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
       </button>
       <button
         type="button"
@@ -2155,8 +2157,7 @@ export default function ChatPanel({ className = "" }) {
         </div>
       ) : null}
 
-      <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-white/[0.06] px-4 pt-[env(safe-area-inset-top)] lg:hidden">
-        <span className="text-sm font-semibold text-white">Chat</span>
+      <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-end border-b border-white/[0.06] px-4 pt-[env(safe-area-inset-top)] lg:hidden">
         <button
           type="button"
           className="grid h-10 w-10 place-content-center rounded-lg border-0 bg-white/[0.04] text-[#a6b2d3]"
