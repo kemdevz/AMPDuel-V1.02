@@ -175,7 +175,6 @@ export default function LiveCasinoGame({ providerId, gameId }) {
             {game ? (
               <p className="m-0 truncate text-[10px] font-medium text-[#6c7399] sm:text-[11px]">
                 {game.provider}
-                {launch ? ` - 1 USD = ${Number(launch.coinsPerUsd).toLocaleString()} Coins - Balance: ${Number(launch.launchBalanceCoins || 0).toLocaleString()} Coins` : ''}
               </p>
             ) : null}
           </div>
