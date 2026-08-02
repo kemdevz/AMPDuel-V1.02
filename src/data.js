@@ -18,14 +18,14 @@ export const navSections = [
   {
     label: 'Games',
     items: [
-      { name: 'Case Battles', icon: BattlesIcon, path: 'battles' },
+      { name: 'Case Battles', icon: BattlesIcon, path: 'battles', enabled: false },
       { name: 'Cases', icon: CasesIcon, path: 'cases' },
       { name: 'Coinflip', icon: CoinflipIcon, path: 'coinflip' },
-      { name: 'Upgrader', icon: UpgraderIcon, path: 'upgrader' },
+      { name: 'Upgrader', icon: UpgraderIcon, path: 'upgrader', enabled: false },
       { name: 'Mines', icon: MinesIcon, path: 'mines' },
       { name: 'Roll', icon: RollIcon, path: 'roll' },
-      { name: 'Jackpot', icon: JackpotIcon, path: 'jackpot' },
-      { name: 'Live Casino', icon: LiveCasinoIcon, path: 'live-casino' },
+      { name: 'Jackpot', icon: JackpotIcon, path: 'jackpot', enabled: false },
+      { name: 'Live Casino', icon: LiveCasinoIcon, path: 'live-casino', enabled: false },
     ],
   },
   {

@@ -140,7 +140,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
           <div key={section.label} className="mb-3">
             <SectionLabel isCollapsed={isCollapsed}>{section.label}</SectionLabel>
             <ul className="space-y-0.5">
-              {section.items.map((item) => (
+              {section.items.filter((item) => item.enabled !== false).map((item) => (
                 <NavItem
                   key={item.name}
                   icon={item.icon}
