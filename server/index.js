@@ -129,6 +129,7 @@ const BETNEX_PROVIDERS = [
   { id: 'EVOLUTIONLIVE', label: 'Evolution', categories: ['Blackjack', 'Baccarat'] },
   { id: 'HACKSAW', label: 'Hacksaw Gaming', categories: ['Slots'] },
   { id: 'BGAMING', label: 'BGaming', categories: ['Slots'] },
+  { id: 'PRAGMATICSLOTS', label: 'Pragmatic Play', categories: ['Slots'] },
 ]
 const BETNEX_FEATURED_GAMES = {
   PRAGMATICLIVE: {
@@ -193,6 +194,15 @@ const BETNEX_FEATURED_GAMES = {
       'Aztec Magic Bonanza',
     ],
   },
+  PRAGMATICSLOTS: {
+    Slots: [
+      'Gates of Olympus',
+      'Sweet Bonanza',
+      'Big Bass Bonanza',
+      'Wolf Gold',
+      'The Dog House',
+    ],
+  },
 }
 let betnexClient = null
 let betnexCatalogCache = { expiresAt: 0, games: null }
@@ -231,7 +241,7 @@ function getBetnexGameCategory(game, provider) {
   if (provider.categories.includes('Blackjack') && /blackjack/i.test(name)) return 'Blackjack'
   if (provider.categories.includes('Baccarat') && /baccarat/i.test(name)) return 'Baccarat'
 
-  if (provider.id === 'HACKSAW') return 'Slots'
+  if (provider.id === 'HACKSAW' || provider.id === 'PRAGMATICSLOTS') return 'Slots'
   if (provider.id === 'BGAMING' && /slot/i.test(String(game?.type || ''))) return 'Slots'
   return null
 }
@@ -261,7 +271,7 @@ function selectFeaturedBetnexGames(games, provider) {
 
   return provider.categories.flatMap((category) => {
     const categoryLimit = category === 'Slots'
-      ? (provider.id === 'HACKSAW' ? 23 : 22)
+      ? (provider.id === 'PRAGMATICSLOTS' ? 5 : 20)
       : 5
     const categoryGames = games.filter((game) => game.category === category)
     const gameByName = new Map(categoryGames.map((game) => [game.name.toLowerCase(), game]))
