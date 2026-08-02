@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../lib/apiClient";
 import { useAuth } from "../store/auth";
-import { connectSocket, getSocket } from "../lib/socket";
+import { connectSocket } from "../lib/socket";
 import { isUuidLike, supabase } from "../lib/supabaseClient";
 import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
@@ -1440,12 +1440,24 @@ export default function ChatPanel({ className = "" }) {
 
     setMessages((current) => normalizeStoredMessages([...current, outgoingMessage]));
 
-    const socket = getSocket();
-    if (socket?.connected) {
-      socket.emit("chat:message", outgoingMessage, (result) => {
-        if (!result?.ok || !result?.message) {
-          setMessages((current) => current.filter((message) => message.id !== outgoingMessage.id));
-          if (result?.error) notifications.error(result.error);
+    const socket = connectSocket();
+    let connectTimer = null;
+    let hasSent = false;
+
+    const removePendingMessage = (message) => {
+      setMessages((current) => current.filter((message) => message.id !== outgoingMessage.id));
+      notifications.error(message || "Chat is disconnected. Please try again.");
+    };
+
+    const emitMessage = () => {
+      if (hasSent) return;
+      hasSent = true;
+      if (connectTimer) window.clearTimeout(connectTimer);
+      socket.off("connect", emitMessage);
+
+      socket.timeout(10000).emit("chat:message", outgoingMessage, (timeoutError, result) => {
+        if (timeoutError || !result?.ok || !result?.message) {
+          removePendingMessage(result?.error || (timeoutError ? "Chat timed out. Please try again." : undefined));
           return;
         }
 
@@ -1460,9 +1472,17 @@ export default function ChatPanel({ className = "" }) {
           )),
         ));
       });
+    };
+
+    if (socket.connected) {
+      emitMessage();
     } else {
-      setMessages((current) => current.filter((message) => message.id !== outgoingMessage.id));
-      notifications.error("Chat is disconnected. Please try again.");
+      socket.once("connect", emitMessage);
+      socket.connect();
+      connectTimer = window.setTimeout(() => {
+        socket.off("connect", emitMessage);
+        removePendingMessage("Unable to reconnect to chat. Please check your connection.");
+      }, 10000);
     }
 
     setReplyTo(null);

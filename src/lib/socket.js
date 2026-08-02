@@ -21,7 +21,13 @@ export function connectSocket() {
   socket = io(url, {
     withCredentials: true,
     autoConnect: true,
-    transports: ['websocket', 'polling'],
+    // Start with HTTP polling so restrictive mobile networks can connect, then
+    // let Socket.IO upgrade to WebSocket when it is available.
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
   })
   return socket
 }
