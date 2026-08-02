@@ -5,7 +5,7 @@ import http from 'http'
 import path from 'path'
 import crypto from 'crypto'
 import { Server } from 'socket.io'
-import { Betnex } from '@betnex/sdk'
+import { Betnex, createCallbackResponse, verifyCallback } from '@betnex/sdk'
 import { registerRollGame } from './rollGame.js'
 
 function isUuidLike(value) {
@@ -260,13 +260,70 @@ function getBetnexClient() {
   }
 
   if (!betnexClient) {
-    betnexClient = new Betnex(apiKey, {
-      timeout: 20_000,
-      retries: 2,
-      debug: false,
-    })
+    // Betnex prints a large promotional banner from its constructor even when
+    // debug mode is disabled. Suppress only that synchronous constructor log;
+    // real request/callback errors continue through this server's normal logs.
+    const originalConsoleLog = console.log
+    try {
+      console.log = () => {}
+      betnexClient = new Betnex(apiKey, {
+        timeout: 20_000,
+        retries: 2,
+        debug: false,
+      })
+    } finally {
+      console.log = originalConsoleLog
+    }
   }
   return betnexClient
+}
+
+function getBetnexCoinsPerUsd() {
+  const value = Number(process.env.BETNEX_COINS_PER_USD)
+  if (!Number.isSafeInteger(value) || value <= 0 || value % 100 !== 0) {
+    const error = new Error('BETNEX_COINS_PER_USD must be a positive whole number divisible by 100.')
+    error.status = 503
+    throw error
+  }
+  return value
+}
+
+function coinsToBetnexUsd(coins, coinsPerUsd) {
+  const safeCoins = Number(coins)
+  if (!Number.isSafeInteger(safeCoins) || safeCoins < 0) {
+    throw new Error('The player coin balance cannot be represented safely for Live Casino.')
+  }
+  // Betnex games operate in conventional currency precision. Keep any coins
+  // below one cent in Supabase; callbacks can never consume that remainder.
+  return Math.floor((safeCoins * 100) / coinsPerUsd) / 100
+}
+
+function getBetnexLaunchUrl(response) {
+  const value = response?.payload?.game_launch_url ||
+    response?.game_launch_url ||
+    response?.payload?.url ||
+    response?.url
+  try {
+    const url = new URL(String(value || ''))
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''
+  } catch {
+    return ''
+  }
+}
+
+function getFrontendOrigin(req) {
+  const configuredOrigin = String(process.env.FRONTEND_ORIGIN || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .find(Boolean)
+  if (configuredOrigin) {
+    try {
+      return new URL(configuredOrigin).origin
+    } catch {
+      // Fall back to the verified request host below.
+    }
+  }
+  return `${isSecureRequest(req) ? 'https' : 'http'}://${req.get('host')}`
 }
 
 function getBetnexGames(response) {
@@ -3682,6 +3739,195 @@ app.get('/api/live-casino/games', async (req, res) => {
   const games = await loadBetnexCatalog()
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=240')
   res.json({ ok: true, games })
+})
+
+app.post(
+  '/api/live-casino/launch',
+  express.json({ limit: '12kb' }),
+  requireAuthenticatedUser,
+  async (req, res) => {
+    const profileId = String(req.identity.profileId)
+    const gameId = String(req.body?.gameId || '').trim()
+    const providerId = String(req.body?.providerId || '').trim().toUpperCase()
+    if (!gameId || !providerId) {
+      res.status(400).json({ ok: false, error: 'Select a valid Live Casino game.' })
+      return
+    }
+    if (isRateLimited(authAttempts, `casino-launch:${profileId}`, 8, 60_000)) {
+      res.status(429).json({ ok: false, error: 'Too many game launches. Please wait a moment.' })
+      return
+    }
+
+    const games = await loadBetnexCatalog()
+    const game = games.find((entry) => (
+      entry.launchAvailable !== false &&
+      String(entry.id) === gameId &&
+      String(entry.providerId).toUpperCase() === providerId
+    ))
+    if (!game) {
+      res.status(404).json({ ok: false, error: 'This game cannot currently be launched through Betnex.' })
+      return
+    }
+
+    const profile = await loadProfileById(profileId)
+    if (!profile) {
+      res.status(404).json({ ok: false, error: 'Your profile could not be found.' })
+      return
+    }
+
+    let coinsPerUsd
+    try {
+      coinsPerUsd = getBetnexCoinsPerUsd()
+    } catch (error) {
+      res.status(503).json({ ok: false, error: error.message })
+      return
+    }
+    const launchBalanceCoins = Number(profile.balance || 0)
+    const launchBalanceUsd = coinsToBetnexUsd(launchBalanceCoins, coinsPerUsd)
+    const sessionId = crypto.randomUUID()
+    // Betnex accepts only 4-32 alphanumeric characters for member_account.
+    // A 120-bit UUID prefix remains unique for practical purposes.
+    const memberAccount = `bb${sessionId.replaceAll('-', '').slice(0, 30)}`
+    const platform = /android|iphone|ipad|ipod|mobile/i.test(String(req.headers['user-agent'] || '')) ? 2 : 1
+    const homeUrl = `${getFrontendOrigin(req)}/live-casino`
+
+    await adminRest('live_casino_sessions', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: {
+        id: sessionId,
+        profile_id: profileId,
+        member_account: memberAccount,
+        game_uid: game.id,
+        game_name: game.name,
+        game_provider: game.providerId,
+        coins_per_usd: coinsPerUsd,
+        launch_balance_coins: launchBalanceCoins,
+        launch_balance_usd: launchBalanceUsd,
+        status: 'launching',
+      },
+    })
+
+    try {
+      const launch = await getBetnexClient().launchGame({
+        username: memberAccount,
+        gameId: game.id,
+        money: launchBalanceUsd,
+        platform,
+        currency: 'USD',
+        home_url: homeUrl,
+        lang: 'en',
+      })
+      const launchUrl = getBetnexLaunchUrl(launch)
+      if (!launchUrl) throw new Error('Betnex did not return a valid game URL.')
+
+      await adminRest(`live_casino_sessions?id=eq.${encodeURIComponent(sessionId)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: { status: 'active' },
+      })
+
+      res.setHeader('Cache-Control', 'no-store')
+      res.json({
+        ok: true,
+        launchUrl,
+        sessionId,
+        balanceCoins: launchBalanceCoins,
+        balanceUsd: launchBalanceUsd,
+        coinsPerUsd,
+        currency: 'USD',
+      })
+    } catch (error) {
+      await adminRest(`live_casino_sessions?id=eq.${encodeURIComponent(sessionId)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: {
+          status: 'failed',
+          failure_reason: String(error?.message || 'Launch failed').slice(0, 500),
+          closed_at: new Date().toISOString(),
+        },
+      }).catch(() => {})
+      const status = Number(error?.status)
+      res.status(status >= 400 && status < 500 ? status : 502).json({
+        ok: false,
+        error: 'Unable to launch this Live Casino game right now.',
+      })
+    }
+  },
+)
+
+app.post(
+  '/api/live-casino/sessions/:sessionId/close',
+  requireAuthenticatedUser,
+  async (req, res) => {
+    const sessionId = String(req.params.sessionId || '').trim()
+    if (!isUuidLike(sessionId)) {
+      res.status(400).json({ ok: false, error: 'Invalid Live Casino session.' })
+      return
+    }
+
+    await adminRest(
+      `live_casino_sessions?id=eq.${encodeURIComponent(sessionId)}&profile_id=eq.${encodeURIComponent(req.identity.profileId)}&status=in.(launching,active)`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: { status: 'closed', closed_at: new Date().toISOString() },
+      },
+    )
+    const profile = await loadProfileById(req.identity.profileId)
+    await emitWalletRefreshes([req.identity.profileId])
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({ ok: true, balance: Number(profile?.balance || 0) })
+  },
+)
+
+app.post('/api/betnex/callback', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const apiKey = String(process.env.BETNEX_API_KEY || '').trim()
+    if (!apiKey) throw new Error('Live Casino callback is not configured.')
+    const callback = verifyCallback(req.body, apiKey)
+    const betUsd = Number(callback.bet_amount)
+    const winUsd = Number(callback.win_amount)
+    if (!Number.isFinite(betUsd) || !Number.isFinite(winUsd) || betUsd < 0 || winUsd < 0) {
+      throw new Error('Invalid callback amounts.')
+    }
+
+    const result = await adminRest('rpc/process_live_casino_callback', {
+      method: 'POST',
+      body: {
+        p_member_account: callback.member_account.trim(),
+        p_serial_number: callback.serial_number.trim(),
+        p_game_uid: callback.game_uid.trim(),
+        p_game_round: callback.game_round.trim(),
+        p_game_name: callback.game_name.trim(),
+        p_game_provider: callback.game_provider.trim(),
+        p_currency_code: callback.currency_code.trim(),
+        p_bet_usd: betUsd,
+        p_win_usd: winUsd,
+        p_provider_data: callback.data ?? null,
+      },
+    })
+
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(createCallbackResponse({
+      success: true,
+      handle: true,
+      money: Number(result?.balance_usd || 0),
+      msg: result?.duplicate ? 'Duplicate callback ignored' : 'Callback processed successfully',
+    }))
+    if (result?.profile_id) void emitWalletRefreshes([result.profile_id])
+  } catch (error) {
+    const expected = /callback|session|profile|currency|balance|amount|serial|configured|represent/i.test(
+      String(error?.message || ''),
+    )
+    if (!expected) console.error('[live-casino] callback failed', error)
+    res.json(createCallbackResponse({
+      success: false,
+      handle: false,
+      money: 0,
+      msg: 'Unable to process wallet callback.',
+    }))
+  }
 })
 
 app.get('/api/health', (req, res) => {
