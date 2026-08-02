@@ -426,7 +426,11 @@ export default function Header({ onOpenProfileModal }) {
     }
 
     const rect = walletButtonRef.current.getBoundingClientRect()
-    const x = Math.max(8, rect.left)
+    const menuWidth = 208
+    const x = Math.min(
+      Math.max(8, rect.left),
+      Math.max(8, window.innerWidth - menuWidth - 8),
+    )
     const y = rect.bottom + 8
 
     setWalletPosition({ x, y })
@@ -588,7 +592,7 @@ export default function Header({ onOpenProfileModal }) {
                 top: '0px',
                 transform: `translate(${walletPosition.x}px, ${walletPosition.y}px)`,
                 minWidth: 'max-content',
-                zIndex: 50,
+                zIndex: 200,
                 '--radix-popper-available-width': '1261px',
                 '--radix-popper-available-height': '885px',
                 '--radix-popper-anchor-width': '94.046875px',
@@ -705,7 +709,7 @@ export default function Header({ onOpenProfileModal }) {
               top: '0px',
               transform: `translate(${notificationsPosition.x}px, ${notificationsPosition.y}px)`,
               minWidth: 'max-content',
-              zIndex: 50,
+              zIndex: 200,
               '--radix-popper-available-width': '1261px',
               '--radix-popper-available-height': '887px',
               '--radix-popper-anchor-width': '40px',
@@ -786,7 +790,7 @@ export default function Header({ onOpenProfileModal }) {
                 top: '0px',
                 transform: `translate(${volumePosition.x}px, ${volumePosition.y}px)`,
                 minWidth: 'max-content',
-                zIndex: 50,
+                zIndex: 200,
                 '--radix-popper-available-width': '1261px',
                 '--radix-popper-available-height': '887px',
                 '--radix-popper-anchor-width': '40px',
@@ -889,7 +893,7 @@ export default function Header({ onOpenProfileModal }) {
                     top: '0px',
                     transform: `translate(${menuPosition.x}px, ${menuPosition.y}px)`,
                     minWidth: 'max-content',
-                    zIndex: 50,
+                    zIndex: 200,
                     '--radix-popper-available-width': '1261px',
                     '--radix-popper-available-height': '877px',
                     '--radix-popper-anchor-width': '60px',

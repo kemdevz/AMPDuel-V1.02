@@ -198,7 +198,6 @@ export default function Mines() {
   const [fairness, setFairness] = useState(null)
   const [fairnessLoading, setFairnessLoading] = useState(false)
   const requestInFlight = useRef(false)
-  const playIntent = useRef(false)
   const soundsRef = useRef({})
   const cells = useMemo(() => Array.from({ length: gridSize * gridSize }, (_, index) => index), [gridSize])
   const maxMineCount = Math.min(63, gridSize * gridSize - 1)
@@ -343,10 +342,7 @@ export default function Mines() {
     }
   }
 
-  const createGame = async (event) => {
-    const intentionallyPressedPlay = event?.isTrusted && playIntent.current
-    playIntent.current = false
-    if (!intentionallyPressedPlay) return
+  const createGame = async () => {
     if (requestInFlight.current || restoringGame) return
     if (!user) {
       setAuthModalOpen(true)
@@ -464,7 +460,7 @@ export default function Mines() {
   }
 
   return (
-    <div className="mines-page main-container relative z-10">
+    <div className={`mines-page main-container relative z-10 ${isGameActive ? 'mines-page-active' : ''}`}>
       <style>{`
         .mines-page {
           --header-height: 5rem;
@@ -659,8 +655,10 @@ export default function Mines() {
         }
         @media (max-width: 900px){._pageWrap_lhu08_2{min-height:auto;justify-content:flex-start}
         ._middle_lhu08_133{flex-direction:column}
-        ._boardBox_lhu08_149{order:1;padding:12px 14px 10px}
-        ._leftColumn_lhu08_141{order:2;border-right:none;border-top:1px solid rgba(255,255,255,.06);padding:12px 14px 10px;gap:10px}
+        ._leftColumn_lhu08_141{order:1;border-right:none;border-bottom:1px solid rgba(255,255,255,.06);padding:12px 14px 10px;gap:10px}
+        ._boardBox_lhu08_149{order:2;padding:12px 14px 10px}
+        .mines-page-active ._boardBox_lhu08_149{order:1}
+        .mines-page-active ._leftColumn_lhu08_141{order:2;border-top:1px solid rgba(255,255,255,.06);border-bottom:0}
         ._grid_lhu08_404{gap:6px}
         }
         @media (max-width: 740px){._pageWrap_lhu08_2{padding:4px 8px env(safe-area-inset-bottom,12px) 8px}
@@ -871,13 +869,6 @@ export default function Mines() {
                     className="_primaryAction_lhu08_383 _btnPrimary_sd554_43 mines-play-button"
                     type="button"
                     onClick={createGame}
-                    onPointerDown={() => { playIntent.current = true }}
-                    onPointerCancel={() => { playIntent.current = false }}
-                    onPointerLeave={() => { playIntent.current = false }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') playIntent.current = true
-                    }}
-                    onBlur={() => { playIntent.current = false }}
                     disabled={uiBusy}
                   >
                     Play

@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { BrowserRouter, useNavigate, usePathname } from './lib/router'
 import Layout from './components/Layout'
-import LoadingScreen from './components/LoadingScreen'
 import Home from './pages/Home'
 import Coinflip from './pages/Coinflip'
 import SummerEvent from './pages/SummerEvent'
@@ -39,7 +38,6 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true)
   const bootstrap = useAuth((s) => s.bootstrap)
 
   // Restore session + connect socket once on mount.
@@ -47,17 +45,8 @@ export default function App() {
     bootstrap()
   }, [bootstrap])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsLoading(false)
-    }, 2000)
-
-    return () => window.clearTimeout(timer)
-  }, [])
-
   return (
     <BrowserRouter>
-      {isLoading ? <LoadingScreen /> : null}
       <AppRoutes />
     </BrowserRouter>
   )
