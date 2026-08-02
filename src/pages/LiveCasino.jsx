@@ -160,7 +160,7 @@ export default function LiveCasino() {
                   </div>
                 ) : visibleGames.length > 0 ? (
                   <div
-                    className="grid w-full grid-cols-2 gap-3 px-0.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                    className="grid w-full grid-cols-2 gap-x-4 gap-y-3 px-0.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
                   >
                     {visibleGames.map((game) => (
                       <CasinoGameCard key={`${game.providerId}-${game.id}`} game={game} />
