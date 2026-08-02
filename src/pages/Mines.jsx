@@ -48,6 +48,136 @@ function getMinesErrorMessage(error, fallback) {
   return message
 }
 
+function createRandomMinesClientSeed() {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const values = new Uint32Array(12)
+  window.crypto.getRandomValues(values)
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join('')
+}
+
+function MinesFairnessCopy({ label, value }) {
+  const copy = async () => {
+    if (!value || value === 'Unavailable') return
+    try {
+      await navigator.clipboard.writeText(String(value))
+      notifications.success(`${label} copied to clipboard!`)
+    } catch {
+      notifications.error('Unable to copy to clipboard.')
+    }
+  }
+  return (
+    <button className="minesFairnessCopy" type="button" aria-label={`Copy ${label}`} onClick={() => { void copy() }}>
+      <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  )
+}
+
+function MinesFairnessModal({ fairness, loading, gameActive, onSave, onClose }) {
+  const [draftSeed, setDraftSeed] = useState(fairness?.client_seed || '')
+  const [saving, setSaving] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [revealed, setRevealed] = useState(null)
+  const closeTimerRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  useEffect(() => {
+    if (fairness?.client_seed) setDraftSeed(fairness.client_seed)
+  }, [fairness?.client_seed])
+
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return
+    setClosing(true)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 180)
+  }, [])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event) => { if (event.key === 'Escape') requestClose() }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [requestClose])
+
+  const changeSeed = async () => {
+    const nextSeed = draftSeed.trim()
+    if (!nextSeed || nextSeed.length > 128 || saving || gameActive) return
+    setSaving(true)
+    try {
+      const result = await onSave(nextSeed)
+      setRevealed({
+        serverSeed: result.previous_server_seed,
+        clientSeed: result.previous_client_seed,
+        nonce: Number(result.previous_nonce || 0),
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const serverSeedHash = fairness?.server_seed_hash || (loading ? 'Loading...' : 'Unavailable')
+  const nonce = fairness?.nonce ?? (loading ? 'Loading...' : 'Unavailable')
+
+  return (
+    <div className={`minesFairnessBackdrop${closing ? ' isClosing' : ''}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
+      <section className={`minesFairnessModal${closing ? ' isClosing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="mines-fairness-title" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="minesFairnessClose" type="button" onClick={requestClose} aria-label="Close Mines Fairness">×</button>
+        <h1 id="mines-fairness-title" className="minesFairnessHeader">Mines Fairness</h1>
+        <p className="minesFairnessHint">Single-player house games use a separate provably-fair system that keeps you in full control, the active server seed stays hidden, only its hash is shown. Changing your client seed generates a brand-new server seed and reveals the previous one, so you can verify all your past games.</p>
+
+        <div className="minesFairnessSection">
+          <span className="minesFairnessSectionTitle">Hashed Server Seed</span>
+          <div className="minesFairnessInputHolder">
+            <span className="minesFairnessValue" title={serverSeedHash}>{serverSeedHash}</span>
+            <MinesFairnessCopy label="Hashed Server Seed" value={serverSeedHash} />
+          </div>
+        </div>
+
+        <div className="minesFairnessSection">
+          <span className="minesFairnessSectionTitle">Client Seed</span>
+          <div className="minesFairnessSeedRow">
+            <input className="minesFairnessSeedInput" type="text" maxLength={128} autoComplete="off" spellCheck={false} value={draftSeed} disabled={loading || saving || gameActive} onChange={(event) => setDraftSeed(event.target.value)} />
+            <button className="minesFairnessRandom" type="button" disabled={loading || saving || gameActive} onClick={() => setDraftSeed(createRandomMinesClientSeed())}>Random</button>
+          </div>
+        </div>
+
+        <div className="minesFairnessSection">
+          <span className="minesFairnessSectionTitle">Nonce</span>
+          <div className="minesFairnessInputHolder">
+            <span className="minesFairnessValue">{nonce}</span>
+            <MinesFairnessCopy label="Nonce" value={nonce} />
+          </div>
+        </div>
+
+        <button className="minesFairnessSave" type="button" disabled={loading || saving || gameActive || !draftSeed.trim()} onClick={() => { void changeSeed() }}>{saving ? 'Changing Seed...' : 'Change Seed'}</button>
+        <p className="minesFairnessNote">Entering the same client seed still rotates the server seed (and reveals the old one). You can&apos;t change it while a game is active.</p>
+
+        {revealed ? (
+          <div className="minesFairnessReveal">
+            <span className="minesFairnessRevealTitle">Previous Server Seed</span>
+            <span className="minesFairnessRevealDescription">This seed is now retired. Use it together with the client seed, nonce below to verify your past games.</span>
+            <div className="minesFairnessInputHolder minesFairnessRevealValue">
+              <span className="minesFairnessValue" title={revealed.serverSeed}>{revealed.serverSeed}</span>
+              <MinesFairnessCopy label="Previous Server Seed" value={revealed.serverSeed} />
+            </div>
+            <div className="minesFairnessRevealMeta">
+              <span>Client Seed: <b>{revealed.clientSeed}</b></span>
+              <span>Nonce: <b>{revealed.nonce}</b></span>
+            </div>
+          </div>
+        ) : null}
+      </section>
+    </div>
+  )
+}
+
 export default function Mines() {
   const user = useAuth((state) => state.user)
   const authLoading = useAuth((state) => state.loading)
@@ -64,6 +194,9 @@ export default function Mines() {
   const [pendingPosition, setPendingPosition] = useState(null)
   const [loading, setLoading] = useState(false)
   const [restoringGame, setRestoringGame] = useState(true)
+  const [fairnessOpen, setFairnessOpen] = useState(false)
+  const [fairness, setFairness] = useState(null)
+  const [fairnessLoading, setFairnessLoading] = useState(false)
   const requestInFlight = useRef(false)
   const playIntent = useRef(false)
   const soundsRef = useRef({})
@@ -171,6 +304,45 @@ export default function Mines() {
     setMineCount(Math.min(maxMineCount, Math.max(1, Number(value) || 1)))
   }
 
+  const openFairness = async () => {
+    if (!user) {
+      setAuthModalOpen(true)
+      return
+    }
+    setFairnessOpen(true)
+    setFairnessLoading(true)
+    try {
+      const response = await apiRequest('/api/mines/fairness', { cache: 'no-store' })
+      if (!response.ok) throw new Error(response.error || 'Unable to load Mines fairness.')
+      setFairness(response.fairness)
+    } catch (error) {
+      notifications.error(getMinesErrorMessage(error, 'Unable to load Mines fairness.'))
+    } finally {
+      setFairnessLoading(false)
+    }
+  }
+
+  const rotateFairnessSeed = async (clientSeed) => {
+    try {
+      const response = await apiRequest('/api/mines/fairness/rotate', {
+        method: 'POST',
+        body: JSON.stringify({ client_seed: clientSeed }),
+      })
+      if (!response.ok) throw new Error(response.error || 'Unable to change Mines fairness seed.')
+      setFairness({
+        seed_id: response.fairness.seed_id,
+        server_seed_hash: response.fairness.server_seed_hash,
+        client_seed: response.fairness.client_seed,
+        nonce: Number(response.fairness.nonce || 0),
+      })
+      notifications.success('Mines fairness seed changed.')
+      return response.fairness
+    } catch (error) {
+      notifications.error(getMinesErrorMessage(error, 'Unable to change Mines fairness seed.'))
+      throw error
+    }
+  }
+
   const createGame = async (event) => {
     const intentionallyPressedPlay = event?.isTrusted && playIntent.current
     playIntent.current = false
@@ -206,6 +378,7 @@ export default function Mines() {
       })
       if (response.ok) {
         setGame(response.game)
+        setFairness((current) => current ? { ...current, nonce: Number(current.nonce || 0) + 1 } : current)
         setRevealedPositions([])
         setCellResults({})
         setBalance(Math.max(0, Number(balance || 0) - amount))
@@ -274,7 +447,10 @@ export default function Mines() {
       })
       if (response.ok) {
         setGame(response.game)
-        setBalance(Number(balance || 0) + Number(response.winnings || 0))
+        const returnedBalance = Number(response.balance)
+        setBalance(Number.isFinite(returnedBalance)
+          ? returnedBalance
+          : Number(balance || 0) + Number(response.winnings || 0))
         window.dispatchEvent(new CustomEvent('wallet:updated'))
       } else {
         notifications.error(getMinesErrorMessage(response.error, 'Unable to cash out. Please try again.'))
@@ -324,27 +500,28 @@ export default function Mines() {
           position: relative;
           isolation: isolate;
           overflow: hidden;
-          border: none;
+          border: 1px solid rgba(94,85,217,.4);
           color: #fff;
           height: var(--btn-height);
           min-width: var(--btn-min-width);
           padding: 0 var(--btn-pad-x);
           box-sizing: border-box;
-          border-radius: var(--radius-sm);
+          border-radius: 8px;
           font-size: var(--font-size-btn);
           font-weight: var(--font-weight-btn);
           letter-spacing: .01em;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--accent-gradient);
+          background: linear-gradient(135deg, #5b52e2, #4038c0);
+          box-shadow: 0 2px 8px rgba(108,99,255,.2);
           cursor: pointer;
           transform-origin: center center;
-          transition: transform var(--dur-fast) var(--ease-out), filter var(--dur-base) ease;
+          transition: opacity .2s ease, transform .1s ease, background .25s ease;
         }
 
-        .mines-page ._btnPrimary_sd554_43:hover:not(:disabled) { filter: brightness(1.07); }
-        .mines-page ._btnPrimary_sd554_43:active:not(:disabled) { transform: scale(var(--press-scale)); }
+        .mines-page ._btnPrimary_sd554_43:hover:not(:disabled) { background: linear-gradient(135deg, #6c63ff, #5147d9); opacity: .95; }
+        .mines-page ._btnPrimary_sd554_43:active:not(:disabled) { opacity: 1; transform: scale(.97); }
         .mines-page ._btnPrimary_sd554_43:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
         .mines-page ._btnPrimary_sd554_43:disabled { opacity: .6; cursor: not-allowed; transform: none; filter: none; }
 
@@ -355,20 +532,21 @@ export default function Mines() {
           min-width: var(--btn-min-width);
           padding: 0 var(--btn-pad-x);
           box-sizing: border-box;
-          border-radius: var(--radius-sm);
+          border-radius: 8px;
           font-size: var(--font-size-btn);
           font-weight: var(--font-weight-btn);
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--btn-secondary-gradient);
+          background: #2a2e44;
+          box-shadow: none;
           cursor: pointer;
           transform-origin: center center;
-          transition: transform var(--dur-fast) var(--ease-out), filter var(--dur-base) ease;
+          transition: opacity .2s ease, transform .1s ease, background .25s ease;
         }
 
-        .mines-page ._btnSecondary_sd554_399:hover:not(:disabled) { filter: brightness(1.07); }
-        .mines-page ._btnSecondary_sd554_399:active:not(:disabled) { transform: scale(var(--press-scale)); }
+        .mines-page ._btnSecondary_sd554_399:hover:not(:disabled) { background: #32385a; }
+        .mines-page ._btnSecondary_sd554_399:active:not(:disabled) { transform: scale(.97); }
         .mines-page ._btnSecondary_sd554_399:disabled { opacity: .6; cursor: not-allowed; transform: none; filter: none; }
         ._pageWrap_lhu08_2{width:100%;max-width:980px;margin:0 auto;align-self:center;min-height:calc(100vh - var(--header-height));box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center}
         ._headerLeft_lhu08_30{display:flex;align-items:center;gap:8px;min-width:0}
@@ -380,6 +558,35 @@ export default function Mines() {
         ._fairnessBtn_lhu08_73{height:34px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:transparent;border:none;outline:none;box-shadow:none;border-radius:var(--radius-sm);color:#ffffffbf;font-size:12px;font-weight:var(--font-weight-btn);cursor:pointer;white-space:nowrap;transition:color .15s ease}
         ._fairnessBtn_lhu08_73:hover{background:transparent;color:#fff}
         ._fairnessBtn_lhu08_73 svg{flex-shrink:0}
+        .minesFairnessBackdrop{position:fixed;inset:0;z-index:2147483100;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:rgba(0,0,0,.58);animation:mines-fairness-backdrop-in 180ms ease-out both;transition:opacity 180ms ease}
+        .minesFairnessBackdrop.isClosing{opacity:0}
+        .minesFairnessModal{position:relative;box-sizing:border-box;width:90%;max-width:600px;max-height:90vh;margin:0;padding:2rem;overflow-x:hidden;overflow-y:auto;border:1px solid #181a28;border-radius:5px;background:#131520;color:#e1e4f2;box-shadow:0 20px 80px #0000008c;font-family:Poppins,sans-serif;animation:mines-fairness-modal-in .3s ease-out both;transition:opacity 180ms ease,transform 180ms ease}
+        .minesFairnessModal.isClosing{opacity:0;transform:scale(.97) translateY(6px)}
+        .minesFairnessClose{position:absolute;top:12px;right:14px;display:grid;width:34px;height:34px;place-items:center;padding:0;border:0;background:transparent;color:rgba(255,255,255,.76);font-size:25px;line-height:1;cursor:pointer;transition:color 140ms ease,transform 140ms ease}
+        .minesFairnessClose:hover{color:#fff}.minesFairnessClose:active{transform:scale(.92)}
+        .minesFairnessHeader{margin:0 38px 12px 0;color:#fff;font-size:24px;font-weight:700;line-height:1.25}
+        .minesFairnessHint{margin:0 0 22px;color:#a6b2d3;font-size:12px;font-weight:500;line-height:1.65}
+        .minesFairnessSection+.minesFairnessSection{margin-top:19px}
+        .minesFairnessSectionTitle{display:block;margin-bottom:8px;color:rgba(255,255,255,.68);font-size:13px;font-weight:600}
+        .minesFairnessInputHolder,.minesFairnessSeedInput{box-sizing:border-box;min-height:42px;border:0;border-radius:6px;background:#1c1f2e}
+        .minesFairnessInputHolder{display:flex;min-width:0;align-items:center;gap:10px;padding:12px 13px}
+        .minesFairnessValue{display:block;min-width:0;flex:1;overflow:hidden;color:rgba(255,255,255,.88);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}
+        .minesFairnessCopy{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:0 0 18px;padding:0;border:0;outline:none;background:transparent;color:#fff;cursor:pointer;transition:color 140ms ease;-webkit-tap-highlight-color:transparent}
+        .minesFairnessCopy svg{width:18px;height:18px}.minesFairnessCopy:hover{color:rgba(255,255,255,.72)}.minesFairnessCopy:focus-visible{outline:2px solid #8079ff;outline-offset:3px}
+        .minesFairnessSeedRow{display:flex;align-items:stretch;gap:10px}
+        .minesFairnessSeedInput{width:100%;min-width:0;padding:0 13px;outline:none;color:rgba(255,255,255,.9);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;transition:box-shadow 140ms ease,background 140ms ease}
+        .minesFairnessSeedInput:focus{background:#1f2335;box-shadow:inset 0 0 0 1px rgba(108,99,255,.55)}
+        .minesFairnessRandom,.minesFairnessSave{min-height:42px;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:transform .13s cubic-bezier(.22,1,.36,1),background .15s ease,opacity .15s ease}
+        .minesFairnessRandom{min-width:108px;padding:0 18px;border:0;background:#2a2e44}.minesFairnessRandom:hover:not(:disabled){background:#32385a}
+        .minesFairnessSave{width:100%;margin-top:22px;padding:0 20px;border:1px solid rgba(94,85,217,.4);background:linear-gradient(135deg,#5b52e2,#4038c0);box-shadow:0 2px 8px rgba(108,99,255,.2)}
+        .minesFairnessSave:hover:not(:disabled){background:linear-gradient(135deg,#6c63ff,#5147d9);opacity:.95}
+        .minesFairnessRandom:active:not(:disabled),.minesFairnessSave:active:not(:disabled){transform:scale(.98)}
+        .minesFairnessSeedInput:disabled,.minesFairnessRandom:disabled,.minesFairnessSave:disabled{cursor:not-allowed;opacity:.55}
+        .minesFairnessNote{margin:12px 0 0;color:#6c7399;font-size:11px;font-weight:500;line-height:1.55;text-align:center}
+        .minesFairnessReveal{margin-top:1.4rem;padding:1rem;border:0 solid rgba(108,99,255,.4);border-radius:6px;background:rgba(108,99,255,.06);animation:mines-fairness-modal-in .24s ease-out both}
+        .minesFairnessRevealTitle{display:block;color:#e1e4f2;font-size:13px;font-weight:700}.minesFairnessRevealDescription{display:block;margin-top:5px;color:#a6b2d3;font-size:11px;font-weight:500;line-height:1.55}
+        .minesFairnessRevealValue{margin-top:.6rem;margin-bottom:0}.minesFairnessRevealMeta{display:flex;margin-top:9px;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;color:#6c7399;font-size:11px;font-weight:500}.minesFairnessRevealMeta b{color:#a6b2d3;font-weight:700}
+        @keyframes mines-fairness-backdrop-in{from{opacity:0}to{opacity:1}}@keyframes mines-fairness-modal-in{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
         ._volumeBtn_lhu08_96{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);background:transparent;border:none;cursor:pointer;transition:opacity .14s ease;padding:0}
         ._volumeBtn_lhu08_96:hover{opacity:.75}
         ._volumeIcon_lhu08_110{width:18px;height:18px;color:#8f9ac6}
@@ -414,7 +621,8 @@ export default function Mines() {
         ._slider_lhu08_265::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:none;box-shadow:0 0 4px #6c63ff66}
         ._tabSelector_lhu08_312{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
         ._tab_lhu08_312._tab_lhu08_312{height:38px;min-width:0;padding:0;font-size:13px}
-        ._activeTab_lhu08_325._activeTab_lhu08_325{background:var(--accent-gradient);color:#fff}
+        ._activeTab_lhu08_325._activeTab_lhu08_325{background:linear-gradient(135deg,#5b52e2,#4038c0);border:1px solid rgba(94,85,217,.4);box-shadow:0 2px 8px rgba(108,99,255,.2);color:#fff}
+        .mines-page ._activeTab_lhu08_325._activeTab_lhu08_325:hover:not(:disabled){background:linear-gradient(135deg,#6c63ff,#5147d9);opacity:.95}
         ._statsRow_lhu08_332{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         ._statBox_lhu08_337{background:var(--surface-1);border-radius:var(--radius-sm);padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
         ._statLabel_lhu08_346{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#ffffff61}
@@ -674,7 +882,7 @@ export default function Mines() {
             </div>
 
             <div className="_leftBottomBtns_lhu08_185 mines-bottom-buttons">
-              <button className="_fairnessBtn_lhu08_73 mines-fairness-button" type="button" title="Provably fair">
+              <button className="_fairnessBtn_lhu08_73 mines-fairness-button" type="button" title="Provably fair" onClick={() => { void openFairness() }}>
                 <svg fill="#00e284" width="14" height="14" viewBox="0 0 347.971 347.971" aria-hidden="true">
                   <path d="M317.309,54.367C257.933,54.367,212.445,37.403,173.98,0C135.519,37.403,90.033,54.367,30.662,54.367 c0,97.405-20.155,236.937,143.317,293.604C337.463,291.305,317.309,151.773,317.309,54.367z M162.107,225.773l-47.749-47.756 l21.379-21.378l26.37,26.376l50.121-50.122l21.378,21.378L162.107,225.773z" />
                 </svg>
@@ -682,6 +890,16 @@ export default function Mines() {
               </button>
             </div>
           </div>
+
+          {fairnessOpen ? (
+            <MinesFairnessModal
+              fairness={fairness}
+              loading={fairnessLoading}
+              gameActive={isGameActive}
+              onSave={rotateFairnessSeed}
+              onClose={() => setFairnessOpen(false)}
+            />
+          ) : null}
 
             <div className="_boardBox_lhu08_149 mines-board-wrap">
               <div

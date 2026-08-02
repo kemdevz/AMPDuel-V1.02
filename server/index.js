@@ -5,6 +5,7 @@ import http from 'http'
 import path from 'path'
 import crypto from 'crypto'
 import { Server } from 'socket.io'
+import { registerRollGame } from './rollGame.js'
 
 function isUuidLike(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ''))
@@ -1465,6 +1466,9 @@ io.on('connection', (socket) => {
             const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
             const finalPublicGame = serializeMinesGame(updatedGame)
             io.emit('mines:updated', finalPublicGame)
+            if (updatedGame?.game_state === 'exploded') {
+              void emitProfileUpdates([profileId])
+            }
           })
         }
       }).catch(err => {
@@ -1560,6 +1564,7 @@ io.on('connection', (socket) => {
           const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
           const finalPublicGame = serializeMinesGame(updatedGame)
           io.emit('mines:updated', finalPublicGame)
+          void emitProfileUpdates([profileId])
         }
       }).catch(err => {
         console.error('[socket] mines:cashout background update error', err)
@@ -2864,28 +2869,72 @@ function generateMinePositions(totalPositions, minesCount, serverSeed, clientSee
   return positions.sort((a, b) => a - b)
 }
 
+function getMinesSeedEncryptionKey(supabaseKey) {
+  const secret = String(process.env.MINES_SEED_SECRET || process.env.COINFLIP_SEED_SECRET || supabaseKey || '').trim()
+  if (!secret) throw new Error('MINES_SEED_SECRET is required for Mines fairness.')
+  return crypto.createHash('sha256').update(`mines:${secret}`).digest()
+}
+
+function decryptMinesServerSeedWithKey(encryptedSeed, encryptionKey) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted mines server seed')
+  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey, Buffer.from(ivHex, 'hex'))
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, 'hex')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
 function encryptMinesServerSeed(serverSeed, supabaseKey) {
   const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getMinesSeedEncryptionKey(supabaseKey), iv)
   const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
   const tag = cipher.getAuthTag()
   return `${iv.toString('hex')}.${tag.toString('hex')}.${encrypted.toString('hex')}`
 }
 
 function decryptMinesServerSeed(encryptedSeed, supabaseKey) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted mines server seed')
+  try {
+    return decryptMinesServerSeedWithKey(encryptedSeed, getMinesSeedEncryptionKey(supabaseKey))
+  } catch (error) {
+    // Games created before the dedicated Mines key used the Coinflip-derived key.
+    return decryptMinesServerSeedWithKey(encryptedSeed, getCoinflipSeedEncryptionKey(supabaseKey))
+  }
+}
 
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getCoinflipSeedEncryptionKey(supabaseKey),
-    Buffer.from(ivHex, 'hex'),
-  )
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8')
+function createMinesFairnessSeed(supabaseKey) {
+  const serverSeed = crypto.randomBytes(32).toString('hex')
+  return {
+    seedId: crypto.randomUUID(),
+    serverSeed,
+    serverSeedHash: crypto.createHash('sha256').update(serverSeed).digest('hex'),
+    serverSeedEncrypted: encryptMinesServerSeed(serverSeed, supabaseKey),
+  }
+}
+
+function createMinesClientSeed() {
+  return crypto.randomBytes(9).toString('base64url').toUpperCase().slice(0, 12)
+}
+
+async function ensureMinesFairnessState(profileId, supabaseKey) {
+  const seed = createMinesFairnessSeed(supabaseKey)
+  return callRainRpc('ensure_mines_fairness_state', {
+    p_profile_id: profileId,
+    p_seed_id: seed.seedId,
+    p_server_seed_hash: seed.serverSeedHash,
+    p_server_seed_encrypted: seed.serverSeedEncrypted,
+    p_client_seed: createMinesClientSeed(),
+  })
+}
+
+function validateMinesFairnessState(state, supabaseKey) {
+  const serverSeed = decryptMinesServerSeed(state?.server_seed_encrypted, supabaseKey)
+  const expectedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  if (expectedHash !== state?.server_seed_hash) {
+    throw new Error('Mines fairness seed commitment is invalid.')
+  }
+  return serverSeed
 }
 
 function serializeMinesGame(game) {
@@ -2935,6 +2984,76 @@ function resolveMinesGridSize(game, supabaseKey) {
 
   return 5
 }
+
+app.get('/api/mines/fairness', requireAuthenticatedUser, async (req, res) => {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) {
+    res.status(500).json({ ok: false, error: 'Supabase configuration is missing.' })
+    return
+  }
+
+  try {
+    const state = await ensureMinesFairnessState(req.identity.profileId, supabaseKey)
+    validateMinesFairnessState(state, supabaseKey)
+    res.json({
+      ok: true,
+      fairness: {
+        seed_id: state.seed_id,
+        server_seed_hash: state.server_seed_hash,
+        client_seed: state.client_seed,
+        nonce: Number(state.nonce || 0),
+      },
+    })
+  } catch (error) {
+    console.error('[api/mines/fairness] error', error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load Mines fairness.' })
+  }
+})
+
+app.post('/api/mines/fairness/rotate', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const clientSeed = String(req.body?.client_seed || '').trim()
+  if (!clientSeed || clientSeed.length > 128) {
+    res.status(400).json({ ok: false, error: 'Client seed must contain between 1 and 128 characters.' })
+    return
+  }
+
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) {
+    res.status(500).json({ ok: false, error: 'Supabase configuration is missing.' })
+    return
+  }
+
+  try {
+    const activeGames = await adminRest(
+      `mines_games?profile_id=eq.${encodeURIComponent(req.identity.profileId)}&game_state=eq.active&select=id&limit=1`,
+    )
+    if (Array.isArray(activeGames) && activeGames.length > 0) {
+      res.status(409).json({ ok: false, error: "You can't change the seed while a Mines game is active." })
+      return
+    }
+
+    const currentState = await ensureMinesFairnessState(req.identity.profileId, supabaseKey)
+    const previousServerSeed = validateMinesFairnessState(currentState, supabaseKey)
+    const nextSeed = createMinesFairnessSeed(supabaseKey)
+    const result = await callRainRpc('rotate_mines_fairness_state', {
+      p_profile_id: req.identity.profileId,
+      p_expected_seed_id: currentState.seed_id,
+      p_expected_server_seed_hash: currentState.server_seed_hash,
+      p_expected_nonce: Number(currentState.nonce || 0),
+      p_previous_server_seed: previousServerSeed,
+      p_new_seed_id: nextSeed.seedId,
+      p_new_server_seed_hash: nextSeed.serverSeedHash,
+      p_new_server_seed_encrypted: nextSeed.serverSeedEncrypted,
+      p_new_client_seed: clientSeed,
+    })
+    res.json({ ok: true, fairness: result })
+  } catch (error) {
+    const message = error?.message || 'Unable to change Mines fairness seed.'
+    const expected = /seed|fairness|active|client/i.test(message)
+    if (!expected) console.error('[api/mines/fairness/rotate] error', error)
+    res.status(/active|changed/i.test(message) ? 409 : expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
 
 // Restore the signed-in player's unfinished game after a refresh or route change.
 app.get('/api/mines/state', requireAuthenticatedUser, async (req, res) => {
@@ -3022,11 +3141,21 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       body: { balance: balanceAfterWager },
     })
 
-    // Generate game parameters
+    // Commit this game to the player's active Mines fairness seed and consume
+    // one nonce before storing the board.
     const gameId = crypto.randomUUID()
-    const serverSeed = crypto.randomBytes(32).toString('hex')
-    const clientSeed = `${crypto.randomBytes(16).toString('hex')}:g${gridSize}`
-    const nonce = Math.floor(Date.now() / 1000) // Use seconds instead of milliseconds to fit in integer
+    const fairnessState = await ensureMinesFairnessState(profileId, supabaseKey)
+    const serverSeed = validateMinesFairnessState(fairnessState, supabaseKey)
+    const clientSeed = String(fairnessState.client_seed)
+    const nonce = Number(fairnessState.nonce || 0)
+    if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error('Mines fairness nonce is invalid.')
+
+    await callRainRpc('claim_mines_fairness_nonce', {
+      p_profile_id: profileId,
+      p_expected_seed_id: fairnessState.seed_id,
+      p_expected_server_seed_hash: fairnessState.server_seed_hash,
+      p_expected_nonce: nonce,
+    })
 
     const minePositions = generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId)
 
@@ -3043,8 +3172,11 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       multiplier: 1.0,
       current_value: 0,
       server_seed_encrypted: encryptMinesServerSeed(serverSeed, supabaseKey),
+      server_seed_hash: fairnessState.server_seed_hash,
+      fairness_seed_id: fairnessState.seed_id,
       client_seed: clientSeed,
       nonce,
+      grid_size: gridSize,
     }
 
     const response = await fetch(`${supabaseUrl}/rest/v1/mines_games?select=*`, {
@@ -3058,12 +3190,8 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
     })
     const responseText = await response.text()
 
-    console.log('[api/mines/create] response status:', response.status)
-    console.log('[api/mines/create] response text:', responseText)
-
     if (!response.ok) {
       console.warn('[api/mines/create] failed to create game', response.status, responseText)
-      console.warn('[api/mines/create] game data:', JSON.stringify(gameData))
       throw new Error(`Failed to create mines game: ${responseText}`)
     }
     gameCreated = true
@@ -3078,8 +3206,6 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
     
     const storedGame = Array.isArray(createdGame) ? createdGame[0] : createdGame
     const returnGame = storedGame ? { ...storedGame, grid_size: gridSize } : storedGame
-
-    console.log('[api/mines/create] created game:', JSON.stringify(returnGame))
 
     // Emit real-time update
     const publicGame = serializeMinesGame(returnGame)
@@ -3184,8 +3310,6 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
     })
 
     const responseText = await updateRes.text()
-    console.log('[api/mines/reveal] response status:', updateRes.status)
-    console.log('[api/mines/reveal] response text:', responseText)
 
     if (!updateRes.ok) {
       console.warn('[api/mines/reveal] failed to update game', updateRes.status, responseText)
@@ -3205,8 +3329,11 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
     // If exploded, refund nothing (already lost wager)
     // If not exploded, user can continue or cash out
 
-    const publicGame = serializeMinesGame(updatedGame)
+    const publicGame = serializeMinesGame({ ...updatedGame, grid_size: gridSize })
     io.emit('mines:updated', publicGame)
+    if (updatedGame?.game_state === 'exploded') {
+      void emitProfileUpdates([profileId])
+    }
 
     res.json({ ok: true, game: publicGame, is_mine: isMine })
   } catch (err) {
@@ -3217,8 +3344,8 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
 
 // Cash out from mines game
 app.post('/api/mines/cashout', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
-  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-  if (!supabaseUrl || !supabaseKey) {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) {
     res.status(500).json({ ok: false, error: 'supabase config missing' })
     return
   }
@@ -3232,413 +3359,42 @@ app.post('/api/mines/cashout', express.json({ limit: '24kb' }), requireAuthentic
   }
 
   try {
-    const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-      headers: getSupabaseAdminHeaders(supabaseKey),
-      signal: AbortSignal.timeout(10_000),
+    const result = await callRainRpc('cashout_mines_game', {
+      p_profile_id: profileId,
+      p_game_id: gameId,
     })
-
-    if (!gameRes.ok) {
-      const txt = await gameRes.text()
-      console.warn('[api/mines/cashout] failed to fetch game', gameRes.status, txt)
-      return res.status(404).json({ ok: false, error: 'Game not found.' })
-    }
-
-    const gameData = await gameRes.json()
-    const game = Array.isArray(gameData) ? gameData[0] : gameData
-
-    if (!game || game.profile_id !== profileId) {
-      return res.status(403).json({ ok: false, error: 'You can only cash out your own games.' })
-    }
-
-    if (game.game_state !== 'active') {
-      return res.status(400).json({ ok: false, error: 'Game is not active.' })
-    }
-
-    if (game.revealed_positions.length === 0) {
-      return res.status(400).json({ ok: false, error: 'Reveal at least one position before cashing out.' })
-    }
-
-    const winnings = Number(game.current_value) || 0
-
-    // Update game state
-    const updateRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-      method: 'PATCH',
-      headers: getSupabaseAdminHeaders(supabaseKey, { 
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      }),
-      body: JSON.stringify({
-        game_state: 'cashed_out',
-        cashed_out_at: new Date().toISOString(),
-      }),
-      signal: AbortSignal.timeout(10_000),
-    })
-
-    const responseText = await updateRes.text()
-    console.log('[api/mines/cashout] response status:', updateRes.status)
-    console.log('[api/mines/cashout] response text:', responseText)
-
-    if (!updateRes.ok) {
-      console.warn('[api/mines/cashout] failed to update game', updateRes.status, responseText)
-      throw new Error(`Failed to update mines game: ${responseText}`)
-    }
-
-    let updatedGameData
-    try {
-      updatedGameData = responseText ? JSON.parse(responseText) : null
-    } catch (parseError) {
-      console.error('[api/mines/cashout] failed to parse response:', responseText)
-      throw new Error(`Failed to parse mines game response: ${parseError.message}`)
-    }
-
-    // Add winnings to user balance
-    const profile = await loadProfileById(profileId)
-    if (profile) {
-      await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
-        method: 'PATCH',
-        body: { balance: Number(profile.balance) + winnings },
-      })
-    }
-
-    const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
-
-    const publicGame = serializeMinesGame(updatedGame)
+    const updatedGame = result?.game
+    if (!updatedGame?.id) throw new Error('Mines cash-out did not return the completed game.')
+    const gridSize = resolveMinesGridSize(updatedGame, supabaseKey)
+    const publicGame = serializeMinesGame({ ...updatedGame, grid_size: gridSize })
     io.emit('mines:updated', publicGame)
-
-    res.json({ ok: true, game: publicGame, winnings })
-  } catch (err) {
-    console.error('[api/mines/cashout] error', err)
-    res.status(500).json({ ok: false, error: String(err) })
-  }
-})
-
-// Roll game functions
-// In-memory state for roll game
-const rollState = {
-  currentRound: null,
-  bets: [],
-  countdownStarted: null,
-  lastResult: null,
-  timerInterval: null
-}
-
-function startRollCountdown() {
-  if (rollState.timerInterval) {
-    clearInterval(rollState.timerInterval)
-  }
-
-  // Create new round
-  const serverSeed = crypto.randomBytes(32).toString('hex')
-  const clientSeed = crypto.randomBytes(16).toString('hex')
-  const nonce = Math.floor(Date.now() / 1000)
-  const multipliers = generateRollMultipliers(serverSeed, clientSeed, nonce, 60)
-  const resultMultiplier = multipliers[40]
-
-  rollState.currentRound = {
-    id: crypto.randomUUID(),
-    serverSeed,
-    clientSeed,
-    nonce,
-    multipliers,
-    resultMultiplier,
-    game_state: 'countdown',
-    created_at: new Date().toISOString(),
-  }
-  rollState.bets = []
-  rollState.countdownStarted = Date.now()
-
-  // Broadcast new round
-  io.emit('roll:new_round', {
-    round: {
-      id: rollState.currentRound.id,
-      game_state: 'countdown',
-      created_at: rollState.currentRound.created_at,
-      result_multiplier: 0,
-    },
-    multipliers: rollState.currentRound.multipliers,
-  })
-
-  // Start countdown
-  const COUNTDOWN_MS = 13_000
-  rollState.timerInterval = setTimeout(() => {
-    endRollCountdown()
-  }, COUNTDOWN_MS)
-}
-
-function endRollCountdown() {
-  if (!rollState.currentRound) return
-
-  rollState.currentRound.game_state = 'rolling'
-  rollState.currentRound.started_at = new Date().toISOString()
-
-  // Broadcast rolling state
-  io.emit('roll:rolling', {
-    round: {
-      id: rollState.currentRound.id,
-      game_state: 'rolling',
-      result_multiplier: rollState.currentRound.resultMultiplier,
-    },
-  })
-
-  // Calculate winnings after 5 seconds
-  setTimeout(() => {
-    processRollResults()
-  }, 5_000)
-}
-
-function processRollResults() {
-  if (!rollState.currentRound) return
-
-  const resultMultiplier = rollState.currentRound.resultMultiplier
-  const winnings = []
-
-  for (const bet of rollState.bets) {
-    const won = resultMultiplier >= bet.chosen_multiplier
-    const actualWin = won ? Math.floor(bet.bet_amount * resultMultiplier) : 0
-
-    if (won && actualWin > 0) {
-      winnings.push({ profileId: bet.profile_id, amount: actualWin })
-    }
-
-    // Update bet result
-    io.emit('roll:bet_result', {
-      bet: {
-        ...bet,
-        won,
-        actual_win: actualWin,
-      },
-      result: resultMultiplier,
-    })
-  }
-
-  // Distribute winnings
-  winnings.forEach(async ({ profileId, amount }) => {
-    try {
-      const profile = await loadProfileById(profileId)
-      if (profile) {
-        await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
-          method: 'PATCH',
-          body: { balance: Number(profile.balance) + amount },
-        })
-        
-        // Notify user of winnings
-        io.emit('wallet:updated', { profileId, balance: Number(profile.balance) + amount })
-      }
-    } catch (err) {
-      console.error('[roll] Failed to distribute winnings:', err)
-    }
-  })
-
-  rollState.currentRound.game_state = 'ended'
-  rollState.currentRound.ended_at = new Date().toISOString()
-  rollState.lastResult = resultMultiplier
-
-  // Broadcast results
-  io.emit('roll:ended', {
-    round: rollState.currentRound,
-    result: resultMultiplier,
-  })
-
-  // Start new round after delay
-  setTimeout(() => {
-    startRollCountdown()
-  }, 3_000)
-}
-
-function getRollItems(supabaseUrl, supabaseKey, count = 60) {
-  return fetch(`${supabaseUrl}/rest/v1/items?select=*&order=value.desc&limit=${count}`, {
-    headers: getSupabaseAdminHeaders(supabaseKey),
-    signal: AbortSignal.timeout(10_000),
-  }).then(res => res.json()).then(items => Array.isArray(items) ? items : [])
-}
-
-function generateRollMultipliers(serverSeed, clientSeed, nonce, count = 60) {
-  const message = `${clientSeed}:${nonce}`
-  const digest = crypto.createHmac('sha256', serverSeed).update(message).digest('hex')
-  
-  const multipliers = []
-  for (let i = 0; i < count; i++) {
-    const hashIndex = (i * 2) % digest.length
-    const hashValue = Number.parseInt(digest.slice(hashIndex, hashIndex + 2), 16)
-    // Generate multiplier between 1.00 and 10.00 (much smaller range)
-    const multiplier = 1.0 + (hashValue / 255) * 9.0
-    multipliers.push(Math.round(multiplier * 100) / 100)
-  }
-  
-  return multipliers
-}
-
-function encryptRollServerSeed(serverSeed, supabaseKey) {
-  const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)
-  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
-  const tag = cipher.getAuthTag()
-  return `${iv.toString('hex')}.${tag.toString('hex')}.${encrypted.toString('hex')}`
-}
-
-function decryptRollServerSeed(encryptedSeed, supabaseKey) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted roll server seed')
-
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getCoinflipSeedEncryptionKey(supabaseKey),
-    Buffer.from(ivHex, 'hex'),
-  )
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8')
-}
-
-// Get current roll round state
-app.get('/api/roll/state', requireAuthenticatedUser, async (req, res) => {
-  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-  if (!supabaseUrl || !supabaseKey) {
-    res.status(500).json({ ok: false, error: 'supabase config missing' })
-    return
-  }
-
-  try {
-    // Start countdown if not already running
-    if (!rollState.currentRound) {
-      startRollCountdown()
-    }
-
-    // Get items for the reel
-    let items = []
-    try {
-      items = await getRollItems(supabaseUrl, supabaseKey, 60)
-    } catch (err) {
-      // Fallback to static items if items table doesn't exist
-      items = [
-        { name: 'Huge Cat', image_url: 'https://biggamesapi.io/image/14976374906', value: 10000 },
-        { name: 'Huge Pumpkin Cat', image_url: 'https://biggamesapi.io/image/14976529226', value: 15000 },
-        { name: 'Huge Santa Paws', image_url: 'https://biggamesapi.io/image/14976542836', value: 20000 },
-        { name: 'Huge Festive Cat', image_url: 'https://biggamesapi.io/image/15281989250', value: 18000 },
-        { name: 'Huge Forest Wyvern', image_url: 'https://biggamesapi.io/image/14976435839', value: 25000 },
-        { name: 'Huge Hacked Cat', image_url: 'https://biggamesapi.io/image/14976449581', value: 30000 },
-        { name: 'Huge Gargoyle Dragon', image_url: 'https://biggamesapi.io/image/14976439876', value: 22000 },
-        { name: 'Huge Dog', image_url: 'https://biggamesapi.io/image/14976397743', value: 12000 },
-        { name: 'Huge Dragon', image_url: 'https://biggamesapi.io/image/14976414803', value: 28000 },
-        { name: 'Huge Lucky Cat', image_url: 'https://biggamesapi.io/image/14976485216', value: 16000 },
-      ]
-    }
-
-    // Calculate time remaining
-    const COUNTDOWN_MS = 13_000
-    const timeRemaining = rollState.countdownStarted 
-      ? Math.max(0, COUNTDOWN_MS - (Date.now() - rollState.countdownStarted))
-      : COUNTDOWN_MS
+    void emitProfileUpdates([profileId])
 
     res.json({
       ok: true,
-      round: {
-        id: rollState.currentRound?.id || 'pending',
-        game_state: rollState.currentRound?.game_state || 'countdown',
-        created_at: rollState.currentRound?.created_at || new Date().toISOString(),
-        started_at: rollState.currentRound?.started_at || null,
-        ended_at: rollState.currentRound?.ended_at || null,
-        result_multiplier: rollState.currentRound?.resultMultiplier || 0,
-        time_remaining: timeRemaining,
-      },
-      bets: rollState.bets,
-      items,
-      multipliers: rollState.currentRound?.multipliers || [],
-      last_result: rollState.lastResult,
+      game: publicGame,
+      winnings: Number(result.winnings || 0),
+      balance: Number(result.balance || 0),
+      stats: result.stats || null,
     })
   } catch (err) {
-    console.error('[api/roll/state] error', err)
-    res.status(500).json({ ok: false, error: String(err) })
+    console.error('[api/mines/cashout] error', err)
+    const message = err?.message || 'Unable to cash out this Mines game.'
+    const expected = /not found|own games|not active|reveal at least|profile/i.test(message)
+    res.status(/not found/i.test(message) ? 404 : /own games/i.test(message) ? 403 : expected ? 400 : 500)
+      .json({ ok: false, error: message })
   }
 })
 
-// Place bet on roll round
-app.post('/api/roll/bet', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
-  const payload = req.body || {}
-  const profileId = String(req.identity.profileId)
-  const roundId = String(payload.round_id || '')
-  const betAmount = Number(payload.bet_amount) || 0
-  const chosenMultiplier = Number(payload.chosen_multiplier) || 0
-
-  if (betAmount < 5000) {
-    return res.status(400).json({ ok: false, error: 'Minimum bet is 5,000 coins.' })
-  }
-
-  if (chosenMultiplier < 1.01 || chosenMultiplier > 100) {
-    return res.status(400).json({ ok: false, error: 'Multiplier must be between 1.01x and 100x.' })
-  }
-
-  try {
-    // Check user balance
-    const profile = await loadProfileById(profileId)
-    if (!profile) {
-      return res.status(404).json({ ok: false, error: 'Profile not found.' })
-    }
-
-    if (Number(profile.balance || 0) < betAmount) {
-      return res.status(400).json({ ok: false, error: 'Insufficient balance.' })
-    }
-
-    // Check if round exists and is in countdown
-    if (!rollState.currentRound || rollState.currentRound.game_state !== 'countdown') {
-      return res.status(400).json({ ok: false, error: 'Round is not accepting bets.' })
-    }
-
-    // Check if user already bet on this round
-    if (rollState.bets.some(bet => bet.profile_id === profileId)) {
-      return res.status(400).json({ ok: false, error: 'You already have a bet on this round.' })
-    }
-
-    // Deduct bet from balance
-    await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
-      method: 'PATCH',
-      body: { balance: Number(profile.balance) - betAmount },
-    })
-
-    // Create bet in memory
-    const potentialWin = Math.floor(betAmount * chosenMultiplier)
-    const bet = {
-      id: crypto.randomUUID(),
-      round_id: rollState.currentRound.id,
-      profile_id: profileId,
-      username: profile.username || req.identity.username || 'Unknown',
-      avatar_url: profile.avatar_url || req.identity.avatar_url,
-      bet_amount: betAmount,
-      amount: betAmount,
-      chosen_multiplier: chosenMultiplier,
-      multiplier: chosenMultiplier,
-      potential_win: potentialWin,
-      created_at: new Date().toISOString(),
-    }
-
-    rollState.bets.push(bet)
-
-    // Broadcast new bet
-    io.emit('roll:bet', bet)
-
-    res.json({ ok: true, bet })
-  } catch (err) {
-    console.error('[api/roll/bet] error', err)
-    res.status(500).json({ ok: false, error: String(err) })
-  }
-})
-
-// Add socket handlers for roll game
-io.on('connection', (socket) => {
-  // Send current roll state on connection
-  socket.emit('roll:state', {
-    round: rollState.currentRound ? {
-      id: rollState.currentRound.id,
-      game_state: rollState.currentRound.game_state,
-      created_at: rollState.currentRound.created_at,
-      result_multiplier: rollState.currentRound.resultMultiplier,
-    } : null,
-    bets: rollState.bets,
-    multipliers: rollState.currentRound?.multipliers || [],
-    last_result: rollState.lastResult,
-  })
+// Persisted, server-authoritative Roll game backend.
+const rollGame = registerRollGame({
+  app,
+  io,
+  requireAuthenticatedUser,
+  jsonParser: express.json({ limit: '24kb' }),
+  adminRest,
+  getSupabaseAdminConfig,
+  emitProfileUpdates,
 })
 
 app.get('/api/games/feed', (req, res) => {
@@ -3702,6 +3458,12 @@ function startServer(port, attempt = 1) {
     console.error('[server] failed to start', error)
     process.exit(1)
   })
+}
+
+try {
+  await rollGame.initialize()
+} catch (error) {
+  console.error('[roll] initialisation failed; the state route will retry', error)
 }
 
 startServer(PORT)

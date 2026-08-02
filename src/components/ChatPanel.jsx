@@ -106,9 +106,7 @@ function RainCaptchaOverlay({ isOpen, isSubmitting, error, onClose, onVerify }) 
           to { opacity: 1; }
         }
       `}</style>
-      <div className="flex min-h-[110px] w-[336px] max-w-[calc(100vw-32px)] items-center justify-center rounded-[12px] border border-[#252839] bg-[#171925] p-4 shadow-2xl">
-        <div ref={containerRef} className="flex max-w-full items-center justify-center" />
-      </div>
+      <div ref={containerRef} className="flex max-w-[calc(100vw-32px)] items-center justify-center" />
     </div>
   );
 }

@@ -3,30 +3,15 @@ import { notifications } from '../components/Notifications'
 import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
 import { useSocket } from '../lib/socket'
+import { getInventoryItemCardStyle } from '../components/InventoryItemCard'
 
 const ROUND_COUNTDOWN_MS = 13_000
 const ROLL_DURATION_MS = 5_000
-const WINNER_INDEX = 40
+const DEFAULT_RESULT_INDEX = 40
+const ROLL_REEL_COPIES = 3
+const ROLL_ANIMATION_CARD_DISTANCE = 35
 const DEFAULT_AMOUNT = 5_000
-
-const PETS = [
-  { name: 'Huge Cat', image: 'https://biggamesapi.io/image/14976374906' },
-  { name: 'Huge Pumpkin Cat', image: 'https://biggamesapi.io/image/14976529226' },
-  { name: 'Huge Santa Paws', image: 'https://biggamesapi.io/image/14976542836' },
-  { name: 'Huge Festive Cat', image: 'https://biggamesapi.io/image/15281989250' },
-  { name: 'Huge Forest Wyvern', image: 'https://biggamesapi.io/image/14976435839' },
-  { name: 'Huge Hacked Cat', image: 'https://biggamesapi.io/image/14976449581' },
-  { name: 'Huge Gargoyle Dragon', image: 'https://biggamesapi.io/image/14976439876' },
-  { name: 'Huge Dog', image: 'https://biggamesapi.io/image/14976397743' },
-  { name: 'Huge Dragon', image: 'https://biggamesapi.io/image/14976414803' },
-  { name: 'Huge Lucky Cat', image: 'https://biggamesapi.io/image/14976485216' },
-  { name: 'Huge Cupcake', image: 'https://biggamesapi.io/image/14976389145' },
-  { name: 'Huge Pony', image: 'https://biggamesapi.io/image/14976525582' },
-  { name: 'Huge Storm Agony', image: 'https://biggamesapi.io/image/15260479669' },
-  { name: 'Huge Pixel Cat', image: 'https://biggamesapi.io/image/14976519049' },
-  { name: 'Huge Easter Cat', image: 'https://biggamesapi.io/image/15281989384' },
-  { name: 'Huge Super Corgi', image: 'https://biggamesapi.io/image/14976565468' },
-]
+const BET_CUTOFF_BUFFER_MS = 100
 
 const BASE_MULTIPLIERS = [
   7.13, 10.10, 13.50, 4.16, 4.37, 1.20, 1.91, 7.34, 3.75, 1.04,
@@ -37,15 +22,7 @@ const BASE_MULTIPLIERS = [
   5.57, 2.00, 6.26, 2.87, 1.90, 2.99, 3.61, 1.15, 12.40, 1.73,
 ]
 
-const INITIAL_HISTORY = [3.61, 2.99, 1.00, 1.90, 2.87, 6.26, 4.45, 5.57, 2.00, 3.85]
-
-function cardColor(value) {
-  if (value > 999_999) return '255,223,0'
-  if (value > 99_999) return '255,99,71'
-  if (value > 9_999) return '255,105,180'
-  if (value > 999) return '54,123,255'
-  return '108,108,108'
-}
+const INITIAL_HISTORY = []
 
 function historyTone(multiplier) {
   if (multiplier >= 20) return 'high'
@@ -61,38 +38,150 @@ function getCardStep() {
   return 168
 }
 
-function RollCard({ multiplier, amount, index, items, chosenMultiplier }) {
-  const winnings = Math.floor(amount * multiplier)
-  const color = cardColor(winnings)
-  const safeItems = Array.isArray(items) && items.length > 0 ? items : PETS
-  const item = safeItems[index % safeItems.length]
-  
-  // If chosenMultiplier is provided, color code win/lose cards
-  // Cards below chosen multiplier are red (losing cards - "under" your multiplier)
-  // Cards at or above chosen multiplier are normal (winning cards)
-  const isRedCard = chosenMultiplier ? multiplier < chosenMultiplier : false
-  const cardColorClass = chosenMultiplier ? (isRedCard ? 'red' : 'normal') : ''
+function getRoundOffset(roundId) {
+  const hash = String(roundId || '').split('').reduce((total, character) => total + character.charCodeAt(0), 0)
+  return (hash % 55) - 27
+}
+
+function RollCard({ multiplier, index, items }) {
+  const safeItems = Array.isArray(items) ? items : []
+  const item = safeItems.length > 0 ? safeItems[index % safeItems.length] : null
+  const itemValue = Math.max(0, Number(item?.value || 0))
+  const sharedCardStyle = getInventoryItemCardStyle(item)
 
   return (
     <div
-      className={`rollCard ${cardColorClass}`}
+      className="rollCard"
       style={{
-        background: `linear-gradient(to top, rgba(${color}, .18) 0%, rgba(${color}, 0) 100%), #272d46`,
-        '--roll-card-border-bottom': `rgba(${color}, .7)`,
-        '--roll-card-border-side': `rgba(${color}, .25)`,
+        ...sharedCardStyle,
+        '--roll-card-border-bottom': sharedCardStyle['--item-border-bottom'],
+        '--roll-card-border-side': sharedCardStyle['--item-border-side'],
       }}
     >
       <div className="rollImageWrapper">
-        <img src={item.image_url || item.image} alt={item.name} className="rollItemImage" draggable={false} />
+        {item?.image_url ? <img src={item.image_url} alt={item.name} className="rollItemImage" draggable={false} /> : null}
       </div>
       <div className="rollItemDetails">
-        <p className="rollItemName">{item.name}</p>
+        <p className="rollItemName">{item?.name || 'Item unavailable'}</p>
         <p className="rollCardWin">
           <img src="/bobux.png" alt="" className="rollBobuxIcon" />
-          {winnings.toLocaleString('en-US')}
+          {itemValue.toLocaleString('en-US')}
         </p>
         <p className="rollItemMultiplier">{multiplier.toFixed(2)}x</p>
       </div>
+    </div>
+  )
+}
+
+function RollFairnessCopyIcon({ label, value }) {
+  const copy = async () => {
+    if (value === null || value === undefined || value === '') return
+    try {
+      await navigator.clipboard.writeText(String(value))
+      notifications.success(`${label} copied to clipboard!`)
+    } catch {
+      notifications.error('Unable to copy to clipboard')
+    }
+  }
+
+  return (
+    <button type="button" className="rollFairnessCopy" aria-label={`Copy ${label}`} onClick={() => { void copy() }}>
+      <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  )
+}
+
+function RollFairnessModal({ round, onClose }) {
+  const [closing, setClosing] = useState(false)
+  const closeTimerRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return
+    setClosing(true)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 180)
+  }, [])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') requestClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [requestClose])
+
+  const fields = [
+    ['Game ID', round?.id || 'Unavailable'],
+    ['Client Seed', round?.client_seed || 'Unavailable'],
+    ['Nonce', round?.nonce ?? 'Unavailable'],
+    ['Hashed Server Seed', round?.server_seed_hash || 'Unavailable'],
+  ]
+  const resolved = round?.game_state === 'ended' && round?.revealed_server_seed
+
+  return (
+    <div
+      className={`rollFairnessBackdrop${closing ? ' isClosing' : ''}`}
+      role="presentation"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}
+    >
+      <section
+        className={`rollFairnessModal${closing ? ' isClosing' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="roll-fairness-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="rollFairnessClose" type="button" onClick={requestClose} aria-label="Close Roll Fairness">×</button>
+        <h1 id="roll-fairness-title" className="rollFairnessHeader">Roll Fairness</h1>
+        <p className="rollFairnessHint">
+          The winning index is committed with a hidden server seed before betting closes and selected uniformly without modulo bias. Multipliers are ranked against real item values, while the item order cannot change the winning odds. The seed and result are revealed after settlement.
+        </p>
+
+        {fields.map(([label, value]) => (
+          <div className="rollFairnessSection" key={label}>
+            <span className="rollFairnessSectionTitle">{label}</span>
+            <div className="rollFairnessInputHolder">
+              <span className="rollFairnessValue" title={String(value)}>{String(value)}</span>
+              <RollFairnessCopyIcon label={label} value={value} />
+            </div>
+          </div>
+        ))}
+
+        {resolved ? (
+          <div className="rollFairnessReveal">
+            <span className="rollFairnessRevealTitle">Revealed Result</span>
+            <span className="rollFairnessRevealDescription">
+              Use this retired server seed with the client seed and nonce above to reproduce the round.
+            </span>
+            <div className="rollFairnessSection rollFairnessRevealSection">
+              <span className="rollFairnessSectionTitle">Server Seed</span>
+              <div className="rollFairnessInputHolder">
+                <span className="rollFairnessValue" title={round.revealed_server_seed}>{round.revealed_server_seed}</span>
+                <RollFairnessCopyIcon label="Server Seed" value={round.revealed_server_seed} />
+              </div>
+            </div>
+            <div className="rollFairnessRevealMeta">
+              <span>Result Index: <b>{round.result_index}</b></span>
+              <span>Multiplier: <b>{Number(round.result_multiplier).toFixed(2)}x</b></span>
+            </div>
+          </div>
+        ) : (
+          <p className="rollFairnessPending">The server seed and winning index remain hidden while this round is active.</p>
+        )}
+      </section>
     </div>
   )
 }
@@ -108,7 +197,9 @@ export default function Roll() {
   const [phase, setPhase] = useState('countdown')
   const [timeLeft, setTimeLeft] = useState(ROUND_COUNTDOWN_MS)
   const [reelStarted, setReelStarted] = useState(false)
+  const [reelStart, setReelStart] = useState(0)
   const [reelTarget, setReelTarget] = useState(0)
+  const [rollDuration, setRollDuration] = useState(ROLL_DURATION_MS)
   const [history, setHistory] = useState(INITIAL_HISTORY)
   const [entries, setEntries] = useState([])
   const [round, setRound] = useState(0)
@@ -116,18 +207,17 @@ export default function Roll() {
   const [items, setItems] = useState([])
   const [multipliers, setMultipliers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [fairnessOpen, setFairnessOpen] = useState(false)
   const requestInFlight = useRef(false)
   const reelViewportRef = useRef(null)
-  const roundStartedAtRef = useRef(Date.now())
+  const countdownEndsAtRef = useRef(Date.now() + ROUND_COUNTDOWN_MS)
   const rollTimeoutRef = useRef(null)
-  const selectedMultiplierRef = useRef(BASE_MULTIPLIERS[WINNER_INDEX])
+  const animatedRoundRef = useRef(null)
+  const applyServerStateRef = useRef(null)
 
   const numericAmount = Math.max(0, Number(amount) || 0)
-  const playedAmount = entries.reduce((total, entry) => total + entry.amount, 0)
-  const reelAmount = playedAmount > 0 ? playedAmount : 10_000
   const roundMultipliers = useMemo(() => {
     const safeMultipliers = Array.isArray(multipliers) && multipliers.length > 0 ? multipliers : BASE_MULTIPLIERS
-    selectedMultiplierRef.current = safeMultipliers[WINNER_INDEX]
     return safeMultipliers
   }, [round, multipliers])
   const idleMultipliers = useMemo(() => {
@@ -135,76 +225,87 @@ export default function Roll() {
     return safeMultipliers.slice(0, 30)
   }, [multipliers])
 
-  const beginRoll = useCallback(() => {
+  const beginRoll = useCallback((durationMs = ROLL_DURATION_MS, roundId = '', resultIndex = DEFAULT_RESULT_INDEX) => {
+    if (roundId && animatedRoundRef.current === roundId && rollTimeoutRef.current) return
+    animatedRoundRef.current = roundId || animatedRoundRef.current
+    if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)
+    const parsedDuration = Number(durationMs)
+    const safeDuration = Number.isFinite(parsedDuration)
+      ? Math.max(0, Math.min(ROLL_DURATION_MS, parsedDuration))
+      : ROLL_DURATION_MS
     setPhase('rolling')
     setTimeLeft(0)
     setReelStarted(false)
+    setRollDuration(safeDuration)
     const viewportWidth = reelViewportRef.current?.clientWidth || window.innerWidth
     const step = getCardStep()
-    const offset = ((round * 17) % 55) - 27
-    setReelTarget(viewportWidth / 2 - (WINNER_INDEX * step + step / 2) + offset)
+    const offset = getRoundOffset(roundId)
+    const safeResultIndex = Math.max(0, Math.min(roundMultipliers.length - 1, Number(resultIndex) || 0))
+    const displayedResultIndex = safeResultIndex + roundMultipliers.length
+    const displayedStartIndex = displayedResultIndex - ROLL_ANIMATION_CARD_DISTANCE
+    setReelStart(viewportWidth / 2 - (displayedStartIndex * step + step / 2))
+    setReelTarget(viewportWidth / 2 - (displayedResultIndex * step + step / 2) + offset)
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => setReelStarted(true))
     })
 
     rollTimeoutRef.current = window.setTimeout(() => {
-      const result = selectedMultiplierRef.current
-      setHistory((current) => [result, ...current].slice(0, 10))
       setPhase('result')
-      rollTimeoutRef.current = window.setTimeout(() => {
-        roundStartedAtRef.current = Date.now()
-        setRound((current) => current + 1)
-        setTimeLeft(ROUND_COUNTDOWN_MS)
-        setPhase('countdown')
-      }, 900)
-    }, ROLL_DURATION_MS)
-  }, [round])
+    }, safeDuration)
+  }, [roundMultipliers.length])
 
   useEffect(() => {
     if (phase !== 'countdown') return undefined
     let frame = 0
     const update = () => {
-      const remaining = Math.max(0, ROUND_COUNTDOWN_MS - (Date.now() - roundStartedAtRef.current))
+      const remaining = Math.max(0, countdownEndsAtRef.current - Date.now())
       setTimeLeft(remaining)
-      if (remaining <= 0) beginRoll()
-      else frame = window.requestAnimationFrame(update)
+      if (remaining > 0) frame = window.requestAnimationFrame(update)
     }
     frame = window.requestAnimationFrame(update)
     return () => window.cancelAnimationFrame(frame)
-  }, [beginRoll, phase])
+  }, [phase])
 
   // Fetch initial game state and listen for socket updates
   useEffect(() => {
+    const applyServerState = (response) => {
+      if (!response?.round) return
+      setGameData(response.round)
+      setEntries(response.bets || [])
+      setItems(response.items || [])
+      setMultipliers(response.multipliers || [])
+      setHistory((response.history || []).map((entry) => Number(entry.result)).filter(Number.isFinite))
+      setLoading(false)
+
+      if (response.round.game_state === 'rolling') {
+        beginRoll(response.round.time_remaining, response.round.id, response.round.result_index)
+      } else if (response.round.game_state === 'ended') {
+        beginRoll(0, response.round.id, response.round.result_index)
+      } else {
+        if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)
+        setReelStarted(false)
+        setPhase('countdown')
+        const remaining = Math.max(0, Number(response.round.time_remaining || 0))
+        setTimeLeft(remaining)
+        countdownEndsAtRef.current = Date.now() + remaining
+      }
+    }
+    applyServerStateRef.current = applyServerState
+
     const fetchGameState = async () => {
       try {
         const response = await apiRequest('/api/roll/state')
         if (response.ok) {
-          setGameData(response.round)
-          setEntries(response.bets || [])
-          setItems(response.items || [])
-          setMultipliers(response.multipliers || [])
-          setLoading(false)
-          
-          // Sync phase with server
-          if (response.round?.game_state === 'rolling') {
-            setPhase('rolling')
-            setReelStarted(true)
-          } else if (response.round?.game_state === 'ended') {
-            setPhase('result')
-          } else {
-            setPhase('countdown')
-          }
+          applyServerState(response)
         } else {
-          // Fallback to static data if backend fails
-          console.warn('Backend unavailable, using fallback data')
-          setItems(PETS.map(pet => ({ name: pet.name, image_url: pet.image, value: 10000 })))
+          console.warn('Roll item catalogue is unavailable')
+          setItems([])
           setMultipliers(BASE_MULTIPLIERS)
           setLoading(false)
         }
       } catch (err) {
         console.error('Failed to fetch roll state:', err)
-        // Fallback to static data
-        setItems(PETS.map(pet => ({ name: pet.name, image_url: pet.image, value: 10000 })))
+        setItems([])
         setMultipliers(BASE_MULTIPLIERS)
         setLoading(false)
       }
@@ -215,17 +316,25 @@ export default function Roll() {
     // Listen for socket events
     if (socket) {
       const handleNewRound = (data) => {
+        if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)
         setGameData(data.round)
-        setMultipliers(data.multipliers)
-        setEntries([])
+        setMultipliers(data.multipliers || [])
+        setItems(data.items || [])
+        setEntries(data.bets || [])
+        setRound((current) => current + 1)
+        animatedRoundRef.current = null
+        setReelStarted(false)
         setPhase('countdown')
-        roundStartedAtRef.current = Date.now()
+        const remaining = Math.max(0, Number(data.round?.time_remaining || ROUND_COUNTDOWN_MS))
+        setTimeLeft(remaining)
+        countdownEndsAtRef.current = Date.now() + remaining
       }
 
       const handleRolling = (data) => {
         setGameData(data.round)
-        setPhase('rolling')
-        beginRoll()
+        setMultipliers(data.multipliers || [])
+        setItems(data.items || [])
+        beginRoll(data.roll_duration_ms, data.round?.id, data.round?.result_index)
       }
 
       const handleBet = (bet) => {
@@ -239,44 +348,41 @@ export default function Roll() {
       }
 
       const handleEnded = (data) => {
+        if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)
         setGameData(data.round)
-        setHistory((current) => [data.result, ...current].slice(0, 10))
-        setPhase('result')
-        setTimeout(() => {
-          roundStartedAtRef.current = Date.now()
-          setRound((current) => current + 1)
-          setTimeLeft(ROUND_COUNTDOWN_MS)
-          setPhase('countdown')
-        }, 900)
-      }
-
-      const handleBetResult = (data) => {
-        if (data.bet.profile_id === user?.profile_id && data.bet.won) {
-          setBalance((current) => Number(current) + data.bet.actual_win)
-          window.dispatchEvent(new CustomEvent('wallet:updated'))
-          notifications.success(`You won ${data.bet.actual_win.toLocaleString()} coins!`)
+        setHistory(
+          Array.isArray(data.history)
+            ? data.history.map((entry) => Number(entry.result)).filter(Number.isFinite)
+            : (current) => [Number(data.result), ...current].slice(0, 10),
+        )
+        if (animatedRoundRef.current !== data.round?.id) {
+          beginRoll(0, data.round?.id, data.round?.result_index)
+        } else {
+          setReelStarted(true)
+          setPhase('result')
         }
       }
 
       const handleWalletUpdated = (data) => {
-        if (data.profileId === user?.profile_id) {
-          setBalance(data.balance)
+        if (String(data.profileId) === String(user?.profile_id)) {
+          setBalance(Number(data.balance))
+          window.dispatchEvent(new CustomEvent('wallet:updated'))
         }
       }
 
       socket.on('roll:new_round', handleNewRound)
+      socket.on('roll:state', applyServerState)
       socket.on('roll:rolling', handleRolling)
       socket.on('roll:bet', handleBet)
       socket.on('roll:ended', handleEnded)
-      socket.on('roll:bet_result', handleBetResult)
       socket.on('wallet:updated', handleWalletUpdated)
 
       return () => {
         socket.off('roll:new_round', handleNewRound)
+        socket.off('roll:state', applyServerState)
         socket.off('roll:rolling', handleRolling)
         socket.off('roll:bet', handleBet)
         socket.off('roll:ended', handleEnded)
-        socket.off('roll:bet_result', handleBetResult)
         socket.off('wallet:updated', handleWalletUpdated)
       }
     }
@@ -308,6 +414,11 @@ export default function Roll() {
       return
     }
 
+    if (phase !== 'countdown' || timeLeft <= BET_CUTOFF_BUFFER_MS || !gameData?.id) {
+      notifications.error('This round is not accepting plays')
+      return
+    }
+
     // Prevent multiple bets in quick succession
     if (requestInFlight.current) {
       notifications.error('Please wait for the bet to be processed')
@@ -315,27 +426,6 @@ export default function Roll() {
     }
 
     requestInFlight.current = true
-
-    // Fallback mode - if no backend, just simulate the bet with real balance
-    if (!gameData?.id || gameData.id === 'fallback-round') {
-      setBalance(Number(balance || 0) - amountValue)
-      window.dispatchEvent(new CustomEvent('wallet:updated'))
-      setEntries((current) => [
-        ...current,
-        { 
-          id: `fallback-${Date.now()}`, 
-          username: user?.username || 'You', 
-          amount: amountValue,
-          bet_amount: amountValue,
-          multiplier: multiplierValue,
-          chosen_multiplier: multiplierValue
-        },
-      ])
-      setMultiplier('')
-      requestInFlight.current = false
-      notifications.success('Play placed (demo mode)')
-      return
-    }
 
     try {
       const response = await apiRequest('/api/roll/bet', {
@@ -350,14 +440,22 @@ export default function Roll() {
       if (response.ok) {
         // Don't add to entries here - let socket handle it to prevent duplicates
         setMultiplier('')
-        setBalance(Number(balance || 0) - amountValue)
+        setBalance(Number(response.balance))
         window.dispatchEvent(new CustomEvent('wallet:updated'))
         notifications.success('Play placed')
       } else {
         notifications.error(response.error || 'Failed to place bet')
       }
     } catch (err) {
-      notifications.error('Failed to place bet')
+      notifications.error(err?.message || 'Failed to place bet')
+      if (/closed|ended|accepting|current round/i.test(String(err?.message || ''))) {
+        try {
+          const latestState = await apiRequest('/api/roll/state')
+          applyServerStateRef.current?.(latestState)
+        } catch {
+          // The next socket state update will retry synchronization.
+        }
+      }
     } finally {
       requestInFlight.current = false
     }
@@ -385,17 +483,12 @@ export default function Roll() {
             {phase === 'countdown' ? (
               <div className="rollReelIdle">
                 {(idleMultipliers || []).concat(idleMultipliers || []).map((value, index) => {
-                  // Find the user's bet and their chosen multiplier
-                  const userBet = entries.find(e => e.profile_id === user?.profile_id || e.username === user?.username)
-                  const chosenMultiplier = userBet?.chosen_multiplier || userBet?.multiplier
                   return (
                     <RollCard 
                       key={`idle-${index}`} 
                       multiplier={value} 
-                      amount={reelAmount} 
-                      index={index} 
-                      items={items} 
-                      chosenMultiplier={chosenMultiplier}
+                      index={index}
+                      items={items}
                     />
                   )
                 })}
@@ -404,22 +497,17 @@ export default function Roll() {
               <div
                 className="rollReel"
                 style={{
-                  transform: `translateX(${reelStarted || phase === 'result' ? reelTarget : 0}px)`,
-                  transition: reelStarted ? `transform ${ROLL_DURATION_MS / 1000}s cubic-bezier(.05, .85, .25, 1)` : 'none',
+                  transform: `translateX(${reelStarted || phase === 'result' ? reelTarget : reelStart}px)`,
+                  transition: reelStarted ? `transform ${rollDuration / 1000}s cubic-bezier(.05, .85, .25, 1)` : 'none',
                 }}
               >
-                {(roundMultipliers || []).map((value, index) => {
-                  // Find the user's bet and their chosen multiplier
-                  const userBet = entries.find(e => e.profile_id === user?.profile_id || e.username === user?.username)
-                  const chosenMultiplier = userBet?.chosen_multiplier || userBet?.multiplier
+                {Array.from({ length: ROLL_REEL_COPIES }, () => roundMultipliers || []).flat().map((value, index) => {
                   return (
                     <RollCard 
-                      key={`${round}-${index}`} 
-                      multiplier={value} 
-                      amount={reelAmount} 
-                      index={index + round} 
-                      items={items} 
-                      chosenMultiplier={chosenMultiplier}
+                      key={`${round}-${index}`}
+                      multiplier={value}
+                      index={index % roundMultipliers.length}
+                      items={items}
                     />
                   )
                 })}
@@ -466,18 +554,30 @@ export default function Roll() {
                     type="text"
                     inputMode="decimal"
                     className="rollInput rollMultInput"
-                    placeholder="1.01x — 100x"
+                    placeholder="1.01x - 10x"
                     value={multiplier}
                     onChange={(event) => setMultiplier(event.target.value.replace(',', '.').replace(/[^\d.]/g, ''))}
                     onKeyDown={(event) => { if (event.key === 'Enter') placeEntry() }}
                   />
-                  <button type="button" className="rollPlaceBetBtn" onClick={placeEntry}>Enter</button>
+                  <button
+                    type="button"
+                    className="rollPlaceBetBtn"
+                    onClick={placeEntry}
+                    disabled={
+                      phase !== 'countdown' ||
+                      timeLeft <= BET_CUTOFF_BUFFER_MS ||
+                      requestInFlight.current ||
+                      loading
+                    }
+                  >
+                    Enter
+                  </button>
                 </div>
                 <button
                   type="button"
                   className="rollFairnessBtn"
                   title="Provably fair"
-                  onClick={() => notifications.info('Provably fair details will be connected with the Roll backend.')}
+                  onClick={() => setFairnessOpen(true)}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="#00e284" width="16" height="16" viewBox="0 0 347.971 347.971" aria-hidden="true">
                     <path d="M317.309 54.367C257.933 54.367 212.445 37.403 173.98 0 135.519 37.403 90.033 54.367 30.662 54.367c0 97.405-20.155 236.937 143.317 293.604C337.463 291.305 317.309 151.773 317.309 54.367zm-155.202 171.406-47.749-47.756 21.379-21.378 26.37 26.376 50.121-50.122 21.378 21.378-71.499 71.502z" />
@@ -521,6 +621,16 @@ export default function Roll() {
                   <span className="rollBetUser">
                     <button type="button" className="rollBetAvatarBtn" title={username}>
                       <span className="rollBetAvatarFallback">{username[0] || '?'}</span>
+                      {entry.avatar_headshot_url || entry.avatar_url ? (
+                        <img
+                          className="rollBetAvatarImage"
+                          src={entry.avatar_headshot_url || entry.avatar_url}
+                          alt={`${username} avatar`}
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={(event) => { event.currentTarget.style.display = 'none' }}
+                        />
+                      ) : null}
                     </button>
                     <span className="rollBetUsername">{username}</span>
                   </span>
@@ -535,6 +645,9 @@ export default function Roll() {
           </div>
         </div>
       </div>
+      {fairnessOpen ? (
+        <RollFairnessModal round={gameData} onClose={() => setFairnessOpen(false)} />
+      ) : null}
     </div>
   )
 }
@@ -568,8 +681,6 @@ const ROLL_STYLES = `
   @keyframes roll-reel-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .rollCard { width: 160px; height: 100%; flex-shrink: 0; margin-right: 8px; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; position: relative; border: none; box-sizing: border-box; overflow: hidden; }
   .rollCard::before { content: ""; position: absolute; inset: 0; border-radius: 6px; padding: 2px; background: linear-gradient(to bottom, transparent 0%, var(--roll-card-border-side, rgba(108,99,255,.25)) 55%, var(--roll-card-border-bottom, rgba(108,99,255,.7)) 100%); mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); pointer-events: none; z-index: 0; }
-  .rollCard.red { filter: drop-shadow(0 0 12px rgba(255, 50, 50, 0.8)); }
-  .rollCard.red::before { background: linear-gradient(to bottom, transparent 0%, rgba(255, 50, 50, .25) 55%, rgba(255, 50, 50, .5) 100%); }
   .rollCard.normal { opacity: 1; }
   .rollImageWrapper { position: relative; width: 100%; height: 90px; overflow: hidden; border-radius: 8px; flex-shrink: 0; margin-top: 12px; }
   .rollItemImage { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; position: absolute; inset: 0; z-index: 1; }
@@ -594,15 +705,15 @@ const ROLL_STYLES = `
   .rollInputIcon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; object-fit: contain; pointer-events: none; z-index: 1; }
   .rollInputHasIcon { padding-left: 38px; }
   .rollQuickButtons { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-  .rollQuickBtn { height: 30px; min-width: 46px; padding: 0 12px; font-size: 11px; letter-spacing: .04em; border: none; color: var(--text-primary); box-sizing: border-box; border-radius: var(--radius-sm); font-weight: 600; display: flex; align-items: center; justify-content: center; background: var(--btn-secondary-gradient); cursor: pointer; transform-origin: center; transition: transform .13s cubic-bezier(.22,1,.36,1), filter .14s ease; }
-  .rollQuickBtn:hover { filter: brightness(1.07); }
-  .rollQuickBtn:active { transform: scale(.98); }
-  .rollQuickBtnMax { background: var(--success-gradient); color: #fff; }
+  .rollQuickBtn { height: 30px; min-width: 46px; padding: 0 12px; font-size: 11px; letter-spacing: .04em; border: none; color: #e1e4f2; box-shadow: none; box-sizing: border-box; border-radius: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; background: #2a2e44; cursor: pointer; transform-origin: center; transition: transform .1s ease, background .25s ease, opacity .2s ease; }
+  .rollQuickBtn:hover { background: #32385a; }
+  .rollQuickBtn:active { transform: scale(.97); }
   .rollMultBetRow { display: flex; gap: 8px; align-items: center; overflow: hidden; }
   .rollMultInput { flex: 1 1 auto; min-width: 0; width: 0; }
-  .rollPlaceBetBtn { position: relative; z-index: 1; flex: 0 0 auto; height: 42px; min-width: 110px; padding: 0 18px; font-size: 12px; letter-spacing: .02em; isolation: isolate; overflow: hidden; border: none; color: #fff; box-sizing: border-box; border-radius: var(--radius-sm); font-weight: 600; display: flex; align-items: center; justify-content: center; background: var(--accent-gradient); cursor: pointer; transform-origin: center; transition: transform .13s cubic-bezier(.22,1,.36,1), filter .14s ease; }
-  .rollPlaceBetBtn:hover { filter: brightness(1.07); }
-  .rollPlaceBetBtn:active { transform: scale(.98); }
+  .rollPlaceBetBtn { position: relative; z-index: 1; flex: 0 0 auto; height: 42px; min-width: 110px; padding: 0 18px; font-size: 12px; letter-spacing: .02em; isolation: isolate; overflow: hidden; border: 1px solid rgba(94,85,217,.4); color: #fff; box-shadow: 0 2px 8px rgba(108,99,255,.2); box-sizing: border-box; border-radius: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#5b52e2,#4038c0); cursor: pointer; transform-origin: center; transition: transform .1s ease, background .25s ease, opacity .2s ease; }
+  .rollPlaceBetBtn:hover { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
+  .rollPlaceBetBtn:active { opacity: 1; transform: scale(.97); }
+  .rollPlaceBetBtn:disabled { cursor: not-allowed; opacity: .45; transform: none; }
   .rollFairnessBtn { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: none; outline: none; box-shadow: none; border-radius: var(--radius-sm); color: #e1e4f2; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .15s; width: 100%; margin-top: 4px; }
   .rollFairnessBtn:hover { opacity: .85; }
   .rollHistoryStrip { display: flex; align-items: center; margin-top: 10px; }
@@ -625,9 +736,37 @@ const ROLL_STYLES = `
   .rollBetAvatarBtn { position: relative; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: 2px solid #2f3347; background: var(--surface-1); overflow: hidden; cursor: pointer; transition: border-color .15s; padding: 0; }
   .rollBetAvatarBtn:hover { border-color: var(--accent); }
   .rollBetAvatarFallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--accent); background: var(--surface-1); }
+  .rollBetAvatarImage { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; background: var(--surface-1); }
   .rollBetUsername { font-size: 12px; font-weight: 600; color: #f0f0f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rollBetMult { font-size: 12px; font-weight: 600; color: #6b7280; }
   .rollBetAmount { font-size: 12px; font-weight: 600; color: #f0f0f5; display: inline-flex; align-items: center; }
+  .rollFairnessBackdrop { position: fixed; inset: 0; z-index: 2147483100; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,.58); animation: roll-fairness-backdrop-in 180ms ease-out both; transition: opacity 180ms ease; }
+  .rollFairnessBackdrop.isClosing { opacity: 0; }
+  .rollFairnessModal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: roll-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease, transform 180ms ease; }
+  .rollFairnessModal.isClosing { opacity: 0; transform: scale(.97) translateY(6px); }
+  .rollFairnessClose { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease, transform 140ms ease; }
+  .rollFairnessClose:hover { color: #fff; }
+  .rollFairnessClose:active { transform: scale(.92); }
+  .rollFairnessHeader { margin: 0 38px 12px 0; color: #fff; font-size: 24px; font-weight: 700; line-height: 1.25; }
+  .rollFairnessHint { margin: 0 0 22px; color: #a6b2d3; font-size: 12px; font-weight: 500; line-height: 1.65; }
+  .rollFairnessSection + .rollFairnessSection { margin-top: 19px; }
+  .rollFairnessSectionTitle { display: block; margin-bottom: 8px; color: rgba(255,255,255,.68); font-size: 13px; font-weight: 600; }
+  .rollFairnessInputHolder { display: flex; min-width: 0; min-height: 42px; box-sizing: border-box; align-items: center; gap: 10px; padding: 12px 13px; border: 0; border-radius: 6px; background: #1c1f2e; }
+  .rollFairnessValue { display: block; min-width: 0; flex: 1; overflow: hidden; color: rgba(255,255,255,.88); font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+  .rollFairnessCopy { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: #fff; cursor: pointer; transition: color 140ms ease; -webkit-tap-highlight-color: transparent; }
+  .rollFairnessCopy svg { width: 18px; height: 18px; }
+  .rollFairnessCopy:hover { color: rgba(255,255,255,.72); }
+  .rollFairnessCopy:active { transform: scale(.93); }
+  .rollFairnessCopy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+  .rollFairnessPending { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
+  .rollFairnessReveal { margin-top: 1.4rem; padding: 1rem; border: 0 solid rgba(108,99,255,.4); border-radius: 6px; background: rgba(108,99,255,.06); animation: roll-fairness-modal-in .24s ease-out both; }
+  .rollFairnessRevealTitle { display: block; color: #e1e4f2; font-size: 13px; font-weight: 700; }
+  .rollFairnessRevealDescription { display: block; margin-top: 5px; color: #a6b2d3; font-size: 11px; font-weight: 500; line-height: 1.55; }
+  .rollFairnessRevealSection { margin-top: .6rem; margin-bottom: 0; }
+  .rollFairnessRevealMeta { display: flex; margin-top: 9px; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; color: #6c7399; font-size: 11px; font-weight: 500; }
+  .rollFairnessRevealMeta b { color: #a6b2d3; font-weight: 700; }
+  @keyframes roll-fairness-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes roll-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   @keyframes roll-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .rollPageLoaded { animation: roll-page-in .35s ease-out both; }
   @media (max-width: 900px) {

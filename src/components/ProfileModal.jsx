@@ -16,6 +16,7 @@ import {
   JackpotIcon,
 } from './icons'
 import { notifications } from './Notifications'
+import AnimatedStatNumber from './AnimatedStatNumber'
 
 const COIN_ICON = '/bobux.png'
 const DISCORD_ICON = 'https://i.ibb.co/mVNMLkPG/dc.png'
@@ -573,7 +574,7 @@ function StatBox({ amount, label }) {
     <div className="flex flex-col items-center gap-1 rounded-lg bg-[#1c1f2e] px-1 py-1.5 sm:p-3">
       <div className="inline-flex items-center gap-0.5 text-[.7rem] font-bold text-white sm:gap-1 sm:text-[.95rem]">
         <img src={COIN_ICON} alt="" className="h-[9px] w-[9px] sm:h-3.5 sm:w-3.5" draggable={false} />
-        <span>{Number(amount || 0).toLocaleString()}</span>
+        <AnimatedStatNumber value={amount} />
       </div>
       <span className="text-[8px] font-semibold uppercase tracking-normal text-white/35 sm:text-[10px] sm:tracking-[.06em]">
         {label}

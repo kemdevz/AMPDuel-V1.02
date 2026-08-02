@@ -6,6 +6,7 @@ import { getLevelStyle } from '../lib/levelStyles'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import { notifications } from './Notifications'
+import AnimatedStatNumber from './AnimatedStatNumber'
 
 const profileCache = new Map()
 const FALLBACK_AVATAR = '/login.png'
@@ -38,25 +39,6 @@ function cacheProfile(profile, aliases = []) {
     const key = normalizeProfileCacheKey(value)
     if (key) profileCache.set(key, profile)
   })
-}
-
-function formatStatValue(value) {
-  const numericValue = Number(value ?? 0)
-  if (!Number.isFinite(numericValue)) return '0'
-
-  if (numericValue >= 1000000000) {
-    return `${(numericValue / 1000000000).toFixed(numericValue % 1000000000 === 0 ? 0 : 1)}B`
-  }
-
-  if (numericValue >= 1000000) {
-    return `${(numericValue / 1000000).toFixed(numericValue % 1000000 === 0 ? 0 : 1)}M`
-  }
-
-  if (numericValue >= 1000) {
-    return `${(numericValue / 1000).toFixed(numericValue % 1000 === 0 ? 0 : 1)}K`
-  }
-
-  return numericValue.toLocaleString('en-US')
 }
 
 export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
@@ -215,9 +197,9 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     currentUser.ignored_users.includes(targetProfileId),
   )
   const stats = {
-    totalPlayed: formatStatValue(Number(resolvedProfile?.played ?? resolvedProfile?.totalPlayed ?? 0)),
-    won: formatStatValue(Number(resolvedProfile?.won ?? 0)),
-    lost: formatStatValue(Number(resolvedProfile?.lost ?? 0)),
+    totalPlayed: Number(resolvedProfile?.played ?? resolvedProfile?.totalPlayed ?? 0),
+    won: Number(resolvedProfile?.won ?? 0),
+    lost: Number(resolvedProfile?.lost ?? 0),
   }
   const handleToggleIgnored = async () => {
     if (ignoreUpdating) return
@@ -687,7 +669,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
               <strong>Total Played</strong>
               <div className="miniProfileStatValue">
                 <img src="/bobux.png" alt="Total played" draggable={false} />
-                <span>{stats.totalPlayed}</span>
+                <AnimatedStatNumber value={stats.totalPlayed} compact />
               </div>
             </div>
           </div>
@@ -697,7 +679,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
               <strong>Won</strong>
               <div className="miniProfileStatValue">
                 <img src="/bobux.png" alt="Won" draggable={false} />
-                <span>{stats.won}</span>
+                <AnimatedStatNumber value={stats.won} compact />
               </div>
             </div>
 
@@ -705,7 +687,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
               <strong>Lost</strong>
               <div className="miniProfileStatValue">
                 <img src="/bobux.png" alt="Lost" draggable={false} />
-                <span>{stats.lost}</span>
+                <AnimatedStatNumber value={stats.lost} compact />
               </div>
             </div>
           </div>
