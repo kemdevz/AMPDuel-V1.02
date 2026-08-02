@@ -42,7 +42,11 @@ function CasinoGameCard({ game }) {
         alt={game.name}
         width="220"
         height="220"
-        className="block h-[220px] w-full object-cover transition-transform duration-200 group-hover:scale-[1.025]"
+        className={`box-border block h-[220px] w-full transition-transform duration-200 ${
+          game.category === 'Slots'
+            ? 'object-contain p-2 group-hover:scale-[1.015]'
+            : 'object-cover group-hover:scale-[1.025]'
+        }`}
         loading="lazy"
         decoding="async"
         draggable={false}
