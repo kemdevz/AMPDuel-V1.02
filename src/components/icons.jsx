@@ -124,6 +124,14 @@ export function JackpotIcon({ className = '' }) {
   )
 }
 
+export function LiveCasinoIcon({ className = '' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7.2 2.25A3.7 3.7 0 0 0 3.5 5.96c0 2.8 3.7 6.54 3.7 6.54s3.7-3.74 3.7-6.54a3.7 3.7 0 0 0-3.7-3.71Zm9.6 0s-3.7 3.74-3.7 6.54a3.7 3.7 0 1 0 7.4 0c0-2.8-3.7-6.54-3.7-6.54ZM5.72 14.18a3.47 3.47 0 1 0 2.58 5.8c.02.55-.17 1.16-.82 1.77h3.44c-.65-.61-.84-1.22-.82-1.77a3.47 3.47 0 1 0 2.58-5.8 3.47 3.47 0 0 0-3.48 1.72 3.47 3.47 0 0 0-3.48-1.72Zm11.08-.43s-3.7 3.74-3.7 6.54h7.4c0-2.8-3.7-6.54-3.7-6.54Z" />
+    </svg>
+  )
+}
+
 export function ProfileIcon({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

@@ -6,6 +6,7 @@ import {
   MinesIcon,
   RollIcon,
   JackpotIcon,
+  LiveCasinoIcon,
   ProfileIcon,
   LeaderboardIcon,
   TermsIcon,
@@ -24,6 +25,7 @@ export const navSections = [
       { name: 'Mines', icon: MinesIcon, path: 'mines' },
       { name: 'Roll', icon: RollIcon, path: 'roll' },
       { name: 'Jackpot', icon: JackpotIcon, path: 'jackpot' },
+      { name: 'Live Casino', icon: LiveCasinoIcon, path: 'live-casino' },
     ],
   },
   {
