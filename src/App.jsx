@@ -9,8 +9,17 @@ import Jackpot from './pages/Jackpot'
 import Mines from './pages/Mines'
 import Roll from './pages/Roll'
 import LiveCasino from './pages/LiveCasino'
+import LiveCasinoGame from './pages/LiveCasinoGame'
 import Placeholder from './pages/Placeholder'
 import { useAuth } from './store/auth'
+
+function decodeRouteSegment(value) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return ''
+  }
+}
 
 function AppRoutes() {
   const pathname = usePathname()
@@ -28,9 +37,17 @@ function AppRoutes() {
     'live-casino': <LiveCasino />,
   }
   const caseRouteMatch = pathname.match(/^\/cases\/([^/]+)$/)
+  const casinoGameRouteMatch = pathname.match(/^\/live-casino\/play\/([^/]+)\/([^/]+)$/)
   const page = caseRouteMatch
     ? <Cases caseSlug={caseRouteMatch[1]} />
-    : pages[routeName]
+    : casinoGameRouteMatch
+      ? (
+          <LiveCasinoGame
+            providerId={decodeRouteSegment(casinoGameRouteMatch[1])}
+            gameId={decodeRouteSegment(casinoGameRouteMatch[2])}
+          />
+        )
+      : pages[routeName]
 
   useEffect(() => {
     if (!page) navigate('/', { replace: true })

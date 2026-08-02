@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../lib/apiClient'
+import { useNavigate } from '../lib/router'
 
 const CATEGORIES = ['Blackjack', 'Baccarat', 'Slots']
 
@@ -34,7 +35,7 @@ function SortIcon({ ascending = false }) {
   )
 }
 
-function CasinoGameCard({ game }) {
+function CasinoGameCard({ game, onPlay }) {
   const isSlot = game.category === 'Slots'
 
   return (
@@ -65,7 +66,7 @@ function CasinoGameCard({ game }) {
         title={`Play ${game.name}`}
         onClick={(event) => {
           event.stopPropagation()
-          window.dispatchEvent(new CustomEvent('live-casino:play-requested', { detail: game }))
+          onPlay(game)
         }}
       >
         <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
@@ -77,6 +78,7 @@ function CasinoGameCard({ game }) {
 }
 
 export default function LiveCasino() {
+  const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState('Blackjack')
   const [search, setSearch] = useState('')
   const [descending, setDescending] = useState(true)
@@ -184,7 +186,13 @@ export default function LiveCasino() {
                     className="grid w-full grid-cols-2 gap-x-4 gap-y-3 px-0.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
                   >
                     {visibleGames.map((game) => (
-                      <CasinoGameCard key={`${game.providerId}-${game.id}`} game={game} />
+                      <CasinoGameCard
+                        key={`${game.providerId}-${game.id}`}
+                        game={game}
+                        onPlay={(selectedGame) => navigate(
+                          `/live-casino/play/${encodeURIComponent(selectedGame.providerId)}/${encodeURIComponent(selectedGame.id)}`,
+                        )}
+                      />
                     ))}
                   </div>
                 ) : (
