@@ -40,7 +40,9 @@ function isCatalogCaseArtwork(imageUrl) {
 }
 
 function getCaseArtworkSize(caseItem) {
-  if (String(caseItem?.name || "").toLowerCase().includes("inferno")) return "inferno";
+  const name = String(caseItem?.name || "").toLowerCase();
+  if (name.includes("inferno")) return "inferno";
+  if (name.includes("beach bounty")) return "beach";
   if (isCatalogCaseArtwork(caseItem?.image)) return "catalog";
   return "default";
 }
@@ -299,7 +301,7 @@ function CaseCard({ item, onPreview, onOpen }) {
               alt={item.name}
               width="120"
               height="120"
-              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : ""}`}
+              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : artworkSize === "beach" ? "scale-[.95]" : ""}`}
               loading="lazy"
               decoding="async"
               draggable={false}
@@ -583,6 +585,10 @@ export default function CasesPage({ caseSlug = null }) {
 
         .case-preview-thumb .case-preview-thumb-image-inferno {
           transform: translateY(3px) scale(1.105);
+        }
+
+        .case-preview-thumb .case-preview-thumb-image-beach {
+          transform: scale(0.95);
         }
 
         .case-preview-texts {
