@@ -35,22 +35,43 @@ function SortIcon({ ascending = false }) {
 }
 
 function CasinoGameCard({ game }) {
+  const isSlot = game.category === 'Slots'
+
   return (
-    <div className="group w-full min-w-0 select-none overflow-hidden rounded-[6px] bg-[#11131d]" title={game.name}>
+    <div
+      className={`group relative w-full min-w-0 select-none overflow-hidden rounded-[6px] ${
+        isSlot ? 'aspect-[504/664] bg-transparent' : 'h-[220px] bg-[#11131d]'
+      }`}
+      title={game.name}
+    >
       <img
         src={game.image}
         alt={game.name}
-        width="220"
-        height="220"
-        className={`box-border block h-[220px] w-full transition-transform duration-200 ${
-          game.category === 'Slots'
-            ? 'object-contain p-2 group-hover:scale-[1.015]'
-            : 'object-cover group-hover:scale-[1.025]'
+        width={isSlot ? 504 : 220}
+        height={isSlot ? 664 : 220}
+        className={`box-border block h-full w-full ${
+          isSlot
+            ? 'object-contain'
+            : 'object-cover transition-transform duration-200 group-hover:scale-[1.025]'
         }`}
         loading="lazy"
         decoding="async"
         draggable={false}
       />
+      <button
+        type="button"
+        className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border-0 bg-[#131520]/90 p-0 text-white shadow-[0_3px_12px_rgba(0,0,0,.35)] transition duration-150 hover:bg-[#6c63ff] active:scale-95"
+        aria-label={`Play ${game.name}`}
+        title={`Play ${game.name}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          window.dispatchEvent(new CustomEvent('live-casino:play-requested', { detail: game }))
+        }}
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+          <path d="M8 5.35v13.3a1 1 0 0 0 1.52.85l10.1-6.65a1 1 0 0 0 0-1.7L9.52 4.5A1 1 0 0 0 8 5.35Z" />
+        </svg>
+      </button>
     </div>
   )
 }

@@ -168,40 +168,83 @@ const BETNEX_FEATURED_GAMES = {
   },
   HACKSAW: {
     Slots: [
-      'Wanted Dead or a Wild',
-      'Chaos Crew 2',
-      'Le Bandit',
-      'Hand of Anubis',
-      'RIP City',
-      'SixSixSix',
-      "Stack 'Em",
-      'Chaos Crew',
-      'Fist Of Destruction',
-      'Chaos Crew 3',
+      'Bash Bros',
+      'Donut Division',
+      'Eye of Medusa',
+      'Fruit Duel',
+      'Mighty Masks',
+      'Phoenix DuelReels',
+      'Rusty & Curly',
+      'Superstar Sevens',
+      'Tiger Legends',
+      'Zeus Ze Zecond',
     ],
   },
   BGAMING: {
     Slots: [
-      'Elvis Frog in Vegas',
-      'Elvis Frog TRUEWAYS',
-      'Gold Rush with Johnny Cash',
-      'Aloha King Elvis',
-      'Snoop Dogg Dollars',
-      'Aztec Magic Deluxe',
-      'Wild West TRUEWAYS',
-      'Fruit Million',
-      'Gemhalla',
-      'Aztec Magic Bonanza',
+      'Arrow Slot',
+      'Clucking Hell',
+      'Disco Party',
+      'Merge Up 2',
+      'Always Up!',
+      'Wild Tiger 2',
+      'Soccermania',
+      'Sugar Merge Up',
+      'Wild Clusters',
+      'Wild Wick',
     ],
   },
   PRAGMATICSLOTS: {
     Slots: [
-      'Gates of Olympus',
-      'Sweet Bonanza',
-      'Big Bass Bonanza',
-      'Wolf Gold',
-      'The Dog House',
+      'Bigger Bass Bonanza',
+      'Dino Drop',
+      'Eye of Spartacus',
+      'Fire Hot 100',
+      'Fire Hot 20',
+      'Fury of Odin Megaways',
+      'Ice Mints',
+      'Jelly Candy',
+      'Olympus Wins',
+      'Sweet Rush Bonanza',
     ],
+  },
+}
+const BETNEX_LOCAL_SLOT_IMAGES = {
+  BGAMING: {
+    'Arrow Slot': '/bgaming/thumb=ArrowSlot_v2 1.png',
+    'Clucking Hell': '/bgaming/thumb=CluckingHell_v2 1.png',
+    'Disco Party': '/bgaming/thumb=DiscoPart_v2 1.png',
+    'Merge Up 2': '/bgaming/thumb=MergeUp2_v2 1.png',
+    'Always Up!': '/bgaming/thumb=Pair_005 (AlwaysUp!) 1.png',
+    'Wild Tiger 2': '/bgaming/thumb=Pair_041 (WildTiger2) 1.png',
+    Soccermania: '/bgaming/thumb=Soccermania_v2 1.png',
+    'Sugar Merge Up': '/bgaming/thumb=SugarMergeUp_v2 1.png',
+    'Wild Clusters': '/bgaming/thumb=WildClusters_v2 1.png',
+    'Wild Wick': '/bgaming/thumb=WildWick_v2 1.png',
+  },
+  HACKSAW: {
+    'Bash Bros': '/hacksaw/thumb=bash-bros 1.png',
+    'Donut Division': '/hacksaw/thumb=donut-division 1.png',
+    'Eye of Medusa': '/hacksaw/thumb=eye-of-medusa 1.png',
+    'Fruit Duel': '/hacksaw/thumb=fruit-duel 1.png',
+    'Mighty Masks': '/hacksaw/thumb=mighty-masks 1.png',
+    'Phoenix DuelReels': '/hacksaw/thumb=phoenix-duelreels 1.png',
+    'Rusty & Curly': '/hacksaw/thumb=rusty-curly 1.png',
+    'Superstar Sevens': '/hacksaw/thumb=superstar-sevens 1.png',
+    'Tiger Legends': '/hacksaw/thumb=tiger-legends 1.png',
+    'Zeus Ze Zecond': '/hacksaw/thumb=zeus-ze-zecond 1.png',
+  },
+  PRAGMATICSLOTS: {
+    'Bigger Bass Bonanza': '/pragmatic/thumb=Bigger Bass Bonanza 1.png',
+    'Dino Drop': '/pragmatic/thumb=Dino Drop 1.png',
+    'Eye of Spartacus': '/pragmatic/thumb=Eye of Spartacus 1.png',
+    'Fire Hot 100': '/pragmatic/thumb=Fire Hot 100 Jackpot Play 1.png',
+    'Fire Hot 20': '/pragmatic/thumb=Fire Hot 20 Jackpot Play 1.png',
+    'Fury of Odin Megaways': '/pragmatic/thumb=Fury of Odin Megaways 1.png',
+    'Ice Mints': '/pragmatic/thumb=Ice Mints 1.png',
+    'Jelly Candy': '/pragmatic/thumb=Jelly Candy 1.png',
+    'Olympus Wins': '/pragmatic/thumb=Olympus Win Super Scatter 1.png',
+    'Sweet Rush Bonanza': '/pragmatic/thumb=Sweet Rush Bonanza 1.png',
   },
 }
 let betnexClient = null
@@ -270,17 +313,38 @@ function selectFeaturedBetnexGames(games, provider) {
   const featuredByCategory = BETNEX_FEATURED_GAMES[provider.id] || {}
 
   return provider.categories.flatMap((category) => {
-    const categoryLimit = category === 'Slots'
-      ? (provider.id === 'PRAGMATICSLOTS' ? 5 : 20)
-      : 5
+    const featuredNames = featuredByCategory[category] || []
+    const categoryLimit = category === 'Slots' ? featuredNames.length : 5
     const categoryGames = games.filter((game) => game.category === category)
     const gameByName = new Map(categoryGames.map((game) => [game.name.toLowerCase(), game]))
-    const selected = (featuredByCategory[category] || [])
-      .map((name) => gameByName.get(name.toLowerCase()))
+    const localImages = BETNEX_LOCAL_SLOT_IMAGES[provider.id] || {}
+    const selected = featuredNames
+      .map((name, index) => {
+        const catalogGame = gameByName.get(name.toLowerCase())
+        const localImage = localImages[name]
+        if (catalogGame) {
+          return {
+            ...catalogGame,
+            ...(localImage ? { image: localImage } : {}),
+            launchAvailable: true,
+          }
+        }
+        if (category !== 'Slots' || !localImage) return null
+        return {
+          id: `local-${provider.id.toLowerCase()}-${index}`,
+          name,
+          image: localImage,
+          category,
+          provider: provider.label,
+          providerId: provider.id,
+          order: index,
+          launchAvailable: false,
+        }
+      })
       .filter(Boolean)
       .slice(0, categoryLimit)
 
-    if (selected.length < categoryLimit) {
+    if (category !== 'Slots' && selected.length < categoryLimit) {
       const selectedIds = new Set(selected.map((game) => game.id))
       for (const game of categoryGames) {
         if (selected.length >= categoryLimit) break
