@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { NavLink } from '../lib/router'
 import { navSections } from '../data'
 import { XIcon, DiscordIcon } from './icons'
@@ -89,23 +89,13 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close navigation"
-        className={`fixed inset-0 z-[110] bg-black/60 backdrop-blur-[2px] transition-opacity duration-300 md:hidden ${
-          mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-        }`}
-        onClick={onMobileClose}
-      />
       <aside
         aria-label="Primary navigation"
-        className={`fixed inset-y-0 left-0 z-[120] flex w-[min(86vw,320px)] shrink-0 flex-col overflow-hidden rounded-r-[8px] transition-[width,transform] duration-300 ease-out md:relative md:inset-auto md:z-auto md:mx-3 md:w-[var(--sidebar-width)] md:translate-x-0 md:rounded-b-none md:rounded-t-[8px] md:duration-500 ${
+        className={`fixed bottom-0 left-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-[5.25rem] md:top-24 lg:relative lg:inset-auto lg:z-auto lg:mx-3 lg:w-[var(--sidebar-width)] lg:translate-x-0 lg:rounded-b-none lg:rounded-t-[8px] lg:pb-0 lg:duration-500 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-[105%]'
         }`}
         style={{
           '--sidebar-width': isCollapsed ? '82px' : '286px',
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
           background:
             'linear-gradient(180deg, rgb(27, 31, 46) 0px, rgb(25, 28, 42) 360px, rgb(23, 25, 37) 760px, rgb(23, 25, 37) 100%)',
         }}
@@ -116,7 +106,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`hidden h-12 w-full items-center gap-4 rounded-lg px-4 text-[15.5px] font-medium text-slate-400 transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-slate-200 md:flex ${
+          className={`hidden h-12 w-full items-center gap-4 rounded-lg px-4 text-[15.5px] font-medium text-slate-400 transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-slate-200 lg:flex ${
             isCollapsed ? 'justify-center' : ''
           }`}
           title={isCollapsed ? 'Expand' : 'Collapse'}
@@ -124,20 +114,9 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
           <Menu className="-ml-1 h-[22px] w-[22px] shrink-0" />
           {!isCollapsed && <span>Menu</span>}
         </button>
-        <div className="flex h-14 items-center justify-between border-b border-white/[0.06] px-2 md:hidden">
-          <span className="text-[15px] font-semibold text-white">Menu</span>
-          <button
-            type="button"
-            className="grid h-10 w-10 place-content-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-white"
-            aria-label="Close menu"
-            onClick={onMobileClose}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
       </div>
 
-      <nav className="scroll-cool no-scrollbar w-full flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-3 py-3 transition-all duration-300 ease-out">
+      <nav className="scroll-cool no-scrollbar min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 transition-all duration-300 ease-out sm:px-8 lg:px-3 lg:py-3">
         {navSections.map((section) => (
           <div key={section.label} className="mb-3">
             <SectionLabel isCollapsed={isCollapsed}>{section.label}</SectionLabel>

@@ -394,7 +394,7 @@ export default function Notifications() {
         @media (max-width: 640px) {
           .appNotificationsViewport {
             left: 10px;
-            bottom: max(10px, env(safe-area-inset-bottom));
+            bottom: calc(4.5rem + max(10px, env(safe-area-inset-bottom)));
             width: min(280px, calc(100vw - 20px));
             gap: 6px;
             align-items: flex-start;

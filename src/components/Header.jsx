@@ -11,7 +11,6 @@ import ExchangeModal from "./ExchangeModal";
 import BalanceTypesModal from "./BalanceTypesModal";
 import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
-import { Menu } from "lucide-react";
 
 const COIN_ICON = "/bobux.png";
 const DESKTOP_LOGO = "https://i.ibb.co/pj7hWMK3/logo-1.webp";
@@ -180,7 +179,7 @@ const getOwnerIdsForUser = async (userData) => {
   return [...new Set(ownerIds)]
 }
 
-export default function Header({ onOpenMobileNav, onOpenProfileModal }) {
+export default function Header({ onOpenProfileModal }) {
   const [loginOpen, setLoginOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
@@ -495,14 +494,6 @@ export default function Header({ onOpenMobileNav, onOpenProfileModal }) {
       `}</style>
 
       <div className="flex min-w-0 flex-1 shrink items-center gap-1.5 sm:gap-2">
-        <button
-          type="button"
-          onClick={onOpenMobileNav}
-          className="grid h-10 w-10 shrink-0 place-content-center rounded-[6px] border-0 bg-[#20222f] text-[#aeb4dd] hover:text-white md:hidden"
-          aria-label="Open navigation menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
         <Link to="/">
           <img
             alt="BloxyPot Logo"
@@ -688,7 +679,7 @@ export default function Header({ onOpenMobileNav, onOpenProfileModal }) {
       ) : null}
 
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
-        <div className="hidden overflow-hidden rounded-[6px] sm:block">
+        <div className="hidden overflow-hidden rounded-[6px] min-[390px]:block">
           <button
             ref={notificationsButtonRef}
             type="button"
@@ -770,7 +761,7 @@ export default function Header({ onOpenMobileNav, onOpenProfileModal }) {
           </div>
         ) : null}
 
-        <div className="relative hidden sm:block">
+        <div className="relative hidden min-[440px]:block">
           <button
             ref={volumeButtonRef}
             className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100 md:h-12 md:w-12"
