@@ -11,6 +11,7 @@ import ExchangeModal from "./ExchangeModal";
 import BalanceTypesModal from "./BalanceTypesModal";
 import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
+import { Menu } from "lucide-react";
 
 const COIN_ICON = "/bobux.png";
 const DESKTOP_LOGO = "https://i.ibb.co/pj7hWMK3/logo-1.webp";
@@ -179,7 +180,7 @@ const getOwnerIdsForUser = async (userData) => {
   return [...new Set(ownerIds)]
 }
 
-export default function Header({ onOpenProfileModal }) {
+export default function Header({ onOpenMobileNav, onOpenProfileModal }) {
   const [loginOpen, setLoginOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
@@ -467,8 +468,8 @@ export default function Header({ onOpenProfileModal }) {
 
   return (
     <header 
-      className="mt-3 box-border flex h-[4.5rem] w-full items-center justify-center px-3 md:h-[5.25rem] md:px-5 lg:px-6" 
-      style={{ backgroundColor: 'rgb(23, 25, 37)', paddingTop: '0rem', paddingBottom: '0.75rem' }}
+      className="box-border flex h-[calc(4.5rem+env(safe-area-inset-top))] w-full shrink-0 items-center justify-center px-2 pt-[env(safe-area-inset-top)] sm:mt-3 sm:h-[4.5rem] sm:px-3 sm:pt-0 md:h-[5.25rem] md:px-5 lg:px-6"
+      style={{ backgroundColor: 'rgb(23, 25, 37)', paddingBottom: '0.75rem' }}
     >
       <style>{`
         @keyframes summerShimmer {
@@ -493,12 +494,20 @@ export default function Header({ onOpenProfileModal }) {
         }
       `}</style>
 
-      <div className="flex min-w-0 flex-1 shrink items-center">
+      <div className="flex min-w-0 flex-1 shrink items-center gap-1.5 sm:gap-2">
+        <button
+          type="button"
+          onClick={onOpenMobileNav}
+          className="grid h-10 w-10 shrink-0 place-content-center rounded-[6px] border-0 bg-[#20222f] text-[#aeb4dd] hover:text-white md:hidden"
+          aria-label="Open navigation menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
         <Link to="/">
           <img
             alt="BloxyPot Logo"
             src={MOBILE_LOGO}
-            className="block aspect-auto h-auto w-[2.5rem] md:hidden"
+            className="block aspect-auto h-auto w-9 sm:w-[2.5rem] md:hidden"
             draggable={false}
           />
           <img
@@ -518,11 +527,11 @@ export default function Header({ onOpenProfileModal }) {
           <ExchangeModal isOpen={exchangeOpen} onClose={() => setExchangeOpen(false)} />
           <div
             ref={walletButtonRef}
-            className="mx-1 inline-flex max-w-full overflow-hidden rounded-[6px] text-xs font-semibold text-white sm:mx-0 sm:text-[15px]"
+            className="mx-0.5 inline-flex max-w-full overflow-hidden rounded-[6px] text-[11px] font-semibold text-white sm:mx-0 sm:text-[15px]"
           >
             <button
               type="button"
-              className="relative inline-flex cursor-pointer items-center gap-1.5 overflow-hidden border-0 bg-[#20222f] px-2.5 py-2 text-white transition-none hover:opacity-90 sm:gap-2.5 sm:px-4 sm:py-2.5"
+              className="relative inline-flex min-w-0 cursor-pointer items-center gap-1 overflow-hidden border-0 bg-[#20222f] px-2 py-2 text-white transition-none hover:opacity-90 sm:gap-2.5 sm:px-4 sm:py-2.5"
               title="Choose balance type"
               aria-label="Choose balance type"
               aria-haspopup="menu"
@@ -536,8 +545,8 @@ export default function Header({ onOpenProfileModal }) {
                 style={{ width: "18px", height: "18px", objectFit: "contain" }}
               />
 
-              <span className="inline-flex items-center gap-1.5 tabular-nums whitespace-nowrap leading-none">
-                <span>
+              <span className="inline-flex min-w-0 items-center gap-1 tabular-nums whitespace-nowrap leading-none sm:gap-1.5">
+                <span className="block max-w-[4.25rem] overflow-hidden text-ellipsis sm:max-w-none">
                   <AnimatedNumber className="hidden sm:inline" value={walletDisplayAmount} />
                   <AnimatedNumber className="sm:hidden" value={walletDisplayAmount} />
                 </span>
@@ -679,7 +688,7 @@ export default function Header({ onOpenProfileModal }) {
       ) : null}
 
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
-        <div className="overflow-hidden rounded-[6px]">
+        <div className="hidden overflow-hidden rounded-[6px] sm:block">
           <button
             ref={notificationsButtonRef}
             type="button"
@@ -723,7 +732,7 @@ export default function Header({ onOpenProfileModal }) {
               dir="ltr"
               id="radix-:r3:"
               aria-labelledby="radix-:r2:"
-              className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] overflow-y-auto overflow-x-hidden bg-[#1C1F2D] border border-solid border-[#252839] shadow-none rounded-[6px] p-1 mt-1 text-[#E1E4F2] w-80 animate-[menuPopupIn_180ms_ease-out_forwards]"
+              className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] w-[calc(100vw-1rem)] max-w-80 overflow-y-auto overflow-x-hidden rounded-[6px] border border-solid border-[#252839] bg-[#1C1F2D] p-1 mt-1 text-[#E1E4F2] shadow-none animate-[menuPopupIn_180ms_ease-out_forwards]"
               tabIndex={-1}
               data-orientation="vertical"
               style={{
@@ -761,7 +770,7 @@ export default function Header({ onOpenProfileModal }) {
           </div>
         ) : null}
 
-        <div className="relative">
+        <div className="relative hidden sm:block">
           <button
             ref={volumeButtonRef}
             className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100 md:h-12 md:w-12"
@@ -1056,7 +1065,7 @@ export default function Header({ onOpenProfileModal }) {
           ) : (
             <button
               onClick={() => setLoginOpen(true)}
-              className="inline-flex items-center gap-2 rounded-[6px] border-none bg-[#20222f] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 active:opacity-100 transition-none"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-[6px] border-none bg-[#20222f] px-3 py-2 text-xs font-semibold text-white transition-none hover:opacity-90 active:opacity-100 sm:gap-2 sm:px-5 sm:text-sm"
               type="button"
             >
               <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">

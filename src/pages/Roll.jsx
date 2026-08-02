@@ -799,6 +799,9 @@ const ROLL_STYLES = `
     .rollBetRow { gap: 6px; font-size: 12px; }
     .rollBetUsername { font-size: 11px; max-width: 90px; }
     .rollHistoryChip { font-size: 11px; padding: 6px 3px; }
+    .rollFairnessBackdrop { padding: 8px; }
+    .rollFairnessModal { width: 100%; max-height: calc(100dvh - 16px); padding: 1.25rem; }
+    .rollFairnessHeader { font-size: 20px; }
   }
   @media (max-width: 420px) {
     .rollPage { padding: 12px 10px 60px; }

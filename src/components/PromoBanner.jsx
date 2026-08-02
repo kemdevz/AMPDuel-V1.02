@@ -328,6 +328,20 @@ export default function PromoBanner() {
             width: 100%;
           }
         }
+
+        @media (max-width: 640px) {
+          .heroWrap { padding: 4px 0; }
+          .heroCard { padding: 18px 14px; border-radius: 8px; }
+          .heroSplit { gap: 14px; }
+          .heroLeft { box-sizing: border-box; gap: 13px; padding: 2px; }
+          .heroHead { min-width: 0; gap: 10px; }
+          .heroWelcome { min-width: 0; }
+          .heroName { max-width: 62vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .heroAvatar, .heroAvatarGuest { width: 44px; height: 44px; }
+          .heroProgressWrap { max-width: none; }
+          .heroCtaFlat { min-height: 40px; height: 40px; font-size: 14px; }
+          .heroBannerBox { height: 140px; border-radius: 8px; }
+        }
       `}</style>
     </div>
   )

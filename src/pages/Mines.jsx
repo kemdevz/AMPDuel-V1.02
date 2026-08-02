@@ -692,6 +692,11 @@ export default function Mines() {
         ._cell_lhu08_412{border-radius:.3rem}
         }
         @media (max-width: 520px){._pageWrap_lhu08_2{padding:2px 6px env(safe-area-inset-bottom,10px) 6px}
+        .minesFairnessBackdrop{padding:8px}
+        .minesFairnessModal{width:100%;max-height:calc(100dvh - 16px);padding:1.25rem}
+        .minesFairnessHeader{font-size:20px}
+        .minesFairnessSeedRow{flex-direction:column}
+        .minesFairnessRandom{width:100%}
         ._modal_lhu08_121{padding:2px 8px 8px;border-radius:8px}
         ._sidebarTitle_lhu08_47{font-size:15px}
         ._headerTitleIcon_lhu08_55{width:16px;height:16px}

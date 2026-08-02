@@ -638,7 +638,7 @@ export default function CaseOpeningView({ item, onBack }) {
         .case-open-shell {
           box-sizing: border-box;
           width: 100%;
-          min-height: 100vh;
+          min-height: 100%;
           padding: 18px 22px 30px;
           animation: case-open-page-in .35s ease-out both;
         }
@@ -1659,7 +1659,7 @@ export default function CaseOpeningView({ item, onBack }) {
           .case-open-primary { flex: 1; }
           .case-open-drops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .case-fairness-backdrop { padding: 12px; }
-          .case-fairness-surface { width: 100%; padding: 1.5rem; }
+          .case-fairness-surface { width: 100%; max-height: calc(100dvh - 24px); padding: 1.25rem; }
           .case-fairness-seed-row { flex-direction: column; }
           .case-fairness-random { width: 100%; }
         }

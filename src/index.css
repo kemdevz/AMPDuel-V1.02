@@ -17,12 +17,15 @@
   body,
   #root {
     height: 100%;
+    width: 100%;
   }
 
   body {
     @apply bg-ink-700 text-slate-100 antialiased;
-    height: 100svh;
+    min-height: 100svh;
+    min-height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
     background-color: #171925;
   }
 
@@ -30,6 +33,20 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+}
+
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
   }
 }
 

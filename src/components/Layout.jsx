@@ -12,6 +12,7 @@ export default function Layout({ children }) {
   const touchSessionActivity = useAuth((s) => s.touchSessionActivity)
   const isLoggedIn = Boolean(user)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     const handleOpenProfileModal = () => {
@@ -54,15 +55,41 @@ export default function Layout({ children }) {
     }
   }, [touchSessionActivity, user])
 
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setMobileNavOpen(false)
+    }
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setMobileNavOpen(false)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('resize', handleResize)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [mobileNavOpen])
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#171925]">
-      <Header onOpenProfileModal={() => setProfileModalOpen(true)} />
+    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#171925]">
+      <Header
+        onOpenMobileNav={() => setMobileNavOpen(true)}
+        onOpenProfileModal={() => setProfileModalOpen(true)}
+      />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar isLoggedIn={isLoggedIn} onOpenProfileModal={() => setProfileModalOpen(true)} />
+        <Sidebar
+          isLoggedIn={isLoggedIn}
+          mobileOpen={mobileNavOpen}
+          onMobileClose={() => setMobileNavOpen(false)}
+          onOpenProfileModal={() => setProfileModalOpen(true)}
+        />
 
         <main
-          className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overflow-x-hidden overflow-y-auto rounded-t-[0.5rem]"
+          className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto md:rounded-t-[0.5rem]"
           style={{
             background:
               'linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url("https://i.ibb.co/v4wP9pPK/summer-bg.png") center center / cover',

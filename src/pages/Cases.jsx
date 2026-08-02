@@ -410,7 +410,7 @@ export default function CasesPage({ caseSlug = null }) {
 
   if (caseSlug) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center px-4 text-[#e1e4f2] [font-family:Poppins,sans-serif]">
+      <div className="flex min-h-full w-full items-center justify-center px-4 text-[#e1e4f2] [font-family:Poppins,sans-serif]">
         <div className="flex flex-col items-center gap-4 text-center">
           <p className="m-0 text-sm text-[#8b92b8]">
             {casesLoading ? "Loading case..." : casesError || "This case is unavailable."}
@@ -903,7 +903,7 @@ export default function CasesPage({ caseSlug = null }) {
       `}</style>
 
       <div className="relative z-[20] flex h-full w-full flex-col items-center">
-        <div className="flex min-h-screen w-full max-w-[1320px] flex-col items-center px-4 pb-4 pt-4 xl:px-12 xl:pb-8 xl:pt-8">
+        <div className="flex min-h-full w-full max-w-[1320px] flex-col items-center px-2 pb-4 pt-3 sm:px-4 sm:pt-4 xl:px-12 xl:pb-8 xl:pt-8">
           <div className="flex h-full w-full flex-col gap-4">
             <div className="h-full w-full">
               <div className="mx-auto box-border w-full px-[14px] pb-[22px] min-[1100px]:max-w-[1320px] min-[1100px]:px-[18px] min-[1100px]:pb-7 max-[840px]:px-3">

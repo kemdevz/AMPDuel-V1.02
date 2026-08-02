@@ -204,11 +204,11 @@ export default function LoginModal({ isOpen, onClose }) {
       `}</style>
 
       <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(5,7,18,0.82)] p-3 animate-[loginOverlayIn_180ms_ease-out_forwards] sm:p-5"
+        className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-[rgba(5,7,18,0.82)] p-0 animate-[loginOverlayIn_180ms_ease-out_forwards] sm:p-5"
         onClick={handleBackdropClick}
       >
         <div
-          className="relative flex h-[560px] max-h-[calc(100vh-2rem)] w-full max-w-[980px] flex-col overflow-hidden rounded-[15px] bg-[#111522] shadow-[0_28px_90px_rgba(0,0,0,0.55)] animate-[loginModalIn_220ms_ease-out_forwards] md:flex-row"
+          className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-[980px] flex-col overflow-hidden rounded-none bg-[#111522] shadow-[0_28px_90px_rgba(0,0,0,0.55)] animate-[loginModalIn_220ms_ease-out_forwards] sm:h-[560px] sm:max-h-[calc(100dvh-2rem)] sm:rounded-[15px] md:flex-row"
           onClick={(event) => event.stopPropagation()}
         >
           {/* Close button — single instance, same spot for every step */}
@@ -216,10 +216,10 @@ export default function LoginModal({ isOpen, onClose }) {
             type="button"
             onClick={close}
             disabled={loading || confirming || verifying}
-            className="absolute right-4 top-4 z-20 grid h-10 w-10 place-content-center text-[26px] text-white/70 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="absolute right-2 top-[max(.5rem,env(safe-area-inset-top))] z-20 grid h-11 w-11 place-content-center rounded-lg text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:right-4 sm:top-4"
             aria-label="Close"
           >
-            ×
+            <X className="h-6 w-6" />
           </button>
 
           {/* Art panel — fixed on the left for every step, height locked to the modal's fixed height so it never resizes/shifts between steps */}
@@ -237,12 +237,12 @@ export default function LoginModal({ isOpen, onClose }) {
           </div>
 
           {/* Content panel — fixed height (matches modal), scrolls internally per step instead of resizing the modal */}
-          <div className="flex h-full w-full flex-col overflow-hidden px-6 py-6 sm:px-9 sm:py-7">
+          <div className="no-scrollbar flex h-full min-h-0 w-full flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-9 sm:py-7">
             {/* Mobile-only logo since the art panel is hidden below md */}
-            <img src={LOGO} alt="BloxyPot" draggable={false} className="mb-6 h-[31px] w-auto select-none md:hidden" />
+            <img src={LOGO} alt="BloxyPot" draggable={false} className="mb-4 h-[27px] w-auto shrink-0 select-none sm:mb-6 sm:h-[31px] md:hidden" />
 
             {step === 1 ? (
-              <div className="flex flex-1 flex-col justify-center gap-5">
+              <div className="flex min-h-full flex-1 flex-col justify-center gap-4 py-2 sm:gap-5 sm:py-0">
                 <h1 className="text-[26px] font-bold leading-tight text-white sm:text-[28px]">Welcome to BloxyPot!</h1>
 
                 <p className="max-w-md text-sm leading-relaxed text-white/50">
@@ -359,12 +359,12 @@ export default function LoginModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="mb-3 rounded-[12px] border border-[#2a2f45] bg-[#111827]/70 p-3">
-                  <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-                    <div className="flex h-[150px] items-center justify-center overflow-hidden rounded-[10px] border border-white/[0.06] bg-[radial-gradient(circle_at_50%_30%,rgba(108,99,255,0.14),transparent_62%),#171b28]">
+                  <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 sm:grid-cols-[140px_1fr]">
+                    <div className="flex h-[108px] items-center justify-center overflow-hidden rounded-[10px] border border-white/[0.06] bg-[radial-gradient(circle_at_50%_30%,rgba(108,99,255,0.14),transparent_62%),#171b28] sm:h-[150px]">
                       <img
                         src={robloxUser?.avatarUrl || FALLBACK_AVATAR}
                         alt={`${robloxUser?.username || "Roblox"} avatar`}
-                        className="h-full max-h-[150px] w-full object-contain"
+                        className="h-full max-h-[108px] w-full object-contain sm:max-h-[150px]"
                         referrerPolicy="no-referrer"
                         onError={(event) => {
                           event.currentTarget.src = FALLBACK_AVATAR;
@@ -401,7 +401,7 @@ export default function LoginModal({ isOpen, onClose }) {
 
                 {error ? <p className="mb-3 text-sm font-semibold text-[#ff6b7a]">{error}</p> : null}
 
-                <div className="mt-auto grid gap-3 sm:grid-cols-2">
+                <div className="mt-auto grid grid-cols-2 gap-3">
                   <ModalButton variant="secondary" onClick={() => setStep(1)} disabled={confirming}>
                     Back
                   </ModalButton>
@@ -417,12 +417,12 @@ export default function LoginModal({ isOpen, onClose }) {
                 <h2 className="mb-3 text-[20px] font-extrabold leading-tight text-white sm:text-[22px]">Add phrase to profile</h2>
 
                 <div className="mb-3 rounded-[12px] border border-[#2a2f45] bg-[#111827]/70 p-3">
-                  <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-                    <div className="flex h-[150px] items-center justify-center overflow-hidden rounded-[10px] border border-white/[0.05] bg-[radial-gradient(circle_at_50%_30%,rgba(108,99,255,0.12),transparent_64%),#171b28]">
+                  <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 sm:grid-cols-[140px_1fr]">
+                    <div className="flex h-[108px] items-center justify-center overflow-hidden rounded-[10px] border border-white/[0.05] bg-[radial-gradient(circle_at_50%_30%,rgba(108,99,255,0.12),transparent_64%),#171b28] sm:h-[150px]">
                       <img
                         src={robloxUser?.avatarUrl || FALLBACK_AVATAR}
                         alt={`${robloxUser?.username || "Roblox"} avatar`}
-                        className="h-full max-h-[150px] w-full object-contain"
+                        className="h-full max-h-[108px] w-full object-contain sm:max-h-[150px]"
                         referrerPolicy="no-referrer"
                         onError={(event) => {
                           event.currentTarget.src = FALLBACK_AVATAR;
@@ -436,7 +436,7 @@ export default function LoginModal({ isOpen, onClose }) {
                       <button
                         type="button"
                         onClick={handleCopy}
-                        className="group relative rounded-[9px] border border-[#2a2f45] bg-[#0c101b] p-3 text-left text-[13px] font-semibold leading-[1.4] text-[#e1e4f2] transition-colors hover:border-[#6c63ff]/50"
+                        className="group relative break-all rounded-[9px] border border-[#2a2f45] bg-[#0c101b] p-3 pr-10 text-left text-[12px] font-semibold leading-[1.4] text-[#e1e4f2] transition-colors hover:border-[#6c63ff]/50 sm:text-[13px]"
                       >
                         {phrase}
                         <span className="absolute right-2.5 top-2.5 grid h-6 w-6 place-content-center rounded-[5px] bg-white/[0.08] text-[#aeb4dd] opacity-0 transition-opacity group-hover:opacity-100">
@@ -457,7 +457,7 @@ export default function LoginModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                <div className="mb-3 grid grid-cols-2 gap-3">
                   <a
                     href={profileUrl}
                     target="_blank"
@@ -475,7 +475,7 @@ export default function LoginModal({ isOpen, onClose }) {
 
                 {error ? <p className="mb-3 text-sm font-semibold text-[#ff6b7a]">{error}</p> : null}
 
-                <div className="mt-auto grid gap-3 sm:grid-cols-2">
+                <div className="mt-auto grid grid-cols-2 gap-3">
                   <ModalButton variant="secondary" onClick={() => setStep(2)} disabled={verifying}>
                     Back
                   </ModalButton>
