@@ -4,6 +4,7 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import ChatPanel from './ChatPanel'
 import ProfileModal from './ProfileModal'
+import LeaderboardModal from './LeaderboardModal'
 import Notifications from './Notifications'
 import { useAuth } from '../store/auth'
 import { Home, Menu, MessageSquare } from 'lucide-react'
@@ -14,6 +15,7 @@ export default function Layout({ children }) {
   const touchSessionActivity = useAuth((s) => s.touchSessionActivity)
   const isLoggedIn = Boolean(user)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [leaderboardModalOpen, setLeaderboardModalOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
 
@@ -88,6 +90,7 @@ export default function Layout({ children }) {
           mobileOpen={mobileNavOpen}
           onMobileClose={() => setMobileNavOpen(false)}
           onOpenProfileModal={() => setProfileModalOpen(true)}
+          onOpenLeaderboardModal={() => setLeaderboardModalOpen(true)}
         />
 
         <main
@@ -151,6 +154,11 @@ export default function Layout({ children }) {
         isOpen={profileModalOpen}
         initialTab="profile"
         onClose={() => setProfileModalOpen(false)}
+      />
+
+      <LeaderboardModal
+        isOpen={leaderboardModalOpen}
+        onClose={() => setLeaderboardModalOpen(false)}
       />
 
       <Notifications />

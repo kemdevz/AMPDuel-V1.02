@@ -51,6 +51,7 @@ export default function LiveCasinoGame({ providerId, gameId }) {
   const [error, setError] = useState('')
   const closedSessionRef = useRef('')
   const frameRevealTimerRef = useRef(null)
+  const isLiveTable = game?.category === 'Blackjack' || game?.category === 'Baccarat'
 
   useEffect(() => {
     let mounted = true
@@ -193,7 +194,9 @@ export default function LiveCasinoGame({ providerId, gameId }) {
 
         <div
           id="live-casino-game-window"
-          className="relative flex aspect-[980/600] w-full items-center justify-center overflow-hidden bg-[#080a10]"
+          className={`relative flex w-full items-center justify-center overflow-hidden bg-[#080a10] ${
+            isLiveTable ? 'aspect-video' : 'aspect-[980/600]'
+          }`}
         >
           {!launch?.launchUrl && game?.image ? (
             <img
