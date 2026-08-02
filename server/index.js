@@ -708,7 +708,9 @@ async function loadProfileById(profileId) {
   const rows = await adminRest(
     `user_profiles?select=*&id=eq.${encodeURIComponent(String(profileId))}&limit=1`,
   )
-  return Array.isArray(rows) ? rows[0] || null : rows
+  const profile = Array.isArray(rows) ? rows[0] || null : rows
+  console.log('[loadProfileById] Profile ID:', profileId, 'Profile:', profile)
+  return profile
 }
 
 async function emitProfileUpdates(profileIds) {
@@ -745,7 +747,12 @@ async function emitWalletRefreshes(profileIds) {
   for (const socket of io.sockets.sockets.values()) {
     const profileId = String(socket.data.identity?.profileId || '')
     if (!profileIdSet.has(profileId)) continue
-    socket.emit('wallet:updated', { profileId })
+    
+    // Fetch the current balance for this profile
+    const profile = await loadProfileById(profileId)
+    if (profile) {
+      socket.emit('wallet:updated', { profileId, balance: Number(profile.balance || 0) })
+    }
   }
 }
 
@@ -3784,9 +3791,76 @@ app.get('/api/games/feed', (req, res) => {
 })
 
 app.get('/api/live-casino/games', async (req, res) => {
-  const games = await loadBetnexCatalog()
-  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=240')
-  res.json({ ok: true, games })
+  try {
+    const games = await loadBetnexCatalog()
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=240')
+    res.json({ ok: true, games })
+  } catch (error) {
+    if (error.status === 503) {
+      res.status(503).json({ ok: false, error: 'Live Casino is not configured yet.' })
+    } else {
+      console.error('Failed to load Betnex catalog:', error)
+      res.status(500).json({ ok: false, error: 'Failed to load games catalog.' })
+    }
+  }
+})
+
+// Betnex v1 API endpoints
+app.post('/v1/wallet/callback', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    console.log('[Betnex Wallet Callback] Received callback:', JSON.stringify(req.body, null, 2))
+    const apiKey = String(process.env.BETNEX_API_KEY || '').trim()
+    if (!apiKey) throw new Error('Live Casino callback is not configured.')
+    const callback = verifyCallback(req.body, apiKey)
+    console.log('[Betnex Wallet Callback] Verified callback:', callback)
+    const betUsd = Number(callback.bet_amount)
+    const winUsd = Number(callback.win_amount)
+    if (!Number.isFinite(betUsd) || !Number.isFinite(winUsd)) {
+      throw new Error('Invalid callback amounts.')
+    }
+
+    const result = await adminRest('rpc/process_live_casino_callback', {
+      method: 'POST',
+      body: {
+        p_member_account: callback.member_account.trim(),
+        p_serial_number: callback.serial_number.trim(),
+        p_game_uid: callback.game_uid.trim(),
+        p_game_round: callback.game_round.trim(),
+        p_game_name: callback.game_name.trim(),
+        p_game_provider: callback.game_provider.trim(),
+        p_currency_code: callback.currency_code.trim(),
+        p_bet_usd: betUsd,
+        p_win_usd: winUsd,
+        p_provider_data: callback.data ?? null,
+      },
+    })
+
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(createCallbackResponse({
+      success: true,
+      handle: true,
+      money: Number(result?.balance_usd || 0),
+      msg: result?.duplicate ? 'Duplicate callback ignored' : 'Callback processed successfully',
+    }))
+    if (result?.profile_id) void emitWalletRefreshes([result.profile_id])
+  } catch (error) {
+    const expected = /callback|session|profile|currency|balance|amount|serial|configured|represent/i.test(
+      String(error?.message || ''),
+    )
+    if (!expected) console.error('[live-casino] callback failed', error)
+    res.json(createCallbackResponse({
+      success: false,
+      handle: false,
+      money: 0,
+      msg: 'Unable to process wallet callback.',
+    }))
+  }
+})
+
+app.post('/api/betnex/callback', express.json({ limit: '64kb' }), async (req, res) => {
+  // Redirect to the new v1 endpoint for backward compatibility
+  req.url = '/v1/wallet/callback'
+  return app._router.handle(req, res)
 })
 
 app.post(
@@ -3823,6 +3897,8 @@ app.post(
       return
     }
 
+    console.log('[Live Casino] Profile balance:', profile.balance)
+
     let coinsPerUsd
     try {
       coinsPerUsd = getBetnexCoinsPerUsd()
@@ -3831,6 +3907,7 @@ app.post(
       return
     }
     const launchBalanceCoins = Number(profile.balance || 0)
+    console.log('[Live Casino] Launch balance coins:', launchBalanceCoins)
     const launchBalanceUsd = coinsToBetnexUsd(launchBalanceCoins, coinsPerUsd)
     const sessionId = crypto.randomUUID()
     // Betnex accepts only 4-32 alphanumeric characters for member_account.
@@ -3857,6 +3934,8 @@ app.post(
     })
 
     try {
+      console.log('[Live Casino] Launching Betnex game with money:', launchBalanceUsd, 'USD')
+      
       const launch = await getBetnexClient().launchGame({
         username: memberAccount,
         gameId: game.id,
@@ -3866,6 +3945,7 @@ app.post(
         home_url: homeUrl,
         lang: 'en',
       })
+      console.log('[Live Casino] Betnex launch response:', launch)
       const launchUrl = getBetnexLaunchUrl(launch)
       if (!launchUrl) throw new Error('Betnex did not return a valid game URL.')
 
@@ -3876,15 +3956,16 @@ app.post(
       })
 
       res.setHeader('Cache-Control', 'no-store')
-      res.json({
+      const responseData = {
         ok: true,
         launchUrl,
         sessionId,
-        balanceCoins: launchBalanceCoins,
-        balanceUsd: launchBalanceUsd,
+        launchBalanceCoins: launchBalanceCoins,
+        launchBalanceUsd: launchBalanceUsd,
         coinsPerUsd,
-        currency: 'USD',
-      })
+      }
+      console.log('[Live Casino] Launch response:', responseData)
+      res.json(responseData)
     } catch (error) {
       await adminRest(`live_casino_sessions?id=eq.${encodeURIComponent(sessionId)}`, {
         method: 'PATCH',
@@ -3929,11 +4010,13 @@ app.post(
   },
 )
 
-app.post('/api/betnex/callback', express.json({ limit: '64kb' }), async (req, res) => {
+app.post('/v1/wallet/callback', express.json({ limit: '64kb' }), async (req, res) => {
   try {
+    console.log('[Betnex Wallet Callback] Received callback:', JSON.stringify(req.body, null, 2))
     const apiKey = String(process.env.BETNEX_API_KEY || '').trim()
     if (!apiKey) throw new Error('Live Casino callback is not configured.')
     const callback = verifyCallback(req.body, apiKey)
+    console.log('[Betnex Wallet Callback] Verified callback:', callback)
     const betUsd = Number(callback.bet_amount)
     const winUsd = Number(callback.win_amount)
     if (!Number.isFinite(betUsd) || !Number.isFinite(winUsd)) {

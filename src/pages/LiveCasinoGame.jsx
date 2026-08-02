@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiRequest } from '../lib/apiClient'
 import { useNavigate } from '../lib/router'
 import { useAuth } from '../store/auth'
+import { useSocket } from '../lib/socket'
 
 const pendingLaunchRequests = new Map()
 
@@ -41,6 +42,7 @@ function ExpandIcon() {
 export default function LiveCasinoGame({ providerId, gameId }) {
   const navigate = useNavigate()
   const setBalance = useAuth((state) => state.setBalance)
+  const socket = useSocket()
   const [game, setGame] = useState(null)
   const [launch, setLaunch] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -69,6 +71,7 @@ export default function LiveCasinoGame({ providerId, gameId }) {
 
         const launchResult = await requestGameLaunch(selectedGame)
         if (!mounted) return
+        console.log('[Live Casino Game] Launch result:', launchResult)
         setLaunch(launchResult)
       } catch (requestError) {
         if (!mounted) return
@@ -85,6 +88,23 @@ export default function LiveCasinoGame({ providerId, gameId }) {
 
     return () => { mounted = false }
   }, [gameId, providerId])
+
+  // Listen for wallet updates from the server
+  useEffect(() => {
+    if (!socket) return
+
+    const handleWalletUpdated = (data) => {
+      if (data.profileId && data.balance !== undefined) {
+        setBalance(Number(data.balance))
+      }
+    }
+
+    socket.on('wallet:updated', handleWalletUpdated)
+
+    return () => {
+      socket.off('wallet:updated', handleWalletUpdated)
+    }
+  }, [socket, setBalance])
 
   const closeSession = useCallback(async (keepalive = false) => {
     const sessionId = String(launch?.sessionId || '')
@@ -154,7 +174,7 @@ export default function LiveCasinoGame({ providerId, gameId }) {
             {game ? (
               <p className="m-0 truncate text-[10px] font-medium text-[#6c7399] sm:text-[11px]">
                 {game.provider}
-                {launch ? ` - 1 USD = ${Number(launch.coinsPerUsd).toLocaleString()} Coins` : ''}
+                {launch ? ` - 1 USD = ${Number(launch.coinsPerUsd).toLocaleString()} Coins - Balance: ${Number(launch.launchBalanceCoins || 0).toLocaleString()} Coins` : ''}
               </p>
             ) : null}
           </div>
