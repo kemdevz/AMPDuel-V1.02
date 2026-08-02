@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabaseClient";
 import ExchangeModal from "./ExchangeModal";
 import BalanceTypesModal from "./BalanceTypesModal";
 import { useAuth } from "../store/auth";
+import { connectSocket } from "../lib/socket";
 
 const COIN_ICON = "/bobux.png";
 const DESKTOP_LOGO = "https://i.ibb.co/pj7hWMK3/logo-1.webp";
@@ -216,6 +217,7 @@ export default function Header({ onOpenProfileModal }) {
     let isMounted = true
     let inventoryChannel = null
     let refreshSequence = 0
+    const socket = connectSocket()
 
     const refreshWalletState = async () => {
       const sequence = ++refreshSequence
@@ -276,10 +278,17 @@ export default function Header({ onOpenProfileModal }) {
       if (document.visibilityState === 'visible') void refreshWalletState()
     }
 
+    const handleSocketWalletRefresh = (payload = {}) => {
+      const activeProfileId = String(user?.profile_id || user?.id || '').trim()
+      const updatedProfileId = String(payload?.profileId || '').trim()
+      if (!updatedProfileId || updatedProfileId === activeProfileId) void refreshWalletState()
+    }
+
     void refreshWalletState()
     window.addEventListener('wallet:updated', handleWalletRefresh)
     window.addEventListener('focus', handleWalletRefresh)
     document.addEventListener('visibilitychange', handleVisibilityRefresh)
+    socket.on('wallet:updated', handleSocketWalletRefresh)
 
     if (!user?.id && !user?.profile_id) {
       return () => {
@@ -287,6 +296,7 @@ export default function Header({ onOpenProfileModal }) {
         window.removeEventListener('wallet:updated', handleWalletRefresh)
         window.removeEventListener('focus', handleWalletRefresh)
         document.removeEventListener('visibilitychange', handleVisibilityRefresh)
+        socket.off('wallet:updated', handleSocketWalletRefresh)
       }
     }
 
@@ -314,6 +324,7 @@ export default function Header({ onOpenProfileModal }) {
       window.removeEventListener('wallet:updated', handleWalletRefresh)
       window.removeEventListener('focus', handleWalletRefresh)
       document.removeEventListener('visibilitychange', handleVisibilityRefresh)
+      socket.off('wallet:updated', handleSocketWalletRefresh)
       if (inventoryChannel) {
         supabase.removeChannel(inventoryChannel)
       }

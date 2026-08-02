@@ -36,7 +36,7 @@ export default function PromoBanner() {
   const user = useAuth((s) => s.user)
   const isGuest = !user
   const displayName = user?.username || 'Guest'
-  const currentLevel = user?.level ?? 1
+  const currentLevel = user?.level ?? 0
   const avatarSrc = user?.avatar_headshot_url || user?.avatar_url || ''
   const progressWidth = isGuest ? '4%' : `${Math.min(100, Math.max(4, currentLevel / 2))}%`
 

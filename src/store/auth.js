@@ -1,15 +1,12 @@
 import { create } from 'zustand'
 import { apiRequest } from '../lib/apiClient'
 import { connectSocket, refreshSocketAuthentication } from '../lib/socket'
+import { getXpThresholdForLevel, MAX_LEVEL } from '../lib/levelProgression'
 
-const getXpThresholdForLevel = (level) => {
-  const safeLevel = Math.max(1, Number(level) || 1)
-  return Math.floor(50000 * Math.pow(safeLevel, 1.6))
-}
-
-const getXpUntilNextLevel = (level, xp) => {
-  const safeLevel = Math.max(1, Number(level) || 1)
+const getXpUntilNextLevel = (level, xp, maxLevel = MAX_LEVEL) => {
+  const safeLevel = Math.max(0, Number(level) || 0)
   const safeXp = Math.max(0, Number(xp) || 0)
+  if (safeLevel >= Math.min(MAX_LEVEL, Math.max(1, Number(maxLevel) || MAX_LEVEL))) return 0
   return Math.max(0, getXpThresholdForLevel(safeLevel) - safeXp)
 }
 
@@ -22,10 +19,13 @@ const normalizeUser = (row) => {
     username: row.username || 'user',
     roblox_id: row.roblox_id ? String(row.roblox_id) : null,
     balance: Number(row.balance ?? 0),
-    level: Number(row.level ?? 1),
+    level: Number(row.level ?? 0),
     max_level: Number(row.max_level ?? 200),
     xp: Number(row.xp ?? 0),
-    xp_until_next_level: Number(row.xp_until_next_level ?? getXpUntilNextLevel(row.level, row.xp)),
+    lifetime_xp: Number(row.lifetime_xp ?? 0),
+    xp_until_next_level: Number(
+      row.xp_until_next_level ?? getXpUntilNextLevel(row.level, row.xp, row.max_level),
+    ),
     role: row.role || 'user',
     played: Number(row.played ?? 0),
     won: Number(row.won ?? 0),

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
 import { getLevelStyle } from '../lib/levelStyles'
+import { getLevelProgress } from '../lib/levelProgression'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import {
@@ -218,51 +219,6 @@ const pressableDanger =
   `${dangerGradient} text-white transition-[transform,filter] duration-[140ms] ease-out hover:brightness-[1.07] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff6b6b]`
 const scrollClasses =
   '[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-[rgba(108,99,255,0.3)]'
-
-// XP required to reach the NEXT level, given the current level.
-// The user_profiles schema only stores a running `level` and `xp` value, not
-// a precomputed threshold, so this mirrors a standard escalating curve.
-// Swap this out for your real backend formula if it differs.
-function getXpThresholdForLevel(level) {
-  const lvl = Math.max(1, Number(level) || 1)
-  return Math.floor(50000 * Math.pow(lvl, 1.6))
-}
-
-function getLevelProgress(level, xp, maxLevel = 200) {
-  const safeMaxLevel = Math.max(1, Number(maxLevel) || 200)
-  const safeLevel = Math.min(safeMaxLevel, Math.max(1, Number(level) || 1))
-  const safeXp = Math.max(0, Number(xp) || 0)
-  const required = getXpThresholdForLevel(safeLevel)
-  if (safeLevel >= safeMaxLevel) {
-    return { current: required, required, percent: 100, isMaxLevel: true }
-  }
-
-  const percent = required > 0 ? Math.min(100, Math.max(0, (safeXp / required) * 100)) : 0
-  return { current: safeXp, required, percent, isMaxLevel: false }
-}
-
-// Given a level/xp pair, rolls forward any full bars into actual level-ups
-// (handles multiple level-ups at once if enough xp has piled up), carrying
-// the leftover xp into the new level. Returns leveledUp: false when the bar
-// isn't full, so callers can skip writing back to Supabase for no reason.
-function resolveLevelUps(level, xp, maxLevel = 200) {
-  const safeMaxLevel = Math.max(1, Number(maxLevel) || 200)
-  let safeLevel = Math.min(safeMaxLevel, Math.max(1, Number(level) || 1))
-  let remainingXp = Math.max(0, Number(xp) || 0)
-  let leveledUp = false
-
-  let threshold = getXpThresholdForLevel(safeLevel)
-  while (safeLevel < safeMaxLevel && threshold > 0 && remainingXp >= threshold) {
-    remainingXp -= threshold
-    safeLevel += 1
-    leveledUp = true
-    threshold = getXpThresholdForLevel(safeLevel)
-  }
-
-  if (safeLevel >= safeMaxLevel) remainingXp = 0
-
-  return { level: safeLevel, xp: remainingXp, leveledUp }
-}
 
 function formatSessionDate(value) {
   if (!value) return 'Unknown'
@@ -887,6 +843,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const [levelUpFlash, setLevelUpFlash] = useState(null)
   const closeTimerRef = useRef(null)
   const levelUpTimerRef = useRef(null)
+  const observedLevelRef = useRef(null)
 
   useEffect(() => {
     const handleSessionActivity = (event) => {
@@ -1072,52 +1029,6 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
     }
   }, [isOpen, user?.ignored_users])
 
-  // Whenever the loaded profile has enough xp to fill (or overfill) the bar
-  // for its current level, roll that into a real level-up and persist it.
-  // This re-runs after we write back, but resolveLevelUps is idempotent once
-  // the remainder no longer fills the bar, so it settles after one write.
-  useEffect(() => {
-    if (!isOpen || !profile?.id) return undefined
-
-    const { level: newLevel, xp: newXp, leveledUp } = resolveLevelUps(
-      profile.level,
-      profile.xp,
-      profile.max_level,
-    )
-    if (!leveledUp) return undefined
-
-    let cancelled = false
-
-    const applyLevelUp = async () => {
-      let data = null
-      let error = null
-      try {
-        const result = await apiRequest('/api/profile/level', {
-          method: 'PATCH',
-          body: JSON.stringify({ level: newLevel, xp: newXp }),
-        })
-        data = result?.profile || null
-      } catch (requestError) {
-        error = requestError
-      }
-
-      if (cancelled) return
-
-      if (!error && data) {
-        setProfile(data)
-        setLevelUpFlash(newLevel)
-        if (levelUpTimerRef.current) window.clearTimeout(levelUpTimerRef.current)
-        levelUpTimerRef.current = window.setTimeout(() => setLevelUpFlash(null), 2200)
-      }
-    }
-
-    void applyLevelUp()
-
-    return () => {
-      cancelled = true
-    }
-  }, [isOpen, profile])
-
   useEffect(() => {
     return () => {
       if (levelUpTimerRef.current) window.clearTimeout(levelUpTimerRef.current)
@@ -1154,6 +1065,10 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const account = useMemo(() => ({
     ...user,
     ...profile,
+    level: user?.level ?? profile?.level,
+    xp: user?.xp ?? profile?.xp,
+    lifetime_xp: user?.lifetime_xp ?? profile?.lifetime_xp,
+    max_level: user?.max_level ?? profile?.max_level,
     played: user?.played ?? profile?.played,
     won: user?.won ?? profile?.won,
     lost: user?.lost ?? profile?.lost,
@@ -1172,6 +1087,21 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
     () => getLevelProgress(level, account?.xp, maxLevel),
     [level, account?.xp, maxLevel],
   )
+  useEffect(() => {
+    if (!isOpen) {
+      observedLevelRef.current = null
+      return
+    }
+
+    const nextLevel = Math.max(0, Number(level) || 0)
+    const previousLevel = observedLevelRef.current
+    observedLevelRef.current = nextLevel
+    if (previousLevel === null || nextLevel <= previousLevel) return
+
+    setLevelUpFlash(nextLevel)
+    if (levelUpTimerRef.current) window.clearTimeout(levelUpTimerRef.current)
+    levelUpTimerRef.current = window.setTimeout(() => setLevelUpFlash(null), 2200)
+  }, [isOpen, level])
   const isDiscordLinked = Boolean(account?.discord_linked)
   const discordHandle = account?.discord_username
     ? `@${String(account.discord_username).replace(/^@/, '')}`

@@ -348,6 +348,21 @@ async function emitProfileUpdates(profileIds) {
   }
 }
 
+async function emitWalletRefreshes(profileIds) {
+  const uniqueProfileIds = [...new Set(
+    profileIds.map((profileId) => String(profileId || '').trim()).filter(Boolean),
+  )]
+  if (uniqueProfileIds.length === 0) return
+
+  await emitProfileUpdates(uniqueProfileIds)
+  const profileIdSet = new Set(uniqueProfileIds)
+  for (const socket of io.sockets.sockets.values()) {
+    const profileId = String(socket.data.identity?.profileId || '')
+    if (!profileIdSet.has(profileId)) continue
+    socket.emit('wallet:updated', { profileId })
+  }
+}
+
 async function getAuthenticatedIdentityFromHeaders(headers) {
   const cookies = parseCookies(headers?.cookie)
   const sessionPayload = decodeSignedToken(cookies[SESSION_COOKIE_NAME], 'session')
@@ -1300,7 +1315,7 @@ io.on('connection', (socket) => {
       name: profile?.username || 'Guest',
       username: profile?.username || 'Guest',
       role: profile?.role || 'user',
-      level: Number(profile?.level || 1),
+      level: Number(profile?.level ?? 0),
       profile_id: profile?.id || null,
       roblox_id: profile?.roblox_id || socket.data.identity?.robloxId || null,
       avatar: profile?.avatar_headshot_url || profile?.avatar_url || null,
@@ -1651,7 +1666,7 @@ async function upsertVerifiedProfile({ subject, robloxId, username, avatarUrl, a
       id: profileId,
       ...safeFields,
       balance: 0,
-      level: 1,
+      level: 0,
       xp: 0,
       role: 'user',
       played: 0,
@@ -1846,39 +1861,6 @@ app.patch('/api/profile/ignored-users', express.json({ limit: '8kb' }), requireA
   res.json({ ok: true, ignored_users: ignoredUsers })
 })
 
-app.patch('/api/profile/level', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
-  const currentProfile = await loadProfileById(req.identity.profileId)
-  const requestedLevel = Number(req.body?.level)
-  const requestedXp = Number(req.body?.xp)
-  const currentLevel = Math.max(1, Number(currentProfile?.level || 1))
-  const currentXp = Math.max(0, Number(currentProfile?.xp || 0))
-  const maxLevel = Math.max(currentLevel, Number(currentProfile?.max_level || 200))
-  let resolvedLevel = currentLevel
-  let resolvedXp = currentXp
-  while (resolvedLevel < maxLevel) {
-    const requiredXp = Math.floor(50_000 * Math.pow(resolvedLevel, 1.6))
-    if (resolvedXp < requiredXp) break
-    resolvedXp -= requiredXp
-    resolvedLevel += 1
-  }
-  if (
-    !Number.isSafeInteger(requestedLevel) ||
-    !Number.isSafeInteger(requestedXp) ||
-    resolvedLevel === currentLevel ||
-    requestedLevel !== resolvedLevel ||
-    requestedXp !== resolvedXp
-  ) {
-    res.status(400).json({ ok: false, error: 'Invalid level progression.' })
-    return
-  }
-  const rows = await adminRest(`user_profiles?id=eq.${encodeURIComponent(req.identity.profileId)}&select=*`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=representation' },
-    body: { level: requestedLevel, xp: requestedXp, updated_at: new Date().toISOString() },
-  })
-  res.json({ ok: true, profile: Array.isArray(rows) ? rows[0] || null : rows })
-})
-
 app.get('/api/public-profiles', async (req, res) => {
   const ids = String(req.query.ids || '')
     .split(',')
@@ -1983,6 +1965,7 @@ app.post('/api/tips/coins', express.json({ limit: '16kb' }), requireAuthenticate
       amount,
     })
   }
+  await emitWalletRefreshes([req.identity.profileId, recipientId])
   const updatedSender = await loadProfileById(req.identity.profileId)
   res.json({ ok: true, tip_id: result, balance: Number(updatedSender?.balance || 0) })
 })
@@ -2040,6 +2023,7 @@ app.post('/api/tips/items', express.json({ limit: '16kb' }), requireAuthenticate
     console.warn('[api/tips/items] failed to publish tip notification', error)
   }
 
+  await emitWalletRefreshes([req.identity.profileId, recipientId])
   res.json({ ok: true, tip_id: result })
 })
 
@@ -2459,6 +2443,7 @@ app.post('/api/cases/open', express.json({ limit: '8kb' }), requireAuthenticated
     } catch (profileError) {
       console.warn('[api/cases/open] profile stats refresh failed', profileError?.message || profileError)
     }
+    void emitProfileUpdates([req.identity.profileId])
 
     res.json({
       ok: true,

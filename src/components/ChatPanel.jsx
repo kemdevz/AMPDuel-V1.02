@@ -426,7 +426,7 @@ function ReplyPreview({ reply }) {
 }
 
 function ChatMessage({ message, onReply, onProfileOpen }) {
-  const level = Number(message.level) || 1;
+  const level = Math.max(0, Number(message.level) || 0);
   const badgeStyle = useMemo(() => getLevelStyle(level), [level]);
   const roleStyle = useMemo(() => getRoleStyle(message.role), [message.role]);
   const hasRankIcon = Boolean(roleStyle.image);
@@ -967,7 +967,7 @@ export default function ChatPanel({ className = "" }) {
   const chatSessionIdRef = useRef(null);
   const chatAuthor = useMemo(
     () => ({
-      level: user?.level ?? 1,
+      level: user?.level ?? 0,
       name: user?.username || "Guest",
       avatar: user?.avatar_headshot_url || user?.avatar_url || "",
       role: user?.role || "user",

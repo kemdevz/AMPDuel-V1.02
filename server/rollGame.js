@@ -211,6 +211,7 @@ export function registerRollGame({
     bets: [],
     history: [],
     lifecyclePromise: null,
+    createRoundPromise: null,
     countdownTimer: null,
     settlementTimer: null,
     nextRoundTimer: null,
@@ -403,7 +404,26 @@ export function registerRollGame({
     }
   }
 
+  async function loadActiveRound() {
+    const rows = await adminRest(
+      'roll_rounds?select=*&status=in.(countdown,rolling)&order=created_at.desc&limit=1',
+    )
+    return Array.isArray(rows) ? rows[0] || null : rows || null
+  }
+
   async function createRound() {
+    if (state.createRoundPromise) return state.createRoundPromise
+
+    const operation = createRoundInternal()
+    state.createRoundPromise = operation
+    try {
+      return await operation
+    } finally {
+      if (state.createRoundPromise === operation) state.createRoundPromise = null
+    }
+  }
+
+  async function createRoundInternal() {
     clearTimers()
     const catalog = await loadCatalog()
     const previousItems = state.currentRound?.items?.length === REEL_ITEM_COUNT
@@ -421,25 +441,38 @@ export function registerRollGame({
     const closesAt = new Date(now.getTime() + COUNTDOWN_MS)
     const roundId = crypto.randomUUID()
 
-    const inserted = await adminRest('roll_rounds', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: {
-        id: roundId,
-        server_seed_encrypted: encryptSeed(serverSeed),
-        server_seed_hash: serverSeedHash,
-        client_seed: clientSeed,
-        nonce,
-        result_multiplier: null,
-        reel_items: items,
-        reel_multipliers: multipliers,
-        result_index: resultIndex,
-        status: 'countdown',
-        betting_opened_at: now.toISOString(),
-        betting_closes_at: closesAt.toISOString(),
-        created_at: now.toISOString(),
-      },
-    })
+    let inserted
+    try {
+      inserted = await adminRest('roll_rounds', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: {
+          id: roundId,
+          server_seed_encrypted: encryptSeed(serverSeed),
+          server_seed_hash: serverSeedHash,
+          client_seed: clientSeed,
+          nonce,
+          result_multiplier: null,
+          reel_items: items,
+          reel_multipliers: multipliers,
+          result_index: resultIndex,
+          status: 'countdown',
+          betting_opened_at: now.toISOString(),
+          betting_closes_at: closesAt.toISOString(),
+          created_at: now.toISOString(),
+        },
+      })
+    } catch (error) {
+      const activeRoundConflict = error?.code === '23505'
+        && /roll_rounds_one_active_uidx/i.test(String(error?.message || ''))
+      if (!activeRoundConflict) throw error
+
+      const activeRound = await loadActiveRound()
+      if (!activeRound) throw error
+      await hydrateRound(activeRound)
+      io.emit('roll:state', statePayload())
+      return state.currentRound
+    }
     const row = Array.isArray(inserted) ? inserted[0] : inserted
     if (!row?.id) throw new Error('Supabase did not create the Roll round.')
 
@@ -481,6 +514,7 @@ export function registerRollGame({
   function logLifecycleError(error) {
     console.error('[roll] lifecycle error', error)
     state.lifecyclePromise = null
+    if (state.nextRoundTimer) clearTimeout(state.nextRoundTimer)
     state.nextRoundTimer = setTimeout(() => {
       const retry = !state.currentRound || state.currentRound.status === 'settled'
         ? createRound()
@@ -504,7 +538,17 @@ export function registerRollGame({
       },
     )
     const updated = Array.isArray(rows) ? rows[0] : rows
-    if (!updated?.id) return
+    if (!updated?.id) {
+      const currentRows = await adminRest(
+        `roll_rounds?id=eq.${encodeURIComponent(round.id)}&select=*&limit=1`,
+      )
+      const current = Array.isArray(currentRows) ? currentRows[0] : currentRows
+      if (current?.id && current.status !== round.status) {
+        await hydrateRound(current)
+        io.emit('roll:state', statePayload())
+      }
+      return
+    }
     round.status = 'rolling'
     round.rollingStartedAt = updated.rolling_started_at || startedAt.toISOString()
     io.emit('roll:rolling', {
@@ -565,6 +609,7 @@ export function registerRollGame({
   }
 
   async function hydrateRound(row) {
+    clearTimers()
     const serverSeed = decryptSeed(row.server_seed_encrypted)
     const multipliers = Array.isArray(row.reel_multipliers) ? row.reel_multipliers.map(Number) : []
     const items = Array.isArray(row.reel_items) ? row.reel_items : []
@@ -602,6 +647,10 @@ export function registerRollGame({
     } else if (row.status === 'rolling') {
       if (timeRemaining() <= 0) await settleRound()
       else scheduleSettlement()
+    } else if (row.status === 'settled') {
+      const settledAt = new Date(row.settled_at || Date.now()).getTime()
+      const delay = Math.max(0, settledAt + RESULT_HOLD_MS - Date.now())
+      state.nextRoundTimer = setTimeout(() => void createRound().catch(logLifecycleError), delay)
     }
   }
 
@@ -609,10 +658,7 @@ export function registerRollGame({
     if (state.lifecyclePromise) return state.lifecyclePromise
     state.lifecyclePromise = (async () => {
       await loadHistory()
-      const rows = await adminRest(
-        'roll_rounds?select=*&status=in.(countdown,rolling)&order=created_at.desc&limit=1',
-      )
-      const activeRound = Array.isArray(rows) ? rows[0] : null
+      const activeRound = await loadActiveRound()
       if (activeRound) await hydrateRound(activeRound)
       else await createRound()
       state.initialized = true
