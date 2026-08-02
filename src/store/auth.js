@@ -4,7 +4,7 @@ import { connectSocket, refreshSocketAuthentication } from '../lib/socket'
 import { getXpThresholdForLevel, MAX_LEVEL } from '../lib/levelProgression'
 
 const getXpUntilNextLevel = (level, xp, maxLevel = MAX_LEVEL) => {
-  const safeLevel = Math.max(0, Number(level) || 0)
+  const safeLevel = Math.max(1, Number(level) || 1)
   const safeXp = Math.max(0, Number(xp) || 0)
   if (safeLevel >= Math.min(MAX_LEVEL, Math.max(1, Number(maxLevel) || MAX_LEVEL))) return 0
   return Math.max(0, getXpThresholdForLevel(safeLevel) - safeXp)
@@ -19,7 +19,7 @@ const normalizeUser = (row) => {
     username: row.username || 'user',
     roblox_id: row.roblox_id ? String(row.roblox_id) : null,
     balance: Number(row.balance ?? 0),
-    level: Number(row.level ?? 0),
+    level: Number(row.level ?? 1),
     max_level: Number(row.max_level ?? 200),
     xp: Number(row.xp ?? 0),
     lifetime_xp: Number(row.lifetime_xp ?? 0),

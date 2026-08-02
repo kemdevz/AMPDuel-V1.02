@@ -180,7 +180,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     resolvedProfile?.avatar ||
     resolvedProfile?.avatar_url ||
     FALLBACK_AVATAR
-  const level = Math.max(0, Number(resolvedProfile?.level ?? 0))
+  const level = Math.max(1, Number(resolvedProfile?.level ?? 1))
   const roleStyle = getRoleStyle(resolvedProfile?.role)
   const targetProfileId = String(
     profile?.id ||

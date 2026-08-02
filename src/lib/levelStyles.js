@@ -1,5 +1,5 @@
 export function getLevelStyle(level) {
-  const safeLevel = Math.max(0, Math.floor(Number(level) || 0))
+  const safeLevel = Math.max(1, Math.floor(Number(level) || 1))
 
   if (safeLevel >= 200) {
     return {
@@ -68,9 +68,8 @@ export function getLevelStyle(level) {
   }
 
   return {
-    color: 'rgb(52, 211, 153)',
-    borderLeft: '2px solid rgb(52, 211, 153)',
-    background:
-      'linear-gradient(225deg, rgba(110, 231, 183, 0.3), rgba(16, 185, 129, 0.3), rgba(110, 231, 183, 0.3))',
+    color: '#9CA3AF',
+    borderLeft: '2px solid #9CA3AF',
+    background: '#2D303D',
   }
 }

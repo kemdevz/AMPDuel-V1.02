@@ -1093,7 +1093,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
       return
     }
 
-    const nextLevel = Math.max(0, Number(level) || 0)
+    const nextLevel = Math.max(1, Number(level) || 1)
     const previousLevel = observedLevelRef.current
     observedLevelRef.current = nextLevel
     if (previousLevel === null || nextLevel <= previousLevel) return
