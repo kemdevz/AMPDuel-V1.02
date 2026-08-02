@@ -41,8 +41,8 @@ function CasinoGameCard({ game }) {
         src={game.image}
         alt={game.name}
         width="220"
-        height="174"
-        className="block h-[174px] w-full object-cover transition-transform duration-200 group-hover:scale-[1.025]"
+        height="220"
+        className="block h-[220px] w-full object-cover transition-transform duration-200 group-hover:scale-[1.025]"
         loading="lazy"
         decoding="async"
         draggable={false}
@@ -156,7 +156,7 @@ export default function LiveCasino() {
                   </div>
                 ) : visibleGames.length > 0 ? (
                   <div
-                    className="grid w-full grid-cols-[repeat(auto-fill,minmax(145px,1fr))] gap-3 px-0.5 max-[360px]:grid-cols-2"
+                    className="grid w-full grid-cols-2 gap-3 px-0.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
                   >
                     {visibleGames.map((game) => (
                       <CasinoGameCard key={`${game.providerId}-${game.id}`} game={game} />
