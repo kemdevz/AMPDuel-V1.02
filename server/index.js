@@ -3857,6 +3857,63 @@ app.post('/v1/wallet/callback', express.json({ limit: '64kb' }), async (req, res
   }
 })
 
+// Betnex-specific callback endpoint with unique identifier
+app.post('/callback/:callbackId', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const callbackId = req.params.callbackId
+    console.log('[Betnex Callback] Received callback with ID:', callbackId)
+    console.log('[Betnex Callback] Callback data:', JSON.stringify(req.body, null, 2))
+    
+    const apiKey = String(process.env.BETNEX_API_KEY || '').trim()
+    if (!apiKey) throw new Error('Live Casino callback is not configured.')
+    
+    const callback = verifyCallback(req.body, apiKey)
+    console.log('[Betnex Callback] Verified callback:', callback)
+    
+    const betUsd = Number(callback.bet_amount)
+    const winUsd = Number(callback.win_amount)
+    if (!Number.isFinite(betUsd) || !Number.isFinite(winUsd)) {
+      throw new Error('Invalid callback amounts.')
+    }
+
+    const result = await adminRest('rpc/process_live_casino_callback', {
+      method: 'POST',
+      body: {
+        p_member_account: callback.member_account.trim(),
+        p_serial_number: callback.serial_number.trim(),
+        p_game_uid: callback.game_uid.trim(),
+        p_game_round: callback.game_round.trim(),
+        p_game_name: callback.game_name.trim(),
+        p_game_provider: callback.game_provider.trim(),
+        p_currency_code: callback.currency_code.trim(),
+        p_bet_usd: betUsd,
+        p_win_usd: winUsd,
+        p_provider_data: callback.data ?? null,
+      },
+    })
+
+    res.setHeader('Cache-Control', 'no-store')
+    res.json(createCallbackResponse({
+      success: true,
+      handle: true,
+      money: Number(result?.balance_usd || 0),
+      msg: result?.duplicate ? 'Duplicate callback ignored' : 'Callback processed successfully',
+    }))
+    if (result?.profile_id) void emitWalletRefreshes([result.profile_id])
+  } catch (error) {
+    const expected = /callback|session|profile|currency|balance|amount|serial|configured|represent/i.test(
+      String(error?.message || ''),
+    )
+    if (!expected) console.error('[betnex-callback] failed', error)
+    res.json(createCallbackResponse({
+      success: false,
+      handle: false,
+      money: 0,
+      msg: 'Unable to process wallet callback.',
+    }))
+  }
+})
+
 app.post('/api/betnex/callback', express.json({ limit: '64kb' }), async (req, res) => {
   // Redirect to the new v1 endpoint for backward compatibility
   req.url = '/v1/wallet/callback'
