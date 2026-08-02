@@ -278,23 +278,27 @@ function selectFeaturedBetnexGames(games, provider) {
   const featuredByCategory = BETNEX_FEATURED_GAMES[provider.id] || {}
 
   return provider.categories.flatMap((category) => {
+    const categoryLimit = category === 'Slots'
+      ? (provider.id === 'HACKSAW' ? 23 : 22)
+      : 5
     const categoryGames = games.filter((game) => game.category === category)
     const gameByName = new Map(categoryGames.map((game) => [game.name.toLowerCase(), game]))
     const selected = (featuredByCategory[category] || [])
       .map((name) => gameByName.get(name.toLowerCase()))
       .filter(Boolean)
+      .slice(0, categoryLimit)
 
-    if (category !== 'Slots' && selected.length < 10) {
+    if (selected.length < categoryLimit) {
       const selectedIds = new Set(selected.map((game) => game.id))
       for (const game of categoryGames) {
-        if (selected.length >= 10) break
+        if (selected.length >= categoryLimit) break
         if (selectedIds.has(game.id) || /first person/i.test(game.name)) continue
         selected.push(game)
         selectedIds.add(game.id)
       }
     }
 
-    return selected.slice(0, 10)
+    return selected.slice(0, categoryLimit)
   })
 }
 
