@@ -6,6 +6,8 @@ const RESULT_INDEX_MAX = REEL_ITEM_COUNT - 1
 const COUNTDOWN_MS = 13_000
 const ROLL_DURATION_MS = 5_000
 const RESULT_HOLD_MS = 3_000
+const MIN_ROLL_WAGER = 5_000
+const MAX_ROLL_WAGER = 10_000_000
 const ITEM_CATALOG_CACHE_MS = 10 * 60 * 1000
 const ITEM_GROUP_TARGETS = Object.freeze({ huge: 57, titanic: 2, gargantuan: 1 })
 
@@ -685,6 +687,11 @@ export function registerRollGame({
     const wagerAmount = Math.floor(Number(req.body?.bet_amount || 0))
     const targetMultiplier = Number(req.body?.chosen_multiplier || 0)
     await ensureRound()
+
+    if (!Number.isSafeInteger(wagerAmount) || wagerAmount < MIN_ROLL_WAGER || wagerAmount > MAX_ROLL_WAGER) {
+      res.status(400).json({ ok: false, error: 'Play amount must be between 5,000 and 10,000,000 coins.' })
+      return
+    }
 
     if (!state.currentRound || roundId !== state.currentRound.id) {
       res.status(409).json({ ok: false, error: 'That Roll round has ended. Please play the current round.' })

@@ -11,6 +11,7 @@ const DEFAULT_RESULT_INDEX = 40
 const ROLL_REEL_COPIES = 3
 const ROLL_ANIMATION_CARD_DISTANCE = 35
 const DEFAULT_AMOUNT = 5_000
+const MAX_ROLL_WAGER = 10_000_000
 const BET_CUTOFF_BUFFER_MS = 100
 
 const BASE_MULTIPLIERS = [
@@ -393,7 +394,7 @@ export default function Roll() {
   }, [])
 
   const updateAmount = (nextAmount) => {
-    const normalized = Math.min(1_000_000, Math.max(0, Math.floor(nextAmount || 0)))
+    const normalized = Math.min(MAX_ROLL_WAGER, Math.max(0, Math.floor(nextAmount || 0)))
     setAmount(String(normalized))
   }
 
@@ -402,6 +403,10 @@ export default function Roll() {
     const multiplierValue = Number(multiplier)
     if (!Number.isFinite(amountValue) || amountValue < 5_000) {
       notifications.error('Minimum play is 5,000 coins')
+      return
+    }
+    if (amountValue > MAX_ROLL_WAGER) {
+      notifications.error('Maximum play is 10,000,000 coins')
       return
     }
     if (!Number.isFinite(multiplierValue) || multiplierValue < 1.01 || multiplierValue > 10) {
@@ -541,7 +546,7 @@ export default function Roll() {
                     <button type="button" className="rollQuickBtn" onClick={() => updateAmount(numericAmount + 10_000)}>+10K</button>
                     <button type="button" className="rollQuickBtn" onClick={() => updateAmount(numericAmount / 2)}>1/2</button>
                     <button type="button" className="rollQuickBtn" onClick={() => updateAmount(numericAmount * 2)}>2X</button>
-                    <button type="button" className="rollQuickBtn rollQuickBtnMax" onClick={() => updateAmount(1_000_000)}>MAX</button>
+                    <button type="button" className="rollQuickBtn rollQuickBtnMax" onClick={() => updateAmount(MAX_ROLL_WAGER)}>MAX</button>
                   </div>
                 </div>
               </div>
