@@ -103,9 +103,21 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                 <div className="leaderboardItem" key={player.id || `${player.username}-${index}`}>
                   <div className={`leaderboardPosition rank-${index + 1}`}>#{index + 1}</div>
                   <div className="leaderboardUser">
-                    <button className="leaderboardAvatar" type="button" aria-label={`Open profile for ${player.username}`} onClick={() => setSelectedPlayer(player)}>
+                    <div
+                      className="leaderboardAvatar"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open profile for ${player.username}`}
+                      onClick={() => setSelectedPlayer(player)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setSelectedPlayer(player)
+                        }
+                      }}
+                    >
                       {avatar ? <img src={avatar} alt={player.username || 'Player'} loading="lazy" referrerPolicy="no-referrer" /> : <span>{String(player.username || '?').charAt(0).toUpperCase()}</span>}
-                    </button>
+                    </div>
                     <div className="leaderboardUsernameColumn">
                       <span className="leaderboardUsernameInline">
                         <span className="leaderboardLevel" title={`Level ${level}`} style={getLevelStyle(level)}>{level}</span>
@@ -113,7 +125,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                       </span>
                     </div>
                   </div>
-                  <div className={`leaderboardStat${Number(player.stat) < 0 ? ' negative' : ''}`}>
+                  <div className={`leaderboardStat${activeTab !== 'least-profit' && Number(player.stat) < 0 ? ' negative' : ''}`}>
                     <img src="/bobux.png" alt="Coins" />
                     {formatCompact(player.stat)}
                   </div>
@@ -137,10 +149,11 @@ export default function LeaderboardModal({ isOpen, onClose }) {
         .leaderboardTab{height:36px;border:0;border-radius:5px;background:transparent;color:#7f86a6;font:600 12px Poppins,sans-serif;cursor:pointer;transition:background .16s ease,color .16s ease,box-shadow .16s ease}
         .leaderboardTab.active{color:#fff;background:linear-gradient(180deg,#8079ff 0%,#6c63ff 45%,#5a51e6 100%);box-shadow:0 3px 10px rgba(108,99,255,.25)}
         .leaderboardContent{min-height:0;display:flex;flex:1;flex-direction:column;margin-top:12px;border-radius:6px;background:#131520;overflow:hidden}
-        .leaderboardHeaderRow{display:grid;grid-template-columns:42px minmax(0,1fr) 120px;align-items:center;min-height:38px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.06);color:#666d8d;font-size:10px;font-weight:700;text-transform:uppercase}
+        .leaderboardHeaderRow{display:grid;grid-template-columns:52px minmax(0,1fr) 130px;gap:10px;align-items:center;min-height:38px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.06);color:#666d8d;font-size:10px;font-weight:700;text-transform:uppercase}
         .leaderboardHeaderStat{text-align:right}
-        .leaderboardList{min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:4px 7px 8px;scrollbar-color:#30364f transparent;scrollbar-width:thin}
-        .leaderboardItem{display:grid;grid-template-columns:42px minmax(0,1fr) 120px;align-items:center;min-height:55px;padding:6px 6px;border-bottom:1px solid rgba(255,255,255,.045)}
+        .leaderboardList{min-height:0;flex:1;overflow-x:hidden;overflow-y:scroll;padding:4px 7px 8px;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-color:#30364f transparent;scrollbar-width:thin}
+        .leaderboardList::-webkit-scrollbar{width:5px}.leaderboardList::-webkit-scrollbar-track{background:transparent}.leaderboardList::-webkit-scrollbar-thumb{border-radius:10px;background:#30364f}.leaderboardList::-webkit-scrollbar-thumb:hover{background:#414861}
+        .leaderboardItem{display:grid;grid-template-columns:52px minmax(0,1fr) 130px;gap:10px;padding:8px 12px;align-items:center;border-radius:12px;border-bottom:1px solid rgba(255,255,255,.045)}
         .leaderboardPosition{color:#6f7694;font-size:12px;font-weight:700}.leaderboardPosition.rank-1{color:#f5c84c}.leaderboardPosition.rank-2{color:#c9cede}.leaderboardPosition.rank-3{color:#d88b5c}
         .leaderboardUser{display:flex;align-items:center;min-width:0;gap:9px}.leaderboardAvatar{width:35px;height:35px;flex:0 0 35px;overflow:hidden;padding:0;border:1px solid rgba(255,255,255,.08);border-radius:50%;background:#24283a;cursor:pointer}.leaderboardAvatar img{width:100%;height:100%;object-fit:cover}.leaderboardAvatar span{display:grid;width:100%;height:100%;place-items:center;color:#aeb4dd;font-weight:700}
         .leaderboardUsernameColumn,.leaderboardUsernameInline{min-width:0}.leaderboardUsernameInline{display:flex;align-items:center;gap:6px}.leaderboardLevel{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;line-height:14px;white-space:nowrap}.leaderboardUsername{overflow:hidden;color:#cdd1e3;font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}

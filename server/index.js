@@ -2295,7 +2295,7 @@ app.get('/api/leaderboard', async (req, res) => {
       })
       .filter((profile) => profile.username && (sort === 'played' ? profile.stat > 0 : true))
       .sort((left, right) => sort === 'least-profit' ? left.stat - right.stat : right.stat - left.stat)
-      .slice(0, 50)
+      .slice(0, 10)
 
     res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30')
     res.json({ ok: true, leaders })
