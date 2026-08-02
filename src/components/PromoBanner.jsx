@@ -63,13 +63,7 @@ export default function PromoBanner() {
                   <div className="heroProgressFill" style={{ width: progressWidth }} />
                 </div>
                 <div className="heroLevelRow">
-                  <span className="heroLevelLabel">
-                    {isGuest
-                      ? 'CURRENT LEVEL'
-                      : levelProgress.isMaxLevel
-                        ? 'MAX LEVEL'
-                        : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP`}
-                  </span>
+                  <span className="heroLevelLabel">CURRENT LEVEL</span>
                   <span
                     style={{
                       ...getLevelStyle(currentLevel),
