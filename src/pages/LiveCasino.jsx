@@ -112,6 +112,7 @@ export default function LiveCasino() {
     const query = search.trim().toLowerCase()
 
     return games
+      .filter((game) => String(game.category || '').toLowerCase() !== 'slots')
       .filter((game) => String(game.category || '').toLowerCase() === activeCategory.toLowerCase())
       .filter((game) => !query || String(game.name || '').toLowerCase().includes(query))
       .sort((first, second) => {
