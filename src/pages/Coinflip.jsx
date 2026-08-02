@@ -15,7 +15,7 @@ import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
-const RESOLVED_ROOM_LIFETIME_MS = 60_000
+const RESOLVED_ROOM_LIFETIME_MS = 40_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const ROW_RESULT_COUNTDOWN_MS = 5_000
 const ROW_RESULT_REVEAL_LEAD_MS = 500
