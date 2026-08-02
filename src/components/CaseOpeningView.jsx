@@ -1650,9 +1650,40 @@ export default function CaseOpeningView({ item, onBack }) {
           .case-open-multi-image img { width: 62px; height: 62px; }
           .case-open-multi-item.is-active .case-open-multi-image img { transform: translate(-50%, -50%) scale(1.15); }
           .case-open-multi-image::before { width: 90%; height: 70%; filter: blur(10px); }
-          .case-open-multi-info { max-width: calc(100% - 85px); margin-left: 10px; }
-          .case-open-multi-name { font-size: 13px; }
-          .case-open-multi-value { font-size: 12px; }
+          .case-open-multi-item.is-result .case-open-multi-image { transform: translateY(-25px); }
+          .case-open-multi-info {
+            position: absolute;
+            top: 73px;
+            left: 2px;
+            z-index: 5;
+            width: calc(100% - 4px);
+            max-width: none;
+            margin-left: 0;
+            align-items: center;
+          }
+          .case-open-multi-name {
+            display: -webkit-box;
+            width: 100%;
+            margin-bottom: 2px;
+            overflow: hidden;
+            color: rgba(225, 228, 242, .9);
+            font-size: 10px;
+            line-height: 1.15;
+            text-align: center;
+            text-overflow: clip;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+          }
+          .case-open-multi-value {
+            margin-top: 1px;
+            justify-content: center;
+            font-size: 11px;
+            line-height: 1;
+            white-space: nowrap;
+          }
+          .case-open-multi-value img { width: 13px; height: 13px; margin-right: 3px; }
           .case-open-controls { gap: 8px; }
           .case-open-qty { width: 100%; }
           .case-open-qty button { flex: 1; }
@@ -1770,7 +1801,7 @@ export default function CaseOpeningView({ item, onBack }) {
                         return (
                           <div
                             key={`${columnIndex}-${reelItem.id}-${index}`}
-                            className={`case-open-multi-item${active ? " is-active" : ""}`}
+                            className={`case-open-multi-item${active ? " is-active" : ""}${showResult ? " is-result" : ""}`}
                           >
                             <div
                               className="case-open-multi-image"
