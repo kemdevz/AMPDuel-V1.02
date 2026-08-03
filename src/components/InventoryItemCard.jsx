@@ -8,10 +8,10 @@ const formatNumber = (value) => {
 export function getInventoryItemAccent(item) {
   const value = Number(item?.value ?? 0)
 
-  if (Number.isFinite(value) && value >= 50_000_000) return '255, 223, 0'
-  if (Number.isFinite(value) && value >= 10_000_000) return '255, 99, 71'
-  if (Number.isFinite(value) && value >= 750_000) return '255, 105, 180'
-  return '54, 123, 255'
+  if (Number.isFinite(value) && value >= 10_000_000) return '255, 223, 0'    // Gold - 10m to 200m
+  if (Number.isFinite(value) && value >= 1_000_000) return '255, 99, 71'     // Red - 1m to 10m
+  if (Number.isFinite(value) && value >= 100_000) return '255, 105, 180'     // Pink - 100k to 1m
+  return '54, 123, 255'                                                      // Blue - under 100k
 }
 
 export function getInventoryItemCardStyle(item) {
@@ -33,11 +33,11 @@ export const inventoryItemCardStyles = `
   ._inventoryItemCard_cpcgp_local {
     position: relative;
     box-sizing: border-box;
-    height: 170px;
+    height: 132px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    padding: 8px;
+    padding: 7px;
     overflow: hidden;
     border: none;
     border-radius: 6px;
@@ -70,14 +70,14 @@ export const inventoryItemCardStyles = `
   }
 
   ._inventoryItemCard_cpcgp_local_compact {
-    height: 150px;
-    min-width: 140px;
-    flex: 0 0 140px;
+    height: 144px;
+    min-width: 138px;
+    flex: 0 0 138px;
   }
 
   ._inventoryItemCard_cpcgp_local_compact ._inventoryImageWrap_cpcgp_local {
-    height: 96px;
-    flex: 0 0 96px;
+    height: 92px;
+    flex: 0 0 92px;
   }
 
   ._inventorySelectIndicator_cpcgp_local {
@@ -115,10 +115,10 @@ export const inventoryItemCardStyles = `
   ._inventoryImageWrap_cpcgp_local {
     position: relative;
     width: 100%;
-    height: 118px;
+    height: 112px;
     overflow: hidden;
     border-radius: 8px;
-    flex: 0 0 118px;
+    flex: 0 0 112px;
   }
 
   ._inventoryImage_cpcgp_local {
@@ -136,14 +136,14 @@ export const inventoryItemCardStyles = `
     position: relative;
     z-index: 2;
     width: 100%;
-    height: 32px;
-    min-height: 32px;
-    flex: 0 0 32px;
+    height: 34px;
+    min-height: 34px;
+    flex: 0 0 34px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1px;
+    gap: 2px;
     text-align: center;
     margin-top: 4px;
     overflow: hidden;
@@ -155,9 +155,9 @@ export const inventoryItemCardStyles = `
     max-width: 100%;
     margin: 0;
     color: #ccd9fa;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    line-height: 14px;
+    line-height: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -171,9 +171,9 @@ export const inventoryItemCardStyles = `
     max-width: 100%;
     margin: 0;
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    line-height: 15px;
+    line-height: 14px;
     overflow: hidden;
     white-space: nowrap;
   }
@@ -189,9 +189,9 @@ export const inventoryItemCardStyles = `
   }
 
   ._inventoryPriceInner_cpcgp_local img {
-    width: 15px;
-    height: 15px;
-    margin-right: 6px;
+    width: 13px;
+    height: 13px;
+    margin-right: 5px;
     flex-shrink: 0;
   }
 
@@ -200,9 +200,9 @@ export const inventoryItemCardStyles = `
     min-width: 0;
     overflow: hidden;
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    line-height: 15px;
+    line-height: 14px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

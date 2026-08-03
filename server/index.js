@@ -32,7 +32,7 @@ const isAllowedOrigin = (origin) => {
     .map((entry) => entry.trim())
     .filter(Boolean)
   return configuredOrigins.includes(origin) ||
-    origin === 'http://localhost:5173' ||
+    origin === 'http://bloxypet.com' ||
     origin === 'http://127.0.0.1:5173'
 }
 const io = new Server(server, {

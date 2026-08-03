@@ -13,8 +13,8 @@ import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
 
 const COIN_ICON = "/bobux.png";
-const DESKTOP_LOGO = "https://i.ibb.co/pj7hWMK3/logo-1.webp";
-const MOBILE_LOGO = "https://i.ibb.co/dws0Tg8q/logo-small-4x.webp";
+const DESKTOP_LOGO = "https://cdn.discordapp.com/attachments/1512846833012052058/1533733299011321856/logo_with_text.png?ex=6a718ff1&is=6a703e71&hm=b13fc95ce565a27a034ae124fd918bc3f9bfda033eed9f9647004cbc7d6cbc9a&";
+const MOBILE_LOGO = "https://cdn.discordapp.com/attachments/1512846833012052058/1533733712875880570/logo.png?ex=6a719054&is=6a703ed4&hm=0a2b1b3cfed0a23269f2e7744c4e477b358094142e0346a052ce588ec361db85&";
 const AVATAR =
   "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter";
 
@@ -508,7 +508,7 @@ export default function Header({ onOpenProfileModal }) {
           <img
             alt="BloxyPot Logo"
             src={DESKTOP_LOGO}
-            className="hidden aspect-auto h-auto w-[clamp(5.5rem,calc(2.75rem+10vw),11rem)] md:block"
+            className="hidden aspect-auto h-auto w-[clamp(7rem,calc(3.5rem+12vw),14rem)] md:block"
             draggable={false}
           />
         </Link>

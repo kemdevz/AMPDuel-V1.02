@@ -301,7 +301,7 @@ function CaseCard({ item, onPreview, onOpen }) {
               alt={item.name}
               width="120"
               height="120"
-              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : artworkSize === "beach" ? "scale-[.95]" : ""}`}
+              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : artworkSize === "beach" ? "-translate-y-[4px] scale-[.95]" : ""}`}
               loading="lazy"
               decoding="async"
               draggable={false}

@@ -10,7 +10,7 @@ const DEFAULT_BET = 5000
 const MIN_BET = 5000
 const MAX_BET = 10000000
 const SMALL_BOMB_IMAGE = '/mines-bomb.png'
-const UNREVEALED_GEM_IMAGE = '/mines-unrevealed.webp'
+const UNREVEALED_GEM_IMAGE = 'https://cdn.discordapp.com/attachments/1512846833012052058/1533733712875880570/logo.png?ex=6a719054&is=6a703ed4&hm=0a2b1b3cfed0a23269f2e7744c4e477b358094142e0346a052ce588ec361db85&'
 const REVEALED_GEM_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAASSSURBVHgB7ZnBbhtVFIb/e8dVhANthARNEEJmAaui2PAC9Rs0T0D7Bh61sK37AMgtEkvU9gnSF0BkD1JHtGLDIsMCGhKJuGoaktrjyz1jbNljz8y9c88YVZ1vZcfjGZ9//v/cuSdARUVFRUVFxZuKgCWfH327C4VrYODiBf0D6gr70QhMBGHdb9l8Qdoc3Dy6d5ur+JqW/pO3JT6tefFrJpqNk17P5gvGl24e9poS3mMw0VgX+OCtsf4H2gE/D4ZgQ2EnXPcfmRxq5IDms15DKLkLJsj6k+KJTU/ismdlxjzuN457DZMDja4qpOwKIRpgYGL9JE3OKAhsYA1GNyxXAMq9Lv5LMPFhXWDNW6z0ghBahBoYMeoHmZqT9aXn7YMJsv6VS17mMT/pXvAX36oARGiH7/h7aR+nOiDOvZQ/gok06y9cl3dVoAp3s/pB6i/izD2RZv0k7FEY94P7aR8vFaB50Otw5j7Z9fMoYVW4mtYPFm4Jd+7Jztsb0ujuzzJQCj+8GmCowMeSfjAnc3O/t8GZe8LU+klKWBUAb/H5YE4AUZd3OXNva/0kJUShkewH07Nz554w6fp5sK8KcT/4pjN5E586XvI8+VhAbIAJsv5HdZ67x75XIP7rByLOfV0Xz2j9NV33F+964IT9AQkIcY6WxLq4zVk8ceUSa25jSogC9YPd2uhZ9DwSEbio6aZ18b0tcLOmi986PcSL4QB8qN/lL9s3u0qpe2BiqG3698tzcHMWRdzFPwwu+9djrz7dvtWBUg/BxNHzU3BzeM56zgCniFeCaVifbN+6ziXCH/2X4Obg7B8woYtX7eBjv09v5rqVN/I6QokAjnDHgNH+IUZqZ1I8MSdA0PL7ciTaHCJwxoDJ/lR8O9jyw9k/LqxXUxEgQjjAGQMG+y8tnli6YMciRG4icMWAwf6pxROpTyxahNBVBI4YONlfoJ9VPJH5yOYqAkcMCtufikd28UTuMyuJMIyGO/plH5a4xsDN/rr49/3cZm700P5r6+sgiqI2CojgEoPC9h+pGybFE8a7FhJBidEOLHGJQSH7U/Fb/gPTw622bU8/+2pP76Nv2HynaAwK2X+k7tgUT1jvW5+0bj6wFaFIDKztPy6+C0sKbdxJBKFwx/T4IjGwsn/B4onCkwvaRpuKYBsDK/s7FE84jW5sRLCJgbH99RzDpXjCeXZlKoJNDMzsrwcam34HjrAM70iEvFmCaQyM7C/xiKY5YIBtemkyUDGJgYH9A5woq1UoC9bxLYmQNUswiUGO/eemORywz6+zBip5Mcix/8I0hwN2AfIGKlkxyLB/mLetLQr/fzCQPVDJisHRq6XuKK14ohQBiLRZQloMyP79RQFKLZ4oTQAiTYRlMTgeJIo3mOZwUKoAxEQEzMwSlsXgz7MZUQynORyULgBBIswOVJIxWLB/pLu94UDDlZUIQCSnSrMxmLP/eKCxhxWxMgEIEkHPEnx6PRuDqf2V8m0HGq6sVABiMlCZxGBqf9rWbvp3sWJWLgAxGagcn5yN7e+4p39tufrbd91rL77voqKioqLi/+FfGaqckYdgVycAAAAASUVORK5CYII='
 const MINES_SOUND_URLS = {
   gem0: '/Gem-LRZteFQ0.mp3',
@@ -640,7 +640,7 @@ export default function Mines() {
         ._revealed_lhu08_424{background:#22c55e24!important;animation:_reveal_lhu08_424 .18s cubic-bezier(.22,1,.36,1)}
         ._mine_lhu08_240{background:#ef444424!important;animation:_shake_lhu08_1 .4s ease-out}
         ._gemIcon_lhu08_430{width:70%;height:70%;-o-object-fit:contain;object-fit:contain;transition:filter .15s ease,transform .15s ease}
-        ._gemIconGray_lhu08_431{filter:grayscale(1) brightness(.7);opacity:.9}
+        ._gemIconGray_lhu08_431{filter:grayscale(1) brightness(.5);opacity:.6}
         ._gemIconColored_lhu08_432{filter:none;opacity:1}
         ._bombIcon_lhu08_433{width:75%;height:75%;-o-object-fit:contain;object-fit:contain}
         @keyframes _reveal_lhu08_424{0%{transform:scale(.95);opacity:0}
