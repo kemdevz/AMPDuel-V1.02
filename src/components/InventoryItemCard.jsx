@@ -33,9 +33,9 @@ export const inventoryItemCardStyles = `
   ._inventoryItemCard_cpcgp_local {
     position: relative;
     box-sizing: border-box;
-    height: 132px;
-    display: flex;
-    flex-direction: column;
+    height: auto; /* Changed from fixed height */
+    min-height: 34px; /* Keep minimum height */
+    flex: 0 0 auto; /* Changed from fixed flex-basis */
     justify-content: flex-start;
     padding: 7px;
     overflow: hidden;
