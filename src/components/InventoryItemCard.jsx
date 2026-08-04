@@ -38,7 +38,7 @@ export const inventoryItemCardStyles = `
     flex: 0 0 auto; /* Changed from fixed flex-basis */
     justify-content: flex-start;
     padding: 7px;
-    overflow: hidden;
+    overflow: visible; /* Changed from hidden */
     border: none;
     border-radius: 6px;
     cursor: pointer;
