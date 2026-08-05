@@ -395,9 +395,9 @@ export default function Roll() {
   }, [])
 
   const updateAmount = (nextAmount) => {
-    const normalized = Math.min(MAX_ROLL_WAGER, Math.max(0, Math.floor(nextAmount || 0)))
-    setAmount(String(normalized))
-  }
+  const normalized = Math.min(MAX_ROLL_WAGER, Math.max(5000, Math.floor(nextAmount || 0)))
+  setAmount(String(normalized))
+}
 
   const placeEntry = async () => {
     const amountValue = Math.floor(Number(amount))
