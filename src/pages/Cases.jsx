@@ -36,7 +36,7 @@ function priceToNumber(price) {
 }
 
 function isCatalogCaseArtwork(imageUrl) {
-  return String(imageUrl || "").includes("biggamesapi.io/image/");
+  return String(imageUrl || "").includes("https://ibb.co/");
 }
 
 function getCaseArtworkSize(caseItem) {
