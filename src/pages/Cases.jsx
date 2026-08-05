@@ -42,7 +42,7 @@ function isCatalogCaseArtwork(imageUrl) {
 function getCaseArtworkSize(caseItem) {
   const name = String(caseItem?.name || "").toLowerCase();
   if (name.includes("inferno")) return "inferno";
-  if (name.includes("Cat Chaos")) return "beach";
+  if (name.includes("Cat Chaos")) return "cat";
   if (isCatalogCaseArtwork(caseItem?.image)) return "catalog";
   return "default";
 }
