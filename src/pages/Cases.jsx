@@ -36,13 +36,13 @@ function priceToNumber(price) {
 }
 
 function isCatalogCaseArtwork(imageUrl) {
-  return String(imageUrl || "").includes("https://ibb.co/");
+  return String(imageUrl || "").includes("biggamesapi.io/image/");
 }
 
 function getCaseArtworkSize(caseItem) {
   const name = String(caseItem?.name || "").toLowerCase();
   if (name.includes("inferno")) return "inferno";
-  if (name.includes("Cat Chaos")) return "cat";
+  if (name.includes("Cat Chaos")) return "beach";
   if (isCatalogCaseArtwork(caseItem?.image)) return "catalog";
   return "default";
 }
