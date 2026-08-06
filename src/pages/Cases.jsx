@@ -195,7 +195,7 @@ function CasePreviewModal({ item, onClose }) {
               <img
                 src={item.image}
                 alt={item.name}
-                className="case-preview-thumb-image"
+                className={`case-preview-thumb-image-${getCaseArtworkSize(item)}`}
                 draggable={false}
               />
             </div>
@@ -251,6 +251,8 @@ function CasePreviewModal({ item, onClose }) {
 }
 
 function CaseCard({ item, onPreview, onOpen }) {
+  const artworkSize = getCaseArtworkSize(item);
+
   return (
     <div
       className="group min-w-[170px] cursor-pointer select-none rounded-[6px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6c63ff] focus-visible:outline-offset-2"
@@ -292,15 +294,19 @@ function CaseCard({ item, onPreview, onOpen }) {
           </p>
         </div>
 
-        <div className="relative z-[2] my-3 flex h-[120px] w-[120px] items-center justify-center overflow-hidden">
-          <img
-            src={item.image}
-            alt={item.name}
-            className="h-full w-full object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)]"
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-          />
+        <div className="relative z-[2] my-3 flex max-h-[120px] min-h-[120px] min-w-[120px] max-w-[120px] items-center justify-center">
+          <div className="relative h-[120px] w-[120px]">
+            <img
+              src={item.image}
+              alt={item.name}
+              width="120"
+              height="120"
+              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : artworkSize === "beach" ? "-translate-y-[4px] scale-[.95]" : ""}`}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+            />
+          </div>
         </div>
 
         <button
@@ -571,6 +577,18 @@ export default function CasesPage({ caseSlug = null }) {
           width: 72px;
           height: 72px;
           object-fit: contain;
+        }
+
+        .case-preview-thumb .case-preview-thumb-image-catalog {
+          transform: scale(1.3);
+        }
+
+        .case-preview-thumb .case-preview-thumb-image-inferno {
+          transform: translateY(3px) scale(1.105);
+        }
+
+        .case-preview-thumb .case-preview-thumb-image-beach {
+          transform: scale(0.95);
         }
 
         .case-preview-texts {
