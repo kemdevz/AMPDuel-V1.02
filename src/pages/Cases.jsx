@@ -292,19 +292,15 @@ function CaseCard({ item, onPreview, onOpen }) {
           </p>
         </div>
 
-        <div className="relative z-[2] my-3 flex max-h-[120px] min-h-[120px] min-w-[120px] max-w-[120px] items-center justify-center">
-          <div className="relative h-[120px] w-[120px]">
-            <img
-              src={item.image}
-              alt={item.name}
-              width="120"
-              height="120"
-              className="h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)]"
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-            />
-          </div>
+        <div className="relative z-[2] my-3 flex h-[120px] w-[120px] items-center justify-center overflow-hidden">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="h-full w-full object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)]"
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+          />
         </div>
 
         <button
