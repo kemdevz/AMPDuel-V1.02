@@ -10,7 +10,7 @@ let shuttingDown = false
 
 function isPortOpen(port) {
   return new Promise((resolve) => {
-    const socket = net.createConnection({ host: '127.0.0.1', port })
+    const socket = net.createConnection({ host: 'localhost', port })
     socket.once('connect', () => {
       socket.destroy()
       resolve(true)

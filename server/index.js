@@ -32,8 +32,8 @@ const isAllowedOrigin = (origin) => {
     .map((entry) => entry.trim())
     .filter(Boolean)
   return configuredOrigins.includes(origin) ||
-    origin === 'http://bloxypet.com' ||
-    origin === 'http://127.0.0.1:5173'
+    origin === 'http://bloxdice.com' ||
+    origin === 'http://localhost:5173'
 }
 const io = new Server(server, {
   cors: {
@@ -879,7 +879,7 @@ async function createServerSession(identity, req) {
 function getRequestIp(req) {
   const address = String(req.ip || req.socket?.remoteAddress || '').trim()
   if (address.toLowerCase().startsWith('::ffff:')) return address.slice(7)
-  if (address === '::1') return '127.0.0.1'
+  if (address === '::1') return 'localhost'
   return address
 }
 

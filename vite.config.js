@@ -9,12 +9,12 @@ export default defineConfig({
     proxy: {
       // REST → Express
       '/api': {
-        target: `http://127.0.0.1:${process.env.PORT || 4000}`,
+        target: `http://localhost:${process.env.PORT || 4000}`,
         changeOrigin: true,
       },
       // Socket.IO (websocket upgrade)
       '/socket.io': {
-        target: `http://127.0.0.1:${process.env.PORT || 4000}`,
+        target: `http://localhost:${process.env.PORT || 4000}`,
         ws: true,
         changeOrigin: true,
       },
