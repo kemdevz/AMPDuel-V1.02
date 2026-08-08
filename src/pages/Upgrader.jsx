@@ -463,10 +463,13 @@ function InventoryModal({ initialItems, inventoryItems, loading, error, onClose,
   )
 }
 
-function FairnessModal({ onClose }) {
-  const [clientSeed, setClientSeed] = useState('92RB4HKGQL6F')
-  const [hashedServerSeed, setHashedServerSeed] = useState('959ce5f636f084ba0f514ab0c41e4a4f8cff46544220a79d39caabb782d56d2d')
-  const [nonce, setNonce] = useState(902)
+function FairnessModal({ onClose, gameActive = false }) {
+  const [clientSeed, setClientSeed] = useState('')
+  const [hashedServerSeed, setHashedServerSeed] = useState('Loading...')
+  const [nonce, setNonce] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [previousSeed, setPreviousSeed] = useState(null)
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -481,13 +484,63 @@ function FairnessModal({ onClose }) {
     }
   }, [onClose])
 
+  useEffect(() => {
+    let cancelled = false
+    apiRequest('/api/upgrader/fairness')
+      .then((response) => {
+        if (cancelled) return
+        setClientSeed(response?.fairness?.client_seed || '')
+        setHashedServerSeed(response?.fairness?.server_seed_hash || 'Unavailable')
+        setNonce(Number(response?.fairness?.nonce || 0))
+        if (response?.fairness?.previous_server_seed) {
+          setPreviousSeed({
+            serverSeed: response.fairness.previous_server_seed,
+            serverSeedHash: response.fairness.previous_server_seed_hash,
+            clientSeed: response.fairness.previous_client_seed,
+            nonce: Number(response.fairness.previous_nonce || 0),
+            roll: response.fairness.previous_roll,
+          })
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setHashedServerSeed('Unavailable')
+          notifications.error(error?.message || 'Unable to load Upgrader fairness.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const randomizeClientSeed = () => {
     setClientSeed(randomString(12, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'))
   }
 
-  const rotateServerSeed = () => {
-    setHashedServerSeed(randomString(64, '0123456789abcdef'))
-    setNonce(0)
+  const rotateServerSeed = async () => {
+    if (!clientSeed.trim() || saving || loading || gameActive) return
+    setSaving(true)
+    try {
+      const response = await apiRequest('/api/upgrader/fairness/rotate', {
+        method: 'POST',
+        body: JSON.stringify({ client_seed: clientSeed.trim() }),
+      })
+      setClientSeed(response?.fairness?.client_seed || clientSeed.trim())
+      setHashedServerSeed(response?.fairness?.server_seed_hash || 'Unavailable')
+      setNonce(Number(response?.fairness?.nonce || 0))
+      setPreviousSeed({
+        serverSeed: response?.fairness?.previous_server_seed,
+        serverSeedHash: response?.fairness?.previous_server_seed_hash,
+        clientSeed: response?.fairness?.previous_client_seed,
+        nonce: Number(response?.fairness?.previous_nonce || 0),
+        roll: null,
+      })
+    } catch (error) {
+      notifications.error(error?.message || 'Unable to change Upgrader seed.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return createPortal(
@@ -515,10 +568,11 @@ function FairnessModal({ onClose }) {
               placeholder="Your client seed"
               autoComplete="off"
               spellCheck="false"
+              disabled={loading || saving || gameActive}
               value={clientSeed}
               onChange={(event) => setClientSeed(event.target.value)}
             />
-            <button type="button" className="upgrader-secondary-btn upgrader-fairness-random" title="Generate a random 12-character seed" onClick={randomizeClientSeed}>Random</button>
+            <button type="button" className="upgrader-secondary-btn upgrader-fairness-random" disabled={loading || saving || gameActive} title="Generate a random 12-character seed" onClick={randomizeClientSeed}>Random</button>
           </div>
         </div>
 
@@ -530,8 +584,24 @@ function FairnessModal({ onClose }) {
           </div>
         </div>
 
-        <button type="button" className="upgrader-primary-btn upgrader-fairness-save" onClick={rotateServerSeed}>Change Seed</button>
+        <button type="button" className="upgrader-primary-btn upgrader-fairness-save" disabled={loading || saving || gameActive || !clientSeed.trim()} onClick={rotateServerSeed}>{saving ? 'Changing...' : 'Change Seed'}</button>
         <p className="upgrader-fairness-note">Entering the same client seed still rotates the server seed (and reveals the old one). You can't change it while a game is active.</p>
+
+        {previousSeed?.serverSeed ? (
+          <div className="upgrader-fairness-reveal-box">
+            <span className="upgrader-fairness-reveal-title">Previous Server Seed</span>
+            <span className="upgrader-fairness-reveal-description">This seed is retired. Hash it with SHA-256 and use it with the client seed and nonce below to verify the previous roll.</span>
+            <div className="upgrader-fairness-input-holder upgrader-fairness-reveal-value">
+              <span className="upgrader-fairness-value">{previousSeed.serverSeed}</span>
+              <CopySeedIcon label="Copy revealed server seed" value={previousSeed.serverSeed} />
+            </div>
+            <div className="upgrader-fairness-reveal-meta">
+              <span>Client Seed: <b>{previousSeed.clientSeed || 'Unavailable'}</b></span>
+              <span>Nonce: <b>{previousSeed.nonce}</b></span>
+              {previousSeed.roll !== null && previousSeed.roll !== undefined ? <span>Roll: <b>{Number(previousSeed.roll).toFixed(8)}</b></span> : null}
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>,
     document.body,
@@ -822,6 +892,12 @@ ${inventoryItemCardStyles}
 .upgrader-fairness-random { height: 42px; min-width: 0; flex-shrink: 0; padding: 0 16px; font-size: .85rem; }
 .upgrader-fairness-save { width: 100%; height: 44px; min-width: 0; margin-top: .4rem; font-size: .95rem; }
 .upgrader-fairness-note { margin: .55rem 0 0; color: rgba(225,228,242,.4); font-size: .75rem; line-height: 1.4; text-align: center; }
+.upgrader-fairness-reveal-box { padding: 1rem; margin-top: 1.4rem; border-radius: 6px; background: rgba(108,99,255,.06); }
+.upgrader-fairness-reveal-title { display: block; color: #e1e4f2; font-size: .92rem; font-weight: 700; }
+.upgrader-fairness-reveal-description { display: block; margin-top: .35rem; color: rgba(225,228,242,.55); font-size: .76rem; line-height: 1.45; }
+.upgrader-fairness-reveal-value { margin-top: .6rem; margin-bottom: 0; }
+.upgrader-fairness-reveal-meta { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .7rem; color: rgba(225,228,242,.55); font-size: .75rem; }
+.upgrader-fairness-reveal-meta b { color: #e1e4f2; font-family: monospace; font-weight: 600; }
 @keyframes upgrader-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes upgrader-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes upgrader-modal-in { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
@@ -913,6 +989,9 @@ ${inventoryItemCardStyles}
 export default function Upgrader() {
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
+  const holdBalanceDisplay = useAuth((state) => state.holdBalanceDisplay)
+  const releaseBalanceDisplay = useAuth((state) => state.releaseBalanceDisplay)
+  const applyProfileUpdate = useAuth((state) => state.applyProfileUpdate)
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen)
   const [mode, setMode] = useState('items')
   const [selectedItems, setSelectedItems] = useState([])
@@ -932,7 +1011,10 @@ export default function Upgrader() {
   const [spinning, setSpinning] = useState(false)
   const [rotation, setRotation] = useState(0)
   const [zoneStartAngle, setZoneStartAngle] = useState(0)
+  const [poolRefreshKey, setPoolRefreshKey] = useState(0)
   const spinTimer = useRef(null)
+  const pendingRequestId = useRef(null)
+  const balanceBeforeSpin = useRef(null)
   const spinAudioRef = useRef(null)
   const winAudioRef = useRef(null)
   const loseAudioRef = useRef(null)
@@ -1002,7 +1084,7 @@ export default function Upgrader() {
     return () => {
       cancelled = true
     }
-  }, [mode])
+  }, [mode, poolRefreshKey])
 
   useEffect(() => {
     if (!inventoryOpen || !user) return undefined
@@ -1046,11 +1128,16 @@ export default function Upgrader() {
 
     return () => {
       window.clearTimeout(spinTimer.current)
+      if (balanceBeforeSpin.current !== null) {
+        releaseBalanceDisplay(balanceBeforeSpin.current)
+        balanceBeforeSpin.current = null
+        window.dispatchEvent(new CustomEvent('wallet:animation-end'))
+      }
       spinAudioRef.current?.pause()
       winAudioRef.current?.pause()
       loseAudioRef.current?.pause()
     }
-  }, [])
+  }, [releaseBalanceDisplay])
 
   const selectMode = (nextMode) => {
     if (spinning || nextMode === mode) return
@@ -1152,35 +1239,95 @@ export default function Upgrader() {
     setTargetOrder([])
   }
 
-  const runUpgrade = () => {
+  const runUpgrade = async () => {
     if (!isReady) return
+    if (!user) {
+      setAuthModalOpen(true)
+      return
+    }
     if (mode === 'coins' && wager > Number(balance || 0)) {
       notifications.insufficientCoins()
       return
     }
     if (!chanceIsInRange) return
 
-    window.clearTimeout(spinTimer.current)
-    setSpinning(true)
-    const roll = Math.random() * 100
-    const didWin = isRollInsideZone(roll, chance, zoneStartAngle)
-    setRotation((current) => (Math.ceil(current / 360) + FULL_SPIN_TURNS) * 360 + roll * 3.6)
-    if (spinAudioRef.current) {
-      spinAudioRef.current.currentTime = 0
-      spinAudioRef.current.play().catch(() => {})
+    const wagerInventoryUuids = mode === 'items' ? selectedItems.map((item) => item.id) : []
+    const targetStockUuids = selectedTargets.flatMap(({ item, quantity }) => item.stockUuids.slice(0, quantity))
+    if (targetStockUuids.length !== targetCount) {
+      notifications.error('One or more target items are no longer available.')
+      return
     }
-    spinTimer.current = window.setTimeout(() => {
-      setSpinning(false)
+
+    window.clearTimeout(spinTimer.current)
+    const requestId = pendingRequestId.current || window.crypto.randomUUID()
+    pendingRequestId.current = requestId
+    const startingBalance = Number(balance || 0)
+    balanceBeforeSpin.current = startingBalance
+    holdBalanceDisplay(mode === 'coins' ? Math.max(0, startingBalance - wager) : startingBalance)
+    window.dispatchEvent(new CustomEvent('wallet:animation-start'))
+    setSpinning(true)
+
+    try {
+      const response = await apiRequest('/api/upgrader/play', {
+        method: 'POST',
+        body: JSON.stringify({
+          request_id: requestId,
+          wager_mode: mode,
+          roll_mode: rollMode,
+          coin_wager: mode === 'coins' ? wager : 0,
+          wager_inventory_uuids: wagerInventoryUuids,
+          target_stock_uuids: targetStockUuids,
+          zone_start_degrees: normalizeWheelAngle(zoneStartAngle),
+        }),
+      })
+      pendingRequestId.current = null
+      const serverRoll = Number(response?.roll)
+      if (!Number.isFinite(serverRoll) || serverRoll < 0 || serverRoll >= 100) {
+        throw new Error('The server returned an invalid Upgrader roll.')
+      }
+
+      setRotation((current) => (Math.ceil(current / 360) + FULL_SPIN_TURNS) * 360 + serverRoll * 3.6)
       if (spinAudioRef.current) {
-        spinAudioRef.current.pause()
         spinAudioRef.current.currentTime = 0
+        spinAudioRef.current.play().catch(() => {})
       }
-      const resultAudio = didWin ? winAudioRef.current : loseAudioRef.current
-      if (resultAudio) {
-        resultAudio.currentTime = 0
-        resultAudio.play().catch(() => {})
-      }
-    }, SPIN_DURATION)
+
+      spinTimer.current = window.setTimeout(() => {
+        if (spinAudioRef.current) {
+          spinAudioRef.current.pause()
+          spinAudioRef.current.currentTime = 0
+        }
+        const didWin = Boolean(response.won)
+        const resultAudio = didWin ? winAudioRef.current : loseAudioRef.current
+        if (resultAudio) {
+          resultAudio.currentTime = 0
+          resultAudio.play().catch(() => {})
+        }
+
+        releaseBalanceDisplay(Number(response.balance ?? startingBalance))
+        balanceBeforeSpin.current = null
+        if (response.profile) applyProfileUpdate(response.profile)
+        setSelectedItems([])
+        setInventoryItems((current) => current.filter((item) => !wagerInventoryUuids.includes(item.id)))
+        setTargetQuantities({})
+        setTargetOrder([])
+        setPoolRefreshKey((current) => current + 1)
+        setSpinning(false)
+        window.dispatchEvent(new CustomEvent('wallet:animation-end'))
+        window.dispatchEvent(new CustomEvent('wallet:updated'))
+        notifications[didWin ? 'success' : 'error'](
+          didWin ? `Upgrade won ${formatValue(response.payout_value)} in items!` : 'Upgrade lost.',
+        )
+      }, SPIN_DURATION)
+    } catch (error) {
+      if (error?.status) pendingRequestId.current = null
+      releaseBalanceDisplay(startingBalance)
+      balanceBeforeSpin.current = null
+      setSpinning(false)
+      window.dispatchEvent(new CustomEvent('wallet:animation-end'))
+      if (error?.status === 401) setAuthModalOpen(true)
+      notifications.error(error?.message || 'Unable to complete this upgrade.')
+    }
   }
 
   const removeSelectedItem = (item) => {
@@ -1442,7 +1589,7 @@ export default function Upgrader() {
           }}
         />
       ) : null}
-      {fairnessOpen ? <FairnessModal onClose={() => setFairnessOpen(false)} /> : null}
+      {fairnessOpen ? <FairnessModal gameActive={spinning} onClose={() => setFairnessOpen(false)} /> : null}
     </div>
   )
 }

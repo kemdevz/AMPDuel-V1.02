@@ -2956,6 +2956,225 @@ app.post('/api/cases/open', express.json({ limit: '8kb' }), requireAuthenticated
   }
 })
 
+function getUpgraderSeedEncryptionKey() {
+  const secret = String(process.env.UPGRADER_SEED_SECRET || process.env.CASE_OPEN_SEED_SECRET || '').trim()
+  if (!secret) throw new Error('UPGRADER_SEED_SECRET is required for Upgrader fairness.')
+  return crypto.createHash('sha256').update(secret).digest()
+}
+
+function encryptUpgraderServerSeed(serverSeed) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getUpgraderSeedEncryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  return `${iv.toString('hex')}.${cipher.getAuthTag().toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptUpgraderServerSeed(encryptedSeed) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error('Invalid encrypted Upgrader server seed.')
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    getUpgraderSeedEncryptionKey(),
+    Buffer.from(ivHex, 'hex'),
+  )
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedHex, 'hex')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+function createUpgraderFairnessSeed() {
+  const serverSeed = crypto.randomBytes(32).toString('hex')
+  return {
+    seedId: crypto.randomUUID(),
+    serverSeed,
+    serverSeedHash: crypto.createHash('sha256').update(serverSeed).digest('hex'),
+    serverSeedEncrypted: encryptUpgraderServerSeed(serverSeed),
+  }
+}
+
+function createUpgraderClientSeed() {
+  return crypto.randomBytes(9).toString('base64url').toUpperCase().slice(0, 12)
+}
+
+function getUpgraderRoll(serverSeed, clientSeed, nonce, requestId) {
+  const digest = crypto
+    .createHmac('sha256', serverSeed)
+    .update(`${clientSeed}:${nonce}:${requestId}`)
+    .digest('hex')
+  const fraction = Number.parseInt(digest.slice(0, 13), 16) / 0x10000000000000
+  return Number((fraction * 100).toFixed(8))
+}
+
+async function ensureUpgraderFairnessState(profileId) {
+  const seed = createUpgraderFairnessSeed()
+  return callRainRpc('ensure_upgrader_fairness_state', {
+    p_profile_id: profileId,
+    p_seed_id: seed.seedId,
+    p_server_seed_hash: seed.serverSeedHash,
+    p_server_seed_encrypted: seed.serverSeedEncrypted,
+    p_client_seed: createUpgraderClientSeed(),
+  })
+}
+
+function validateUpgraderFairnessState(state) {
+  const serverSeed = decryptUpgraderServerSeed(state?.server_seed_encrypted)
+  const expectedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  if (expectedHash !== state?.server_seed_hash) {
+    throw new Error('Upgrader fairness seed commitment is invalid.')
+  }
+  return serverSeed
+}
+
+app.get('/api/upgrader/fairness', requireAuthenticatedUser, async (req, res) => {
+  try {
+    const state = await ensureUpgraderFairnessState(req.identity.profileId)
+    validateUpgraderFairnessState(state)
+    const historyRows = await adminRest(
+      `upgrader_games?select=server_seed_hash,server_seed,client_seed,nonce,roll,created_at&profile_id=eq.${encodeURIComponent(req.identity.profileId)}&order=created_at.desc&limit=1`,
+    )
+    const previous = Array.isArray(historyRows) ? historyRows[0] || null : historyRows
+    res.json({
+      ok: true,
+      fairness: {
+        seed_id: state.seed_id,
+        server_seed_hash: state.server_seed_hash,
+        client_seed: state.client_seed,
+        nonce: Number(state.nonce || 0),
+        previous_server_seed: previous?.server_seed || null,
+        previous_server_seed_hash: previous?.server_seed_hash || null,
+        previous_client_seed: previous?.client_seed || null,
+        previous_nonce: previous?.nonce === null || previous?.nonce === undefined
+          ? null
+          : Number(previous.nonce),
+        previous_roll: previous?.roll === null || previous?.roll === undefined
+          ? null
+          : Number(previous.roll),
+      },
+    })
+  } catch (error) {
+    console.error('[api/upgrader/fairness] error', error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load Upgrader fairness.' })
+  }
+})
+
+app.post('/api/upgrader/fairness/rotate', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const clientSeed = String(req.body?.client_seed || '').trim()
+  if (!clientSeed || clientSeed.length > 128) {
+    res.status(400).json({ ok: false, error: 'Client seed must contain between 1 and 128 characters.' })
+    return
+  }
+  try {
+    const currentState = await ensureUpgraderFairnessState(req.identity.profileId)
+    const previousServerSeed = validateUpgraderFairnessState(currentState)
+    const nextSeed = createUpgraderFairnessSeed()
+    const fairness = await callRainRpc('rotate_upgrader_fairness_state', {
+      p_profile_id: req.identity.profileId,
+      p_expected_seed_id: currentState.seed_id,
+      p_expected_server_seed_hash: currentState.server_seed_hash,
+      p_expected_nonce: Number(currentState.nonce || 0),
+      p_previous_server_seed: previousServerSeed,
+      p_new_seed_id: nextSeed.seedId,
+      p_new_server_seed_hash: nextSeed.serverSeedHash,
+      p_new_server_seed_encrypted: nextSeed.serverSeedEncrypted,
+      p_new_client_seed: clientSeed,
+    })
+    res.json({ ok: true, fairness })
+  } catch (error) {
+    const message = error?.message || 'Unable to change Upgrader seed.'
+    res.status(/fairness state changed/i.test(message) ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/upgrader/play', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const requestId = String(req.body?.request_id || '').trim()
+  const wagerMode = String(req.body?.wager_mode || '').trim()
+  const rollMode = String(req.body?.roll_mode || '').trim()
+  const coinWager = Number(req.body?.coin_wager || 0)
+  const wagerInventoryUuids = Array.isArray(req.body?.wager_inventory_uuids)
+    ? req.body.wager_inventory_uuids.map(String)
+    : []
+  const targetStockUuids = Array.isArray(req.body?.target_stock_uuids)
+    ? req.body.target_stock_uuids.map(String)
+    : []
+  const zoneStartDegrees = Number(req.body?.zone_start_degrees)
+
+  const validUuidArray = (values, max) => values.length <= max && values.every(isUuidLike)
+  if (!isUuidLike(requestId)
+    || !['coins', 'items'].includes(wagerMode)
+    || !['under', 'over'].includes(rollMode)
+    || !Number.isSafeInteger(coinWager) || coinWager < 0 || coinWager > 10_000_000
+    || !validUuidArray(wagerInventoryUuids, 100)
+    || targetStockUuids.length < 1 || !validUuidArray(targetStockUuids, 25)
+    || !Number.isFinite(zoneStartDegrees) || zoneStartDegrees < 0 || zoneStartDegrees >= 360) {
+    res.status(400).json({ ok: false, error: 'Invalid Upgrader selection.' })
+    return
+  }
+  if ((wagerMode === 'coins' && (coinWager < 1 || wagerInventoryUuids.length > 0))
+    || (wagerMode === 'items' && (coinWager !== 0 || wagerInventoryUuids.length < 1))) {
+    res.status(400).json({ ok: false, error: 'Invalid Upgrader wager.' })
+    return
+  }
+
+  try {
+    const state = await ensureUpgraderFairnessState(req.identity.profileId)
+    const serverSeed = validateUpgraderFairnessState(state)
+    const nonce = Number(state.nonce || 0)
+    if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error('Upgrader fairness nonce is invalid.')
+    const nextSeed = createUpgraderFairnessSeed()
+    const roll = getUpgraderRoll(serverSeed, state.client_seed, nonce, requestId)
+
+    const result = await callRainRpc('complete_upgrader_game', {
+      p_profile_id: req.identity.profileId,
+      p_request_id: requestId,
+      p_wager_mode: wagerMode,
+      p_roll_mode: rollMode,
+      p_coin_wager: coinWager,
+      p_wager_inventory_uuids: wagerInventoryUuids,
+      p_target_stock_uuids: targetStockUuids,
+      p_zone_start_degrees: zoneStartDegrees,
+      p_expected_seed_id: state.seed_id,
+      p_expected_server_seed_hash: state.server_seed_hash,
+      p_expected_nonce: nonce,
+      p_client_seed: state.client_seed,
+      p_server_seed: serverSeed,
+      p_roll: roll,
+      p_next_seed_id: nextSeed.seedId,
+      p_next_server_seed_hash: nextSeed.serverSeedHash,
+      p_next_server_seed_encrypted: nextSeed.serverSeedEncrypted,
+    })
+
+    let profile = null
+    try {
+      profile = await loadProfileById(req.identity.profileId)
+    } catch (profileError) {
+      console.warn('[api/upgrader/play] profile refresh failed', profileError?.message || profileError)
+    }
+    void emitProfileUpdates([req.identity.profileId])
+    res.json({
+      ok: true,
+      ...result,
+      profile,
+      fairness: {
+        seed_id: nextSeed.seedId,
+        server_seed_hash: nextSeed.serverSeedHash,
+        client_seed: state.client_seed,
+        nonce: 0,
+        previous_server_seed: serverSeed,
+        previous_server_seed_hash: state.server_seed_hash,
+        previous_client_seed: state.client_seed,
+        previous_nonce: nonce,
+      },
+    })
+  } catch (error) {
+    const message = error?.message || 'Unable to complete this upgrade.'
+    const expected = /balance|available|invalid|select|chance|wager|target|fairness state changed|client seed/i.test(message)
+    console.warn('[api/upgrader/play] error', message)
+    res.status(/fairness state changed/i.test(message) ? 409 : expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
 function encryptCoinflipServerSeed(serverSeed, supabaseKey) {
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)

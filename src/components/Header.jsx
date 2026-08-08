@@ -205,6 +205,8 @@ export default function Header({ onOpenProfileModal }) {
   const walletMenuRef = useRef(null)
   const notificationsButtonRef = useRef(null)
   const notificationsMenuRef = useRef(null)
+  const walletAnimationHeldRef = useRef(false)
+  const walletRefreshPendingRef = useRef(false)
 
   const user = useAuth((s) => s.user)
   const balance = useAuth((s) => s.balance)
@@ -222,6 +224,10 @@ export default function Header({ onOpenProfileModal }) {
     const socket = connectSocket()
 
     const refreshWalletState = async () => {
+      if (walletAnimationHeldRef.current) {
+        walletRefreshPendingRef.current = true
+        return
+      }
       const sequence = ++refreshSequence
 
       if (!user?.id && !user?.profile_id) {
@@ -276,6 +282,19 @@ export default function Header({ onOpenProfileModal }) {
       void refreshWalletState()
     }
 
+    const handleWalletAnimationStart = () => {
+      walletAnimationHeldRef.current = true
+      walletRefreshPendingRef.current = false
+    }
+
+    const handleWalletAnimationEnd = () => {
+      walletAnimationHeldRef.current = false
+      if (walletRefreshPendingRef.current) {
+        walletRefreshPendingRef.current = false
+        void refreshWalletState()
+      }
+    }
+
     const handleVisibilityRefresh = () => {
       if (document.visibilityState === 'visible') void refreshWalletState()
     }
@@ -288,6 +307,8 @@ export default function Header({ onOpenProfileModal }) {
 
     void refreshWalletState()
     window.addEventListener('wallet:updated', handleWalletRefresh)
+    window.addEventListener('wallet:animation-start', handleWalletAnimationStart)
+    window.addEventListener('wallet:animation-end', handleWalletAnimationEnd)
     window.addEventListener('focus', handleWalletRefresh)
     document.addEventListener('visibilitychange', handleVisibilityRefresh)
     socket.on('wallet:updated', handleSocketWalletRefresh)
@@ -296,6 +317,8 @@ export default function Header({ onOpenProfileModal }) {
       return () => {
         isMounted = false
         window.removeEventListener('wallet:updated', handleWalletRefresh)
+        window.removeEventListener('wallet:animation-start', handleWalletAnimationStart)
+        window.removeEventListener('wallet:animation-end', handleWalletAnimationEnd)
         window.removeEventListener('focus', handleWalletRefresh)
         document.removeEventListener('visibilitychange', handleVisibilityRefresh)
         socket.off('wallet:updated', handleSocketWalletRefresh)
@@ -324,6 +347,8 @@ export default function Header({ onOpenProfileModal }) {
       isMounted = false
       window.clearInterval(refreshInterval)
       window.removeEventListener('wallet:updated', handleWalletRefresh)
+      window.removeEventListener('wallet:animation-start', handleWalletAnimationStart)
+      window.removeEventListener('wallet:animation-end', handleWalletAnimationEnd)
       window.removeEventListener('focus', handleWalletRefresh)
       document.removeEventListener('visibilitychange', handleVisibilityRefresh)
       socket.off('wallet:updated', handleSocketWalletRefresh)
