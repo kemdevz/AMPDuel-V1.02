@@ -190,6 +190,7 @@ function RollFairnessModal({ round, onClose }) {
 
 export default function Roll() {
   const user = useAuth((state) => state.user)
+  const authLoading = useAuth((state) => state.loading)
   const balance = useAuth((state) => state.balance)
   const setBalance = useAuth((state) => state.setBalance)
   const socket = useSocket()
@@ -270,6 +271,14 @@ export default function Roll() {
 
   // Fetch initial game state and listen for socket updates
   useEffect(() => {
+    if (authLoading) return undefined
+    if (!user) {
+      setItems([])
+      setMultipliers(BASE_MULTIPLIERS)
+      setLoading(false)
+      return undefined
+    }
+
     const applyServerState = (response) => {
       if (!response?.round) return
       setGameData(response.round)
@@ -388,7 +397,7 @@ export default function Roll() {
         socket.off('wallet:updated', handleWalletUpdated)
       }
     }
-  }, [socket, user?.profile_id, beginRoll])
+  }, [socket, user, authLoading, beginRoll])
 
   useEffect(() => () => {
     if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)

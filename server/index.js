@@ -2043,6 +2043,63 @@ function generateRobloxPhrase() {
   return words.slice(0, 10).join(' ')
 }
 
+function normalizeRobloxProfileText(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+async function fetchRobloxProfileForVerification(robloxId, phrase) {
+  const normalizedPhrase = normalizeRobloxProfileText(phrase)
+  let lastResponse = null
+  let lastProfile = null
+  let phraseFound = false
+
+  // Roblox profile-description changes can take a few seconds to reach its API.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    lastResponse = await fetch(
+      `https://users.roblox.com/v1/users/${encodeURIComponent(robloxId)}`,
+      {
+        headers: { 'Cache-Control': 'no-cache' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+      },
+    )
+    lastProfile = await lastResponse.json().catch(() => null)
+
+    if (!lastResponse.ok) break
+    phraseFound = normalizeRobloxProfileText(lastProfile?.description).includes(normalizedPhrase)
+
+    // Some Roblox accounts show their About text on the public profile while the
+    // users API returns an empty description. Check the same public page users see.
+    if (!phraseFound) {
+      const publicProfileResponse = await fetch(
+        `https://www.roblox.com/users/${encodeURIComponent(robloxId)}/profile`,
+        {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'User-Agent': 'Mozilla/5.0 (compatible; BloxyBattlesVerification/1.0)',
+          },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(10_000),
+        },
+      )
+      const publicProfileHtml = publicProfileResponse.ok
+        ? await publicProfileResponse.text()
+        : ''
+      phraseFound = normalizeRobloxProfileText(publicProfileHtml).includes(normalizedPhrase)
+    }
+
+    if (phraseFound) break
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1_500))
+  }
+
+  return { response: lastResponse, profile: lastProfile, phraseFound }
+}
+
 async function upsertVerifiedProfile({ subject, robloxId, username, avatarUrl, avatarHeadshotUrl }) {
   const profileId = resolveStorageProfileId(subject)
   const existingProfile = await loadProfileById(profileId)
@@ -2174,13 +2231,17 @@ app.post('/api/auth/roblox/verify', express.json({ limit: '8kb' }), async (req, 
   }
 
   try {
-    const profileResponse = await fetch(`https://users.roblox.com/v1/users/${encodeURIComponent(challenge.robloxId)}`, {
-      signal: AbortSignal.timeout(10_000),
-    })
-    const robloxProfile = await profileResponse.json()
-    const description = String(robloxProfile?.description || '')
-    if (!profileResponse.ok || !description.toLowerCase().includes(String(challenge.phrase).toLowerCase())) {
-      res.status(403).json({ ok: false, error: 'The verification phrase was not found in your Roblox profile description.' })
+    const { response: profileResponse, profile: robloxProfile, phraseFound } =
+      await fetchRobloxProfileForVerification(challenge.robloxId, challenge.phrase)
+    if (!profileResponse?.ok) {
+      res.status(502).json({ ok: false, error: 'Roblox did not return your profile. Please try again shortly.' })
+      return
+    }
+    if (!phraseFound) {
+      res.status(403).json({
+        ok: false,
+        error: 'The current phrase is not visible in your public Roblox About description yet. Save it, wait a moment, then try again.',
+      })
       return
     }
 
@@ -2205,9 +2266,16 @@ app.post('/api/auth/roblox/verify', express.json({ limit: '8kb' }), async (req, 
   }
 })
 
-app.get('/api/auth/me', requireAuthenticatedUser, async (req, res) => {
+app.get('/api/auth/me', async (req, res) => {
   try {
-    const profile = await loadProfileById(req.identity.profileId)
+    const identity = await getAuthenticatedIdentityFromHeaders(req.headers)
+    res.setHeader('Cache-Control', 'no-store')
+    if (!identity) {
+      res.json({ ok: true, user: null })
+      return
+    }
+
+    const profile = await loadProfileById(identity.profileId)
     if (!profile) {
       res.status(404).json({ ok: false, error: 'Your user profile could not be found.' })
       return
@@ -2216,9 +2284,9 @@ app.get('/api/auth/me', requireAuthenticatedUser, async (req, res) => {
       ok: true,
       user: {
         ...profile,
-        id: req.identity.subject,
+        id: identity.subject,
         profile_id: profile.id,
-        roblox_id: profile.roblox_id || req.identity.robloxId || null,
+        roblox_id: profile.roblox_id || identity.robloxId || null,
       },
     })
   } catch (error) {
