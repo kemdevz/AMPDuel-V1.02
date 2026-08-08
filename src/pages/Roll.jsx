@@ -48,9 +48,6 @@ function getRoundOffset(roundId) {
 function RollCard({ multiplier, index, items }) {
   const safeItems = Array.isArray(items) ? items : []
   const item = safeItems.length > 0 ? safeItems[index % safeItems.length] : null
-  const imageUrl = typeof item?.image_url === 'string' ? item.image_url.trim() : ''
-  if (!imageUrl) return null
-
   const itemValue = Math.max(0, Number(item?.value || 0))
   const sharedCardStyle = getInventoryItemCardStyle(item)
 
@@ -64,7 +61,7 @@ function RollCard({ multiplier, index, items }) {
       }}
     >
       <div className="rollImageWrapper">
-        <img src={imageUrl} alt={item.name} className="rollItemImage" draggable={false} />
+        {item?.image_url ? <img src={item.image_url} alt={item.name} className="rollItemImage" draggable={false} /> : null}
       </div>
       <div className="rollItemDetails">
         <p className="rollItemName">{item?.name || 'Item unavailable'}</p>

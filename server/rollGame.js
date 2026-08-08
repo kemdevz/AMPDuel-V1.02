@@ -13,20 +13,6 @@ const MAX_ROLL_MULTIPLIER = 100
 const ITEM_CATALOG_CACHE_MS = 10 * 60 * 1000
 const ITEM_GROUP_TARGETS = Object.freeze({ huge: 57, titanic: 2, gargantuan: 1 })
 
-function hasImageUrl(item) {
-  return typeof item?.image_url === 'string' && item.image_url.trim().length > 0
-}
-
-function isEligibleReelItem(item) {
-  return Boolean(
-    item?.id &&
-    item?.name &&
-    hasImageUrl(item) &&
-    Number.isFinite(Number(item.value)) &&
-    Number(item.value) > 0
-  )
-}
-
 function itemGroup(item) {
   const name = String(item?.name || '')
   if (/\bgargantuan\b/i.test(name)) return 'gargantuan'
@@ -64,7 +50,9 @@ function shuffle(items) {
 }
 
 function buildReelItems(catalog) {
-  const eligible = catalog.filter(isEligibleReelItem)
+  const eligible = catalog.filter((item) =>
+    item?.id && item?.name && item?.image_url && Number.isFinite(Number(item.value)) && Number(item.value) > 0,
+  )
   const grouped = { huge: [], titanic: [], gargantuan: [], other: [] }
   eligible.forEach((item) => grouped[itemGroup(item)].push(item))
 
@@ -101,11 +89,7 @@ function buildReelItems(catalog) {
 }
 
 function rotateReelItems(previousItems, catalog) {
-  if (
-    !Array.isArray(previousItems) ||
-    previousItems.length !== REEL_ITEM_COUNT ||
-    !previousItems.every(isEligibleReelItem)
-  ) {
+  if (!Array.isArray(previousItems) || previousItems.length !== REEL_ITEM_COUNT) {
     return buildReelItems(catalog)
   }
 
@@ -118,15 +102,17 @@ function rotateReelItems(previousItems, catalog) {
   for (const index of indices.slice(0, replacementCount)) {
     const currentItem = nextItems[index]
     const sameGroupAndTier = catalog.filter((candidate) =>
-      isEligibleReelItem(candidate) &&
       itemGroup(candidate) === itemGroup(currentItem) &&
       itemValueTier(candidate) === itemValueTier(currentItem) &&
+      candidate?.image_url &&
+      Number(candidate?.value) > 0 &&
       !previousIds.has(String(candidate.id)) &&
       !selectedIds.has(String(candidate.id)),
     )
     const sameGroup = catalog.filter((candidate) =>
-      isEligibleReelItem(candidate) &&
       itemGroup(candidate) === itemGroup(currentItem) &&
+      candidate?.image_url &&
+      Number(candidate?.value) > 0 &&
       !previousIds.has(String(candidate.id)) &&
       !selectedIds.has(String(candidate.id)),
     )
@@ -368,11 +354,7 @@ export function registerRollGame({
       'roll_rounds?select=id,result_multiplier,settled_at,reel_items&status=eq.settled&result_multiplier=not.is.null&order=settled_at.desc&limit=10',
     )
     const latestReel = Array.isArray(rows) ? rows[0]?.reel_items : null
-    if (
-      Array.isArray(latestReel) &&
-      latestReel.length === REEL_ITEM_COUNT &&
-      latestReel.every(isEligibleReelItem)
-    ) {
+    if (Array.isArray(latestReel) && latestReel.length === REEL_ITEM_COUNT) {
       state.previousReelItems = latestReel
     }
     state.history = (Array.isArray(rows) ? rows : []).map((row) => ({
