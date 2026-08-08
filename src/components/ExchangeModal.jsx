@@ -12,6 +12,8 @@ import { supabase } from '../lib/supabaseClient'
 import { notifications } from './Notifications'
 
 const COIN_ICON = '/bobux.png'
+const MINIMUM_ITEM_EXCHANGE_VALUE = 250_000
+const ITEM_EXCHANGE_FEE_RATE = 0.05
 
 function formatNumber(value) {
   const numericValue = Number(value ?? 0)
@@ -236,14 +238,20 @@ function StockItemCard({ item, quantity, onToggleSelect, onQuantityChange }) {
   )
 }
 
-function InventorySelectionCard({ item, selected, onToggleSelect }) {
+function InventorySelectionCard({ item, selected, onToggleSelect, disabled = false }) {
   return (
-    <InventoryItemCard
-      item={item}
-      selected={selected}
-      onToggleSelect={() => onToggleSelect(item.displayKey)}
-      compact
-    />
+    <div
+      className={disabled ? '_exchangeItemDisabled_150j2_local' : undefined}
+      title={disabled ? 'This item must be worth at least 250,000 coins to exchange.' : undefined}
+      style={disabled ? { cursor: 'not-allowed', opacity: 0.45 } : undefined}
+    >
+      <InventoryItemCard
+        item={item}
+        selected={selected}
+        onToggleSelect={disabled ? () => {} : () => onToggleSelect(item.displayKey)}
+        compact
+      />
+    </div>
   )
 }
 
@@ -364,7 +372,12 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
     return item.instances.slice(0, quantity)
   })
   const inventoryValue = inventoryRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
-  const selectedInventoryValue = selectedInventoryItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
+  const selectedInventoryGrossValue = selectedInventoryItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
+  const selectedInventoryFee = selectedInventoryItems.reduce(
+    (sum, item) => sum + Math.round(Number(item.value ?? 0) * ITEM_EXCHANGE_FEE_RATE),
+    0,
+  )
+  const selectedInventoryValue = selectedInventoryGrossValue - selectedInventoryFee
   const selectedStockValue = selectedStockItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
   const selectedInventoryCount = selectedInventoryItems.length
   const currentRows = (isCoinsToItems ? stockRows : inventoryRows)
@@ -374,12 +387,20 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
       : Number(b.value ?? 0) - Number(a.value ?? 0))
   const selectedCurrentItems = isCoinsToItems ? selectedStockItems : selectedInventoryItems
   const currentValue = isCoinsToItems ? selectedStockValue : selectedInventoryValue
-  const currentRowIds = currentRows.map((item) => item.displayKey).filter(Boolean)
-  const allCurrentRowsSelected = currentRows.length > 0 && (isCoinsToItems
+  const currentRowIds = currentRows
+    .filter((item) => isCoinsToItems || Number(item.value ?? 0) >= MINIMUM_ITEM_EXCHANGE_VALUE)
+    .map((item) => item.displayKey)
+    .filter(Boolean)
+  const allCurrentRowsSelected = currentRowIds.length > 0 && (isCoinsToItems
     ? currentRows.every((item) => Number(selectedStockQuantities[item.displayKey]) === item.availableQuantity)
     : currentRowIds.every((id) => selectedItemIds.includes(id)))
 
   const toggleSelectedItem = (itemKey) => {
+    const item = inventoryRows.find((row) => row.displayKey === itemKey)
+    if (!item || Number(item.value ?? 0) < MINIMUM_ITEM_EXCHANGE_VALUE) {
+      notifications.error('Items must be worth at least 250,000 coins to exchange.')
+      return
+    }
     setSelectedItemIds((current) => (current.includes(itemKey) ? current.filter((value) => value !== itemKey) : [...current, itemKey]))
   }
 
@@ -481,6 +502,12 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
     if (selectedCurrentItems.length === 0) {
       setExchangeError(null)
       notifications.error('Select at least one item to exchange.')
+      return
+    }
+
+    if (selectedCurrentItems.some((item) => Number(item.value ?? 0) < MINIMUM_ITEM_EXCHANGE_VALUE)) {
+      setExchangeError(null)
+      notifications.error('Items must be worth at least 250,000 coins to exchange.')
       return
     }
 
@@ -619,11 +646,12 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
               </div>
             ) : currentRows.length > 0 ? (
               currentRows.map((item) => (
-                <div key={item.displayKey} style={{ cursor: 'pointer' }}>
+                <div key={item.displayKey}>
                   <InventorySelectionCard
                     item={item}
                     selected={selectedItemIds.includes(item.displayKey)}
                     onToggleSelect={toggleSelectedItem}
+                    disabled={Number(item.value ?? 0) < MINIMUM_ITEM_EXCHANGE_VALUE}
                   />
                 </div>
               ))
@@ -637,7 +665,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
         </div>
 
         <div className="_buttonWrapper_150j2_379">
-          <LoadingButton className="_flatActionBtn_150j2_409" disabled={exchangeLoading || currentRows.length === 0} onClick={handleSelectAll}>
+          <LoadingButton className="_flatActionBtn_150j2_409" disabled={exchangeLoading || currentRowIds.length === 0} onClick={handleSelectAll}>
             {allCurrentRowsSelected ? 'Unselect All' : 'Select All'}
           </LoadingButton>
           <LoadingButton
@@ -652,7 +680,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
                 <img src={COIN_ICON} alt="Bobux" />
                 <span className="_pcvalue_150j2_1029">{formatNumber(currentValue)}</span>
               </span>
-              {isCoinsToItems ? null : <span className="_feeText_150j2_1033">(0% fee)</span>}
+              {isCoinsToItems ? null : <span className="_feeText_150j2_1033">(5% fee)</span>}
             </strong>
             <strong className="_mobilevalue_150j2_1031">
               {isCoinsToItems ? 'Buy' : 'Exchange'}
@@ -661,6 +689,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
                 <img src={COIN_ICON} alt="Bobux" />
                 <span className="_mobilevalue_150j2_1031">{formatNumber(currentValue)}</span>
               </span>
+              {isCoinsToItems ? null : <span className="_feeText_150j2_1033">(5% fee)</span>}
             </strong>
           </LoadingButton>
         </div>
@@ -675,6 +704,10 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
           @keyframes _fadeIn_150j2_1 { from { opacity: 0; } to { opacity: 1; } }
           @keyframes _modalOpen_150j2_1 { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
           @keyframes _spin_150j2_1 { to { transform: rotate(360deg); } }
+
+          ._exchangeItemDisabled_150j2_local > ._inventoryItemCard_cpcgp_local {
+            cursor: not-allowed;
+          }
 
           ._blurbg_150j2_5 {
             position: fixed;
