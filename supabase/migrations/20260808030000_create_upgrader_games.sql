@@ -292,7 +292,7 @@ BEGIN
     OR v_state.server_seed_hash <> p_expected_server_seed_hash
     OR v_state.nonce <> p_expected_nonce
     OR v_state.client_seed <> p_client_seed
-    OR encode(digest(convert_to(p_server_seed, 'UTF8'), 'sha256'::text), 'hex') <> v_state.server_seed_hash THEN
+    OR encode(extensions.digest(convert_to(p_server_seed, 'UTF8'), 'sha256'::text), 'hex') <> v_state.server_seed_hash THEN
     RAISE EXCEPTION 'Upgrader fairness state changed. Please try again.';
   END IF;
 
@@ -442,7 +442,7 @@ BEGIN
   IF v_state.seed_id <> p_expected_seed_id
     OR v_state.server_seed_hash <> p_expected_server_seed_hash
     OR v_state.nonce <> p_expected_nonce
-    OR encode(digest(convert_to(p_previous_server_seed, 'UTF8'), 'sha256'::text), 'hex') <> v_state.server_seed_hash THEN
+    OR encode(extensions.digest(convert_to(p_previous_server_seed, 'UTF8'), 'sha256'::text), 'hex') <> v_state.server_seed_hash THEN
     RAISE EXCEPTION 'Upgrader fairness state changed. Please try again.';
   END IF;
   IF p_new_client_seed IS NULL OR length(btrim(p_new_client_seed)) < 1 OR length(p_new_client_seed) > 128 THEN
