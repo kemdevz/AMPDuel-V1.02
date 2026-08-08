@@ -3,6 +3,7 @@ import { Link, NavLink } from "../lib/router";
 import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
 import InventoryModal from "./InventoryModal";
+import DepositModal from "./DepositModal";
 import GiveawayCreateModal from "./GiveawayCreateModal";
 import PromoCodeModal from "./PromoCodeModal";
 import { apiRequest } from "../lib/apiClient";
@@ -189,6 +190,7 @@ export default function Header({ onOpenProfileModal }) {
   const [walletOpen, setWalletOpen] = useState(false)
   const [walletPosition, setWalletPosition] = useState({ x: 0, y: 0 })
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [withdrawalDepositOpen, setWithdrawalDepositOpen] = useState(false)
   const [exchangeOpen, setExchangeOpen] = useState(false)
   const [giveawayOpen, setGiveawayOpen] = useState(false)
   const [promoCodeOpen, setPromoCodeOpen] = useState(false)
@@ -518,7 +520,12 @@ export default function Header({ onOpenProfileModal }) {
 
       {user ? (
         <div className="flex shrink-0 justify-center">
-          <InventoryModal isOpen={inventoryOpen} onClose={() => setInventoryOpen(false)} />
+          <InventoryModal
+            isOpen={inventoryOpen}
+            onClose={() => setInventoryOpen(false)}
+            onOpenWithdrawalDeposit={() => setWithdrawalDepositOpen(true)}
+          />
+          <DepositModal isOpen={withdrawalDepositOpen} onClose={() => setWithdrawalDepositOpen(false)} />
           <ExchangeModal isOpen={exchangeOpen} onClose={() => setExchangeOpen(false)} />
           <div
             ref={walletButtonRef}

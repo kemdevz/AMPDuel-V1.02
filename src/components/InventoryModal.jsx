@@ -59,7 +59,7 @@ function LoadingButton({ className, disabled = false, onClick, children }) {
   )
 }
 
-export default function WalletModal({ isOpen, onClose, footer, ariaLabel = 'Wallet inventory' }) {
+export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, footer, ariaLabel = 'Wallet inventory' }) {
   const user = useAuth((state) => state.user)
   const [depositOpen, setDepositOpen] = useState(false)
   const [inventoryItems, setInventoryItems] = useState([])
@@ -213,6 +213,12 @@ export default function WalletModal({ isOpen, onClose, footer, ariaLabel = 'Wall
       setInventoryItems((prev) => prev.filter((item) => !inventoryIds.includes(item.id)))
       notifications.success('Withdrawal request created successfully!')
       window.dispatchEvent(new CustomEvent('wallet:updated'))
+      if (onOpenWithdrawalDeposit) {
+        onClose()
+        onOpenWithdrawalDeposit()
+      } else {
+        setDepositOpen(true)
+      }
     } catch (err) {
       setWithdrawError(null)
       notifications.error(err?.message || 'Failed to withdraw items.')

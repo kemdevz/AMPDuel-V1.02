@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import { supabase } from '../lib/supabaseClient'
@@ -79,6 +79,7 @@ export default function DepositModal({ isOpen, onClose }) {
   const [canceling, setCanceling] = useState(false)
   const [itemSearchName, setItemSearchName] = useState('')
   const [checkingItem, setCheckingItem] = useState(false)
+  const withdrawalScrollRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -136,6 +137,23 @@ export default function DepositModal({ isOpen, onClose }) {
       isMounted = false
     }
   }, [isOpen, view, user?.id, user?.profile_id])
+
+  useEffect(() => {
+    const row = withdrawalScrollRef.current
+    if (!isOpen || view !== 'withdrawals' || !row) return undefined
+
+    const handleWheel = (event) => {
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+      const canScrollBack = delta < 0 && row.scrollLeft > 0
+      const canScrollForward = delta > 0 && row.scrollLeft < row.scrollWidth - row.clientWidth
+      if (!canScrollBack && !canScrollForward) return
+      event.preventDefault()
+      row.scrollLeft += delta
+    }
+
+    row.addEventListener('wheel', handleWheel, { passive: false })
+    return () => row.removeEventListener('wheel', handleWheel)
+  }, [activeWithdraws.length, isOpen, view, withdrawsLoading])
 
   if (!isOpen) return null
 
@@ -243,7 +261,12 @@ export default function DepositModal({ isOpen, onClose }) {
                   <p className="_noBots_ei49y_883">No Active Withdrawals</p>
                 ) : (
                   <>
-                    <div className="_scrollRow_v8lrd_1">
+                    <div
+                      className="_scrollRow_v8lrd_1"
+                      ref={withdrawalScrollRef}
+                      tabIndex="0"
+                      aria-label="Active withdrawal items"
+                    >
                       {withdrawCards.map((item) => (
                         <div className="_itemBox_v8lrd_22" style={getInventoryItemCardStyle(item)} key={item.displayKey}>
                           {item.image_url ? (
@@ -532,17 +555,11 @@ export default function DepositModal({ isOpen, onClose }) {
             padding: 6px 2px 10px;
             overflow-x: auto;
             scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
           }
 
-          ._scrollRow_v8lrd_1::-webkit-scrollbar { height: 8px; }
-          ._scrollRow_v8lrd_1::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, .06);
-            border-radius: 999px;
-          }
-          ._scrollRow_v8lrd_1::-webkit-scrollbar-thumb {
-            background: rgba(108, 99, 255, .7);
-            border-radius: 999px;
-          }
+          ._scrollRow_v8lrd_1::-webkit-scrollbar { display: none; }
 
           ._itemBox_v8lrd_22 {
             position: relative;
