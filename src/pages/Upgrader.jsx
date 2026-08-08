@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Search } from 'lucide-react'
 import InventoryItemCard, { inventoryItemCardStyles } from '../components/InventoryItemCard'
@@ -297,36 +297,23 @@ function FairnessShieldIcon() {
 }
 
 function CopySeedIcon({ label, value }) {
-  const copyValue = () => {
-    navigator.clipboard?.writeText(String(value)).catch(() => {})
+  const copyValue = async () => {
+    if (!value || value === 'Unavailable' || value === 'Loading...') return
+    try {
+      await navigator.clipboard.writeText(String(value))
+      notifications.success(`${label} copied to clipboard!`)
+    } catch {
+      notifications.error('Unable to copy to clipboard.')
+    }
   }
 
   return (
-    <svg
-      stroke="currentColor"
-      fill="none"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="upgrader-fairness-copy-icon"
-      aria-label={label}
-      role="button"
-      tabIndex="0"
-      height="1em"
-      width="1em"
-      xmlns="http://www.w3.org/2000/svg"
-      onClick={copyValue}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          copyValue()
-        }
-      }}
-    >
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
+    <button className="upgrader-fairness-copy-icon" type="button" aria-label={label} onClick={() => { void copyValue() }}>
+      <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
   )
 }
 
@@ -470,19 +457,31 @@ function FairnessModal({ onClose, gameActive = false }) {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [previousSeed, setPreviousSeed] = useState(null)
+  const [closing, setClosing] = useState(false)
+  const closeTimerRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return
+    setClosing(true)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 180)
+  }, [])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') requestClose()
     }
     document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
     }
-  }, [onClose])
+  }, [requestClose])
 
   useEffect(() => {
     let cancelled = false
@@ -536,25 +535,26 @@ function FairnessModal({ onClose, gameActive = false }) {
         nonce: Number(response?.fairness?.previous_nonce || 0),
         roll: null,
       })
+      notifications.success('Upgrader fairness seed changed.')
     } catch (error) {
-      notifications.error(error?.message || 'Unable to change Upgrader seed.')
+      notifications.error(error?.message || 'Unable to change Upgrader fairness seed.')
     } finally {
       setSaving(false)
     }
   }
 
   return createPortal(
-    <div className="upgrader-fairness-overlay" role="dialog" aria-modal="true" aria-labelledby="upgrader-fairness-title" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="upgrader-fairness-modal">
-        <button className="upgrader-fairness-close" type="button" onClick={onClose} aria-label="Close fairness details">×</button>
+    <div className={`upgrader-fairness-overlay${closing ? ' is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
+      <section className={`upgrader-fairness-modal${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="upgrader-fairness-title" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="upgrader-fairness-close" type="button" onClick={requestClose} aria-label="Close Upgrader Fairness">×</button>
         <h1 id="upgrader-fairness-title" className="upgrader-fairness-header">Upgrader Fairness</h1>
         <p className="upgrader-fairness-hint">Single-player house games use a separate provably-fair system that keeps you in full control, the active server seed stays hidden, only its hash is shown. Changing your client seed generates a brand-new server seed and reveals the previous one, so you can verify all your past games.</p>
 
         <div className="upgrader-fairness-section">
           <span className="upgrader-fairness-section-title">Hashed Server Seed</span>
           <div className="upgrader-fairness-input-holder">
-            <span className="upgrader-fairness-value">{hashedServerSeed}</span>
-            <CopySeedIcon label="Copy hashed server seed" value={hashedServerSeed} />
+            <span className="upgrader-fairness-value" title={hashedServerSeed}>{hashedServerSeed}</span>
+            <CopySeedIcon label="Hashed Server Seed" value={hashedServerSeed} />
           </div>
         </div>
 
@@ -572,7 +572,7 @@ function FairnessModal({ onClose, gameActive = false }) {
               value={clientSeed}
               onChange={(event) => setClientSeed(event.target.value)}
             />
-            <button type="button" className="upgrader-secondary-btn upgrader-fairness-random" disabled={loading || saving || gameActive} title="Generate a random 12-character seed" onClick={randomizeClientSeed}>Random</button>
+            <button type="button" className="upgrader-fairness-random" disabled={loading || saving || gameActive} title="Generate a random 12-character seed" onClick={randomizeClientSeed}>Random</button>
           </div>
         </div>
 
@@ -580,20 +580,20 @@ function FairnessModal({ onClose, gameActive = false }) {
           <span className="upgrader-fairness-section-title">Nonce</span>
           <div className="upgrader-fairness-input-holder">
             <span className="upgrader-fairness-value">{nonce}</span>
-            <CopySeedIcon label="Copy nonce" value={nonce} />
+            <CopySeedIcon label="Nonce" value={nonce} />
           </div>
         </div>
 
-        <button type="button" className="upgrader-primary-btn upgrader-fairness-save" disabled={loading || saving || gameActive || !clientSeed.trim()} onClick={rotateServerSeed}>{saving ? 'Changing...' : 'Change Seed'}</button>
+        <button type="button" className="upgrader-fairness-save" disabled={loading || saving || gameActive || !clientSeed.trim()} onClick={rotateServerSeed}>{saving ? 'Changing Seed...' : 'Change Seed'}</button>
         <p className="upgrader-fairness-note">Entering the same client seed still rotates the server seed (and reveals the old one). You can't change it while a game is active.</p>
 
         {previousSeed?.serverSeed ? (
           <div className="upgrader-fairness-reveal-box">
             <span className="upgrader-fairness-reveal-title">Previous Server Seed</span>
-            <span className="upgrader-fairness-reveal-description">This seed is retired. Hash it with SHA-256 and use it with the client seed and nonce below to verify the previous roll.</span>
+            <span className="upgrader-fairness-reveal-description">This seed is now retired. Use it together with the client seed, nonce below to verify your past games.</span>
             <div className="upgrader-fairness-input-holder upgrader-fairness-reveal-value">
-              <span className="upgrader-fairness-value">{previousSeed.serverSeed}</span>
-              <CopySeedIcon label="Copy revealed server seed" value={previousSeed.serverSeed} />
+              <span className="upgrader-fairness-value" title={previousSeed.serverSeed}>{previousSeed.serverSeed}</span>
+              <CopySeedIcon label="Previous Server Seed" value={previousSeed.serverSeed} />
             </div>
             <div className="upgrader-fairness-reveal-meta">
               <span>Client Seed: <b>{previousSeed.clientSeed || 'Unavailable'}</b></span>
@@ -874,34 +874,45 @@ ${inventoryItemCardStyles}
 .upgrader-inventory-empty { position: absolute; top: 50%; left: 50%; display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; text-align: center; transform: translate(-50%,-50%); }
 .upgrader-inventory-empty h1 { margin-bottom: 8px; color: #ddd; font-size: 20px; }
 .upgrader-inventory-empty p { margin-bottom: 15px; color: #aaa; }
-.upgrader-fairness-overlay { position: fixed; z-index: 10010; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background-color: rgba(0,0,0,.55); animation: upgrader-overlay-in .5s ease-out; }
-.upgrader-fairness-modal { position: relative; width: 90%; max-width: 600px; height: auto; max-height: 90vh; box-sizing: border-box; overflow-x: hidden; overflow-y: auto; padding: 2rem; border: 1px solid #181a28; border-radius: 5px; background-color: #131520; box-shadow: 0 20px 80px rgba(0,0,0,.55); color: #e1e4f2; animation: upgrader-fairness-modal-in .3s forwards; }
-.upgrader-fairness-close { position: absolute; z-index: 1000; top: 15px; right: 15px; border: none; background: none; color: #e1e4f2; font-size: 24px; line-height: normal; opacity: .85; cursor: pointer; transition: opacity .3s ease; }
-.upgrader-fairness-close:hover { opacity: 1; }
-.upgrader-fairness-header { margin-bottom: 1rem; color: #fff; font-size: 1.3em; font-weight: 700; }
-.upgrader-fairness-hint { padding: .7rem .9rem; margin: 0 0 1.3rem; border-radius: var(--radius-sm); background: rgba(90,170,255,.1); color: #7ec8ff; font-size: .82rem; line-height: 1.5; }
-.upgrader-fairness-section { margin-bottom: 1.4rem; }
-.upgrader-fairness-section-title { display: block; margin-bottom: .4em; color: rgba(225,228,242,.7); font-size: .9rem; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; }
-.upgrader-fairness-input-holder { display: flex; max-width: 100%; align-items: center; justify-content: space-between; padding: .35rem 1rem; margin-bottom: 1rem; border: none; border-radius: var(--radius-sm); background: var(--surface-1); }
-.upgrader-fairness-copy-icon { flex-shrink: 0; padding: .6rem; border-radius: 8px; color: #e1e4f2; opacity: .9; cursor: pointer; transition: all .2s ease; }
-.upgrader-fairness-copy-icon:hover { color: #fff; opacity: 1; }
-.upgrader-fairness-copy-icon:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 1px; }
-.upgrader-fairness-value { max-width: 22ch; flex-shrink: 1; overflow: hidden; color: #e1e4f2; font-family: monospace; text-overflow: ellipsis; white-space: nowrap; }
-.upgrader-fairness-seed-row { display: flex; align-items: center; gap: 8px; }
-.upgrader-fairness-seed-input { height: 42px; min-width: 0; flex: 1; padding: 0 12px; border: none; border-radius: var(--radius-sm); outline: none; background: var(--surface-1); color: #e1e4f2; font-family: monospace; font-size: .95rem; font-weight: 600; }
-.upgrader-fairness-random { height: 42px; min-width: 0; flex-shrink: 0; padding: 0 16px; font-size: .85rem; }
-.upgrader-fairness-save { width: 100%; height: 44px; min-width: 0; margin-top: .4rem; font-size: .95rem; }
-.upgrader-fairness-note { margin: .55rem 0 0; color: rgba(225,228,242,.4); font-size: .75rem; line-height: 1.4; text-align: center; }
-.upgrader-fairness-reveal-box { padding: 1rem; margin-top: 1.4rem; border-radius: 6px; background: rgba(108,99,255,.06); }
-.upgrader-fairness-reveal-title { display: block; color: #e1e4f2; font-size: .92rem; font-weight: 700; }
-.upgrader-fairness-reveal-description { display: block; margin-top: .35rem; color: rgba(225,228,242,.55); font-size: .76rem; line-height: 1.45; }
+.upgrader-fairness-overlay { position: fixed; z-index: 2147483100; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 20px; background: rgba(0,0,0,.58); animation: upgrader-overlay-in 180ms ease-out both; transition: opacity 180ms ease; }
+.upgrader-fairness-overlay.is-closing { opacity: 0; }
+.upgrader-fairness-modal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: upgrader-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease,transform 180ms ease; }
+.upgrader-fairness-modal.is-closing { opacity: 0; transform: scale(.97) translateY(6px); }
+.upgrader-fairness-close { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease,transform 140ms ease; }
+.upgrader-fairness-close:hover { color: #fff; }
+.upgrader-fairness-close:active { transform: scale(.92); }
+.upgrader-fairness-header { margin: 0 38px 12px 0; color: #fff; font-size: 24px; font-weight: 700; line-height: 1.25; }
+.upgrader-fairness-hint { margin: 0 0 22px; color: #a6b2d3; font-size: 12px; font-weight: 500; line-height: 1.65; }
+.upgrader-fairness-section + .upgrader-fairness-section { margin-top: 19px; }
+.upgrader-fairness-section-title { display: block; margin-bottom: 8px; color: rgba(255,255,255,.68); font-size: 13px; font-weight: 600; }
+.upgrader-fairness-input-holder,.upgrader-fairness-seed-input { box-sizing: border-box; min-height: 42px; border: 0; border-radius: 6px; background: #1c1f2e; }
+.upgrader-fairness-input-holder { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 12px 13px; }
+.upgrader-fairness-value { display: block; min-width: 0; flex: 1; overflow: hidden; color: rgba(255,255,255,.88); font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.upgrader-fairness-copy-icon { display: inline-flex; width: 18px; height: 18px; flex: 0 0 18px; align-items: center; justify-content: center; padding: 0; border: 0; outline: none; background: transparent; color: #fff; cursor: pointer; transition: color 140ms ease; -webkit-tap-highlight-color: transparent; }
+.upgrader-fairness-copy-icon svg { width: 18px; height: 18px; }
+.upgrader-fairness-copy-icon:hover { color: rgba(255,255,255,.72); }
+.upgrader-fairness-copy-icon:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+.upgrader-fairness-seed-row { display: flex; align-items: stretch; gap: 10px; }
+.upgrader-fairness-seed-input { width: 100%; min-width: 0; padding: 0 13px; outline: none; color: rgba(255,255,255,.9); font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; transition: box-shadow 140ms ease,background 140ms ease; }
+.upgrader-fairness-seed-input:focus { background: #1f2335; box-shadow: inset 0 0 0 1px rgba(108,99,255,.55); }
+.upgrader-fairness-random,.upgrader-fairness-save { min-height: 42px; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform .13s cubic-bezier(.22,1,.36,1),background .15s ease,opacity .15s ease; }
+.upgrader-fairness-random { min-width: 108px; padding: 0 18px; border: 0; background: #2a2e44; }
+.upgrader-fairness-random:hover:not(:disabled) { background: #32385a; }
+.upgrader-fairness-save { width: 100%; margin-top: 22px; padding: 0 20px; border: 1px solid rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); box-shadow: 0 2px 8px rgba(108,99,255,.2); }
+.upgrader-fairness-save:hover:not(:disabled) { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
+.upgrader-fairness-random:active:not(:disabled),.upgrader-fairness-save:active:not(:disabled) { transform: scale(.98); }
+.upgrader-fairness-seed-input:disabled,.upgrader-fairness-random:disabled,.upgrader-fairness-save:disabled { cursor: not-allowed; opacity: .55; }
+.upgrader-fairness-note { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
+.upgrader-fairness-reveal-box { margin-top: 1.4rem; padding: 1rem; border: 0 solid rgba(108,99,255,.4); border-radius: 6px; background: rgba(108,99,255,.06); animation: upgrader-fairness-modal-in .24s ease-out both; }
+.upgrader-fairness-reveal-title { display: block; color: #e1e4f2; font-size: 13px; font-weight: 700; }
+.upgrader-fairness-reveal-description { display: block; margin-top: 5px; color: #a6b2d3; font-size: 11px; font-weight: 500; line-height: 1.55; }
 .upgrader-fairness-reveal-value { margin-top: .6rem; margin-bottom: 0; }
-.upgrader-fairness-reveal-meta { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .7rem; color: rgba(225,228,242,.55); font-size: .75rem; }
-.upgrader-fairness-reveal-meta b { color: #e1e4f2; font-family: monospace; font-weight: 600; }
+.upgrader-fairness-reveal-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin-top: 9px; color: #6c7399; font-size: 11px; font-weight: 500; }
+.upgrader-fairness-reveal-meta b { color: #a6b2d3; font-weight: 700; }
 @keyframes upgrader-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes upgrader-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes upgrader-modal-in { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
-@keyframes upgrader-fairness-modal-in { from { opacity: 0; transform: scale(.95) translateY(15px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes upgrader-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes upgrader-arrow-pulse { 0%,100% { opacity: .55; } 50% { opacity: .9; } }
 @container (max-width: 850px) {
   .upgrader-target-content { padding-right: 4px; padding-left: 4px; }
@@ -920,10 +931,13 @@ ${inventoryItemCardStyles}
   .upgrader-center-panel { min-height: 470px; padding: 12px 8px; }
   .upgrader-items-wrapper { max-height: 280px; }
   .upgrader-upgrade-wrap { padding-top: 4px; }
-  .upgrader-fairness-modal { width: 100%; max-width: 100%; height: 100%; max-height: 100%; padding: 2rem; margin: 0; border-radius: 0; overflow-x: hidden; overflow-y: auto; }
-  .upgrader-fairness-header { margin-top: 20px; }
-  .upgrader-fairness-input-holder { width: 100%; max-width: 100%; box-sizing: border-box; }
-  .upgrader-fairness-close { margin-top: 30px; }
+}
+@media (max-width: 520px) {
+  .upgrader-fairness-overlay { padding: 8px; }
+  .upgrader-fairness-modal { width: 100%; max-height: calc(100dvh - 16px); padding: 1.25rem; }
+  .upgrader-fairness-header { font-size: 20px; }
+  .upgrader-fairness-seed-row { flex-direction: column; }
+  .upgrader-fairness-random { width: 100%; }
 }
 @media (max-width: 640px) {
   .upgrader-page { padding: 12px 12px 80px; }

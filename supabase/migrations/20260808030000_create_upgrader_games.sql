@@ -17,9 +17,6 @@ CREATE TABLE IF NOT EXISTS public.upgrader_games (
   zone_start_degrees numeric(12,8) NOT NULL
     CHECK (zone_start_degrees >= 0 AND zone_start_degrees < 360),
 
-  coin_wager bigint NOT NULL DEFAULT 0
-    CHECK (coin_wager >= 0),
-
   wager_value bigint NOT NULL
     CHECK (wager_value > 0),
 
@@ -39,9 +36,6 @@ CREATE TABLE IF NOT EXISTS public.upgrader_games (
 
   target_stock_uuids uuid[] NOT NULL
     CHECK (cardinality(target_stock_uuids) > 0),
-
-  target_stock_table text NOT NULL
-    CHECK (target_stock_table IN ('exchange_stock', 'upgrader_stock')),
 
   -- Basis points: 100 = 1%, 7500 = 75%.
   chance_bps integer NOT NULL
@@ -75,9 +69,6 @@ CREATE TABLE IF NOT EXISTS public.upgrader_games (
 
   balance_before bigint,
   balance_after_wager bigint,
-  balance_after_settlement bigint,
-
-  error_message text,
 
   created_at timestamptz NOT NULL DEFAULT now(),
   resolved_at timestamptz NOT NULL DEFAULT now(),
@@ -85,17 +76,14 @@ CREATE TABLE IF NOT EXISTS public.upgrader_games (
   CONSTRAINT upgrader_games_wager_source_check CHECK (
     (
       wager_mode = 'coins'
-      AND coin_wager = wager_value
-      AND coin_wager > 0
       AND cardinality(wager_inventory_uuids) = 0
-      AND target_stock_table = 'exchange_stock'
+      AND jsonb_array_length(wager_items) = 0
     )
     OR
     (
       wager_mode = 'items'
-      AND coin_wager = 0
       AND cardinality(wager_inventory_uuids) > 0
-      AND target_stock_table = 'upgrader_stock'
+      AND jsonb_array_length(wager_items) > 0
     )
   )
 );
@@ -104,15 +92,34 @@ CREATE TABLE IF NOT EXISTS public.upgrader_games (
 ALTER TABLE public.upgrader_games
   DROP COLUMN IF EXISTS status CASCADE;
 
+-- Remove redundant implementation details from earlier drafts. The wager
+-- mode already determines the source pool, and games are inserted finalized.
+DROP INDEX IF EXISTS public.upgrader_games_resolved_idx;
+ALTER TABLE public.upgrader_games
+  DROP COLUMN IF EXISTS coin_wager CASCADE,
+  DROP COLUMN IF EXISTS target_stock_table CASCADE,
+  DROP COLUMN IF EXISTS balance_after_settlement CASCADE,
+  DROP COLUMN IF EXISTS error_message CASCADE;
+
 ALTER TABLE public.upgrader_games
   ADD COLUMN IF NOT EXISTS zone_start_degrees numeric(12,8) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS fairness_seed_id uuid NOT NULL DEFAULT gen_random_uuid();
+  ADD COLUMN IF NOT EXISTS fairness_seed_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  ADD COLUMN IF NOT EXISTS resolved_at timestamptz NOT NULL DEFAULT now();
 
 ALTER TABLE public.upgrader_games
   DROP CONSTRAINT IF EXISTS upgrader_games_zone_start_check;
 ALTER TABLE public.upgrader_games
   ADD CONSTRAINT upgrader_games_zone_start_check
   CHECK (zone_start_degrees >= 0 AND zone_start_degrees < 360) NOT VALID;
+
+ALTER TABLE public.upgrader_games
+  DROP CONSTRAINT IF EXISTS upgrader_games_wager_source_check;
+ALTER TABLE public.upgrader_games
+  ADD CONSTRAINT upgrader_games_wager_source_check CHECK (
+    (wager_mode = 'coins' AND cardinality(wager_inventory_uuids) = 0 AND jsonb_array_length(wager_items) = 0)
+    OR
+    (wager_mode = 'items' AND cardinality(wager_inventory_uuids) > 0 AND jsonb_array_length(wager_items) > 0)
+  ) NOT VALID;
 
 ALTER TABLE public.upgrader_games
   DROP CONSTRAINT IF EXISTS upgrader_games_result_check;
@@ -142,10 +149,6 @@ CREATE INDEX IF NOT EXISTS upgrader_games_profile_created_idx
 
 CREATE INDEX IF NOT EXISTS upgrader_games_created_idx
   ON public.upgrader_games (created_at DESC);
-
-CREATE INDEX IF NOT EXISTS upgrader_games_resolved_idx
-  ON public.upgrader_games (resolved_at DESC)
-  WHERE resolved_at IS NOT NULL;
 
 ALTER TABLE public.upgrader_games ENABLE ROW LEVEL SECURITY;
 
@@ -251,7 +254,6 @@ DECLARE
   v_balance_after_wager bigint;
   v_wager_items jsonb := '[]'::jsonb;
   v_target_items jsonb := '[]'::jsonb;
-  v_target_table text;
 BEGIN
   IF p_wager_mode NOT IN ('coins', 'items') OR p_roll_mode NOT IN ('under', 'over') THEN
     RAISE EXCEPTION 'Invalid Upgrader mode.';
@@ -279,7 +281,7 @@ BEGIN
       'won', v_existing.won, 'roll', v_existing.roll,
       'chance_bps', v_existing.chance_bps, 'wager_value', v_existing.wager_value,
       'target_value', v_existing.target_value, 'payout_value', v_existing.payout_value,
-      'balance', v_existing.balance_after_settlement, 'awarded_items', v_existing.target_items,
+      'balance', v_existing.balance_after_wager, 'awarded_items', v_existing.target_items,
       'server_seed', v_existing.server_seed, 'server_seed_hash', v_existing.server_seed_hash,
       'client_seed', v_existing.client_seed, 'nonce', v_existing.nonce, 'replayed', true
     );
@@ -299,7 +301,6 @@ BEGIN
   IF p_wager_mode = 'coins' THEN
     IF v_wager_count <> 0 OR COALESCE(p_coin_wager, 0) <= 0 THEN RAISE EXCEPTION 'Enter a valid coin wager.'; END IF;
     v_wager_value := p_coin_wager;
-    v_target_table := 'exchange_stock';
     PERFORM 1 FROM public.exchange_stock WHERE uuid = ANY(p_target_stock_uuids) ORDER BY uuid FOR UPDATE;
     SELECT count(*)::integer, COALESCE(sum(value), 0)::bigint,
       COALESCE(jsonb_agg(jsonb_build_object(
@@ -313,7 +314,6 @@ BEGIN
     IF (SELECT count(DISTINCT value) FROM unnest(p_wager_inventory_uuids) AS selected(value)) <> v_wager_count THEN
       RAISE EXCEPTION 'Duplicate wager items are not allowed.';
     END IF;
-    v_target_table := 'upgrader_stock';
     PERFORM 1 FROM public.inventory_items
       WHERE id = ANY(p_wager_inventory_uuids) AND user_id = p_profile_id ORDER BY id FOR UPDATE;
     SELECT count(*)::integer, COALESCE(sum(value), 0)::bigint,
@@ -380,18 +380,17 @@ BEGIN
 
   INSERT INTO public.upgrader_games (
     id, idempotency_key, profile_id, wager_mode, roll_mode, zone_start_degrees,
-    coin_wager, wager_value, wager_items, wager_inventory_uuids,
-    target_value, target_items, target_stock_uuids, target_stock_table,
+    wager_value, wager_items, wager_inventory_uuids,
+    target_value, target_items, target_stock_uuids,
     chance_bps, fairness_seed_id, server_seed_hash, server_seed, client_seed, nonce,
-    roll, won, payout_value, balance_before, balance_after_wager, balance_after_settlement
+    roll, won, payout_value, balance_before, balance_after_wager
   ) VALUES (
     v_game_id, p_request_id, v_profile.id, p_wager_mode, p_roll_mode, p_zone_start_degrees,
-    CASE WHEN p_wager_mode = 'coins' THEN v_wager_value ELSE 0 END,
     v_wager_value, v_wager_items, COALESCE(p_wager_inventory_uuids, '{}'),
-    v_target_value, v_target_items, p_target_stock_uuids, v_target_table,
+    v_target_value, v_target_items, p_target_stock_uuids,
     v_chance_bps, v_state.seed_id, v_state.server_seed_hash, p_server_seed, v_state.client_seed, v_state.nonce,
     p_roll, v_won, CASE WHEN v_won THEN v_target_value ELSE 0 END,
-    v_balance_before, v_balance_after_wager, v_balance_after_wager
+    v_balance_before, v_balance_after_wager
   );
 
   UPDATE public.upgrader_fairness_states
