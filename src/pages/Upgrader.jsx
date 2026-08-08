@@ -1315,9 +1315,6 @@ export default function Upgrader() {
         setSpinning(false)
         window.dispatchEvent(new CustomEvent('wallet:animation-end'))
         window.dispatchEvent(new CustomEvent('wallet:updated'))
-        notifications[didWin ? 'success' : 'error'](
-          didWin ? `Upgrade won ${formatValue(response.payout_value)} in items!` : 'Upgrade lost.',
-        )
       }, SPIN_DURATION)
     } catch (error) {
       if (error?.status) pendingRequestId.current = null
