@@ -143,7 +143,7 @@ function ItemColumn({ column }) {
         <div
           key={item.id}
           className="view-modal__item view-modal__item-row"
-          style={{ '--view-modal-rarity': getInventoryItemAccent(item) }}
+          style={{ '--view-modal-rarity': getInventoryItemAccent({ value: item.numericValue }) }}
         >
           <div className="view-modal__item-image-wrapper">
             <img
