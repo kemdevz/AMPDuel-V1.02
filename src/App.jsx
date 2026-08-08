@@ -8,6 +8,7 @@ import Cases from './pages/Cases'
 import Jackpot from './pages/Jackpot'
 import Mines from './pages/Mines'
 import Roll from './pages/Roll'
+import Upgrader from './pages/Upgrader'
 import LiveCasino from './pages/LiveCasino'
 import LiveCasinoGame from './pages/LiveCasinoGame'
 import Placeholder from './pages/Placeholder'
@@ -34,6 +35,7 @@ function AppRoutes() {
     jackpot: <Jackpot />,
     mines: <Mines />,
     roll: <Roll />,
+    upgrader: <Upgrader />,
     'live-casino': <LiveCasino />,
   }
   const caseRouteMatch = pathname.match(/^\/cases\/([^/]+)$/)

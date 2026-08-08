@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 import DepositModal from './DepositModal'
 import InventoryItemCard, { inventoryItemCardStyles } from './InventoryItemCard'
+import SortDirectionIcon from './SortDirectionIcon'
 import { notifications } from './Notifications'
 
 const COIN_ICON = '/bobux.png'
@@ -26,11 +27,7 @@ function SearchIcon() {
 }
 
 function SortIcon({ ascending = false }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" aria-hidden="true">
-      <path d={ascending ? 'M13 3.793V9h-2V3.864L9.914 4.95 8.5 3.536 12.036 0l3.535 3.536-1.414 1.414L13 3.793zM8 10H0V8h8v2zm6 3H0v-2h14v2zm2 3H0v-2h16v2zM6 7H0V5h6v2zM4 4H0V2h4v2z' : 'M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z'} fillRule="evenodd" />
-    </svg>
-  )
+  return <SortDirectionIcon ascending={ascending} />
 }
 
 function ItemsIcon() {
@@ -164,9 +161,14 @@ export default function WalletModal({ isOpen, onClose, footer, ariaLabel = 'Wall
   }))
   const displayInventoryItems = allInventoryRows
     .filter((item) => String(item.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
-    .sort((a, b) => sortAscending
-      ? Number(a.value ?? 0) - Number(b.value ?? 0)
-      : Number(b.value ?? 0) - Number(a.value ?? 0))
+    .sort((a, b) => {
+      const aSelected = selectedItems.includes(a.displayKey)
+      const bSelected = selectedItems.includes(b.displayKey)
+      if (aSelected !== bSelected) return aSelected ? -1 : 1
+      return sortAscending
+        ? Number(a.value ?? 0) - Number(b.value ?? 0)
+        : Number(b.value ?? 0) - Number(a.value ?? 0)
+    })
 
   const selectedAmount = selectedItems.length
   const selectedValue = allInventoryRows

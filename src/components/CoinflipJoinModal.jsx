@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 import DepositModal from './DepositModal'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
+import SortDirectionIcon from './SortDirectionIcon'
 import { notifications } from './Notifications'
 
 const BOBUX_ICON = '/bobux.png'
@@ -101,11 +102,7 @@ function AutoSelectIcon() {
 }
 
 function SortIcon({ ascending = false }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true">
-      <path d={ascending ? 'M13 3.793V9h-2V3.864L9.914 4.95 8.5 3.536 12.036 0l3.535 3.536-1.414 1.414L13 3.793zM8 10H0V8h8v2zm6 3H0v-2h14v2zm2 3H0v-2h16v2zM6 7H0V5h6v2zM4 4H0V2h4v2z' : 'M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z'} fillRule="evenodd" />
-    </svg>
-  )
+  return <SortDirectionIcon ascending={ascending} />
 }
 
 function JoinItemCard({ item, selected, onToggle }) {
@@ -114,7 +111,7 @@ function JoinItemCard({ item, selected, onToggle }) {
       type="button"
       className={`cfjItem${selected ? ' cfjItemSelected' : ''}`}
       onClick={onToggle}
-      style={getInventoryItemCardStyle(item)}
+      style={getInventoryItemCardStyle(item, selected)}
     >
       <span className="cfjSelectedDot" />
       <img src={item.image_url || BOBUX_ICON} alt="" className="cfjItemBlur" draggable={false} />
@@ -212,11 +209,14 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
     const filtered = inventoryRows.filter((item) => query === '' || String(item.name || '').toLowerCase().includes(query))
 
     return filtered.slice().sort((a, b) => {
+      const aSelected = selectedItems.includes(a.displayKey)
+      const bSelected = selectedItems.includes(b.displayKey)
+      if (aSelected !== bSelected) return aSelected ? -1 : 1
       if (sortBy === 'Highest to Lowest') return Number(b.value ?? 0) - Number(a.value ?? 0)
       if (sortBy === 'Lowest to Highest') return Number(a.value ?? 0) - Number(b.value ?? 0)
       return new Date(b.created_at || 0) - new Date(a.created_at || 0)
     })
-  }, [inventoryRows, searchQuery, sortBy])
+  }, [inventoryRows, searchQuery, selectedItems, sortBy])
 
   const selectedRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
   const selectedValue = selectedRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0)

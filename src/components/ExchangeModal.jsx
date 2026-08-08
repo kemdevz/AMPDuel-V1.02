@@ -3,13 +3,13 @@ import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import DepositModal from './DepositModal'
 import InventoryItemCard, {
-  getInventoryItemAccent,
   getInventoryItemCardStyle,
   inventoryItemCardStyles,
 } from './InventoryItemCard'
 import { useAuth } from '../store/auth'
 import { supabase } from '../lib/supabaseClient'
 import { notifications } from './Notifications'
+import SortDirectionIcon from './SortDirectionIcon'
 
 const COIN_ICON = '/bobux.png'
 const MINIMUM_ITEM_EXCHANGE_VALUE = 250_000
@@ -84,11 +84,7 @@ function SearchIcon() {
 }
 
 function SortIcon({ ascending = false }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" aria-hidden="true">
-      <path d={ascending ? 'M13 3.793V9h-2V3.864L9.914 4.95 8.5 3.536 12.036 0l3.535 3.536-1.414 1.414L13 3.793zM8 10H0V8h8v2zm6 3H0v-2h14v2zm2 3H0v-2h16v2zM6 7H0V5h6v2zM4 4H0V2h4v2z' : 'M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z'} fillRule="evenodd" />
-    </svg>
-  )
+  return <SortDirectionIcon ascending={ascending} />
 }
 
 function ItemsIcon() {
@@ -158,14 +154,7 @@ function groupStockItems(items) {
 function StockItemCard({ item, quantity, onToggleSelect, onQuantityChange }) {
   const selected = quantity > 0
   const maxQuantity = item.availableQuantity
-  const accentColor = getInventoryItemAccent(item)
   const cardStyle = getInventoryItemCardStyle(item)
-
-  if (selected) {
-    cardStyle.background = `linear-gradient(to top, rgba(${accentColor}, 0.35) 0%, rgba(${accentColor}, 0) 100%), rgb(39, 45, 70)`
-    cardStyle['--item-border-bottom'] = `rgba(${accentColor}, 0.95)`
-    cardStyle['--item-border-side'] = `rgba(${accentColor}, 0.45)`
-  }
 
   return (
     <div
@@ -182,6 +171,8 @@ function StockItemCard({ item, quantity, onToggleSelect, onQuantityChange }) {
       }}
       style={cardStyle}
     >
+      <span className="_stockSelectionGlow_150j2_local" aria-hidden="true" />
+      <span className="_stockSelectionDot_150j2_local" aria-hidden="true" />
       <img src={item.image_url || COIN_ICON} alt="" className="_blurritem_150j2_721" draggable={false} />
       <div className="_imageWrapper_150j2_679">
         <img src={item.image_url || COIN_ICON} alt={item.name} className="_itemImage_150j2_697 _normalImage_150j2_717" draggable={false} />
@@ -249,7 +240,6 @@ function InventorySelectionCard({ item, selected, onToggleSelect, disabled = fal
         item={item}
         selected={selected}
         onToggleSelect={disabled ? () => {} : () => onToggleSelect(item.displayKey)}
-        compact
       />
     </div>
   )
@@ -382,9 +372,18 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
   const selectedInventoryCount = selectedInventoryItems.length
   const currentRows = (isCoinsToItems ? stockRows : inventoryRows)
     .filter((item) => String(item.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
-    .sort((a, b) => sortAscending
-      ? Number(a.value ?? 0) - Number(b.value ?? 0)
-      : Number(b.value ?? 0) - Number(a.value ?? 0))
+    .sort((a, b) => {
+      const aSelected = isCoinsToItems
+        ? Number(selectedStockQuantities[a.displayKey]) > 0
+        : selectedItemIds.includes(a.displayKey)
+      const bSelected = isCoinsToItems
+        ? Number(selectedStockQuantities[b.displayKey]) > 0
+        : selectedItemIds.includes(b.displayKey)
+      if (aSelected !== bSelected) return aSelected ? -1 : 1
+      return sortAscending
+        ? Number(a.value ?? 0) - Number(b.value ?? 0)
+        : Number(b.value ?? 0) - Number(a.value ?? 0)
+    })
   const selectedCurrentItems = isCoinsToItems ? selectedStockItems : selectedInventoryItems
   const currentValue = isCoinsToItems ? selectedStockValue : selectedInventoryValue
   const currentRowIds = currentRows
@@ -1006,21 +1005,48 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             overflow: hidden;
           }
 
-          ._stockItemCard_150j2_local:hover,
-          ._selectedStockItem_150j2_local {
+          ._stockItemCard_150j2_local:hover {
             transform: scale(1.03);
           }
 
-          ._selectedStockItem_150j2_local::after {
+          ._selectedStockItem_150j2_local {
+            transform: scale(1.01);
+          }
+
+          ._stockSelectionGlow_150j2_local {
             position: absolute;
-            content: "";
+            inset: 0;
+            z-index: 0;
+            border-radius: 6px;
+            background: linear-gradient(to top, var(--stock-selected-glow, rgba(108,99,255,.17)) 0%, transparent 100%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s ease;
+          }
+
+          ._selectedStockItem_150j2_local ._stockSelectionGlow_150j2_local {
+            opacity: 1;
+          }
+
+          ._stockSelectionDot_150j2_local {
+            position: absolute;
             width: 10px;
             height: 10px;
             background-color: var(--item-dot-color, rgba(108,99,255,1));
             border-radius: 30%;
             top: 10px;
             right: 10px;
-            z-index: 2;
+            z-index: 3;
+            opacity: 0;
+            transform: scale(.7);
+            transform-origin: center;
+            pointer-events: none;
+            transition: opacity .25s ease, transform .25s ease;
+          }
+
+          ._selectedStockItem_150j2_local ._stockSelectionDot_150j2_local {
+            opacity: 1;
+            transform: scale(1);
           }
 
           ._imageWrapper_150j2_679 {
@@ -1181,6 +1207,12 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
 
           ._selectedStockItem_150j2_local ._qtyWrap_150j2_local {
             margin-top: 0;
+            animation: _stockSelectionContentIn_150j2_local .22s ease both;
+          }
+
+          @keyframes _stockSelectionContentIn_150j2_local {
+            from { opacity: 0; transform: translateY(4px) scale(.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
           }
 
           ._qtyMinusBtn_150j2_local {

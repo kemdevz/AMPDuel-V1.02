@@ -5,6 +5,7 @@ import { useAuth } from '../store/auth'
 import DepositModal from './DepositModal'
 import InventoryItemCard, { inventoryItemCardStyles } from './InventoryItemCard'
 import { notifications } from './Notifications'
+import SortDirectionIcon from './SortDirectionIcon'
 
 const COIN_ICON = '/bobux.png'
 
@@ -38,12 +39,9 @@ function SearchIcon() {
   )
 }
 
-function SortIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" width="16" height="16" aria-hidden="true">
-      <path d="M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z" />
-    </svg>
-  )
+function SortIcon({ mode }) {
+  const rotation = mode === 'low' ? 180 : mode === 'az' ? 360 : 0
+  return <SortDirectionIcon rotation={rotation} />
 }
 
 function ItemsIcon() {
@@ -165,11 +163,14 @@ export default function GiveawayCreateModal({ isOpen, onClose }) {
       : expandedItems
 
     return [...filteredItems].sort((a, b) => {
+      const aSelected = selectedItems.includes(a.displayKey)
+      const bSelected = selectedItems.includes(b.displayKey)
+      if (aSelected !== bSelected) return aSelected ? -1 : 1
       if (sortMode === 'low') return Number(a.value ?? 0) - Number(b.value ?? 0)
       if (sortMode === 'az') return String(a.name || '').localeCompare(String(b.name || ''))
       return Number(b.value ?? 0) - Number(a.value ?? 0)
     })
-  }, [inventoryItems, searchQuery, sortMode])
+  }, [inventoryItems, searchQuery, selectedItems, sortMode])
 
   useEffect(() => {
     if (!levelMenuOpen) return undefined
@@ -270,7 +271,7 @@ export default function GiveawayCreateModal({ isOpen, onClose }) {
               <SearchIcon />
             </div>
             <button type="button" className="_giveawaySortToggle_local" aria-label={`Sort items: ${activeSortLabel}`} title={activeSortLabel} onClick={handleSortToggle}>
-              <SortIcon />
+              <SortIcon mode={sortMode} />
             </button>
           </div>
         </div>

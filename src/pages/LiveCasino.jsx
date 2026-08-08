@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../lib/apiClient'
 import { useNavigate } from '../lib/router'
+import SortDirectionIcon from '../components/SortDirectionIcon'
 
 const CATEGORIES = ['Blackjack', 'Baccarat', 'Slots']
 
@@ -23,16 +24,7 @@ function SearchIcon() {
 }
 
 function SortIcon({ ascending = false }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true">
-      <path
-        d={ascending
-          ? 'M13 3.793V9h-2V3.864L9.914 4.95 8.5 3.536 12.036 0l3.535 3.536-1.414 1.414L13 3.793zM8 10H0V8h8v2zm6 3H0v-2h14v2zm2 3H0v-2h16v2zM6 7H0V5h6v2zM4 4H0V2h4v2z'
-          : 'M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z'}
-        fillRule="evenodd"
-      />
-    </svg>
-  )
+  return <SortDirectionIcon ascending={ascending} />
 }
 
 function CasinoGameCard({ game, onPlay }) {
