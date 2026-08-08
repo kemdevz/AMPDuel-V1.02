@@ -73,6 +73,8 @@ const subscribeToProfileUpdates = (socket) => {
 export const useAuth = create((set) => ({
   user: null,
   balance: 0,
+  balanceDisplayHeld: false,
+  queuedBalance: null,
   fairness: null,
   loading: true,
   authError: null,
@@ -93,6 +95,8 @@ export const useAuth = create((set) => ({
     set({
       user,
       balance: user?.balance ?? 0,
+      balanceDisplayHeld: false,
+      queuedBalance: null,
       loading: false,
       fairness: null,
     })
@@ -106,15 +110,46 @@ export const useAuth = create((set) => ({
       if (err?.status !== 401) console.warn('[Auth] logout error', err)
     }
 
-    set({ user: null, balance: 0, fairness: null })
+    set({ user: null, balance: 0, balanceDisplayHeld: false, queuedBalance: null, fairness: null })
     refreshSocketAuthentication()
   },
 
   setBalance(balance) {
+    const nextBalance = Number(balance)
+    set((state) => state.balanceDisplayHeld
+      ? { queuedBalance: nextBalance }
+      : {
+          balance: nextBalance,
+          user: state.user ? { ...state.user, balance: nextBalance } : state.user,
+        })
+  },
+
+  holdBalanceDisplay(balance) {
+    const nextBalance = Number(balance)
     set((state) => ({
-      balance,
-      user: state.user ? { ...state.user, balance } : state.user,
+      balanceDisplayHeld: true,
+      queuedBalance: null,
+      balance: nextBalance,
+      user: state.user ? { ...state.user, balance: nextBalance } : state.user,
     }))
+  },
+
+  releaseBalanceDisplay(balance) {
+    set((state) => {
+      const hasSuppliedBalance = balance !== null && balance !== undefined && Number.isFinite(Number(balance))
+      const hasQueuedBalance = state.queuedBalance !== null && Number.isFinite(Number(state.queuedBalance))
+      const nextBalance = hasSuppliedBalance
+        ? Number(balance)
+        : hasQueuedBalance
+          ? Number(state.queuedBalance)
+          : state.balance
+      return {
+        balanceDisplayHeld: false,
+        queuedBalance: null,
+        balance: nextBalance,
+        user: state.user ? { ...state.user, balance: nextBalance } : state.user,
+      }
+    })
   },
 
   applyProfileUpdate(profileData) {
@@ -126,6 +161,15 @@ export const useAuth = create((set) => ({
       }
 
       const user = normalizeUser({ ...state.user, ...profileData, profile_id: currentProfileId })
+      if (state.balanceDisplayHeld) {
+        return {
+          user: { ...user, balance: state.balance },
+          balance: state.balance,
+          queuedBalance: profileData.balance !== null && profileData.balance !== undefined
+            ? user.balance
+            : state.queuedBalance,
+        }
+      }
       return { user, balance: user.balance }
     })
   },
@@ -177,6 +221,8 @@ export const useAuth = create((set) => ({
     set({
       user,
       balance: user?.balance ?? 0,
+      balanceDisplayHeld: false,
+      queuedBalance: null,
       loading: false,
       authError: null,
     })

@@ -299,7 +299,9 @@ function FastIcon({ active }) {
 
 export default function CaseOpeningView({ item, onBack }) {
   const user = useAuth((state) => state.user);
-  const setBalance = useAuth((state) => state.setBalance);
+  const balance = useAuth((state) => state.balance);
+  const holdBalanceDisplay = useAuth((state) => state.holdBalanceDisplay);
+  const releaseBalanceDisplay = useAuth((state) => state.releaseBalanceDisplay);
   const applyProfileUpdate = useAuth((state) => state.applyProfileUpdate);
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
   const drops = useMemo(() => getItemsWithRollRanges(item.items || []), [item.items]);
@@ -328,6 +330,7 @@ export default function CaseOpeningView({ item, onBack }) {
   const frameRef = useRef(null);
   const pendingOpeningIdRef = useRef(null);
   const pendingBalanceRef = useRef(null);
+  const balanceBeforeSpinRef = useRef(null);
 
   const totalPrice = priceToNumber(item.price) * quantity;
   const serverSeedHash = String(fairness?.server_seed_hash || "Unavailable");
@@ -367,11 +370,12 @@ export default function CaseOpeningView({ item, onBack }) {
 
   useEffect(() => () => {
     clearAnimationWork();
-    if (pendingBalanceRef.current !== null) {
-      setBalance(pendingBalanceRef.current);
-      pendingBalanceRef.current = null;
+    if (balanceBeforeSpinRef.current !== null) {
+      releaseBalanceDisplay(pendingBalanceRef.current ?? balanceBeforeSpinRef.current);
     }
-  }, [setBalance]);
+    pendingBalanceRef.current = null;
+    balanceBeforeSpinRef.current = null;
+  }, [releaseBalanceDisplay]);
 
   useEffect(() => {
     if (!user) {
@@ -455,8 +459,10 @@ export default function CaseOpeningView({ item, onBack }) {
     if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     if (pendingBalanceRef.current !== null) {
-      setBalance(pendingBalanceRef.current);
+      releaseBalanceDisplay(pendingBalanceRef.current);
       pendingBalanceRef.current = null;
+      balanceBeforeSpinRef.current = null;
+      window.dispatchEvent(new CustomEvent("wallet:updated"));
     }
     setHasResult(true);
     setActiveReelIndex(REEL_STOP_INDEX);
@@ -545,6 +551,9 @@ export default function CaseOpeningView({ item, onBack }) {
 
       const requestId = pendingOpeningIdRef.current || window.crypto.randomUUID();
       pendingOpeningIdRef.current = requestId;
+      const balanceBeforeSpin = Number(balance || 0);
+      balanceBeforeSpinRef.current = balanceBeforeSpin;
+      holdBalanceDisplay(Math.max(0, balanceBeforeSpin - totalPrice));
       const response = await apiRequest("/api/cases/open", {
         method: "POST",
         body: JSON.stringify({ case_id: item.id, quantity, request_id: requestId }),
@@ -565,8 +574,6 @@ export default function CaseOpeningView({ item, onBack }) {
       if (selected.length !== quantity) throw new Error("The server returned an incomplete case result.");
 
       const finalBalance = Number(response.balance || 0);
-      const totalPayout = selected.reduce((total, result) => total + Number(result.value || 0), 0);
-      setBalance(Math.max(0, finalBalance - totalPayout));
       pendingBalanceRef.current = finalBalance;
       if (response.stats) applyProfileUpdate(response.stats);
       if (response.fairness) {
@@ -576,6 +583,9 @@ export default function CaseOpeningView({ item, onBack }) {
       runSpinAnimation(selected);
     } catch (error) {
       if (error?.status) pendingOpeningIdRef.current = null;
+      releaseBalanceDisplay(balanceBeforeSpinRef.current);
+      pendingBalanceRef.current = null;
+      balanceBeforeSpinRef.current = null;
       setSpinning(false);
       if (error?.status === 401) setAuthModalOpen(true);
       notifications.error(error?.message || "Unable to open this case.");
