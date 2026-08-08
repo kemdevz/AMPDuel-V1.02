@@ -678,7 +678,7 @@ export function registerRollGame({
     return initialize()
   }
 
-  app.get('/api/roll/state', requireAuthenticatedUser, async (req, res) => {
+  app.get('/api/roll/state', async (_req, res) => {
     await ensureRound()
     res.json({ ok: true, ...statePayload() })
   })
