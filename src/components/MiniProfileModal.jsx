@@ -9,6 +9,7 @@ import { notifications } from './Notifications'
 import AnimatedStatNumber from './AnimatedStatNumber'
 
 const profileCache = new Map()
+const profilePreloadRequests = new Map()
 const FALLBACK_AVATAR = '/login.png'
 
 function normalizeProfileCacheKey(value) {
@@ -39,6 +40,40 @@ function cacheProfile(profile, aliases = []) {
     const key = normalizeProfileCacheKey(value)
     if (key) profileCache.set(key, profile)
   })
+}
+
+export function preloadMiniProfile(player) {
+  const aliases = [
+    player?.profile_id,
+    player?.id,
+    player?.user_id,
+    player?.uuid,
+    player?.username,
+    player?.name,
+  ].filter(Boolean)
+  const cachedProfile = getCachedProfile(aliases)
+  if (cachedProfile) return Promise.resolve(cachedProfile)
+
+  const profileId = aliases.map((value) => String(value).trim()).find(isUuidLike)
+  const username = String(player?.username || player?.name || '').trim()
+  const requestKey = profileId || normalizeProfileCacheKey(username)
+  if (!requestKey) return Promise.resolve(null)
+  if (profilePreloadRequests.has(requestKey)) return profilePreloadRequests.get(requestKey)
+
+  const query = profileId
+    ? `ids=${encodeURIComponent(profileId)}`
+    : `username=${encodeURIComponent(username)}`
+  const request = apiRequest(`/api/public-profiles?${query}`)
+    .then((result) => {
+      const loadedProfile = result?.profiles?.[0] || null
+      if (loadedProfile) cacheProfile(loadedProfile, aliases)
+      return loadedProfile
+    })
+    .catch(() => null)
+    .finally(() => profilePreloadRequests.delete(requestKey))
+
+  profilePreloadRequests.set(requestKey, request)
+  return request
 }
 
 export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
@@ -168,10 +203,21 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     profile?.username,
     profile?.name,
   ].map(normalizeProfileCacheKey).filter(Boolean)
+  const cachedProfile = getCachedProfile(playerKeys)
+  const cachedProfileKeys = [
+    cachedProfile?.profile_id,
+    cachedProfile?.id,
+    cachedProfile?.user_id,
+    cachedProfile?.uuid,
+    cachedProfile?.username,
+    cachedProfile?.name,
+  ].map(normalizeProfileCacheKey).filter(Boolean)
   const profileMatchesPlayer = profileKeys.some((key) => playerKeys.includes(key))
+  const cachedProfileMatchesPlayer = cachedProfileKeys.some((key) => playerKeys.includes(key))
+  const immediateProfile = profileMatchesPlayer ? profile : cachedProfileMatchesPlayer ? cachedProfile : null
   const resolvedProfile = {
     ...player,
-    ...(profileMatchesPlayer ? profile : {}),
+    ...(immediateProfile || {}),
   }
 
   const username = resolvedProfile?.username || resolvedProfile?.name || 'aduplayercrazy80'
@@ -183,8 +229,9 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   const level = Math.max(1, Number(resolvedProfile?.level ?? 1))
   const roleStyle = getRoleStyle(resolvedProfile?.role)
   const targetProfileId = String(
-    profile?.id ||
+    immediateProfile?.id ||
     player?.profile_id ||
+    (isUuidLike(String(player?.id || '').trim()) ? player.id : '') ||
     resolvedProfile?.user_id ||
     resolvedProfile?.uuid ||
     '',

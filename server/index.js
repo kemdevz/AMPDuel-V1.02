@@ -2358,7 +2358,7 @@ app.get('/api/leaderboard', async (req, res) => {
       ? String(req.query.sort)
       : 'played'
     const profiles = await adminRest(
-      'user_profiles?select=id,username,avatar_url,avatar_headshot_url,level,played,won,lost&limit=1000',
+      'user_profiles?select=id,username,avatar_url,avatar_headshot_url,role,level,played,won,lost&limit=1000',
     )
     const leaders = (Array.isArray(profiles) ? profiles : [])
       .map((profile) => {

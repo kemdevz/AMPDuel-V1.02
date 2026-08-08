@@ -9,7 +9,7 @@ import CoinflipCreateModal from '../components/CoinflipCreateModal'
 import CoinflipJoinModal from '../components/CoinflipJoinModal'
 import CoinflipViewModal from '../components/CoinflipViewModal'
 import { getInventoryItemCardStyle } from '../components/InventoryItemCard'
-import MiniProfileModal from '../components/MiniProfileModal'
+import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileModal'
 import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
@@ -205,6 +205,21 @@ export default function Coinflip() {
   useEffect(() => () => {
     if (viewOpenTimerRef.current) window.clearTimeout(viewOpenTimerRef.current)
   }, [])
+
+  useEffect(() => {
+    rooms.slice(0, 30).forEach((room) => {
+      void preloadMiniProfile({
+        profile_id: room.creator_uuid,
+        username: room.creator_username,
+      })
+      if (room.opponent_uuid) {
+        void preloadMiniProfile({
+          profile_id: room.opponent_uuid,
+          username: room.opponent_username,
+        })
+      }
+    })
+  }, [rooms])
 
   const applyRoomUpdate = useCallback((incomingRoom) => {
     const normalized = normalizeRoom(incomingRoom)
@@ -766,7 +781,11 @@ export default function Coinflip() {
         <CoinflipViewModal
           room={viewRoom}
           onClose={() => closeViewRoom(viewRoom)}
-          onProfileOpen={setSelectedProfile}
+          onProfileOpen={(player) => {
+            void preloadMiniProfile(player).then((loadedProfile) => {
+              setSelectedProfile({ ...player, ...(loadedProfile || {}) })
+            })
+          }}
           profileOpen={Boolean(selectedProfile)}
           onCanceled={(canceledRoom) => {
             const canceledId = canceledRoom?.id || canceledRoom?.room_id
@@ -1065,23 +1084,31 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const opponentWon = rowResultVisible && (room.winner_uuid
     ? String(room.winner_uuid) === String(room.opponent_uuid)
     : winner === player2.side)
-  const openCreatorProfile = () => onProfileOpen?.({
-    id: room.creator_uuid,
-    profile_id: room.creator_uuid,
-    username: room.creator_username,
-    avatar: player1.avatar,
-    avatar_url: player1.avatar,
-    avatar_headshot_url: player1.avatar,
-  })
+  const openCreatorProfile = () => {
+    const player = {
+      id: room.creator_uuid,
+      profile_id: room.creator_uuid,
+      username: room.creator_username,
+      avatar: player1.avatar,
+      avatar_url: player1.avatar,
+      avatar_headshot_url: player1.avatar,
+    }
+    void preloadMiniProfile(player).then((loadedProfile) => {
+      onProfileOpen?.({ ...player, ...(loadedProfile || {}) })
+    })
+  }
   const openOpponentProfile = () => {
     if (!room.opponent_uuid) return
-    onProfileOpen?.({
+    const player = {
       id: room.opponent_uuid,
       profile_id: room.opponent_uuid,
       username: room.opponent_username,
       avatar: player2.avatar,
       avatar_url: player2.avatar,
       avatar_headshot_url: player2.avatar,
+    }
+    void preloadMiniProfile(player).then((loadedProfile) => {
+      onProfileOpen?.({ ...player, ...(loadedProfile || {}) })
     })
   }
 
