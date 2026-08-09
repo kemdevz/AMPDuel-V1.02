@@ -151,7 +151,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
         .leaderboardContent{min-height:0;display:flex;flex:1;flex-direction:column;margin-top:12px;border-radius:6px;background:#131520;overflow:hidden}
         .leaderboardHeaderRow{display:grid;grid-template-columns:52px minmax(0,1fr) 130px;gap:10px;align-items:center;min-height:38px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.06);color:#666d8d;font-size:10px;font-weight:700;text-transform:uppercase}
         .leaderboardHeaderStat{text-align:right}
-        .leaderboardList{min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:4px 7px 8px;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
+        .leaderboardList{min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;padding:4px 0 8px;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
         .leaderboardList::-webkit-scrollbar{display:none;width:0;height:0}
         .leaderboardItem{display:grid;grid-template-columns:52px minmax(0,1fr) 130px;gap:10px;padding:8px 12px;align-items:center;border:0;border-radius:12px}
         .leaderboardPosition{color:#6f7694;font-size:12px;font-weight:700}.leaderboardPosition.rank-1{color:#f5c84c}.leaderboardPosition.rank-2{color:#c9cede}.leaderboardPosition.rank-3{color:#d88b5c}
