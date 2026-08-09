@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { apiRequest } from '../lib/apiClient'
 import { connectSocket, refreshSocketAuthentication } from '../lib/socket'
-import { getXpFromValue, getXpThresholdForLevel, MAX_LEVEL } from '../lib/levelProgression'
+import { getXpThresholdForLevel, MAX_LEVEL } from '../lib/levelProgression'
 
 const getXpUntilNextLevel = (level, xp, maxLevel = MAX_LEVEL) => {
   const safeLevel = Math.max(1, Number(level) || 1)
-  const safeXp = getXpFromValue(xp)
+  const safeXp = Math.max(0, Number(xp) || 0)
   if (safeLevel >= Math.min(MAX_LEVEL, Math.max(1, Number(maxLevel) || MAX_LEVEL))) return 0
   return Math.max(0, getXpThresholdForLevel(safeLevel) - safeXp)
 }
