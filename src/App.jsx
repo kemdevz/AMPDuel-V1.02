@@ -5,13 +5,13 @@ import Home from './pages/Home'
 import Coinflip from './pages/Coinflip'
 import SummerEvent from './pages/SummerEvent'
 import Cases from './pages/Cases'
+import CaseBattle from './pages/CaseBattle'
 import Jackpot from './pages/Jackpot'
 import Mines from './pages/Mines'
 import Roll from './pages/Roll'
 import Upgrader from './pages/Upgrader'
 import LiveCasino from './pages/LiveCasino'
 import LiveCasinoGame from './pages/LiveCasinoGame'
-import Placeholder from './pages/Placeholder'
 import { useAuth } from './store/auth'
 
 function decodeRouteSegment(value) {
@@ -28,7 +28,7 @@ function AppRoutes() {
   const routeName = pathname.replace(/^\/+|\/+$/g, '')
   const pages = {
     '': <Home />,
-    battles: <Placeholder title="Case Battles" />,
+    battles: <CaseBattle />,
     coinflip: <Coinflip />,
     events: <SummerEvent />,
     cases: <Cases />,

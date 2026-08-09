@@ -18,7 +18,7 @@ export const navSections = [
   {
     label: 'Games',
     items: [
-      { name: 'Case Battles', icon: BattlesIcon, path: 'battles', enabled: false },
+      { name: 'Case Battles', icon: BattlesIcon, path: 'battles' },
       { name: 'Cases', icon: CasesIcon, path: 'cases' },
       { name: 'Coinflip', icon: CoinflipIcon, path: 'coinflip' },
       { name: 'Upgrader', icon: UpgraderIcon, path: 'upgrader' },

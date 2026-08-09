@@ -234,13 +234,37 @@ function PoolItemCard({ item, quantity, totalSelected, onToggle, onQuantityChang
   )
 }
 
-function TargetArrow({ className, delay = '0ms' }) {
+function TargetArrow({ className, delay = '0ms', gradientId, accent }) {
+  const accentChannels = String(accent || '255, 176, 24')
+    .split(',')
+    .map((channel) => Math.max(0, Math.min(255, Number(channel.trim()) || 0)))
+  const gradientStart = `rgb(${accentChannels.join(', ')})`
+  const gradientEnd = `rgb(${accentChannels.map((channel) => Math.round(channel + (255 - channel) * .55)).join(', ')})`
+
   return (
-    <svg className={`upgrader-target-arrow ${className}`} style={{ animationDelay: delay }} viewBox="0 0 675.01 561.83" aria-hidden="true">
-      <polygon points="148.47 83.06 53.14 83.06 183.66 276.14 53.14 476.5 148.47 476.5 278.99 276.14 148.47 83.06" />
-      <polygon points="286.12 49.24 190.79 49.24 343.02 276.14 188.05 512.59 283.38 512.59 438.35 276.14 286.12 49.24" />
-      <polygon points="461.35 83.06 366.02 83.06 496.54 276.14 366.02 476.5 461.35 476.5 591.87 276.14 461.35 83.06" />
-    </svg>
+    <div
+      className={`rotate-80 float-animation absolute z-[12] animate-pulse upgrader-floating-arrow ${className}`}
+      style={{ '--upgrader-arrow-delay': delay }}
+      aria-hidden="true"
+    >
+      <svg
+        fill={`url(#${gradientId})`}
+        className="max-2xl:max-w-[30px]"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 675.01 561.83"
+        style={{ width: '35px', rotate: '-90deg', display: 'flex' }}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={gradientStart} />
+            <stop offset="70%" stopColor={gradientEnd} />
+          </linearGradient>
+        </defs>
+        <polygon className="upgrader-arrow upgrader-arrow-one" points="148.47 83.06 53.14 83.06 183.66 276.14 53.14 476.5 148.47 476.5 278.99 276.14 148.47 83.06" />
+        <polygon className="upgrader-arrow upgrader-arrow-two" points="286.12 49.24 190.79 49.24 343.02 276.14 188.05 512.59 283.38 512.59 438.35 276.14 286.12 49.24" />
+        <polygon className="upgrader-arrow upgrader-arrow-three" points="461.35 83.06 366.02 83.06 496.54 276.14 366.02 476.5 461.35 476.5 591.87 276.14 461.35 83.06" />
+      </svg>
+    </div>
   )
 }
 
@@ -734,10 +758,11 @@ ${inventoryItemCardStyles}
 .upgrader-target-empty p { color: #6b7280; font-size: 12px; font-weight: 500; letter-spacing: .04em; text-align: center; text-transform: uppercase; cursor: default; }
 .upgrader-target-content { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; }
 .upgrader-target-arrows { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
-.upgrader-target-arrow { position: absolute; width: 28px; fill: rgb(var(--target-accent,255,105,180)); opacity: .55; animation: upgrader-arrow-pulse 1.8s ease-in-out infinite; }
-.upgrader-target-arrow.is-top-left { top: 15%; left: 16%; transform: rotate(-90deg); }
-.upgrader-target-arrow.is-bottom-left { bottom: 20%; left: 14%; transform: rotate(-90deg); }
-.upgrader-target-arrow.is-top-right { top: 38%; right: 14%; transform: rotate(90deg); }
+.upgrader-floating-arrow { pointer-events: none; animation: upgrader-arrow-popup .3s cubic-bezier(.22,1,.36,1) both,upgrader-arrow-float 3s ease-in-out infinite,upgrader-arrow-pulse 2s cubic-bezier(.4,0,.6,1) infinite; animation-delay: 0ms,var(--upgrader-arrow-delay),var(--upgrader-arrow-delay); }
+.upgrader-floating-arrow.is-top-left { top: 15%; left: 16%; }
+.upgrader-floating-arrow.is-bottom-left { bottom: 18%; left: 22%; }
+.upgrader-floating-arrow.is-top-right { top: 38%; right: 14%; }
+.upgrader-floating-arrow.is-top-right svg { rotate: 90deg !important; }
 .upgrader-target-grid { --target-thumb-size: 60px; display: grid; flex-shrink: 0; gap: 6px; width: max-content; transition: width .2s ease,height .2s ease; }
 .upgrader-target-thumb { position: relative; width: 60px; height: 60px; min-width: 60px; min-height: 60px; box-sizing: border-box; flex-shrink: 0; overflow: hidden; border: 2px solid #2f3347; border-radius: 6px; background: #171925; cursor: pointer; transition: border-color .2s,transform .15s; }
 .upgrader-target-thumb:hover { border-color: #ef4444; transform: translateY(-1px); }
@@ -913,12 +938,14 @@ ${inventoryItemCardStyles}
 @keyframes upgrader-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes upgrader-modal-in { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
 @keyframes upgrader-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes upgrader-arrow-pulse { 0%,100% { opacity: .55; } 50% { opacity: .9; } }
+@keyframes upgrader-arrow-popup { from { scale: .55; } to { scale: 1; } }
+@keyframes upgrader-arrow-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes upgrader-arrow-pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
 @container (max-width: 850px) {
   .upgrader-target-content { padding-right: 4px; padding-left: 4px; }
   .upgrader-target-grid { --target-thumb-size: 50px; }
   .upgrader-target-thumb { width: 50px; height: 50px; min-width: 50px; min-height: 50px; }
-  .upgrader-target-arrow { display: none; }
+  .upgrader-floating-arrow { display: none; }
 }
 @media (max-width: 1100px) {
   .upgrader-arena { grid-template-columns: minmax(0,1fr) 240px minmax(0,1fr); gap: 12px; }
@@ -1513,9 +1540,9 @@ export default function Upgrader() {
           {targetCount ? (
             <>
               <div className="upgrader-target-arrows" style={{ '--target-accent': targetAccent }}>
-                <TargetArrow className="is-top-left" />
-                <TargetArrow className="is-bottom-left" delay="150ms" />
-                <TargetArrow className="is-top-right" delay="75ms" />
+                <TargetArrow className="is-top-left" gradientId="upgrader-arrow-gradient-top-left" accent={targetAccent} />
+                <TargetArrow className="is-bottom-left delay-150" delay="150ms" gradientId="upgrader-arrow-gradient-bottom-left" accent={targetAccent} />
+                <TargetArrow className="is-top-right" delay="75ms" gradientId="upgrader-arrow-gradient-top-right" accent={targetAccent} />
               </div>
             <div className="upgrader-target-content">
               <div
