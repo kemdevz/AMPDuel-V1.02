@@ -764,7 +764,7 @@ export default function Mines() {
                   <div className="_inputGroup_lhu08_195 mines-input-group">
                     <label className="_label_lhu08_196" htmlFor="mines-amount">Amount</label>
                     <div className="_betInputWrapper_lhu08_208 mines-bet-input-wrap">
-                      <img src="/mines-bobux.png" alt="" className="_coinIcon_lhu08_217 mines-coin-icon" />
+                      <img src="/bobux.png" alt="" className="_coinIcon_lhu08_217 mines-coin-icon" />
                       <input
                         className="_betInput_lhu08_208"
                         id="mines-amount"

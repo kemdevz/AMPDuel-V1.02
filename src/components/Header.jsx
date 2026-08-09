@@ -16,6 +16,7 @@ import { connectSocket } from "../lib/socket";
 const COIN_ICON = "/bobux.png";
 const DESKTOP_LOGO = "/logo.png";
 const MOBILE_LOGO = "/flame.png";
+const SUMMER_EVENT_ENABLED = false;
 const AVATAR =
   "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter";
 
@@ -540,7 +541,7 @@ export default function Header({ onOpenProfileModal }) {
           />
         </Link>
 
-        <SummerEventLink />
+        {SUMMER_EVENT_ENABLED ? <SummerEventLink /> : null}
       </div>
 
       {user ? (
