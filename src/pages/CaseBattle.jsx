@@ -20,7 +20,17 @@ const COIN_ICON = "/bobux.png";
 const PICKER_SEARCH_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAASDSURBVGhD7ZnJbh1FFIa76ibECSuww6BcJglCJthkCwRWCCkIIR4hXDACiUeI8gAskDLbeYpEUVhBYMEGkBIRxwTEEBkwg80KE7i5Xfx/53fLPdzurh7gLvxJ1j2n5K6qv+vUqaGDTSYMo99WeOeIm5cZcfyceV1m5zQS8tYgvOSC4KB1wT3WmZ6KE4TGjfC3agLz+ak5+5KKW6eWkNlBuNgLzW487PU8RLvbNlw8M9fbp6LW8OrI7GD08ZbQPgOz0UhS0Mi6T07P2UMqakzlDmEUlreE5n65rXDbumWIeVBuIyoJwVxYQyhtl5thZNyt0LqbxpnfMF9+ZFlogr4zbsaG5uGeM1PRP+aAkVnD3Llbbm1KhRSJwBv9Cm90j9xCEJZXEZZPyU3QhphCIePCCQJWTp81OwNjEO4eOGdm33C/o857VRKDJIAw69UOM6vfDHcmdlbE0IYLGIUZbxEEz+DZadRxXSUxGK0H8OI+kuvNWCHKTgkoAqlzv9zaMP2irkW5MQjh52R6kyuE6wR+EmHHcGpDxDqoay/qXJUbgQbNm4PRNble5ArhYiczJpoTLYM6Z2TGIBL2yvQiI4TbDr4ZuRFRGNSZE2WgTmY+eRFsG324KLcyGSHo7UGZMQwDma2Tl77z+lBGRgg3gDIjuNjJ7Ix0G+jDtMzK5AhJ7mK5YsvsDLSxJDNi3E66iISQ9HmCcNshszPQxi8yY/L6UkRmRNJgmH+S2RlttFEqBCQyWEd4h1KaUiHYxbayzS4CbTQ+HiSE5J2xsRVvfSFMgzYyQnzP+5kR4RlbZgTPEzI7A208JDMCfRjKrEyOkOAPmRFFh6I2YHZCG9vkRqAPmSxWRkYIZvZnMmO0ieyEYS98VmYMstgXMiuTEcIrG2wREvsqnEue5KFIbnugzq0jm9igMrRPzttX5FYmI4TwykZmDE92MlsDda7IjIGQKzK9GPuW3z7iEKqZXfB1HorkNoLhGo30BjDm4Yl5/+0JyR0RwnsnmTFbcVbAwSdzTPUlTwQJA+e9fV9nrBBsrw/hrLAsNwZi9qAjK7XmDC8fBuFqnghyedfCazK9Ke0MDjl/4sS4Q26CoXU3zszZ3E5thCmW2Sk9sdMwyVzof7/jh2OPeR8dKr3VIjFEF3RL2MX+itS5fkG3Cyv2fVzs0utEERTzYf/a1MKxA/+oqBKVw2N2MPqZVzZyO4ViPnj66+3fvLv7bxWVMnaOpOHlGebM5fQaUwdmJ/7c8bLg7ZoXrz7x1+Pv36g8kpWFECSA50+cM5b3W3UEUQDm1RWm2POYC0V1+IqpHFp58LYDPeGHnumCDz1DzJdV44JPT83bV1Uc8cjR76YOLz26xk6rKAPFVgmzRkLS1Pn0tu/ol3e9sLT/VpmYsmzWqpC6VBEDHMNxnJiJEEKaipkYIaSJGK+s1TVcBLkYFmUzYF5Ggui/dzPx8WmihBCK4cQuE3N4sf+t7IiJE0IYNkUjw091WNMStzsTNUfS5M2Zcd8bJ1oI2SimrS/A/xvcAXDTKneTTf47guBfRB/4oi5eINMAAAAASUVORK5CYII=";
 const TICK_SOUND = "/tick-CkSUroeR.mp3";
 const SUCCESS_SOUND = "/success-jgkLyONA.mp3";
-const REEL_DURATION = 3070;
+const REEL_LENGTH = 80;
+const REEL_ITEM_STRIDE = 125;
+const REEL_STOP_INDEX = 60;
+const INITIAL_REEL_INDEX = 20;
+const REEL_INITIAL_POSITION = -2392.5;
+const REEL_FINAL_POSITION = -7392.5;
+const REEL_START_DELAY = 250;
+const REEL_MAIN_DURATION = 4800;
+const REEL_SETTLE_PAUSE = 100;
+const REEL_SETTLE_DURATION = 250;
+const REEL_DURATION = REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE + REEL_SETTLE_DURATION;
 const MAX_CASES = 25;
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
 
@@ -844,14 +854,20 @@ const BATTLE_STYLES = String.raw`
   .bb-spinner-footer > * { pointer-events: auto; }
   .bb-spinner-note { color: rgba(255,255,255,.6); font-size: 12px; font-weight: 700; letter-spacing: .2px; text-align: center; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
   .bb-wheel { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; overflow: hidden; }
-  .bb-wheel-track { width: 100%; height: 100%; backface-visibility: hidden; will-change: transform; transform: translate3d(0,107.5px,0); }
-  .bb-wheel-track-spinning { transform: translate3d(0,-2392.5px,0); transition: transform 3070ms cubic-bezier(.15,.55,.2,1); }
-  .bb-reel-item { display: flex; width: 100%; height: 105px; align-items: center; justify-content: center; margin-bottom: 20px; opacity: .25; transition: opacity .28s cubic-bezier(.4,0,.2,1); }
-  .bb-reel-item:nth-child(21) { opacity: 1; }
-  .bb-reel-image { position: relative; display: flex; width: 105px; height: 105px; align-items: center; justify-content: center; }
-  .bb-reel-image::before { content: ""; position: absolute; z-index: 0; top: 50%; left: 50%; width: 65%; height: 65%; border-radius: 50%; background: radial-gradient(ellipse at center,var(--reel-glow,rgba(108,108,108,.32)) 0%,transparent 100%); filter: blur(14px); opacity: 1; transform: translate(-50%,-50%); }
+  .bb-wheel-track { width: 100%; height: 100%; backface-visibility: hidden; will-change: transform; }
+  .bb-reel-item { position: relative; display: flex; width: 100%; height: 105px; align-items: center; justify-content: center; margin-bottom: 20px; opacity: .25; transition: opacity .28s cubic-bezier(.4,0,.2,1); }
+  .bb-reel-item.is-active { opacity: 1; }
+  .bb-reel-image { position: relative; display: flex; width: 105px; height: 105px; align-items: center; justify-content: center; transition: transform .18s ease; }
+  .bb-reel-image::before { content: ""; position: absolute; z-index: 0; top: 50%; left: 50%; width: 115%; height: 115%; border-radius: 50%; background: radial-gradient(ellipse at center,var(--reel-glow,rgba(108,108,108,.32)) 0%,transparent 65%); filter: blur(14px); opacity: 0; transform: translate(-50%,-50%); transition: opacity .4s cubic-bezier(.4,0,.2,1); }
   .bb-reel-image img { position: absolute; z-index: 1; top: 50%; left: 50%; width: 88px; height: 88px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3)); transform: translate(-50%,-50%); transition: transform .45s cubic-bezier(.34,1.56,.64,1),filter .4s ease; }
-  .bb-reel-item:nth-child(21) .bb-reel-image img { transform: translate(-50%,-50%) scale(1.18); filter: drop-shadow(0 0 12px var(--reel-glow-shadow,rgba(108,108,108,.55))) drop-shadow(0 4px 10px rgba(0,0,0,.3)); }
+  .bb-reel-item.is-active .bb-reel-image::before { opacity: 1; }
+  .bb-reel-item.is-active .bb-reel-image img { transform: translate(-50%,-50%) scale(1.18); filter: drop-shadow(0 0 12px var(--reel-glow-shadow,rgba(108,108,108,.55))) drop-shadow(0 4px 10px rgba(0,0,0,.3)); }
+  .bb-reel-item.is-result .bb-reel-image { transform: translateY(-26px); }
+  .bb-reel-result { position: absolute; z-index: 8; top: calc(75% + 15px); left: 50%; display: flex; width: min(220px,95%); flex-direction: column; align-items: center; gap: 5px; pointer-events: none; transform: translateX(-50%); animation: bb-reel-result-in .3s cubic-bezier(.4,0,.2,1) both; }
+  @keyframes bb-reel-result-in { from { opacity: 0; transform: translate(-50%,7px); } to { opacity: 1; transform: translate(-50%,0); } }
+  .bb-reel-result-name { width: 100%; overflow: hidden; color: rgba(225,228,242,.78); font-size: 13px; font-weight: 600; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+  .bb-reel-result-value { display: flex; align-items: center; gap: 6px; color: #fff; font-size: 13px; font-weight: 700; }
+  .bb-reel-result-value img { width: 16px; height: 16px; object-fit: contain; }
 
   .bb-countdown { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.3); backdrop-filter: blur(4px); }
   .bb-countdown-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -1427,7 +1443,7 @@ const BATTLE_STYLES = String.raw`
     .bb-vs-badge { display: none; }
     .bb-reel-image { width: 75px; }
     .bb-reel-image img { width: 62px; height: 62px; }
-    .bb-reel-item:nth-child(21) .bb-reel-image img { transform: translate(-50%,-50%) scale(1.15); }
+    .bb-reel-item.is-active .bb-reel-image img { transform: translate(-50%,-50%) scale(1.15); }
     .bb-countdown-title { font-size: 12px; letter-spacing: 2px; }
     .bb-countdown-number { font-size: 50px; }
   }
@@ -1455,7 +1471,7 @@ const BATTLE_STYLES = String.raw`
 
   @media (prefers-reduced-motion: reduce) {
     .bb-battle,.bb-row-wrap,.bb-case-tooltip,.bb-created-toast,.bb-created-toast::after,.bb-picker,.bb-picker-backdrop,.case-preview-backdrop,.case-preview-modal,.case-preview-item,.bb-result-item,.bb-countdown-number,.bb-winner-panel { animation: none; transition: none; }
-    .bb-wheel-track-spinning { transition-duration: .01ms; }
+    .bb-wheel-track { transition-duration: .01ms !important; }
   }
 `;
 
@@ -1510,8 +1526,8 @@ function chooseItem(caseItem) {
 
 function buildReel(caseItem) {
   const items = getCaseItems(caseItem);
-  const reel = Array.from({ length: 22 }, () => items[Math.floor(Math.random() * items.length)]);
-  reel[20] = chooseItem(caseItem);
+  const reel = Array.from({ length: REEL_LENGTH }, () => items[Math.floor(Math.random() * items.length)]);
+  reel[REEL_STOP_INDEX] = chooseItem(caseItem);
   return reel.map((item, index) => ({ ...item, reelKey: String(item.id) + "-" + index }));
 }
 
@@ -1520,12 +1536,13 @@ function getPlayerTotal(results) {
 }
 
 function playSound(path, volume = 0.4) {
+  if (!path) return;
   try {
     const sound = new Audio(path);
     sound.volume = volume;
-    void sound.play();
+    void sound.play().catch(() => undefined);
   } catch {
-    // Sound is an enhancement; browsers can deny autoplay.
+    // Sound is optional; ignore unsupported sources and autoplay restrictions.
   }
 }
 
@@ -1544,6 +1561,7 @@ function handleItemImageError(event) {
 }
 
 function scheduleTicks() {
+  if (!TICK_SOUND) return () => {};
   const timers = [];
   let elapsed = 0;
   while (elapsed < REEL_DURATION - 110) {
@@ -2271,8 +2289,14 @@ function BattlePlayerCard({ player, results }) {
 
 function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
   const [fairnessOpen, setFairnessOpen] = useState(false);
-  const [spinStarted, setSpinStarted] = useState(false);
+  const [reelPosition, setReelPosition] = useState(REEL_INITIAL_POSITION);
+  const [reelTransition, setReelTransition] = useState("none");
+  const [activeReelIndex, setActiveReelIndex] = useState(INITIAL_REEL_INDEX);
+  const [hasSpinResult, setHasSpinResult] = useState(false);
+  const [winnerVisible, setWinnerVisible] = useState(false);
   const [copied, setCopied] = useState(false);
+  const spinnerInnerRef = useRef(null);
+  const firstWheelTrackRef = useRef(null);
   const lastFinishedRef = useRef(false);
   const modeIds = getSelectedModeIds(battle.mode);
   const currentCase = battle.cases[battle.currentRound] || battle.cases[0];
@@ -2302,19 +2326,42 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
   }, [battle.countdown, battle.phase, setBattle]);
 
   useEffect(() => {
-    if (battle.phase !== "spinning") {
-      setSpinStarted(false);
-      return undefined;
-    }
+    if (battle.phase !== "spinning") return undefined;
 
-    setSpinStarted(false);
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setSpinStarted(true));
-    });
+    setReelTransition("none");
+    setReelPosition(REEL_INITIAL_POSITION);
+    setHasSpinResult(false);
+    setActiveReelIndex(INITIAL_REEL_INDEX);
+    const jitter = 13.125 * (Math.floor(Math.random() * 7) + 1);
+    let trackingFrame = null;
+    const followCenteredItem = () => {
+      const viewport = spinnerInnerRef.current?.getBoundingClientRect();
+      const firstItem = firstWheelTrackRef.current?.firstElementChild?.getBoundingClientRect();
+      if (viewport && firstItem) {
+        const nextIndex = Math.max(0, Math.min(
+          REEL_LENGTH - 1,
+          Math.round((viewport.top + viewport.height / 2 - firstItem.top - 52.5) / REEL_ITEM_STRIDE),
+        ));
+        setActiveReelIndex((current) => current === nextIndex ? current : nextIndex);
+      }
+      trackingFrame = window.requestAnimationFrame(followCenteredItem);
+    };
+    trackingFrame = window.requestAnimationFrame(followCenteredItem);
     const cancelTicks = scheduleTicks();
-    const timer = window.setTimeout(() => {
+    const mainTimer = window.setTimeout(() => {
+      setReelTransition(`transform ${REEL_MAIN_DURATION}ms cubic-bezier(.1,0,.2,1)`);
+      setReelPosition(REEL_FINAL_POSITION - jitter + 52.5);
+    }, REEL_START_DELAY);
+    const settleTimer = window.setTimeout(() => {
+      setReelTransition(`transform ${REEL_SETTLE_DURATION}ms cubic-bezier(.1,0,.2,1)`);
+      setReelPosition(REEL_FINAL_POSITION);
+    }, REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE);
+    const finishTimer = window.setTimeout(() => {
+      if (trackingFrame) window.cancelAnimationFrame(trackingFrame);
+      setActiveReelIndex(REEL_STOP_INDEX);
+      setHasSpinResult(true);
       setBattle((state) => {
-        const winningItems = state.reels.map((reel) => reel[20]);
+        const winningItems = state.reels.map((reel) => reel[REEL_STOP_INDEX]);
         const results = state.results.map((items, index) => items.concat(winningItems[index]));
         const finalRound = state.currentRound >= state.cases.length - 1;
         return {
@@ -2323,11 +2370,13 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
           phase: finalRound ? "finished" : "round-delay",
         };
       });
-    }, REEL_DURATION + 120);
+    }, REEL_DURATION + 5);
 
     return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
+      if (trackingFrame) window.cancelAnimationFrame(trackingFrame);
+      window.clearTimeout(mainTimer);
+      window.clearTimeout(settleTimer);
+      window.clearTimeout(finishTimer);
       cancelTicks();
     };
   }, [battle.phase, setBattle]);
@@ -2344,6 +2393,15 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
     }, 850);
     return () => window.clearTimeout(timer);
   }, [battle.phase, setBattle]);
+
+  useEffect(() => {
+    if (battle.phase !== "finished") {
+      setWinnerVisible(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setWinnerVisible(true), 850);
+    return () => window.clearTimeout(timer);
+  }, [battle.phase]);
 
   useEffect(() => {
     if (battle.phase === "finished" && !lastFinishedRef.current) {
@@ -2446,8 +2504,8 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
         <div className="bb-reel-box">
           <div className="bb-reel-inner">
             <div className="bb-spinner-wrap">
-              <div className={"bb-spinner" + (battle.phase === "finished" ? " bb-spinner-hide-reels" : "")}>
-                <div className="bb-spinner-inner">
+              <div className={"bb-spinner" + (winnerVisible ? " bb-spinner-hide-reels" : "")}>
+                <div className="bb-spinner-inner" ref={spinnerInnerRef}>
                   {battle.players.map((player, index) => (
                     <div className="bb-spinner-column" key={index}>
                       {battle.phase === "waiting" ? (
@@ -2466,11 +2524,20 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
                         )
                       ) : (
                         <div className="bb-wheel">
-                          <div className={"bb-wheel-track" + (spinStarted ? " bb-wheel-track-spinning" : "")}>
-                            {(battle.reels[index] || buildReel(currentCase)).map((item) => {
+                          <div
+                            className="bb-wheel-track"
+                            ref={index === 0 ? firstWheelTrackRef : undefined}
+                            style={{
+                              transform: `translate3d(0,${reelPosition}px,0)`,
+                              transition: reelTransition,
+                            }}
+                          >
+                            {(battle.reels[index] || buildReel(currentCase)).map((item, reelIndex) => {
                               const accent = item.accent || getInventoryItemAccent(item);
+                              const active = reelIndex === activeReelIndex;
+                              const showResult = hasSpinResult && reelIndex === REEL_STOP_INDEX;
                               return (
-                                <div className="bb-reel-item" key={item.reelKey}>
+                                <div className={`bb-reel-item${active ? " is-active" : ""}${showResult ? " is-result" : ""}`} key={item.reelKey}>
                                   <div
                                     className="bb-reel-image"
                                     style={{
@@ -2480,6 +2547,15 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
                                   >
                                     <img src={item.image} alt={item.name} draggable={false} onError={handleItemImageError} />
                                   </div>
+                                  {showResult && (
+                                    <div className="bb-reel-result">
+                                      <div className="bb-reel-result-name" title={item.name}>{item.name}</div>
+                                      <div className="bb-reel-result-value">
+                                        <img src={COIN_ICON} alt="" />
+                                        <span>{formatPriceValue(item.value, { compactNumbers: false })}</span>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -2499,7 +2575,7 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
                   </div>
                 )}
 
-                {battle.phase === "finished" && (
+                {battle.phase === "finished" && winnerVisible && (
                   <div className="bb-winner-overlay">
                     <div className="bb-winner-panel">
                       <div className="bb-winner-title">{isTie ? "That's a Tie!" : "Battle Winner"}</div>
