@@ -2710,16 +2710,18 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     return () => window.clearTimeout(timer);
   }, [battle.phase]);
 
+  const completeResultMatrix = Array.from({ length: battle.players.length }, (_, index) => {
+    const visibleItems = Array.isArray(battle.results?.[index]) ? battle.results[index] : [];
+    const outcomeItems = Array.isArray(battle.outcomeResults?.[index]) ? battle.outcomeResults[index] : [];
+    return outcomeItems.length > visibleItems.length ? outcomeItems : visibleItems;
+  });
   const revealedResultCount = Math.max(
     Number(battle.revealedRoundCount || 0),
     ...battle.results.map((items) => Array.isArray(items) ? items.length : 0),
   );
-  const hasVisibleResults = revealedResultCount > 0;
-  const displayedResults = battle.status === "active" && Array.isArray(battle.outcomeResults)
-    ? battle.outcomeResults.map((items) => Array.isArray(items) ? items.slice(0, revealedResultCount) : [])
-    : battle.phase === "finished" && !hasVisibleResults && Array.isArray(battle.outcomeResults)
-      ? battle.outcomeResults
-      : battle.results;
+  const displayedResults = battle.status === "active"
+    ? completeResultMatrix.map((items) => items.slice(0, revealedResultCount))
+    : completeResultMatrix;
   const totals = displayedResults.map(getPlayerTotal);
   const hasWildMode = modeIds.includes("wild");
   const hasTerminalMode = modeIds.includes("terminal");
@@ -3237,11 +3239,25 @@ export default function CaseBattles() {
     setScreen("list");
   };
 
+  const openBattle = (selectedBattle) => {
+    const selectedId = String(selectedBattle?.id || "");
+    if (!selectedId) return;
+    setBattle(normalizeWithSavedProgress(selectedBattle, selectedBattle));
+    setScreen("battle");
+    void apiRequest(`/api/case-battles/${encodeURIComponent(selectedId)}`)
+      .then((response) => {
+        setBattle((current) => current?.id === selectedId
+          ? normalizeWithSavedProgress(response?.battle, current)
+          : current);
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <div className="battles-page">
       <style>{BATTLE_STYLES}</style>
       {screen === "list" && (
-        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={(selectedBattle) => { setBattle(normalizeWithSavedProgress(selectedBattle, selectedBattle)); setScreen("battle"); }} onPreview={setPreviewCase} />
+        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={openBattle} onPreview={setPreviewCase} />
       )}
       {screen === "create" && (
         <CreationPage
