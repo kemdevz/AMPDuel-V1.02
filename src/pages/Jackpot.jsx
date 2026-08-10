@@ -2,7 +2,7 @@ export default function Jackpot() {
   return (
     <div className="relative z-0 box-border flex-[1_1_auto] overflow-y-auto rounded-t-[0.5rem] [&::-webkit-scrollbar]:hidden">
       <div
-        className="relative z-10 flex min-h-full items-center justify-center"
+        className="relative z-10 flex min-h-full items-center justify-center lg:min-h-[calc(100dvh-5rem)]"
         style={{
           background: "linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url('https://i.ibb.co/v4wP9pPK/summer-bg.png') center center / cover",
         }}
