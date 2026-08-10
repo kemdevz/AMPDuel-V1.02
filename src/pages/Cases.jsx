@@ -114,6 +114,10 @@ function SortIcon({ ascending = false }) {
   return <SortDirectionIcon ascending={ascending} />;
 }
 
+function hideMissingCaseArtwork(event) {
+  event.currentTarget.style.display = "none";
+}
+
 function ViewIcon({ caseName, onClick }) {
   return (
     <button
@@ -179,12 +183,15 @@ function CasePreviewModal({ item, onClose }) {
         <header className="case-preview-header">
           <div className="case-preview-header-left">
             <div className="case-preview-thumb">
-              <img
-                src={item.image}
-                alt={item.name}
-                className={`case-preview-thumb-image-${getCaseArtworkSize(item)}`}
-                draggable={false}
-              />
+              {item.image ? (
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className={`case-preview-thumb-image-${getCaseArtworkSize(item)}`}
+                  draggable={false}
+                  onError={hideMissingCaseArtwork}
+                />
+              ) : null}
             </div>
             <div className="case-preview-texts">
               <div id="case-preview-title" className="case-preview-name">{item.name}</div>
@@ -266,14 +273,17 @@ function CaseCard({ item, onPreview, onOpen }) {
 
         <ViewIcon caseName={item.name} onClick={() => onPreview(item)} />
 
-        <img
-          alt=""
-          src={item.image}
-          className="pointer-events-none absolute -inset-[30px] z-0 h-[calc(100%+60px)] w-[calc(100%+60px)] scale-[1.22] object-cover opacity-[.14] blur-[48px] saturate-[1.1] transition duration-200 group-hover:scale-[1.28] group-hover:opacity-20 group-hover:blur-[54px] group-hover:saturate-[1.25]"
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-        />
+        {item.image ? (
+          <img
+            alt=""
+            src={item.image}
+            className="pointer-events-none absolute -inset-[30px] z-0 h-[calc(100%+60px)] w-[calc(100%+60px)] scale-[1.22] object-cover opacity-[.14] blur-[48px] saturate-[1.1] transition duration-200 group-hover:scale-[1.28] group-hover:opacity-20 group-hover:blur-[54px] group-hover:saturate-[1.25]"
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onError={hideMissingCaseArtwork}
+          />
+        ) : null}
 
         <div className="relative z-[2] flex w-full justify-center">
           <p className="m-0 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-center text-sm font-medium text-white/90">
@@ -283,16 +293,19 @@ function CaseCard({ item, onPreview, onOpen }) {
 
         <div className="relative z-[2] my-3 flex max-h-[120px] min-h-[120px] min-w-[120px] max-w-[120px] items-center justify-center">
           <div className="relative h-[120px] w-[120px]">
-            <img
-              src={item.image}
-              alt={item.name}
-              width="120"
-              height="120"
-              className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : artworkSize === "beach" ? "-translate-y-[4px] scale-[.95]" : ""}`}
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-            />
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={item.name}
+                width="120"
+                height="120"
+                className={`h-[120px] w-[120px] object-contain drop-shadow-[0_10px_16px_rgba(0,0,0,.45)] ${artworkSize === "catalog" ? "scale-[1.3]" : artworkSize === "inferno" ? "translate-y-[4px] scale-[1.105]" : artworkSize === "beach" ? "-translate-y-[4px] scale-[.95]" : ""}`}
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onError={hideMissingCaseArtwork}
+              />
+            ) : null}
           </div>
         </div>
 

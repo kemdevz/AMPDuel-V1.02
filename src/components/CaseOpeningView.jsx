@@ -31,6 +31,10 @@ function playSound(path, volume = 0.4) {
   }
 }
 
+function hideMissingCaseArtwork(event) {
+  event.currentTarget.style.display = "none";
+}
+
 function priceToNumber(price) {
   return Number(String(price).replaceAll(",", ""));
 }
@@ -441,7 +445,7 @@ export default function CaseOpeningView({ item, onBack }) {
 
       nextIndex = Math.max(0, Math.min(REEL_LENGTH - 1, nextIndex));
       if (nextIndex !== lastTrackedIndexRef.current) {
-        if (ticksEnabledRef.current) playSound(TICK_SOUND, 0.12);
+        if (ticksEnabledRef.current) playSound(TICK_SOUND, 0.2);
         lastTrackedIndexRef.current = nextIndex;
       }
       setActiveReelIndex((current) => current === nextIndex ? current : nextIndex);
@@ -1758,12 +1762,15 @@ export default function CaseOpeningView({ item, onBack }) {
         <div className="case-open-header">
           <div className="case-open-case-meta">
             <div className="case-open-thumb">
-              <img
-                src={item.image}
-                alt={item.name}
-                className={`case-open-thumb-image-${getCaseArtworkSize(item)}`}
-                draggable={false}
-              />
+              {item.image ? (
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className={`case-open-thumb-image-${getCaseArtworkSize(item)}`}
+                  draggable={false}
+                  onError={hideMissingCaseArtwork}
+                />
+              ) : null}
             </div>
             <div className="case-open-meta-copy">
               <div className="case-open-name">{item.name}</div>

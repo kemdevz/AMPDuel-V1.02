@@ -2821,6 +2821,440 @@ function getCaseRoll(serverSeed, clientSeed, nonce, caseId) {
   return Math.min(99_999, Math.floor(fraction * 100_000))
 }
 
+const CASE_BATTLE_PLAYER_OPTIONS = new Map([
+  ['ffa-2', 2],
+  ['ffa-3', 3],
+  ['ffa-4', 4],
+  ['team-4', 4],
+  ['group-2', 2],
+  ['group-3', 3],
+  ['group-4', 4],
+])
+const CASE_BATTLE_MODES = new Set(['normal', 'group', 'coinflip', 'jackpot', 'terminal', 'wild'])
+
+function normalizeCaseBattleModes(value) {
+  const requested = Array.isArray(value) ? value : String(value || 'normal').split('_')
+  const modes = [...new Set(requested.map((mode) => String(mode || '').trim().toLowerCase()).filter(Boolean))]
+  if (modes.length < 1 || modes.length > 3 || modes.some((mode) => !CASE_BATTLE_MODES.has(mode))) {
+    throw new Error('Select valid Case Battle modes.')
+  }
+  if (modes.some((mode) => ['normal', 'group', 'coinflip'].includes(mode)) && modes.length !== 1) {
+    throw new Error('This Case Battle mode cannot be combined with another mode.')
+  }
+  return modes
+}
+
+function getCaseBattleAvatar(profile) {
+  return String(profile?.avatar_headshot_url || profile?.avatar_url || '').trim() || null
+}
+
+function getCaseBattleSeedEncryptionKey() {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  const secret = process.env.CASE_BATTLE_SEED_SECRET || process.env.CASE_OPEN_SEED_SECRET || supabaseKey
+  if (!secret) throw new Error('CASE_BATTLE_SEED_SECRET is not configured.')
+  return crypto.createHash('sha256').update(String(secret)).digest()
+}
+
+function encryptCaseBattleServerSeed(serverSeed) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getCaseBattleSeedEncryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  return `${iv.toString('hex')}.${cipher.getAuthTag().toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptCaseBattleServerSeed(encryptedSeed) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error('Invalid Case Battle server seed.')
+  const decipher = crypto.createDecipheriv('aes-256-gcm', getCaseBattleSeedEncryptionKey(), Buffer.from(ivHex, 'hex'))
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+  return Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8')
+}
+
+const CASE_BATTLE_ANIMATION_BASE_MS = 4_000
+const CASE_BATTLE_ROUND_MS = 6_000
+const caseBattleSettlementTimers = new Map()
+
+function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
+  const digest = crypto.createHmac('sha256', serverSeed)
+    .update(`${clientSeed}:${nonce}:${battleId}:${roundIndex}:${slotIndex}:${purpose}`)
+    .digest('hex')
+  return Number.parseInt(digest.slice(0, 13), 16) / 0x10000000000000
+}
+
+function pickCaseBattleItem(caseRow, fraction) {
+  const items = Array.isArray(caseRow?.items) ? caseRow.items : []
+  if (!items.length) throw new Error(`Case ${caseRow?.name || ''} has no configured drops.`)
+  const weights = items.map((item) => Math.max(0, Number(item?.chance || 0)))
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  let cursor = fraction * (total > 0 ? total : items.length)
+  let selected = items[items.length - 1]
+  for (let index = 0; index < items.length; index += 1) {
+    cursor -= total > 0 ? weights[index] : 1
+    if (cursor <= 0) { selected = items[index]; break }
+  }
+  return {
+    item_id: selected.item_id || selected.id || null,
+    name: String(selected.name || 'Unknown Item'),
+    image_url: String(selected.image_url || selected.image || ''),
+    value: Math.max(0, Math.round(Number(selected.value || 0))),
+    chance: Number(selected.chance || 0),
+  }
+}
+
+function resolveCaseBattleOutcome(battle, serverSeed) {
+  const players = Array.isArray(battle.players) ? battle.players : []
+  const cases = Array.isArray(battle.cases) ? battle.cases : []
+  const results = players.map((_, slotIndex) => cases.map((caseRow, roundIndex) => pickCaseBattleItem(
+    caseRow,
+    caseBattleRandomFraction(serverSeed, battle.client_seed, battle.nonce, battle.id, roundIndex, slotIndex),
+  )))
+  const totals = results.map((items) => items.reduce((sum, item) => sum + Number(item.value || 0), 0))
+  const modes = Array.isArray(battle.modes) ? battle.modes : ['normal']
+  const wild = modes.includes('wild')
+  const terminal = modes.includes('terminal')
+  const totalPot = totals.reduce((sum, value) => sum + value, 0)
+  let winnerIndexes = []
+
+  if (String(battle.player_option).startsWith('group-') || modes.includes('group')) {
+    winnerIndexes = players.map((_, index) => index)
+  } else if (modes.includes('coinflip')) {
+    winnerIndexes = [Math.min(players.length - 1, Math.floor(caseBattleRandomFraction(serverSeed, battle.client_seed, battle.nonce, battle.id, 0, 0, 'winner') * players.length))]
+  } else if (modes.includes('jackpot')) {
+    const weightTotal = totals.reduce((sum, value) => sum + Math.max(0, value), 0)
+    let cursor = caseBattleRandomFraction(serverSeed, battle.client_seed, battle.nonce, battle.id, 0, 0, 'winner') * (weightTotal || players.length)
+    let winnerIndex = players.length - 1
+    for (let index = 0; index < players.length; index += 1) {
+      cursor -= weightTotal ? Math.max(0, totals[index]) : 1
+      if (cursor <= 0) { winnerIndex = index; break }
+    }
+    winnerIndexes = [winnerIndex]
+  } else if (battle.player_option === 'team-4') {
+    const score = (index) => terminal ? Number(results[index]?.at(-1)?.value || 0) : totals[index]
+    const teamTotals = [score(0) + score(1), score(2) + score(3)]
+    const winningValue = wild ? Math.min(...teamTotals) : Math.max(...teamTotals)
+    winnerIndexes = teamTotals[0] === winningValue ? [0, 1] : [2, 3]
+  } else {
+    const scores = terminal ? results.map((items) => Number(items.at(-1)?.value || 0)) : totals
+    const winningValue = wild ? Math.min(...scores) : Math.max(...scores)
+    winnerIndexes = scores.map((value, index) => value === winningValue ? index : -1).filter((index) => index >= 0)
+  }
+
+  const winnerProfiles = winnerIndexes.map((index) => players[index]).filter(Boolean)
+  const baseShare = winnerProfiles.length ? Math.floor(totalPot / winnerProfiles.length) : 0
+  let remainder = totalPot - baseShare * winnerProfiles.length
+  const payouts = winnerProfiles.map((player) => ({
+    profile_id: String(player.profile_id),
+    amount: baseShare + (remainder-- > 0 ? 1 : 0),
+  }))
+  return { results, winnerIndexes, winnerProfiles, payouts, totalPot }
+}
+
+async function settleCaseBattle(battleId) {
+  caseBattleSettlementTimers.delete(String(battleId))
+  const rows = await adminRest(`case_battle_games?select=*&id=eq.${encodeURIComponent(battleId)}&limit=1`)
+  const battle = Array.isArray(rows) ? rows[0] : rows
+  if (!battle || battle.status !== 'active') return battle
+  const secretRows = await adminRest(`case_battle_fairness_secrets?select=server_seed_encrypted&battle_id=eq.${encodeURIComponent(battleId)}&limit=1`)
+  const secret = Array.isArray(secretRows) ? secretRows[0] : secretRows
+  const serverSeed = decryptCaseBattleServerSeed(secret?.server_seed_encrypted)
+  if (crypto.createHash('sha256').update(serverSeed).digest('hex') !== battle.server_seed_hash) {
+    throw new Error('Case Battle seed commitment is invalid.')
+  }
+  const result = await callRainRpc('settle_case_battle_game', { p_battle_id: battleId, p_server_seed: serverSeed })
+  const resolved = result?.battle
+  if (resolved) io.emit('case-battle:updated', resolved)
+  const profileIds = (result?.settlements || []).map((entry) => String(entry.profile_id))
+  void emitWalletRefreshes(profileIds)
+  return resolved
+}
+
+function scheduleCaseBattleSettlement(battle) {
+  const battleId = String(battle?.id || '')
+  if (!battleId || battle.status !== 'active' || !battle.settle_at) return
+  const existing = caseBattleSettlementTimers.get(battleId)
+  if (existing) clearTimeout(existing)
+  const delay = Math.max(0, new Date(battle.settle_at).getTime() - Date.now())
+  const timer = setTimeout(() => void settleCaseBattle(battleId).catch((error) => console.error('[case-battles] settlement error', error)), delay)
+  caseBattleSettlementTimers.set(battleId, timer)
+}
+
+async function startCaseBattle(battle) {
+  if (!battle || !['waiting', 'ready'].includes(battle.status) || Number(battle.player_count) < Number(battle.max_players)) return battle
+  const secretRows = await adminRest(`case_battle_fairness_secrets?select=server_seed_encrypted&battle_id=eq.${encodeURIComponent(battle.id)}&limit=1`)
+  const secret = Array.isArray(secretRows) ? secretRows[0] : secretRows
+  const serverSeed = decryptCaseBattleServerSeed(secret?.server_seed_encrypted)
+  const outcome = resolveCaseBattleOutcome(battle, serverSeed)
+  const startedAt = new Date()
+  const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(battle.case_count) * CASE_BATTLE_ROUND_MS)
+  const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}&status=in.(waiting,ready)`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: {
+      status: 'active', results: outcome.results,
+      winner_profile_id: outcome.winnerProfiles[0]?.profile_id || null,
+      winner_profile_ids: outcome.winnerProfiles.map((player) => String(player.profile_id)),
+      payouts: outcome.payouts, payout_value: outcome.totalPot,
+      started_at: startedAt.toISOString(), settle_at: settleAt.toISOString(), updated_at: startedAt.toISOString(),
+    },
+  })
+  const patched = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows
+  let updated = patched
+  if (patched?.id) {
+    const fullRows = await adminRest(`case_battle_games?select=*&id=eq.${encodeURIComponent(patched.id)}&limit=1`)
+    updated = Array.isArray(fullRows) ? fullRows[0] : fullRows
+  }
+  if (updated) {
+    io.emit('case-battle:updated', updated)
+    scheduleCaseBattleSettlement(updated)
+  }
+  return updated || battle
+}
+
+async function initializeCaseBattles() {
+  try {
+    const rows = await adminRest('case_battle_games?select=*&status=in.(ready,active)&order=created_at.asc')
+    for (const battle of Array.isArray(rows) ? rows : []) {
+      if (battle.status === 'active') scheduleCaseBattleSettlement(battle)
+      else if (Number(battle.player_count) >= Number(battle.max_players)) await startCaseBattle(battle)
+    }
+  } catch (error) {
+    console.warn('[case-battles] initialisation skipped', error?.message || error)
+  }
+}
+
+app.get('/api/case-battles', async (_req, res) => {
+  try {
+    const rows = await adminRest(
+      'case_battle_games?select=*&status=in.(waiting,ready,active,resolved)&order=created_at.desc&limit=50',
+    )
+    res.json({ ok: true, battles: Array.isArray(rows) ? rows : [] })
+  } catch (error) {
+    console.error('[api/case-battles] list error', error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load Case Battles.' })
+  }
+})
+
+app.get('/api/case-battles/:battleId', async (req, res) => {
+  const battleId = String(req.params?.battleId || '').trim()
+  if (!isUuidLike(battleId)) {
+    res.status(400).json({ ok: false, error: 'The Case Battle ID is invalid.' })
+    return
+  }
+  try {
+    const rows = await adminRest(
+      `case_battle_games?select=*&id=eq.${encodeURIComponent(battleId)}&limit=1`,
+    )
+    const battle = Array.isArray(rows) ? rows[0] || null : rows
+    if (!battle) {
+      res.status(404).json({ ok: false, error: 'This Case Battle could not be found.' })
+      return
+    }
+    res.json({ ok: true, battle })
+  } catch (error) {
+    console.error('[api/case-battles] view error', error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load this Case Battle.' })
+  }
+})
+
+app.post('/api/case-battles', express.json({ limit: '64kb' }), requireAuthenticatedUser, async (req, res) => {
+  const requestId = String(req.body?.request_id || '').trim()
+  const playerOption = String(req.body?.player_option || '').trim()
+  const caseIds = Array.isArray(req.body?.case_ids) ? req.body.case_ids.map((id) => String(id || '').trim()) : []
+  const maxPlayers = CASE_BATTLE_PLAYER_OPTIONS.get(playerOption)
+
+  if (!isUuidLike(requestId) || !maxPlayers || caseIds.length < 1 || caseIds.length > 25 || caseIds.some((id) => !isUuidLike(id))) {
+    res.status(400).json({ ok: false, error: 'Select between 1 and 25 valid cases and a valid player layout.' })
+    return
+  }
+
+  try {
+    const modes = normalizeCaseBattleModes(req.body?.modes ?? req.body?.mode)
+    const profileId = String(req.identity.profileId)
+    const existingRows = await adminRest(
+      `case_battle_games?select=*&idempotency_key=eq.${encodeURIComponent(requestId)}&creator_profile_id=eq.${encodeURIComponent(profileId)}&limit=1`,
+    )
+    const existingBattle = Array.isArray(existingRows) ? existingRows[0] || null : existingRows
+    if (existingBattle) {
+      res.json({ ok: true, battle: existingBattle, replayed: true })
+      return
+    }
+
+    const uniqueCaseIds = [...new Set(caseIds)]
+    const caseRows = await adminRest(
+      `cases?select=uuid,name,price,image_url,items,community,active&uuid=in.(${uniqueCaseIds.join(',')})&active=eq.true`,
+    )
+    const casesById = new Map((Array.isArray(caseRows) ? caseRows : []).map((row) => [String(row.uuid), row]))
+    const caseSnapshots = caseIds.map((caseId) => casesById.get(caseId))
+    if (caseSnapshots.some((caseRow) => !caseRow)) {
+      res.status(400).json({ ok: false, error: 'One or more selected cases are no longer available.' })
+      return
+    }
+
+    const profile = await loadProfileById(profileId)
+    if (!profile) {
+      res.status(404).json({ ok: false, error: 'Your profile could not be found.' })
+      return
+    }
+
+    const createdAt = new Date().toISOString()
+    const serverSeed = crypto.randomBytes(32).toString('hex')
+    const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+    const normalizedCases = caseSnapshots.map((caseRow) => ({
+      uuid: caseRow.uuid,
+      name: caseRow.name,
+      price: Number(caseRow.price || 0),
+      image_url: String(caseRow.image_url || '').trim(),
+      items: Array.isArray(caseRow.items) ? caseRow.items : [],
+      community: Boolean(caseRow.community),
+    }))
+    const creator = {
+      slot_index: 0,
+      profile_type: 'user',
+      profile_id: profileId,
+      username: String(profile.username || 'user'),
+      avatar_url: String(profile.avatar_url || '').trim() || null,
+      avatar_headshot_url: String(profile.avatar_headshot_url || '').trim() || null,
+      joined_at: createdAt,
+    }
+    const result = await callRainRpc('create_case_battle_game', {
+      p_idempotency_key: requestId,
+      p_profile_id: profileId,
+      p_player_option: playerOption,
+      p_max_players: maxPlayers,
+      p_modes: modes,
+      p_cases: normalizedCases,
+      p_cost_per_player: normalizedCases.reduce((sum, caseRow) => sum + Number(caseRow.price || 0), 0),
+      p_creator: creator,
+      p_server_seed_hash: serverSeedHash,
+      p_server_seed_encrypted: encryptCaseBattleServerSeed(serverSeed),
+      p_client_seed: createCaseClientSeed(),
+    })
+    const battle = result?.battle || null
+    if (!battle) throw new Error('The Case Battle was not returned after creation.')
+    io.emit('case-battle:created', battle)
+    void emitWalletRefreshes([profileId])
+    res.status(result?.replayed ? 200 : 201).json({ ok: true, battle, balance: result?.balance, replayed: Boolean(result?.replayed) })
+  } catch (error) {
+    const message = error?.message || 'Unable to create this Case Battle.'
+    const expected = /select|case|mode|profile|available|balance|cost/i.test(message)
+    console.warn('[api/case-battles] create error', message)
+    res.status(expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/case-battles/:battleId/call-bot', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const battleId = String(req.params?.battleId || '').trim()
+  if (!isUuidLike(battleId)) {
+    res.status(400).json({ ok: false, error: 'The Case Battle ID is invalid.' })
+    return
+  }
+
+  try {
+    const rows = await adminRest(`case_battle_games?select=*&id=eq.${encodeURIComponent(battleId)}&limit=1`)
+    const battle = Array.isArray(rows) ? rows[0] || null : rows
+    if (!battle) {
+      res.status(404).json({ ok: false, error: 'This Case Battle could not be found.' })
+      return
+    }
+    if (String(battle.creator_profile_id) !== String(req.identity.profileId)) {
+      res.status(403).json({ ok: false, error: 'Only the battle creator can call a bot.' })
+      return
+    }
+    if (battle.status !== 'waiting' || Number(battle.player_count) >= Number(battle.max_players)) {
+      res.status(409).json({ ok: false, error: 'This Case Battle is no longer waiting for a bot.' })
+      return
+    }
+
+    const players = Array.isArray(battle.players) ? battle.players : []
+    const usedBotIds = new Set(players.filter((player) => player?.profile_type === 'bot').map((player) => String(player.profile_id)))
+    const botRows = await adminRest('bot_profiles?select=*&order=username.asc')
+    const availableBots = (Array.isArray(botRows) ? botRows : []).filter((bot) => !usedBotIds.has(String(bot.id)))
+    if (!availableBots.length) {
+      res.status(409).json({ ok: false, error: 'No bot profile is currently available.' })
+      return
+    }
+
+    const requestedSlot = Number(req.body?.slot_index)
+    const occupiedSlots = new Set(players.map((player) => Number(player?.slot_index)))
+    const firstOpenSlot = Array.from({ length: Number(battle.max_players) }, (_, index) => index)
+      .find((index) => !occupiedSlots.has(index))
+    const slotIndex = Number.isInteger(requestedSlot) && requestedSlot > 0 && requestedSlot < Number(battle.max_players) && !occupiedSlots.has(requestedSlot)
+      ? requestedSlot
+      : firstOpenSlot
+    if (!Number.isInteger(slotIndex)) {
+      res.status(409).json({ ok: false, error: 'This Case Battle has no open player slot.' })
+      return
+    }
+
+    const requestedBotId = String(req.body?.bot_profile_id || '').trim()
+    const bot = (requestedBotId
+      ? availableBots.find((candidate) => String(candidate.id) === requestedBotId)
+      : null) || availableBots[Math.floor(Math.random() * availableBots.length)]
+    const updatedPlayers = players.concat({
+      slot_index: slotIndex,
+      profile_type: 'bot',
+      profile_id: String(bot.id),
+      username: String(bot.username || 'Bot'),
+      avatar_url: String(bot.avatar_url || '').trim() || null,
+      avatar_headshot_url: String(bot.avatar_headshot_url || '').trim() || null,
+      joined_at: new Date().toISOString(),
+    })
+    const nextCount = updatedPlayers.length
+    const updatedRows = await adminRest(
+      `case_battle_games?id=eq.${encodeURIComponent(battleId)}&status=eq.waiting&player_count=eq.${Number(battle.player_count)}`,
+      {
+        method: 'PATCH',
+        body: {
+          players: updatedPlayers,
+          player_count: nextCount,
+          status: nextCount >= Number(battle.max_players) ? 'ready' : 'waiting',
+          updated_at: new Date().toISOString(),
+        },
+        headers: { Prefer: 'return=representation' },
+      },
+    )
+    const updatedBattle = Array.isArray(updatedRows) ? updatedRows[0] || null : updatedRows
+    if (!updatedBattle) {
+      res.status(409).json({ ok: false, error: 'The Case Battle changed while the bot was joining.' })
+      return
+    }
+    const responseBattle = nextCount >= Number(battle.max_players)
+      ? await startCaseBattle(updatedBattle)
+      : updatedBattle
+    if (responseBattle === updatedBattle) io.emit('case-battle:updated', updatedBattle)
+    res.json({ ok: true, battle: responseBattle })
+  } catch (error) {
+    const message = error?.message || 'Unable to call a bot.'
+    console.warn('[api/case-battles] call bot error', message)
+    res.status(/creator/i.test(message) ? 403 : /waiting|open|available|changed/i.test(message) ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/case-battles/:battleId/cancel', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const battleId = String(req.params?.battleId || '').trim()
+  if (!isUuidLike(battleId)) {
+    res.status(400).json({ ok: false, error: 'The Case Battle ID is invalid.' })
+    return
+  }
+  try {
+    const result = await callRainRpc('cancel_case_battle_game', {
+      p_battle_id: battleId,
+      p_profile_id: String(req.identity.profileId),
+    })
+    const battle = result?.battle || null
+    if (!battle) {
+      res.status(409).json({ ok: false, error: 'This Case Battle cannot be cancelled.' })
+      return
+    }
+    io.emit('case-battle:updated', battle)
+    void emitWalletRefreshes([req.identity.profileId])
+    res.json({ ok: true, battle, balance: result?.balance })
+  } catch (error) {
+    console.warn('[api/case-battles] cancel error', error?.message || error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to cancel this Case Battle.' })
+  }
+})
+
 async function ensureCaseFairnessState(profileId) {
   const seed = createCaseFairnessSeed()
   return callRainRpc('ensure_case_fairness_state', {
@@ -4416,5 +4850,7 @@ try {
 } catch (error) {
   console.error('[roll] initialisation failed; the state route will retry', error)
 }
+
+await initializeCaseBattles()
 
 startServer(PORT)

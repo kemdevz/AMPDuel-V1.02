@@ -12,6 +12,9 @@ import {
   Zap,
 } from "lucide-react";
 import { getInventoryItemAccent } from "../components/InventoryItemCard";
+import { notifications } from "../components/Notifications";
+import SortDirectionIcon from "../components/SortDirectionIcon";
+import { apiRequest } from "../lib/apiClient";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../store/auth";
 import { formatPriceValue } from "../Utils/FormatPriceValues";
@@ -20,7 +23,6 @@ const COIN_ICON = "/bobux.png";
 const PICKER_SEARCH_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAASDSURBVGhD7ZnJbh1FFIa76ibECSuww6BcJglCJthkCwRWCCkIIR4hXDACiUeI8gAskDLbeYpEUVhBYMEGkBIRxwTEEBkwg80KE7i5Xfx/53fLPdzurh7gLvxJ1j2n5K6qv+vUqaGDTSYMo99WeOeIm5cZcfyceV1m5zQS8tYgvOSC4KB1wT3WmZ6KE4TGjfC3agLz+ak5+5KKW6eWkNlBuNgLzW487PU8RLvbNlw8M9fbp6LW8OrI7GD08ZbQPgOz0UhS0Mi6T07P2UMqakzlDmEUlreE5n65rXDbumWIeVBuIyoJwVxYQyhtl5thZNyt0LqbxpnfMF9+ZFlogr4zbsaG5uGeM1PRP+aAkVnD3Llbbm1KhRSJwBv9Cm90j9xCEJZXEZZPyU3QhphCIePCCQJWTp81OwNjEO4eOGdm33C/o857VRKDJIAw69UOM6vfDHcmdlbE0IYLGIUZbxEEz+DZadRxXSUxGK0H8OI+kuvNWCHKTgkoAqlzv9zaMP2irkW5MQjh52R6kyuE6wR+EmHHcGpDxDqoay/qXJUbgQbNm4PRNble5ArhYiczJpoTLYM6Z2TGIBL2yvQiI4TbDr4ZuRFRGNSZE2WgTmY+eRFsG324KLcyGSHo7UGZMQwDma2Tl77z+lBGRgg3gDIjuNjJ7Ix0G+jDtMzK5AhJ7mK5YsvsDLSxJDNi3E66iISQ9HmCcNshszPQxi8yY/L6UkRmRNJgmH+S2RlttFEqBCQyWEd4h1KaUiHYxbayzS4CbTQ+HiSE5J2xsRVvfSFMgzYyQnzP+5kR4RlbZgTPEzI7A208JDMCfRjKrEyOkOAPmRFFh6I2YHZCG9vkRqAPmSxWRkYIZvZnMmO0ieyEYS98VmYMstgXMiuTEcIrG2wREvsqnEue5KFIbnugzq0jm9igMrRPzttX5FYmI4TwykZmDE92MlsDda7IjIGQKzK9GPuW3z7iEKqZXfB1HorkNoLhGo30BjDm4Yl5/+0JyR0RwnsnmTFbcVbAwSdzTPUlTwQJA+e9fV9nrBBsrw/hrLAsNwZi9qAjK7XmDC8fBuFqnghyedfCazK9Ke0MDjl/4sS4Q26CoXU3zszZ3E5thCmW2Sk9sdMwyVzof7/jh2OPeR8dKr3VIjFEF3RL2MX+itS5fkG3Cyv2fVzs0utEERTzYf/a1MKxA/+oqBKVw2N2MPqZVzZyO4ViPnj66+3fvLv7bxWVMnaOpOHlGebM5fQaUwdmJ/7c8bLg7ZoXrz7x1+Pv36g8kpWFECSA50+cM5b3W3UEUQDm1RWm2POYC0V1+IqpHFp58LYDPeGHnumCDz1DzJdV44JPT83bV1Uc8cjR76YOLz26xk6rKAPFVgmzRkLS1Pn0tu/ol3e9sLT/VpmYsmzWqpC6VBEDHMNxnJiJEEKaipkYIaSJGK+s1TVcBLkYFmUzYF5Ggui/dzPx8WmihBCK4cQuE3N4sf+t7IiJE0IYNkUjw091WNMStzsTNUfS5M2Zcd8bJ1oI2SimrS/A/xvcAXDTKneTTf47guBfRB/4oi5eINMAAAAASUVORK5CYII=";
 const TICK_SOUND = "/tick-CkSUroeR.mp3";
 const PULL_SOUND = "/pull-Ce7kkHjK.mp3";
-const SUCCESS_SOUND = "/success-jgkLyONA.mp3";
 const REEL_LENGTH = 80;
 const REEL_ITEM_STRIDE = 125;
 const REEL_STOP_INDEX = 60;
@@ -153,44 +155,6 @@ function toggleSelectedMode(currentMode, clickedMode) {
   return buildCombinedModeValue([...nextModes]);
 }
 
-const BOT_PLAYERS = [
-  {
-    name: "Speedy",
-    avatar: "https://i.ibb.co/c0rYxhG/g-rsel-2026-01-25-172104368.png",
-  },
-  {
-    name: "Ricky",
-    avatar: "https://i.ibb.co/V0TZRNMN/no-Filter.png",
-  },
-  {
-    name: "Kayne",
-    avatar: "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C6866C5603AD54179A7C326D938EBDDD-Png/420/420/AvatarHeadshot/Png/noFilter",
-  },
-];
-
-const LIST_BATTLE_LAYOUTS = {
-  active: {
-    caseCount: 25,
-    players: [
-      BOT_PLAYERS[0].avatar,
-      BOT_PLAYERS[1].avatar,
-      BOT_PLAYERS[2].avatar,
-      "/login.png",
-    ],
-    versus: true,
-    modes: ["wild", "jackpot"],
-  },
-  finished: {
-    caseCount: 8,
-    players: [
-      BOT_PLAYERS[2].avatar,
-      BOT_PLAYERS[1].avatar,
-    ],
-    versus: false,
-    modes: ["group"],
-  },
-};
-
 function WildModeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -282,14 +246,12 @@ function PickerEyeIcon() {
   );
 }
 
-function SortStackIcon({ ascending = false }) {
+function PickerSearchIcon() {
   return (
-    <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="bb-picker-search-icon" aria-hidden="true">
       <path
-        d={ascending
-          ? "M13 3.793V9h-2V3.864L9.914 4.95 8.5 3.536 12.036 0l3.535 3.536-1.414 1.414L13 3.793zM8 10H0V8h8v2zm6 3H0v-2h14v2zm2 3H0v-2h16v2zM6 7H0V5h6v2zM4 4H0V2h4v2z"
-          : "M13 12.208V7h-2v5.137l-1.086-1.086L8.5 12.466 12.036 16l3.535-3.535-1.414-1.415L13 12.208zM8 6H0v2h8V6zm6-3H0v2h14V3zm2-3H0v2h16V0zM6 9H0v2h6V9zm-2 3H0v2h4v-2z"}
-        fillRule="evenodd"
+        fill="currentColor"
+        d="M9.75 3.5a6.25 6.25 0 0 1 4.96 10.06l4.36 4.36a1 1 0 0 1-1.42 1.41l-4.35-4.35A6.25 6.25 0 1 1 9.75 3.5Zm0 2a4.25 4.25 0 1 0 0 8.5 4.25 4.25 0 0 0 0-8.5Z"
       />
     </svg>
   );
@@ -399,9 +361,20 @@ function CreationModeIcon({ type }) {
 }
 
 function BattleModeIcon({ type }) {
-  const Icon = type === "wild" ? WildModeIcon : type === "group" ? GroupModeIcon : JackpotModeIcon;
+  const Icon = type === "normal"
+    ? NormalCreationIcon
+    : type === "group"
+      ? GroupModeIcon
+      : type === "coinflip"
+        ? CoinflipCreationIcon
+        : type === "jackpot"
+          ? JackpotModeIcon
+          : type === "terminal"
+            ? TerminalCreationIcon
+            : WildModeIcon;
+  const title = MODE_OPTIONS.find((option) => option.id === type)?.title || "Normal";
   return (
-    <span className={`bb-row-mode-icon bb-row-mode-${type}`}>
+    <span className={`bb-row-mode-icon bb-row-mode-${type}`} title={title} aria-label={`${title} mode`}>
       <Icon />
     </span>
   );
@@ -433,43 +406,35 @@ const BATTLE_STYLES = String.raw`
   .bb-btn {
     position: relative;
     isolation: isolate;
-    display: flex;
-    height: 40px;
+    display: inline-flex;
+    height: 42px;
     min-width: 120px;
     align-items: center;
     justify-content: center;
     gap: 8px;
     overflow: hidden;
     box-sizing: border-box;
-    padding: 0 20px;
+    padding: 0 16px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     color: #fff;
     font-size: .9rem;
     font-weight: 600;
     letter-spacing: .01em;
     cursor: pointer;
     transform-origin: center;
-    transition: transform .13s cubic-bezier(.22,1,.36,1),filter .14s ease;
-    padding: 0 20px;
-    border: 0;
-    border-radius: 6px;
-    color: #fff;
-    font-size: .9rem;
-    font-weight: 600;
-    letter-spacing: .01em;
-    cursor: pointer;
-    transform-origin: center;
-    transition: transform .13s cubic-bezier(.22,1,.36,1), filter .14s ease;
+    transition: opacity .2s ease,transform .1s ease,background .25s ease;
   }
 
-  .bb-btn:hover:not(:disabled) { filter: brightness(1.07); }
-  .bb-btn:active:not(:disabled) { transform: scale(.98); }
+  .bb-btn:active:not(:disabled) { transform: scale(.97); }
   .bb-btn:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
-  .bb-btn:disabled { cursor: not-allowed; opacity: .6; }
-  .bb-btn-primary { background: linear-gradient(180deg,#8079ff 0%,#6c63ff 45%,#5a51e6 100%); }
-  .bb-btn-danger { background: linear-gradient(180deg,#ff6b6b 0%,#ff4d4d 45%,#e03131 100%); }
-  .bb-btn-secondary { color: #c7cce2; background: linear-gradient(180deg,#353d5b 0%,#2a3048 45%,#212538 100%); }
+  .bb-btn:disabled { cursor: not-allowed; opacity: .6; transform: none; filter: none; }
+  .bb-btn-primary { border: 1px solid rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); box-shadow: 0 2px 8px rgba(108,99,255,.2); }
+  .bb-btn-primary:hover:not(:disabled) { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
+  .bb-btn-danger { border: 1px solid rgba(224,49,49,.42); background: linear-gradient(135deg,#ff5f5f,#c92a2a); box-shadow: 0 2px 8px rgba(255,77,77,.16); }
+  .bb-btn-danger:hover:not(:disabled) { background: linear-gradient(135deg,#ff6b6b,#e03131); opacity: .95; }
+  .bb-btn-secondary { border: 0; background: #2a2e44; box-shadow: none; color: #e1e4f2; }
+  .bb-btn-secondary:hover:not(:disabled) { background: #32385a; }
 
   .bb-list {
     container-type: inline-size;
@@ -557,17 +522,21 @@ const BATTLE_STYLES = String.raw`
   .bb-row-badges { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
   .bb-round-badge { padding: 4px 10px; color: rgba(225,228,242,.85); font-size: 14px; font-weight: 600; }
   .bb-row-players { position: relative; display: flex; width: 220px; min-width: 220px; align-items: center; justify-content: center; gap: 10px; }
-  .bb-row-avatar { width: 38px; height: 38px; overflow: hidden; padding: 0; border: 2px solid rgba(255,255,255,.08); border-radius: 999px; background: #1c1f2e; }
+  .bb-row-avatar { display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; overflow: hidden; padding: 0; border: 2px solid rgba(255,255,255,.08); border-radius: 999px; background: #1c1f2e; }
   .bb-row-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
+  .bb-row-avatar-open { color: #6c7399; font-size: 18px; font-weight: 500; line-height: 1; }
   .bb-vs { position: absolute; top: 50%; left: 50%; padding: 5px; color: rgba(225,228,242,.78); font-size: 11px; font-weight: 900; letter-spacing: .9px; transform: translate(-50%,-50%); }
   .bb-row-player-before-vs { margin-right: 15px; }
   .bb-row-player-after-vs { margin-left: 15px; }
   .bb-row-mode { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-  .bb-row-mode-icon { display: inline-flex; width: 28px; height: 28px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 8px; cursor: default; }
+  .bb-row-mode-icon { display: inline-grid; width: 28px; height: 28px; box-sizing: border-box; flex-shrink: 0; place-items: center; padding: 5px; border-radius: 8px; line-height: 0; cursor: default; }
+  .bb-row-mode-normal { color: #6c63ff; background: rgba(108,99,255,.133); }
   .bb-row-mode-wild { color: #22c55e; background: rgba(34,197,94,.133); }
   .bb-row-mode-jackpot { color: #f59e0b; background: rgba(245,158,11,.133); }
   .bb-row-mode-group { color: #2dd4bf; background: rgba(45,212,191,.133); }
-  .bb-row-mode-icon svg { width: 17px; height: 17px; }
+  .bb-row-mode-coinflip { color: #38bdf8; background: rgba(56,189,248,.133); }
+  .bb-row-mode-terminal { color: #ef4444; background: rgba(239,68,68,.133); }
+  .bb-row-mode-icon svg { display: block; width: 17px; height: 17px; margin: auto; }
 
   .bb-row-reel {
     position: relative;
@@ -633,7 +602,7 @@ const BATTLE_STYLES = String.raw`
   .bb-cost-label { color: rgba(176,184,193,.7); font-size: 14px; font-weight: 700; }
   .bb-cost-value { display: flex; align-items: center; justify-content: center; gap: 6px; color: rgba(225,228,242,.95); font-size: 15px; font-weight: 600; }
   .bb-cost-value img { width: 16px; height: 16px; object-fit: contain; }
-  .bb-row-view { min-width: 155px; height: 45px; border-radius: 7px; font-size: 16px; font-weight: 700; transition: none; }
+  .bb-row-view { min-width: 155px; }
 
   .bb-create-page { min-height: 100%; color: #e1e4f2; font-family: system-ui,sans-serif; font-weight: 450; }
   .bb-create-inner { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
@@ -646,7 +615,7 @@ const BATTLE_STYLES = String.raw`
 
   .bb-switch {
     display: inline-flex;
-    height: 38px;
+    height: 40px;
     align-items: center;
     gap: 8px;
     padding: 0 12px;
@@ -728,7 +697,7 @@ const BATTLE_STYLES = String.raw`
   .bb-mode-desc { display: block; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.5; }
   .bb-create-header-right > .bb-btn { white-space: nowrap; }
 
-  .bb-picker-backdrop,.bb-preview-backdrop,.bb-simple-backdrop {
+  .bb-picker-backdrop,.bb-preview-backdrop,.bb-fairness-backdrop {
     position: fixed;
     z-index: 9999;
     inset: 0;
@@ -760,16 +729,15 @@ const BATTLE_STYLES = String.raw`
   .bb-modal-close { position: absolute; z-index: 50; top: 5px; right: 10px; padding: 0; border: 0; background: none; color: #fff; font-size: 24px; line-height: 1; opacity: .8; cursor: pointer; transition: opacity .3s ease,transform .2s ease; }
   .bb-modal-close:hover { opacity: 1; }
   .bb-picker-header { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 12px; box-sizing: border-box; margin: 4px 0 12px; padding-right: 48px; }
-  .bb-picker-tabs { display: flex; flex-shrink: 0; gap: 4px; padding: 4px; border-radius: 8px; background: #1c1f2e; }
-  .bb-picker-tab { padding: 5px 14px; border: 0; border-radius: 6px; background: transparent; color: #6c7399; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background .15s,color .15s; }
-  .bb-picker-tab:hover { color: #c7cce2; }
-  .bb-picker-tab-active { background: #20222f; color: #e1e4f2; }
   .bb-picker-search-row { display: flex; align-items: center; gap: 10px; }
   .bb-picker-input-wrap { position: relative; display: flex; flex-grow: 1; }
-  .bb-picker-input { width: 300px; height: 40px; box-sizing: border-box; padding: 10px 18px 10px 42px; border: 0; border-radius: 6px; outline: 0; background: #1c1f2e; color: #fff; font-size: .9rem; }
-  .bb-picker-input::placeholder { color: #cbd5e1; }
-  .bb-picker-search-icon { position: absolute; top: 50%; left: 15px; width: 20px; height: 20px; color: #cbd5e1; transform: translateY(-50%); pointer-events: none; }
-  .bb-sort { width: 40px; height: 40px; min-width: 0; padding: 0; }
+  .bb-picker-input { width: 300px; height: 40px; box-sizing: border-box; padding: 10px 18px; border: 2px solid #323240; border-radius: 5px; outline: 0; background: #1c1f2e; box-shadow: 0 10px 7.8px rgba(0,0,0,.15); color: #fff; font-size: .9rem; opacity: .9; text-align: center; }
+  .bb-picker-input::placeholder { color: #cbd5e1; text-align: center; }
+  .bb-picker-search-icon { position: absolute; z-index: 1; top: 50%; left: 15px; width: 20px; height: 20px; color: #cbd5e1; transform: translateY(-50%); pointer-events: none; }
+  .bb-sort { display: inline-flex; width: 40px; height: 40px; min-width: 40px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: #20222f; color: #e1e4f2; cursor: pointer; transition: background .15s; }
+  .bb-sort:hover { background: #2a2e44; }
+  .bb-sort:active { transform: scale(.97); }
+  .bb-sort:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
   .bb-picker-grid-wrap { position: relative; height: 440px; overflow-x: hidden; overflow-y: auto; margin-top: 14px; padding: 12px; scrollbar-color: rgba(255,255,255,.08) transparent; }
   .bb-picker-grid-wrap::-webkit-scrollbar { width: 8px; }
   .bb-picker-grid-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -820,8 +788,10 @@ const BATTLE_STYLES = String.raw`
   .bb-battle-back-icon { color: rgba(255,255,255,.9); }
   .bb-battle-cost { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: #fff; font-weight: 600; }
   .bb-battle-cost img { width: 16px; height: 16px; }
-  .bb-icon-action { display: inline-flex; height: 34px; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; border: 0; border-radius: 6px; outline: none; box-shadow: none; background: transparent; color: #e1e4f2; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: opacity .15s; }
-  .bb-icon-action:hover { opacity: .75; }
+  .bb-icon-action { display: inline-flex; height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; border: 0; border-radius: 8px; outline: none; box-shadow: none; background: transparent; color: #e1e4f2; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transform-origin: center; transition: opacity .15s ease,transform .1s ease; }
+  .bb-icon-action:hover { background: transparent; opacity: .75; }
+  .bb-icon-action:active { transform: scale(.97); }
+  .bb-icon-action:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
 
   .bb-battle-meta { position: relative; display: grid; min-height: 73px; grid-template-columns: 1fr 1fr; align-items: center; width: 100%; margin-bottom: 14px; }
   .bb-battle-meta-left { display: flex; min-width: 0; align-items: center; gap: 8px; justify-self: start; }
@@ -850,7 +820,7 @@ const BATTLE_STYLES = String.raw`
   .bb-ready,.bb-waiting { display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
   .bb-ready-text,.bb-waiting-text { display: flex; align-items: center; color: rgba(255,255,255,.66); font-size: 14px; font-weight: 700; }
   .bb-ready-text span { color: rgba(220,225,255,.95); }
-  .bb-mini-button { height: 34px; min-width: 0; margin-top: 12px; padding: 0 14px; }
+  .bb-mini-button { height: 40px; min-width: 0; margin-top: 12px; padding: 0 14px; }
   .bb-spinner-footer { position: absolute; z-index: 50; right: 0; bottom: 14px; left: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
   .bb-spinner-footer > * { pointer-events: auto; }
   .bb-spinner-note { color: rgba(255,255,255,.6); font-size: 12px; font-weight: 700; letter-spacing: .2px; text-align: center; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
@@ -869,7 +839,7 @@ const BATTLE_STYLES = String.raw`
   .bb-reel-result-value { display: flex; margin-top: 6px; align-items: center; justify-content: flex-start; gap: 8px; color: #fff; font-size: 14px; font-weight: 700; }
   .bb-reel-result-value img { width: 18px; height: 18px; object-fit: contain; }
 
-  .bb-countdown { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.3); backdrop-filter: blur(4px); }
+  .bb-countdown { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.72); backdrop-filter: none; }
   .bb-countdown-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .bb-countdown-title { margin-bottom: 8px; color: rgba(255,255,255,.32); font-size: 15px; font-weight: 500; line-height: 1; text-transform: uppercase; letter-spacing: 2.5px; }
   .bb-countdown-number { color: #fff; font-size: 68px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; animation: bb-countdown-up .38s cubic-bezier(.22,1,.36,1) both; }
@@ -888,7 +858,7 @@ const BATTLE_STYLES = String.raw`
   .bb-winner-amount img { width: 16px; height: 16px; opacity: .95; }
   .bb-winner-sub { margin-top: 6px; color: rgba(255,255,255,.62); font-size: 12px; font-weight: 700; }
   .bb-winner-tie-note { margin-top: 8px; opacity: .85; }
-  .bb-recreate { height: 38px; margin-top: 16px; padding: 0 18px; font-size: 13px; letter-spacing: .4px; }
+  .bb-recreate { margin-top: 16px; padding: 0 18px; font-size: 13px; letter-spacing: .4px; }
 
   .bb-bottom-box { position: relative; overflow: hidden; margin-top: 14px; padding: 14px; border-radius: 6px; background: #1c1f2e; }
   .bb-players-scroller-outer { position: relative; z-index: 3; width: 100%; overflow: hidden; border-radius: 10px; }
@@ -928,10 +898,32 @@ const BATTLE_STYLES = String.raw`
   @keyframes bb-created-toast-in { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes bb-created-toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
-  .bb-simple-modal { position: relative; width: min(420px,calc(100% - 32px)); box-sizing: border-box; padding: 22px; border: 1px solid #252839; border-radius: 10px; background: #171925; color: #e1e4f2; animation: bb-modal-open .18s ease-out both; }
-  .bb-simple-title { margin: 0 0 6px; color: #fff; font-size: 17px; font-weight: 700; }
-  .bb-simple-copy { margin: 0 0 18px; color: rgba(225,228,242,.5); font-size: 12px; line-height: 1.6; }
-  .bb-seed { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-radius: 7px; background: #1c1f2e; color: #a6b2d3; font-family: monospace; font-size: 11px; overflow-wrap: anywhere; }
+  .bb-fairness-backdrop { z-index: 2147483100; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,.58); transition: opacity 180ms ease; }
+  .bb-fairness-backdrop.is-closing { opacity: 0; }
+  .bb-fairness-modal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: bb-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease,transform 180ms ease; }
+  .bb-fairness-modal.is-closing { opacity: 0; transform: scale(.97) translateY(6px); }
+  .bb-fairness-close { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease,transform 140ms ease; }
+  .bb-fairness-close:hover { color: #fff; }
+  .bb-fairness-close:active { transform: scale(.92); }
+  .bb-fairness-header { margin: 0 38px 12px 0; color: #fff; font-size: 24px; font-weight: 700; line-height: 1.25; }
+  .bb-fairness-hint { margin: 0 0 22px; color: #a6b2d3; font-size: 12px; font-weight: 500; line-height: 1.65; }
+  .bb-fairness-section + .bb-fairness-section { margin-top: 19px; }
+  .bb-fairness-section-title { display: block; margin-bottom: 8px; color: rgba(255,255,255,.68); font-size: 13px; font-weight: 600; }
+  .bb-fairness-input { display: flex; min-width: 0; min-height: 42px; box-sizing: border-box; align-items: center; gap: 10px; padding: 12px 13px; border: 0; border-radius: 6px; background: #1c1f2e; }
+  .bb-fairness-value { display: block; min-width: 0; flex: 1; overflow: hidden; color: rgba(255,255,255,.88); font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+  .bb-fairness-copy { display: inline-flex; width: 18px; height: 18px; flex: 0 0 18px; align-items: center; justify-content: center; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: #fff; cursor: pointer; transition: color 140ms ease; }
+  .bb-fairness-copy svg { width: 18px; height: 18px; }
+  .bb-fairness-copy:hover { color: rgba(255,255,255,.72); }
+  .bb-fairness-copy:active { transform: scale(.93); }
+  .bb-fairness-copy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+  .bb-fairness-pending { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
+  .bb-fairness-reveal { margin-top: 1.4rem; padding: 1rem; border-radius: 6px; background: rgba(108,99,255,.06); animation: bb-fairness-modal-in .24s ease-out both; }
+  .bb-fairness-reveal-title { display: block; color: #e1e4f2; font-size: 13px; font-weight: 700; }
+  .bb-fairness-reveal-description { display: block; margin-top: 5px; color: #a6b2d3; font-size: 11px; font-weight: 500; line-height: 1.55; }
+  .bb-fairness-reveal-section { margin-top: .6rem; }
+  .bb-fairness-reveal-meta { display: flex; margin-top: 9px; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; color: #6c7399; font-size: 11px; font-weight: 500; }
+  .bb-fairness-reveal-meta b { color: #a6b2d3; font-weight: 700; }
+  @keyframes bb-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
   @keyframes case-preview-fade-in {
     from { opacity: 0; }
@@ -1410,7 +1402,7 @@ const BATTLE_STYLES = String.raw`
     .bb-picker { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; box-sizing: border-box; padding: 0 10px 10px; overflow-x: hidden; border: 0; border-radius: 0; }
     .bb-picker-header { flex-direction: column; gap: 12px; padding-right: 0; }
     .bb-picker-search-row,.bb-picker-input-wrap { width: 100%; }
-    .bb-picker-input { width: calc(100% - 30px); }
+    .bb-picker-input { width: 100%; }
     .bb-picker .bb-modal-close { top: 10px; right: 10px; width: 36px; height: 36px; }
     .bb-picker-grid-wrap { left: 50%; width: 95%; height: 80%; box-sizing: border-box; padding: 10px; transform: translateX(-50%); }
     .bb-picker-footer { width: 100%; padding-top: 10px; }
@@ -1424,11 +1416,14 @@ const BATTLE_STYLES = String.raw`
     .bb-row-case img { width: 68px; height: 68px; }
     .bb-row-right { width: 100%; min-width: 0; order: 3; }
     .bb-cost { width: 100%; min-width: 0; flex-direction: row; }
-    .bb-row-view { width: 100%; height: 40px; min-width: 0; }
+    .bb-row-view { width: 100%; height: 42px; min-width: 0; }
     .bb-players-scroller { grid-template-columns: repeat(2,minmax(0,1fr)); }
   }
 
   @media (max-width: 640px) {
+    .bb-fairness-backdrop { padding: 8px; }
+    .bb-fairness-modal { width: 100%; max-height: calc(100dvh - 16px); padding: 1.25rem; }
+    .bb-fairness-header { font-size: 20px; }
     .bb-stats { grid-template-columns: 1fr; }
     .bb-create-title { flex: 1 0 100%; }
     .bb-create-header-right { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
@@ -1504,6 +1499,80 @@ function normalizeCase(row) {
   };
 }
 
+function normalizeBattleGame(row, previous = null) {
+  if (!row) return null;
+  const source = previous ? {
+    ...previous,
+    ...row,
+    cases: row.cases ?? previous.cases,
+    players: row.players ?? previous.players,
+    results: row.results ?? previous.outcomeResults ?? previous.results,
+    modes: row.modes ?? previous.modes,
+  } : row;
+  const playerOption = PLAYER_OPTIONS.find((option) => option.id === source.player_option)
+    || PLAYER_OPTIONS.find((option) => option.id === "ffa-2");
+  const maxPlayers = Math.max(2, Math.min(4, Number(source.max_players || playerOption.count)));
+  const players = Array.from({ length: maxPlayers }, () => null);
+  (Array.isArray(source.players) ? source.players : []).forEach((player, index) => {
+    const slotIndex = Number.isInteger(Number(player?.slot_index)) ? Number(player.slot_index) : index;
+    if (slotIndex < 0 || slotIndex >= maxPlayers) return;
+    players[slotIndex] = {
+      id: String(player?.profile_id || player?.id || ""),
+      type: player?.profile_type === "bot" || player?.type === "bot" ? "bot" : "user",
+      name: String(player?.username || player?.name || "Player"),
+      avatar: player?.avatar_headshot_url || player?.avatar_url || player?.avatar || null,
+    };
+  });
+  const cases = (Array.isArray(source.cases) ? source.cases : []).map(normalizeCase);
+  const storedResults = Array.isArray(source.results) ? source.results : [];
+  const authoritativeResults = Array.from({ length: maxPlayers }, (_, index) => (
+    Array.isArray(storedResults[index]) ? storedResults[index].map((item) => {
+      const normalized = {
+        ...item,
+        id: String(item?.item_id || item?.id || `${source.id}-result-${index}`),
+        image: item?.image_url || item?.image || "",
+        value: Number(item?.value || 0),
+      };
+      return { ...normalized, accent: getInventoryItemAccent(normalized) };
+    }) : []
+  ));
+  const modes = Array.isArray(source.modes) && source.modes.length ? source.modes : ["normal"];
+
+  return {
+    ...source,
+    id: String(source.id),
+    cases,
+    caseCount: Number(source.case_count ?? source.caseCount ?? cases.length),
+    cost: Number(source.cost_per_player ?? source.cost ?? 0),
+    playerOption,
+    players,
+    results: source.status === "active" ? Array.from({ length: maxPlayers }, () => []) : authoritativeResults,
+    outcomeResults: authoritativeResults,
+    modes,
+    mode: modes.length === 1 ? modes[0] : buildCombinedModeValue(modes),
+    phase: ["waiting", "ready"].includes(source.status) ? "waiting" : source.status === "active" ? "countdown" : source.status === "resolved" ? "finished" : "waiting",
+    currentRound: Math.max(0, Number(source.current_round ?? source.currentRound ?? 0)),
+    countdown: 3,
+    demoWaiting: true,
+    serverManaged: true,
+    versus: playerOption.family === "team",
+    finished: source.status === "resolved",
+    winnerIndex: Array.isArray(source.winner_profile_ids) && source.winner_profile_ids.length
+      ? players.findIndex((player) => player && String(player.id) === String(source.winner_profile_ids[0]))
+      : undefined,
+  };
+}
+
+function normalizeBotProfile(row) {
+  if (!row?.id) return null;
+  return {
+    id: String(row.id),
+    type: "bot",
+    name: String(row.username || "Bot"),
+    avatar: row.avatar_headshot_url || row.avatar_url || null,
+  };
+}
+
 function getCaseItems(caseItem) {
   const items = Array.isArray(caseItem?.items) ? caseItem.items.filter((item) => item.image) : [];
   if (items.length) return items;
@@ -1511,7 +1580,7 @@ function getCaseItems(caseItem) {
   const fallback = {
     id: caseItem?.id + "-fallback",
     name: caseItem?.name || "Mystery Pull",
-    image: caseItem?.image || "/cases/test/test-case.png",
+    image: caseItem?.image || "",
     value: Number(caseItem?.price || 0),
     chance: 100,
   };
@@ -1530,10 +1599,10 @@ function chooseItem(caseItem) {
   return items[items.length - 1];
 }
 
-function buildReel(caseItem) {
+function buildReel(caseItem, forcedItem = null) {
   const items = getCaseItems(caseItem);
   const reel = Array.from({ length: REEL_LENGTH }, () => items[Math.floor(Math.random() * items.length)]);
-  reel[REEL_STOP_INDEX] = chooseItem(caseItem);
+  reel[REEL_STOP_INDEX] = forcedItem || chooseItem(caseItem);
   return reel.map((item, index) => ({ ...item, reelKey: String(item.id) + "-" + index }));
 }
 
@@ -1554,28 +1623,12 @@ function playSound(path, volume = 0.4) {
 
 function handleCaseImageError(event) {
   const image = event.currentTarget;
-  if (image.dataset.fallbackApplied) return;
-  image.dataset.fallbackApplied = "true";
-  image.src = "/cases/test/test-case.png";
+  image.style.display = "none";
 }
 
 function handleItemImageError(event) {
   const image = event.currentTarget;
-  if (image.dataset.fallbackApplied) return;
-  image.dataset.fallbackApplied = "true";
-  image.src = "/cases/test/test-case.png";
-}
-
-function Toggle({ label, value, onChange, gold = false }) {
-  return (
-    <button type="button" className={"bb-switch" + (gold ? " bb-switch-gold" : "")} onClick={() => onChange(!value)}>
-      {gold && <img src="https://i.ibb.co/KjJ6nZqj/gold.png" alt="" draggable={false} />}
-      <span className="bb-switch-label">{label}</span>
-      <span className={"bb-switch-track" + (value ? " bb-switch-track-on" : "")}>
-        <span className="bb-switch-knob" />
-      </span>
-    </button>
-  );
+  image.style.display = "none";
 }
 
 function CasePreview({ item, onClose }) {
@@ -1673,7 +1726,7 @@ function CasePreview({ item, onClose }) {
   );
 }
 
-function CasePicker({ cases, selectedCases, onAdd, onRemove, onSetQuantity, onClose, onPreview }) {
+function CasePicker({ cases, casesLoading, casesError, selectedCases, onAdd, onRemove, onSetQuantity, onClose, onPreview }) {
   const [tab, setTab] = useState("Official");
   const [search, setSearch] = useState("");
   const [descending, setDescending] = useState(true);
@@ -1711,12 +1764,16 @@ function CasePicker({ cases, selectedCases, onAdd, onRemove, onSetQuantity, onCl
       <section className={"bb-picker" + (closing ? " bb-picker-closing" : "")} role="dialog" aria-modal="true" aria-label="Add cases">
         <button type="button" className="bb-modal-close" onClick={onClose} aria-label="Close">×</button>
         <header className="bb-picker-header">
-          <div className="bb-picker-tabs">
+          <div className="flex shrink-0 gap-1 rounded-[6px] bg-[#0f111a] p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.025)]">
             {["Official", "Community"].map((label) => (
               <button
                 type="button"
                 key={label}
-                className={"bb-picker-tab" + (tab === label ? " bb-picker-tab-active" : "")}
+                className={`whitespace-nowrap rounded-[4px] border-0 px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+                  tab === label
+                    ? "bg-[#2a3048] text-[#e1e4f2]"
+                    : "bg-transparent text-[#6c7399] hover:text-[#c7cce2]"
+                }`}
                 onClick={() => setTab(label)}
               >
                 {label}
@@ -1725,7 +1782,7 @@ function CasePicker({ cases, selectedCases, onAdd, onRemove, onSetQuantity, onCl
           </div>
           <div className="bb-picker-search-row">
             <div className="bb-picker-input-wrap">
-               <img src={PICKER_SEARCH_ICON} alt="Search" className="bb-picker-search-icon" />
+              <PickerSearchIcon />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -1735,16 +1792,20 @@ function CasePicker({ cases, selectedCases, onAdd, onRemove, onSetQuantity, onCl
             </div>
             <button
               type="button"
-              className="bb-btn bb-btn-secondary bb-sort"
+              className="bb-sort"
               onClick={() => setDescending((value) => !value)}
               title={descending ? "Price Descending" : "Price Ascending"}
             >
-              <SortStackIcon ascending={!descending} />
+              <SortDirectionIcon ascending={!descending} />
             </button>
           </div>
         </header>
         <div className="bb-picker-grid-wrap">
-          {visibleCases.length ? (
+          {casesLoading ? (
+            <div className="bb-picker-empty">Loading cases from Supabase...</div>
+          ) : casesError ? (
+            <div className="bb-picker-empty">{casesError}</div>
+          ) : visibleCases.length ? (
             <div className="bb-picker-grid">
               {visibleCases.map((caseItem) => {
                 const quantity = selectedCases.reduce((count, item) => count + (item.id === caseItem.id ? 1 : 0), 0);
@@ -1937,30 +1998,6 @@ function BattleCasePreview({ caseItem, onPreview }) {
   );
 }
 
-function buildPlaceholderBattles(sourceCases) {
-  const activeCase = sourceCases.reduce((closest, caseItem) => (
-    Math.abs(Number(caseItem.price) - 15077) < Math.abs(Number(closest.price) - 15077) ? caseItem : closest
-  ), sourceCases[0]);
-  const activeCases = Array.from({ length: LIST_BATTLE_LAYOUTS.active.caseCount }, () => activeCase);
-  const finishedStart = Math.max(0, Math.floor(sourceCases.length / 3));
-  const finishedCases = Array.from({ length: LIST_BATTLE_LAYOUTS.finished.caseCount }, (_, index) => (
-    sourceCases[(finishedStart + index) % sourceCases.length]
-  ));
-
-  return {
-    active: {
-      ...LIST_BATTLE_LAYOUTS.active,
-      cases: activeCases,
-      cost: activeCases.reduce((sum, caseItem) => sum + Number(caseItem.price || 0), 0),
-    },
-    finished: {
-      ...LIST_BATTLE_LAYOUTS.finished,
-      cases: finishedCases,
-      cost: finishedCases.reduce((sum, caseItem) => sum + Number(caseItem.price || 0), 0),
-    },
-  };
-}
-
 function BattleRow({ battle, finished = false, onView, onPreview }) {
   const shownCases = battle.cases.slice(0, 20);
   const row = (
@@ -1971,14 +2008,14 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
               <span className="bb-round-badge">{battle.caseCount} {battle.caseCount === 1 ? "Case" : "Cases"}</span>
             </div>
             <div className="bb-row-players">
-              {battle.players.map((avatar, index) => (
+              {battle.players.map((player, index) => (
                 <button
                   type="button"
                   className={`bb-row-avatar${battle.versus && index === 1 ? " bb-row-player-before-vs" : ""}${battle.versus && index === 2 ? " bb-row-player-after-vs" : ""}`}
                   tabIndex={-1}
-                  key={avatar}
+                  key={player?.id || `open-${index}`}
                 >
-                  <img loading="lazy" src={avatar} alt="user-avatar" draggable={false} />
+                  {player?.avatar ? <img loading="lazy" src={player.avatar} alt={player.name || "Player"} draggable={false} /> : <span className="bb-row-avatar-open">+</span>}
                 </button>
               ))}
               {battle.versus && <span className="bb-vs">VS</span>}
@@ -2020,37 +2057,51 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
   );
 }
 
-function BattlesList({ cases, onCreate, onView, onPreview }) {
-  const placeholderBattles = useMemo(() => buildPlaceholderBattles(cases), [cases]);
+function BattlesList({ battles, loading, error, onCreate, onView, onPreview }) {
+  const activeBattles = battles.filter((battle) => ["waiting", "ready", "active"].includes(battle.status));
+  const resolvedBattles = battles.filter((battle) => battle.status === "resolved");
+  const totalValue = activeBattles.reduce((sum, battle) => sum + Number(battle.cost || 0), 0);
+  const totalCases = activeBattles.reduce((sum, battle) => sum + Number(battle.caseCount || 0), 0);
   return (
     <div className="bb-list">
       <div className="bb-stats">
         <div className="bb-stat">
           <div>
-            <span className="bb-stat-value">1</span>
+            <span className="bb-stat-value">{activeBattles.length}</span>
             <span className="bb-stat-label">Active Battles</span>
           </div>
         </div>
         <div className="bb-stat bb-stat-gold">
           <div>
-            <span className="bb-stat-value"><img src={COIN_ICON} alt="" />{formatPriceValue(placeholderBattles.active.cost, { compactNumbers: false })}</span>
+            <span className="bb-stat-value"><img src={COIN_ICON} alt="" />{formatPriceValue(totalValue, { compactNumbers: false })}</span>
             <span className="bb-stat-label">Total Value</span>
           </div>
         </div>
         <div className="bb-stat">
           <div>
-            <span className="bb-stat-value">{placeholderBattles.active.caseCount}</span>
+            <span className="bb-stat-value">{totalCases}</span>
             <span className="bb-stat-label">Total Cases</span>
           </div>
         </div>
       </div>
       <div className="bb-list-actions">
-        <button type="button" className="bb-btn bb-btn-primary bb-create-battle-btn" onClick={onCreate}>Create Battle</button>
+        <button type="button" className="bb-btn bb-btn-primary bb-create-battle-btn" onClick={onCreate}>Create</button>
       </div>
       <div className="bb-battle-list">
-        <BattleRow battle={placeholderBattles.active} onView={() => onView(false)} onPreview={onPreview} />
-        <div className="bb-battle-divider" aria-hidden="true" />
-        <BattleRow battle={placeholderBattles.finished} finished onView={() => onView(true)} onPreview={onPreview} />
+        {loading ? <div className="bb-picker-empty">Loading Case Battles...</div> : null}
+        {!loading && error ? <div className="bb-picker-empty">{error}</div> : null}
+        {!loading && !error && activeBattles.map((battle, index) => (
+          <div key={battle.id}>
+            {index > 0 ? <div className="bb-battle-divider" aria-hidden="true" /> : null}
+            <BattleRow battle={battle} onView={() => onView(battle)} onPreview={onPreview} />
+          </div>
+        ))}
+        {!loading && !error && resolvedBattles.map((battle, index) => (
+          <div key={battle.id}>
+            {(activeBattles.length > 0 || index > 0) ? <div className="bb-battle-divider" aria-hidden="true" /> : null}
+            <BattleRow battle={battle} finished onView={() => onView(battle)} onPreview={onPreview} />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -2092,6 +2143,8 @@ function PlayerSelector({ selected, onSelect }) {
 
 function CreationPage({
   cases,
+  casesLoading,
+  casesError,
   selectedCases,
   setSelectedCases,
   playerOption,
@@ -2101,9 +2154,9 @@ function CreationPage({
   onBack,
   onCreate,
   onPreview,
+  creating = false,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [gold, setGold] = useState(true);
   const total = selectedCases.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const activeModeIds = getSelectedModeIds(selectedMode);
 
@@ -2118,7 +2171,6 @@ function CreationPage({
             <h1 className="bb-create-title">Battle Creation</h1>
           </div>
           <div className="bb-create-header-right">
-            <Toggle label="Gold Spin" value={gold} onChange={setGold} gold />
             <div className="bb-header-meta">
               <div className="bb-header-meta-item">
                 <span className="bb-header-meta-label">Cases</span>
@@ -2132,8 +2184,8 @@ function CreationPage({
                 </span>
               </div>
             </div>
-            <button type="button" className="bb-btn bb-btn-primary" disabled={!selectedCases.length} onClick={() => onCreate({ gold })}>
-              Create Battle
+            <button type="button" className="bb-btn bb-btn-primary" disabled={!selectedCases.length || creating} onClick={onCreate}>
+              {creating ? "Creating..." : "Create"}
             </button>
           </div>
         </header>
@@ -2198,6 +2250,8 @@ function CreationPage({
       {pickerOpen && (
         <CasePicker
           cases={cases}
+          casesLoading={casesLoading}
+          casesError={casesError}
           selectedCases={selectedCases}
           onAdd={(caseItem) => setSelectedCases((items) => items.length < MAX_CASES ? items.concat(caseItem) : items)}
           onRemove={(caseId) => setSelectedCases((items) => {
@@ -2217,14 +2271,97 @@ function CreationPage({
   );
 }
 
-function FairnessModal({ onClose }) {
+function BattleFairnessCopy({ label, value }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(String(value));
+      notifications.success(`${label} copied to clipboard!`);
+    } catch {
+      notifications.error("Unable to copy to clipboard.");
+    }
+  };
+
+  return (
+    <button type="button" className="bb-fairness-copy" aria-label={`Copy ${label}`} onClick={() => { void copy(); }}>
+      <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  );
+}
+
+function FairnessModal({ battle, onClose }) {
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+  const requestClose = () => {
+    if (closeTimerRef.current) return;
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(onClose, 180);
+  };
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") requestClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  const fields = [
+    ["Game ID", battle?.id || "Unavailable"],
+  ];
+  const resolved = battle?.status === "resolved" && Boolean(battle?.server_seed);
+
   return createPortal(
-    <div className="bb-simple-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="bb-simple-modal" role="dialog" aria-modal="true" aria-label="Battle fairness">
-        <button type="button" className="bb-modal-close" onClick={onClose} aria-label="Close">×</button>
-        <h2 className="bb-simple-title">Provably Fair</h2>
-        <p className="bb-simple-copy">This preview uses a committed server seed and client seed for every reel. The final production endpoint can replace this placeholder hash without changing the interface.</p>
-        <div className="bb-seed"><Hash size={15} />4f2a10c85791d1b6c39d91d6fb22b391c2768abf</div>
+    <div className={`bb-fairness-backdrop${closing ? " is-closing" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && requestClose()}>
+      <section className={`bb-fairness-modal${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="battle-fairness-title" onMouseDown={(event) => event.stopPropagation()}>
+        <button type="button" className="bb-fairness-close" onClick={requestClose} aria-label="Close Battle Fairness">×</button>
+        <h1 id="battle-fairness-title" className="bb-fairness-header">Battle Fairness</h1>
+        <p className="bb-fairness-hint">A server seed commitment is locked before the battle begins. The seed details remain hidden while the battle is active and are revealed after resolution so the result can be verified.</p>
+
+        {fields.map(([label, value]) => (
+          <div className="bb-fairness-section" key={label}>
+            <span className="bb-fairness-section-title">{label}</span>
+            <div className="bb-fairness-input">
+              <span className="bb-fairness-value" title={String(value)}>{String(value)}</span>
+              <BattleFairnessCopy label={label} value={value} />
+            </div>
+          </div>
+        ))}
+
+        {resolved ? (
+          <div className="bb-fairness-reveal">
+            <span className="bb-fairness-reveal-title">Revealed Server Seed</span>
+            <span className="bb-fairness-reveal-description">Use this retired server seed with the client seed, nonce, and Game ID above to verify the resolved battle.</span>
+            <div className="bb-fairness-section bb-fairness-reveal-section">
+              <span className="bb-fairness-section-title">Hashed Server Seed</span>
+              <div className="bb-fairness-input">
+                <span className="bb-fairness-value" title={battle.server_seed_hash}>{battle.server_seed_hash}</span>
+                <BattleFairnessCopy label="Hashed Server Seed" value={battle.server_seed_hash} />
+              </div>
+            </div>
+            <div className="bb-fairness-section bb-fairness-reveal-section">
+              <span className="bb-fairness-section-title">Server Seed</span>
+              <div className="bb-fairness-input">
+                <span className="bb-fairness-value" title={battle.server_seed}>{battle.server_seed}</span>
+                <BattleFairnessCopy label="Server Seed" value={battle.server_seed} />
+              </div>
+            </div>
+            <div className="bb-fairness-reveal-meta">
+              <span>Client Seed: <b>{battle.client_seed}</b></span>
+              <span>Nonce: <b>{battle.nonce ?? 0}</b></span>
+            </div>
+          </div>
+        ) : (
+          <p className="bb-fairness-pending">The server seed remains hidden until this battle is resolved.</p>
+        )}
       </section>
     </div>,
     document.body,
@@ -2276,7 +2413,8 @@ function BattlePlayerCard({ player, results }) {
   );
 }
 
-function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
+function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecreate, onPreview }) {
+  const viewer = useAuth((state) => state.user);
   const [fairnessOpen, setFairnessOpen] = useState(false);
   const [reelPosition, setReelPosition] = useState(REEL_INITIAL_POSITION);
   const [reelTransition, setReelTransition] = useState("none");
@@ -2284,19 +2422,21 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
   const [hasSpinResult, setHasSpinResult] = useState(false);
   const [winnerVisible, setWinnerVisible] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [callingBotSlot, setCallingBotSlot] = useState(null);
   const spinnerInnerRef = useRef(null);
   const firstWheelTrackRef = useRef(null);
-  const lastFinishedRef = useRef(false);
   const modeIds = getSelectedModeIds(battle.mode);
   const currentCase = battle.cases[battle.currentRound] || battle.cases[0];
-  const totalCost = battle.cases.reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const calculatedCost = battle.cases.reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const totalCost = Number(battle.cost_per_player ?? battle.cost ?? calculatedCost) || calculatedCost;
   const allJoined = battle.players.every(Boolean);
+  const canManageBattle = String(viewer?.profile_id || viewer?.id || "") === String(battle.creator_profile_id || "");
 
   useEffect(() => {
-    if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting) return undefined;
+    if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting || battle.serverManaged) return undefined;
     const timer = window.setTimeout(() => setBattle((state) => ({ ...state, phase: "countdown", countdown: 3 })), 450);
     return () => window.clearTimeout(timer);
-  }, [allJoined, battle.demoWaiting, battle.phase, setBattle]);
+  }, [allJoined, battle.demoWaiting, battle.phase, battle.serverManaged, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "countdown") return undefined;
@@ -2305,7 +2445,10 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
         setBattle((state) => ({
           ...state,
           phase: "spinning",
-          reels: state.players.map(() => buildReel(state.cases[state.currentRound] || state.cases[0])),
+          reels: state.players.map((_, index) => buildReel(
+            state.cases[state.currentRound] || state.cases[0],
+            state.outcomeResults?.[index]?.[state.currentRound] || null,
+          )),
         }));
       }, 900);
       return () => window.clearTimeout(timer);
@@ -2334,7 +2477,7 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
           Math.round((viewport.top + viewport.height / 2 - firstItem.top - 52.5) / REEL_ITEM_STRIDE),
         ));
         if (nextIndex !== lastTrackedIndex) {
-          if (ticksEnabled) playSound(TICK_SOUND, 0.12);
+          if (ticksEnabled) playSound(TICK_SOUND, 0.2);
           lastTrackedIndex = nextIndex;
         }
         setActiveReelIndex((current) => current === nextIndex ? current : nextIndex);
@@ -2384,7 +2527,10 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
         ...state,
         currentRound: state.currentRound + 1,
         phase: "spinning",
-        reels: state.players.map(() => buildReel(state.cases[state.currentRound + 1] || state.cases[0])),
+        reels: state.players.map((_, index) => buildReel(
+          state.cases[state.currentRound + 1] || state.cases[0],
+          state.outcomeResults?.[index]?.[state.currentRound + 1] || null,
+        )),
       }));
     }, 850);
     return () => window.clearTimeout(timer);
@@ -2399,20 +2545,19 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
     return () => window.clearTimeout(timer);
   }, [battle.phase]);
 
-  useEffect(() => {
-    if (battle.phase === "finished" && !lastFinishedRef.current) {
-      lastFinishedRef.current = true;
-      playSound(SUCCESS_SOUND, 0.35);
-    }
-  }, [battle.phase]);
-
   const totals = battle.results.map(getPlayerTotal);
   const hasWildMode = modeIds.includes("wild");
   const hasTerminalMode = modeIds.includes("terminal");
   const hasJackpotMode = modeIds.includes("jackpot");
   let winnerIndex = 0;
   let winnerIndices = [0];
-  if (battle.mode === "coinflip" || hasJackpotMode) {
+  const storedWinnerIndices = (Array.isArray(battle.winner_profile_ids) ? battle.winner_profile_ids : [])
+    .map((profileId) => battle.players.findIndex((player) => player && String(player.id) === String(profileId)))
+    .filter((index) => index >= 0);
+  if (battle.serverManaged && storedWinnerIndices.length) {
+    winnerIndices = storedWinnerIndices;
+    winnerIndex = storedWinnerIndices[0];
+  } else if (battle.mode === "coinflip" || hasJackpotMode) {
     winnerIndex = battle.winnerIndex ?? 0;
     winnerIndices = [winnerIndex];
   } else if (hasTerminalMode) {
@@ -2431,13 +2576,36 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
   const potValue = totals.reduce((sum, value) => sum + value, 0);
   const tieShare = isTie ? potValue / winners.length : potValue;
 
-  const callBot = (index) => {
-    playSound(TICK_SOUND, 0.08);
-    setBattle((state) => {
-      const players = state.players.slice();
-      players[index] = BOT_PLAYERS[(index - 1 + BOT_PLAYERS.length) % BOT_PLAYERS.length];
-      return { ...state, players, demoWaiting: false };
-    });
+  const callBot = async (index) => {
+    if (callingBotSlot !== null) return;
+    const usedBotIds = new Set(battle.players.filter(Boolean).map((player) => String(player.id)));
+    const availableBots = botProfiles.filter((bot) => !usedBotIds.has(String(bot.id)));
+    const optimisticBot = availableBots[Math.floor(Math.random() * availableBots.length)] || null;
+    const previousBattle = battle;
+    setCallingBotSlot(index);
+    if (optimisticBot) {
+      setBattle((current) => {
+        if (!current || current.id !== battle.id || current.players[index]) return current;
+        const players = [...current.players];
+        players[index] = optimisticBot;
+        return { ...current, players };
+      });
+    }
+    try {
+      const response = await apiRequest(`/api/case-battles/${encodeURIComponent(battle.id)}/call-bot`, {
+        method: "POST",
+        body: JSON.stringify({ slot_index: index, bot_profile_id: optimisticBot?.id || undefined }),
+      });
+      const updatedBattle = normalizeBattleGame(response?.battle, previousBattle);
+      if (updatedBattle) setBattle(updatedBattle);
+    } catch (error) {
+      if (optimisticBot) {
+        setBattle((current) => current?.id === previousBattle.id ? previousBattle : current);
+      }
+      notifications.error(error?.message || "Unable to call a bot.");
+    } finally {
+      setCallingBotSlot(null);
+    }
   };
 
   const shareBattle = async () => {
@@ -2508,14 +2676,14 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
                         player ? (
                           <div className="bb-ready">
                             <div className="bb-ready-text"><span>READY TO START</span></div>
-                            {index === 0 && (
-                              <button type="button" className="bb-btn bb-btn-danger bb-mini-button" onClick={onBack}>Cancel Battle</button>
+                            {index === 0 && canManageBattle && (
+                              <button type="button" className="bb-btn bb-btn-danger bb-mini-button" onClick={onCancel}>Cancel</button>
                             )}
                           </div>
                         ) : (
                           <div className="bb-waiting">
                             <div className="bb-waiting-text">WAITING FOR PLAYER</div>
-                            <button type="button" className="bb-btn bb-btn-secondary bb-mini-button" onClick={() => callBot(index)}>Call Bot</button>
+                            {canManageBattle ? <button type="button" className="bb-btn bb-btn-secondary bb-mini-button" disabled={callingBotSlot !== null} onClick={() => callBot(index)}>{callingBotSlot === index ? "Calling..." : "Call Bot"}</button> : null}
                           </div>
                         )
                       ) : (
@@ -2528,7 +2696,7 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
                               transition: reelTransition,
                             }}
                           >
-                            {(battle.reels[index] || buildReel(currentCase)).map((item, reelIndex) => {
+                            {(battle.reels?.[index] || buildReel(currentCase)).map((item, reelIndex) => {
                               const accent = item.accent || getInventoryItemAccent(item);
                               const active = reelIndex === activeReelIndex;
                               const showResult = hasSpinResult && reelIndex === REEL_STOP_INDEX;
@@ -2594,7 +2762,7 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
                 )}
               </div>
               {battle.phase === "waiting" && (
-                <div className="bb-spinner-footer"><div className="bb-spinner-note">Waiting for others to join...</div></div>
+                <div className="bb-spinner-footer"><div className="bb-spinner-note">{allJoined ? "Battle ready to start." : "Waiting for others to join..."}</div></div>
               )}
             </div>
           </div>
@@ -2628,23 +2796,30 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
           </div>
         </div>
       </div>
-      {fairnessOpen && <FairnessModal onClose={() => setFairnessOpen(false)} />}
+      {fairnessOpen && <FairnessModal battle={battle} onClose={() => setFairnessOpen(false)} />}
     </div>
   );
 }
 
 export default function CaseBattles() {
   const user = useAuth((state) => state.user);
+  const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
   const [screen, setScreen] = useState("list");
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState("");
+  const [botProfiles, setBotProfiles] = useState([]);
+  const [battles, setBattles] = useState([]);
+  const [battlesLoading, setBattlesLoading] = useState(true);
+  const [battlesError, setBattlesError] = useState("");
+  const [creatingBattle, setCreatingBattle] = useState(false);
   const [selectedCases, setSelectedCases] = useState([]);
   const [playerOption, setPlayerOption] = useState(PLAYER_OPTIONS.find((item) => item.id === "ffa-2"));
   const [selectedMode, setSelectedMode] = useState("normal");
   const [previewCase, setPreviewCase] = useState(null);
   const [battle, setBattle] = useState(null);
   const [battleCreatedToast, setBattleCreatedToast] = useState(false);
+  const pendingCreateIdRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -2670,51 +2845,124 @@ export default function CaseBattles() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    const applyBattleRow = (row) => {
+      setBattles((current) => {
+        const previous = current.find((item) => item.id === String(row.id)) || null;
+        const normalized = normalizeBattleGame(row, previous);
+        if (!normalized) return current;
+        if (normalized.status === "cancelled") return current.filter((item) => item.id !== normalized.id);
+        const exists = current.some((item) => item.id === normalized.id);
+        const next = exists
+          ? current.map((item) => item.id === normalized.id ? normalized : item)
+          : [normalized, ...current];
+        return next.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      });
+      setBattle((current) => current?.id === String(row.id) ? normalizeBattleGame(row, current) : current);
+    };
+    const loadBattles = async () => {
+      setBattlesLoading(true);
+      setBattlesError("");
+      try {
+        const response = await apiRequest("/api/case-battles");
+        if (!mounted) return;
+        setBattles((Array.isArray(response?.battles) ? response.battles : []).map(normalizeBattleGame).filter(Boolean));
+      } catch (error) {
+        if (!mounted) return;
+        setBattles([]);
+        setBattlesError(error?.message || "Unable to load Case Battles.");
+      } finally {
+        if (mounted) setBattlesLoading(false);
+      }
+    };
+    void loadBattles();
+
+    const channel = supabase
+      .channel("case-battle-games-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "case_battle_games" }, (payload) => {
+        const row = payload.new || payload.old;
+        if (!row) return;
+        if (payload.eventType === "DELETE") {
+          setBattles((current) => current.filter((item) => item.id !== String(row.id)));
+          return;
+        }
+        applyBattleRow(row);
+      })
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBots = async () => {
+      const { data, error } = await supabase
+        .from("bot_profiles")
+        .select("id,username,avatar_url,avatar_headshot_url")
+        .order("username", { ascending: true });
+      if (!mounted || error) return;
+      setBotProfiles((data || []).map(normalizeBotProfile).filter(Boolean));
+    };
+    void loadBots();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
     if (!battleCreatedToast) return undefined;
     const timer = window.setTimeout(() => setBattleCreatedToast(false), 4000);
     return () => window.clearTimeout(timer);
   }, [battleCreatedToast]);
 
-  const currentPlayer = useMemo(() => ({
-    name: user?.username || user?.roblox_username || user?.display_name || "aduplayercrazy80",
-    avatar: user?.avatar_url || user?.roblox_avatar_url || user?.image || "/login.png",
-  }), [user]);
-
-  const makeBattle = ({ finished = false, waitingDemo = false, showCreated = false } = {}) => {
-    const battleCases = (selectedCases.length ? selectedCases : cases.slice(0, 5)).slice(0, MAX_CASES);
-    const option = finished ? PLAYER_OPTIONS.find((item) => item.id === "ffa-2") : playerOption;
-    const players = Array.from({ length: option.count }, (_, index) => {
-      if (finished) return index === 0 ? currentPlayer : BOT_PLAYERS[index - 1];
-      return index === 0 ? currentPlayer : waitingDemo && index < 3 ? BOT_PLAYERS[index - 1] : null;
-    });
-    const results = players.map(() => []);
-    let phase = "waiting";
-    let reels = players.map(() => buildReel(battleCases[0]));
-    if (finished) {
-      phase = "finished";
-      battleCases.forEach((caseItem) => {
-        results.forEach((items, playerIndex) => {
-          const pulled = chooseItem(caseItem);
-          items.push(playerIndex === 0 ? { ...pulled, value: Math.max(pulled.value, Math.round(caseItem.price * 1.2)) } : pulled);
-        });
-      });
+  const createBattle = async () => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
     }
-    setBattle({
-      id: Date.now(),
-      cases: battleCases,
-      playerOption: option,
-      players,
-      results,
-      reels,
-      phase,
-      countdown: 3,
-      currentRound: finished ? battleCases.length - 1 : 0,
-      mode: finished ? "normal" : selectedMode,
-      demoWaiting: waitingDemo,
-      winnerIndex: 0,
-    });
-    setScreen("battle");
-    if (showCreated) setBattleCreatedToast(true);
+    if (creatingBattle || selectedCases.length < 1) return;
+    setCreatingBattle(true);
+    const requestId = pendingCreateIdRef.current || window.crypto.randomUUID();
+    pendingCreateIdRef.current = requestId;
+    try {
+      const response = await apiRequest("/api/case-battles", {
+        method: "POST",
+        body: JSON.stringify({
+          request_id: requestId,
+          case_ids: selectedCases.map((caseItem) => caseItem.id),
+          player_option: playerOption.id,
+          modes: getSelectedModeIds(selectedMode),
+        }),
+      });
+      const createdBattle = normalizeBattleGame(response?.battle);
+      if (!createdBattle) throw new Error("The created Case Battle could not be loaded.");
+      pendingCreateIdRef.current = null;
+      setBattles((current) => [createdBattle, ...current.filter((item) => item.id !== createdBattle.id)]);
+      setBattle(createdBattle);
+      setScreen("battle");
+      setBattleCreatedToast(true);
+    } catch (error) {
+      if (error?.status && error.status < 500) pendingCreateIdRef.current = null;
+      notifications.error(error?.message || "Unable to create this Case Battle.");
+    } finally {
+      setCreatingBattle(false);
+    }
+  };
+
+  const cancelBattle = async () => {
+    if (!battle?.id) return;
+    try {
+      await apiRequest(`/api/case-battles/${encodeURIComponent(battle.id)}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setBattles((current) => current.filter((item) => item.id !== battle.id));
+      setBattle(null);
+      setScreen("list");
+    } catch (error) {
+      notifications.error(error?.message || "Unable to cancel this Case Battle.");
+    }
   };
 
   const openCreation = () => {
@@ -2727,17 +2975,14 @@ export default function CaseBattles() {
   return (
     <div className="battles-page">
       <style>{BATTLE_STYLES}</style>
-      {screen === "list" && !casesLoading && cases.length === 0 && (
-        <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#8b92b8]">
-          {casesError || "No active cases are available."}
-        </div>
-      )}
-      {screen === "list" && !casesLoading && cases.length > 0 && (
-        <BattlesList cases={cases} onCreate={openCreation} onView={(finished) => makeBattle({ finished, waitingDemo: !finished })} onPreview={setPreviewCase} />
+      {screen === "list" && (
+        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={(selectedBattle) => { setBattle(selectedBattle); setScreen("battle"); }} onPreview={setPreviewCase} />
       )}
       {screen === "create" && (
         <CreationPage
           cases={cases}
+          casesLoading={casesLoading}
+          casesError={casesError}
           selectedCases={selectedCases}
           setSelectedCases={setSelectedCases}
           playerOption={playerOption}
@@ -2745,15 +2990,18 @@ export default function CaseBattles() {
           selectedMode={selectedMode}
           setSelectedMode={setSelectedMode}
           onBack={() => setScreen("list")}
-          onCreate={() => makeBattle({ showCreated: true })}
+          onCreate={createBattle}
           onPreview={setPreviewCase}
+          creating={creatingBattle}
         />
       )}
       {screen === "battle" && battle && (
         <BattleView
           battle={battle}
           setBattle={setBattle}
+          botProfiles={botProfiles}
           onBack={() => setScreen("list")}
+          onCancel={cancelBattle}
           onRecreate={() => {
             setSelectedCases(battle.cases);
             setPlayerOption(battle.playerOption);
