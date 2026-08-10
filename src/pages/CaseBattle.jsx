@@ -34,7 +34,7 @@ const REEL_MAIN_DURATION = 4800;
 const REEL_SETTLE_PAUSE = 100;
 const REEL_SETTLE_DURATION = 250;
 const REEL_DURATION = REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE + REEL_SETTLE_DURATION;
-const BATTLE_COUNTDOWN_DURATION = 2900;
+const BATTLE_COUNTDOWN_DURATION = 3000;
 const BATTLE_ROUND_DELAY = 850;
 const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
 const MAX_CASES = 25;
@@ -1505,21 +1505,44 @@ function normalizeCase(row) {
   };
 }
 
+function countBattleResultItems(results) {
+  if (!Array.isArray(results)) return -1;
+  return results.reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
+}
+
+function getMostCompleteBattleResults(...candidates) {
+  return candidates.reduce((best, candidate) => (
+    countBattleResultItems(candidate) > countBattleResultItems(best) ? candidate : best
+  ), null);
+}
+
 function normalizeBattleGame(row, previous = null) {
   if (!row) return null;
+  const completeResults = getMostCompleteBattleResults(
+    row.results,
+    row.outcomeResults,
+    previous?.outcomeResults,
+    previous?.results,
+  );
   const source = previous ? {
     ...previous,
     ...row,
     cases: row.cases ?? previous.cases,
     players: row.players ?? previous.players,
-    results: row.results ?? previous.outcomeResults ?? previous.results,
+    results: completeResults ?? row.results ?? previous.outcomeResults ?? previous.results,
+    outcomeResults: completeResults ?? row.outcomeResults ?? previous.outcomeResults,
     modes: row.modes ?? previous.modes,
-  } : row;
+  } : {
+    ...row,
+    results: completeResults ?? row.results,
+    outcomeResults: completeResults ?? row.outcomeResults,
+  };
   const playerOption = PLAYER_OPTIONS.find((option) => option.id === source.player_option)
     || PLAYER_OPTIONS.find((option) => option.id === "ffa-2");
   const maxPlayers = Math.max(2, Math.min(4, Number(source.max_players || playerOption.count)));
   const players = Array.from({ length: maxPlayers }, () => null);
   (Array.isArray(source.players) ? source.players : []).forEach((player, index) => {
+    if (!player) return;
     const slotIndex = Number.isInteger(Number(player?.slot_index)) ? Number(player.slot_index) : index;
     if (slotIndex < 0 || slotIndex >= maxPlayers) return;
     players[slotIndex] = {
@@ -1546,8 +1569,9 @@ function normalizeBattleGame(row, previous = null) {
   ));
   const modes = Array.isArray(source.modes) && source.modes.length ? source.modes : ["normal"];
   const startedAt = new Date(source.started_at || 0).getTime();
+  const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
   const activeElapsed = source.status === "active" && Number.isFinite(startedAt) && startedAt > 0
-    ? Math.max(0, Date.now() - startedAt)
+    ? (justStarted ? 0 : Math.max(0, Date.now() - startedAt))
     : 0;
   let phase = ["waiting", "ready"].includes(source.status) ? "waiting" : source.status === "resolved" ? "finished" : "waiting";
   let currentRound = Math.max(0, Number(source.current_round ?? source.currentRound ?? 0));
@@ -2065,6 +2089,22 @@ function BattleCasePreview({ caseItem, onPreview }) {
 }
 
 function BattleRow({ battle, finished = false, onView, onPreview }) {
+  const viewer = useAuth((state) => state.user);
+  const viewerProfileId = String(viewer?.profile_id || viewer?.id || "");
+  const viewerUsername = String(viewer?.username || "").trim().toLowerCase();
+  const creatorProfileId = String(battle.creator_profile_id || battle.players[0]?.id || "");
+  const creatorUsername = String(battle.creator_username || battle.players[0]?.name || "").trim().toLowerCase();
+  const viewerAlreadyJoined = Boolean(viewerProfileId) && battle.players.some((player) => player?.type === "user" && String(player.id) === viewerProfileId);
+  const viewerIsCreator = Boolean(
+    battle.ownedByViewer
+    || (viewerProfileId && viewerProfileId === creatorProfileId)
+    || (viewerUsername && creatorUsername && viewerUsername === creatorUsername),
+  );
+  const rowCanJoin = !finished
+    && battle.status === "waiting"
+    && battle.players.some((player) => !player)
+    && !viewerIsCreator
+    && !viewerAlreadyJoined;
   const shownCases = battle.cases.slice(0, 20);
   const row = (
     <article className="bb-row" role="button" tabIndex={0} onClick={onView} onKeyDown={(event) => event.key === "Enter" && onView()}>
@@ -2121,7 +2161,16 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
               {formatPriceValue(battle.cost)}
             </span>
           </div>
-          <button type="button" className="bb-btn bb-btn-secondary bb-row-view" onClick={(event) => { event.stopPropagation(); onView(); }}>View</button>
+          <button
+            type="button"
+            className={`bb-btn ${rowCanJoin ? "bb-btn-primary" : "bb-btn-secondary"} bb-row-view`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onView();
+            }}
+          >
+            {rowCanJoin ? "Join" : "View"}
+          </button>
         </div>
       </article>
   );
@@ -2472,10 +2521,10 @@ function BattlePlayerCard({ player, results }) {
         </div>
       </div>
       <div className="bb-player-results">
-        {results?.length ? results.slice().reverse().map((item, index) => {
+        {results?.length ? results.map((item, roundIndex) => ({ item, roundIndex })).reverse().map(({ item, roundIndex }) => {
           const accent = item.accent || getInventoryItemAccent(item);
           return (
-            <div className="bb-result-item" key={String(item.id) + index} style={{ "--rarity": accent }}>
+            <div className="bb-result-item" key={`${String(item.id)}-round-${roundIndex}`} style={{ "--rarity": accent }}>
               <div className="bb-result-image-wrap">
                 <img src={item.image} alt="" className="bb-result-blur" draggable={false} onError={handleItemImageError} />
                 <img src={item.image} alt={item.name} className="bb-result-image" draggable={false} onError={handleItemImageError} />
@@ -2513,15 +2562,21 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const calculatedCost = battle.cases.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const totalCost = Number(battle.cost_per_player ?? battle.cost ?? calculatedCost) || calculatedCost;
   const allJoined = battle.players.every(Boolean);
+  const isWaitingForPlayers = ["waiting", "ready"].includes(battle.status) || battle.phase === "waiting";
   const viewerProfileId = String(viewer?.profile_id || viewer?.id || "");
+  const viewerUsername = String(viewer?.username || "").trim().toLowerCase();
   const creatorProfileId = String(battle.creator_profile_id || battle.players[0]?.id || "");
+  const creatorUsername = String(battle.creator_username || battle.players[0]?.name || "").trim().toLowerCase();
   const viewerSlotIndex = viewerProfileId
     ? battle.players.findIndex((player) => player?.type === "user" && String(player.id) === viewerProfileId)
     : -1;
-  const canManageBattle = Boolean(viewerProfileId) && (viewerProfileId === creatorProfileId || viewerSlotIndex === 0);
+  const canManageBattle = Boolean(
+    battle.ownedByViewer
+    || (viewerProfileId && (viewerProfileId === creatorProfileId || viewerSlotIndex === 0))
+    || (viewerUsername && creatorUsername && viewerUsername === creatorUsername),
+  );
   const viewerAlreadyJoined = viewerSlotIndex >= 0;
-  const acceptingPlayers = battle.phase === "waiting" && !allJoined && battle.status !== "cancelled" && battle.status !== "resolved";
-  const canJoinBattle = acceptingPlayers && !canManageBattle && !viewerAlreadyJoined;
+  const canJoinBattle = !allJoined && !canManageBattle && !viewerAlreadyJoined;
 
   useEffect(() => {
     if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting || battle.serverManaged) return undefined;
@@ -2542,7 +2597,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
             state.outcomeResults?.[index]?.[state.currentRound] || null,
           )),
         }));
-      }, Math.min(900, Math.max(20, Number(battle.resumeCountdownMs || 900))));
+      }, Math.min(1000, Math.max(20, Number(battle.resumeCountdownMs || 1000))));
       return () => window.clearTimeout(timer);
     }
     const timer = window.setTimeout(() => setBattle((state) => ({ ...state, countdown: state.countdown - 1, resumeCountdownMs: 1000 })), Math.max(20, Number(battle.resumeCountdownMs || 1000)));
@@ -2821,7 +2876,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                 <div className="bb-spinner-inner" ref={spinnerInnerRef}>
                   {battle.players.map((player, index) => (
                     <div className="bb-spinner-column" key={index}>
-                      {battle.phase === "waiting" ? (
+                      {isWaitingForPlayers ? (
                         player ? (
                           <div className="bb-ready">
                             <div className="bb-ready-text"><span>READY TO START</span></div>
@@ -2834,9 +2889,9 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                             <div className="bb-waiting-text">WAITING FOR PLAYER</div>
                             {canManageBattle ? (
                               <button type="button" className="bb-btn bb-btn-secondary bb-mini-button" disabled={callingBotSlot !== null || joiningSlot !== null} onClick={() => callBot(index)}>{callingBotSlot === index ? "Calling..." : "Call Bot"}</button>
-                            ) : canJoinBattle ? (
-                              <button type="button" className="bb-btn bb-btn-primary bb-mini-button" disabled={joiningSlot !== null} onClick={() => joinBattle(index)}>{joiningSlot === index ? "Joining..." : "Join"}</button>
-                            ) : null}
+                            ) : (
+                              <button type="button" className="bb-btn bb-btn-primary bb-mini-button" disabled={viewerAlreadyJoined || joiningSlot !== null} onClick={() => joinBattle(index)}>{viewerAlreadyJoined ? "Joined" : joiningSlot === index ? "Joining..." : "Join"}</button>
+                            )}
                           </div>
                         )
                       ) : battle.phase === "countdown" ? (
@@ -2916,7 +2971,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                   </div>
                 )}
               </div>
-              {battle.phase === "waiting" && (
+              {isWaitingForPlayers && (
                 <div className="bb-spinner-footer"><div className="bb-spinner-note">{allJoined ? "Battle ready to start." : "Waiting for others to join..."}</div></div>
               )}
             </div>
@@ -2976,6 +3031,7 @@ export default function CaseBattles() {
   const [battleCreatedToast, setBattleCreatedToast] = useState(false);
   const pendingCreateIdRef = useRef(null);
   const revealedBattleRoundsRef = useRef(new Map());
+  const ownedBattleIdsRef = useRef(new Set());
 
   const normalizeWithSavedProgress = (row, previous = null) => {
     if (!row?.id) return normalizeBattleGame(row, previous);
@@ -2987,6 +3043,18 @@ export default function CaseBattles() {
       : savedCount > 0 ? { revealedRoundCount: savedCount } : null;
     const normalized = normalizeBattleGame(row, progressSource);
     if (normalized) {
+      const activeProfileId = String(user?.profile_id || user?.id || "");
+      const activeUsername = String(user?.username || "").trim().toLowerCase();
+      const creatorProfileId = String(normalized.creator_profile_id || normalized.players?.[0]?.id || "");
+      const creatorUsername = String(normalized.creator_username || normalized.players?.[0]?.name || "").trim().toLowerCase();
+      normalized.ownedByViewer = Boolean(
+        previous?.ownedByViewer
+        || row?.ownedByViewer
+        || ownedBattleIdsRef.current.has(battleId)
+        || (activeProfileId && activeProfileId === creatorProfileId)
+        || (activeUsername && creatorUsername && activeUsername === creatorUsername),
+      );
+      if (normalized.ownedByViewer) ownedBattleIdsRef.current.add(battleId);
       revealedBattleRoundsRef.current.set(
         battleId,
         Math.max(savedCount, Number(normalized.revealedRoundCount || 0)),
@@ -3125,6 +3193,8 @@ export default function CaseBattles() {
       });
       const createdBattle = normalizeWithSavedProgress(response?.battle);
       if (!createdBattle) throw new Error("The created Case Battle could not be loaded.");
+      createdBattle.ownedByViewer = true;
+      ownedBattleIdsRef.current.add(createdBattle.id);
       pendingCreateIdRef.current = null;
       setBattles((current) => [createdBattle, ...current.filter((item) => item.id !== createdBattle.id)]);
       setBattle(createdBattle);

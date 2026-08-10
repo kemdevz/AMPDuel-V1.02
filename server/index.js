@@ -2870,8 +2870,8 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
   return Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8')
 }
 
-const CASE_BATTLE_ANIMATION_BASE_MS = 2_900
-const CASE_BATTLE_ROUND_MS = 6_255
+const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
+const CASE_BATTLE_ROUND_MS = 6_250
 const caseBattleSettlementTimers = new Map()
 
 function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
