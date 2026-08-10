@@ -3299,14 +3299,18 @@ export default function CaseBattles({ battleId = "" }) {
     if (!row?.id) return normalizeBattleGame(row, previous);
     const battleId = String(row.id);
     const trackPlayback = viewedBattleIdsRef.current.has(battleId);
-    const savedCount = trackPlayback
-      ? Number(revealedBattleRoundsRef.current.get(battleId) || 0)
+    const savedProgress = revealedBattleRoundsRef.current.get(battleId);
+    const savedCount = trackPlayback && savedProgress?.source === "battle-view"
+      ? Number(savedProgress.count || 0)
       : 0;
     const previousCount = Number(previous?.revealedRoundCount || 0);
     const progressSource = previous
       ? { ...previous, revealedRoundCount: Math.max(savedCount, previousCount) }
-      : savedCount > 0 ? { revealedRoundCount: savedCount } : null;
-    const normalized = normalizeBattleGame(row, progressSource);
+      : null;
+    const rowWithSavedProgress = !previous && savedCount > 0
+      ? { ...row, revealedRoundCount: Math.max(Number(row.revealedRoundCount || 0), savedCount) }
+      : row;
+    const normalized = normalizeBattleGame(rowWithSavedProgress, progressSource);
     if (normalized) {
       const activeProfileId = String(user?.profile_id || user?.id || "");
       const activeUsername = String(user?.username || "").trim().toLowerCase();
@@ -3320,12 +3324,6 @@ export default function CaseBattles({ battleId = "" }) {
         || (activeUsername && creatorUsername && activeUsername === creatorUsername),
       );
       if (normalized.ownedByViewer) ownedBattleIdsRef.current.add(battleId);
-      if (trackPlayback) {
-        revealedBattleRoundsRef.current.set(
-          battleId,
-          Math.max(savedCount, Number(normalized.revealedRoundCount || 0)),
-        );
-      }
     }
     return normalized;
   };
@@ -3338,9 +3336,13 @@ export default function CaseBattles({ battleId = "" }) {
     );
     const revealedCount = Math.max(Number(battle.revealedRoundCount || 0), revealedFromResults);
     const battleId = String(battle.id);
+    const savedProgress = revealedBattleRoundsRef.current.get(battleId);
     revealedBattleRoundsRef.current.set(
       battleId,
-      Math.max(Number(revealedBattleRoundsRef.current.get(battleId) || 0), revealedCount),
+      {
+        source: "battle-view",
+        count: Math.max(Number(savedProgress?.count || 0), revealedCount),
+      },
     );
   }, [battle]);
 
