@@ -1565,6 +1565,9 @@ function getMostCompleteBattleResults(...candidates) {
 
 function normalizeBattleGame(row, previous = null) {
   if (!row) return null;
+  // Never carry animation/result state across battle identities. React can
+  // receive the next battle before the previous route finishes unmounting.
+  if (previous && String(previous.id || "") !== String(row.id || "")) previous = null;
   const completeResults = getMostCompleteBattleResults(
     row.results,
     row.outcomeResults,
@@ -2712,6 +2715,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const spinnerInnerRef = useRef(null);
   const firstWheelTrackRef = useRef(null);
   const modeIds = getSelectedModeIds(battle.mode);
+  const battleInstanceId = String(battle.id || "");
   const displayedRound = (battle.status === "resolved" && !battle.deferResolution) || battle.finished || battle.phase === "finished"
     ? Math.max(0, battle.cases.length - 1)
     : Math.max(0, Number(battle.currentRound || 0));
@@ -2757,9 +2761,11 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
 
   useEffect(() => {
     if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting || battle.serverManaged) return undefined;
-    const timer = window.setTimeout(() => setBattle((state) => ({ ...state, phase: "countdown", countdown: 3 })), 450);
+    const timer = window.setTimeout(() => setBattle((state) => String(state?.id || "") === battleInstanceId
+      ? { ...state, phase: "countdown", countdown: 3 }
+      : state), 450);
     return () => window.clearTimeout(timer);
-  }, [allJoined, battle.demoWaiting, battle.phase, battle.serverManaged, setBattle]);
+  }, [allJoined, battle.demoWaiting, battle.phase, battle.serverManaged, battleInstanceId, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "countdown") return undefined;
@@ -2767,20 +2773,24 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       if (battle.serverManaged && battle.status !== "active" && !battle.deferResolution) return undefined;
       const timer = window.setTimeout(() => {
         setBattle((state) => ({
-          ...state,
-          phase: "spinning",
-          resumeSpinMs: 0,
-          reels: state.players.map((_, index) => buildReel(
-            state.cases[state.currentRound] || state.cases[0],
-            state.outcomeResults?.[index]?.[state.currentRound] || null,
-          )),
+          ...(String(state?.id || "") === battleInstanceId ? {
+            ...state,
+            phase: "spinning",
+            resumeSpinMs: 0,
+            reels: state.players.map((_, index) => buildReel(
+              state.cases[state.currentRound] || state.cases[0],
+              state.outcomeResults?.[index]?.[state.currentRound] || null,
+            )),
+          } : state),
         }));
       }, Math.min(1000, Math.max(20, Number(battle.resumeCountdownMs || 1000))));
       return () => window.clearTimeout(timer);
     }
-    const timer = window.setTimeout(() => setBattle((state) => ({ ...state, countdown: state.countdown - 1, resumeCountdownMs: 1000 })), Math.max(20, Number(battle.resumeCountdownMs || 1000)));
+    const timer = window.setTimeout(() => setBattle((state) => String(state?.id || "") === battleInstanceId
+      ? { ...state, countdown: state.countdown - 1, resumeCountdownMs: 1000 }
+      : state), Math.max(20, Number(battle.resumeCountdownMs || 1000)));
     return () => window.clearTimeout(timer);
-  }, [battle.countdown, battle.phase, battle.resumeCountdownMs, setBattle]);
+  }, [battle.countdown, battle.phase, battle.resumeCountdownMs, battleInstanceId, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "spinning") return undefined;
@@ -2840,6 +2850,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       setHasSpinResult(true);
       playSound(PULL_SOUND, 0.34);
       setBattle((state) => {
+        if (String(state?.id || "") !== battleInstanceId) return state;
         const winningItems = state.reels.map((reel) => reel[REEL_STOP_INDEX]);
         const results = state.results.map((items, index) => items.concat(winningItems[index]));
         const finalRound = state.currentRound >= state.cases.length - 1;
@@ -2863,25 +2874,27 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       window.clearTimeout(settleTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [battle.fastSpin, battle.phase, battle.resumeSpinMs, reelTiming.duration, reelTiming.mainDuration, reelTiming.settleDuration, reelTiming.settlePause, reelTiming.startDelay, setBattle]);
+  }, [battle.fastSpin, battle.phase, battle.resumeSpinMs, battleInstanceId, reelTiming.duration, reelTiming.mainDuration, reelTiming.settleDuration, reelTiming.settlePause, reelTiming.startDelay, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "round-delay") return undefined;
     const timer = window.setTimeout(() => {
       setBattle((state) => ({
-        ...state,
-        currentRound: state.currentRound + 1,
-        phase: "spinning",
-        resumeSpinMs: 0,
-        resumeDelayMs: 0,
-        reels: state.players.map((_, index) => buildReel(
-          state.cases[state.currentRound + 1] || state.cases[0],
-          state.outcomeResults?.[index]?.[state.currentRound + 1] || null,
-        )),
+        ...(String(state?.id || "") === battleInstanceId ? {
+          ...state,
+          currentRound: state.currentRound + 1,
+          phase: "spinning",
+          resumeSpinMs: 0,
+          resumeDelayMs: 0,
+          reels: state.players.map((_, index) => buildReel(
+            state.cases[state.currentRound + 1] || state.cases[0],
+            state.outcomeResults?.[index]?.[state.currentRound + 1] || null,
+          )),
+        } : state),
       }));
     }, Math.max(0, reelTiming.roundDelay - Number(battle.resumeDelayMs || 0)));
     return () => window.clearTimeout(timer);
-  }, [battle.phase, battle.resumeDelayMs, reelTiming.roundDelay, setBattle]);
+  }, [battle.phase, battle.resumeDelayMs, battleInstanceId, reelTiming.roundDelay, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "finished") {
@@ -3582,6 +3595,7 @@ export default function CaseBattles({ battleId = "" }) {
       )}
       {screen === "battle" && battle && (
         <BattleView
+          key={battle.id}
           battle={battle}
           setBattle={setBattle}
           botProfiles={botProfiles}

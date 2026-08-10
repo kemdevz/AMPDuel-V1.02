@@ -2,6 +2,11 @@ node_modules/
 dist/
 supabase/backups/
 
+# Secrets stay local. Commit an explicitly redacted .env.example instead.
+.env
+.env.*
+!.env.example
+
 
 
 *.log

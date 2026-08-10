@@ -33,6 +33,8 @@ const isAllowedOrigin = (origin) => {
     .filter(Boolean)
   return configuredOrigins.includes(origin) ||
     origin === 'http://bloxdice.com' ||
+    origin === 'https://bloxdice.com' ||
+    origin === 'https://bloxybattles-main.onrender.com' ||
     origin === 'http://localhost:5173'
 }
 const io = new Server(server, {
@@ -843,6 +845,27 @@ async function requireAuthenticatedUser(req, res, next) {
       return
     }
     req.identity = identity
+    if (isUnsafeHttpMethod(req.method)) {
+      const profileKey = String(identity.profileId)
+      const blockedUntil = temporaryProfileBlocks.get(profileKey) || 0
+      if (blockedUntil > Date.now()) {
+        res.setHeader('Retry-After', String(Math.ceil((blockedUntil - Date.now()) / 1000)))
+        res.status(429).json({ ok: false, error: 'This account is temporarily rate limited.' })
+        return
+      }
+      if (isRateLimited(extremeProfileMutationWindows, profileKey, 600, 60_000)) {
+        temporaryProfileBlocks.set(profileKey, Date.now() + 10 * 60_000)
+        void recordSecurityEvent(req, 'extreme_profile_request_flood', 'high', { profile_id: profileKey })
+        res.setHeader('Retry-After', '600')
+        res.status(429).json({ ok: false, error: 'This account is temporarily rate limited.' })
+        return
+      }
+      if (isRateLimited(profileMutationWindows, profileKey, 120, 60_000)) {
+        res.setHeader('Retry-After', '60')
+        res.status(429).json({ ok: false, error: 'Too many requests. Please wait a moment.' })
+        return
+      }
+    }
     next()
   } catch (error) {
     console.warn('[auth] authentication check failed', error)
@@ -1690,6 +1713,23 @@ io.use(async (socket, next) => {
 const chatServerInstanceId = crypto.randomUUID()
 
 io.on('connection', (socket) => {
+  const socketEventTimes = []
+  socket.use((packet, next) => {
+    const now = Date.now()
+    while (socketEventTimes.length > 0 && socketEventTimes[0] <= now - 60_000) {
+      socketEventTimes.shift()
+    }
+    socketEventTimes.push(now)
+    if (socketEventTimes.length > 600) {
+      socket.disconnect(true)
+      return
+    }
+    if (socketEventTimes.length > 240) {
+      next(new Error('Too many realtime requests. Please wait a moment.'))
+      return
+    }
+    next()
+  })
   const chatSession = { id: chatServerInstanceId }
   socket.emit('chat:session', chatSession)
   socket.on('chat:session:get', (acknowledge) => {
@@ -1820,226 +1860,6 @@ io.on('connection', (socket) => {
     }
   })
 
-  // Coinflip real-time events: broadcast created/updated coinflips
-  socket.on('coinflip:create', (payload) => {
-    try {
-      if (!payload || !payload.room) return
-      io.emit('coinflip:created', payload.room)
-    } catch (err) {
-      console.warn('[socket] coinflip:create handler error', err)
-    }
-  })
-
-  socket.on('coinflip:update', (payload) => {
-    try {
-      if (!payload || !payload.room) return
-      io.emit('coinflip:updated', payload.room)
-    } catch (err) {
-      console.warn('[socket] coinflip:update handler error', err)
-    }
-  })
-
-  // Mines real-time events
-  socket.on('mines:reveal', async (payload, acknowledge) => {
-    try {
-      const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-      if (!supabaseUrl || !supabaseKey) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'supabase config missing' })
-        return
-      }
-
-      const profileId = String(socket.data.identity?.profileId)
-      const gameId = String(payload.game_id || '')
-      const position = Number(payload.position)
-
-      if (gameId === '' || isNaN(position) || position < 0 || position > 24) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Invalid game or position.' })
-        return
-      }
-
-      // Optimistic: Fetch game and calculate result
-      const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-        headers: getSupabaseAdminHeaders(supabaseKey),
-        signal: AbortSignal.timeout(2_000),
-      })
-
-      if (!gameRes.ok) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game not found.' })
-        return
-      }
-
-      const gameData = await gameRes.json()
-      const game = Array.isArray(gameData) ? gameData[0] : gameData
-
-      if (!game || game.profile_id !== profileId) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You can only reveal your own games.' })
-        return
-      }
-
-      if (game.game_state !== 'active') {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game is not active.' })
-        return
-      }
-
-      if (game.revealed_positions.includes(position)) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Position already revealed.' })
-        return
-      }
-
-      const minePositions = Array.isArray(game.mine_positions) ? game.mine_positions : []
-      const newRevealedPositions = [...game.revealed_positions, position]
-      const isMine = minePositions.includes(position)
-
-      let updateData = {
-        revealed_positions: newRevealedPositions,
-      }
-
-      if (isMine) {
-        updateData.game_state = 'exploded'
-        updateData.multiplier = 0
-        updateData.current_value = 0
-      } else {
-        const revealedCount = newRevealedPositions.length
-        const multiplier = getMinesMultiplier(revealedCount, 25, game.mines_count)
-        const currentValue = Math.round(game.wager_value * multiplier)
-        
-        updateData.multiplier = multiplier
-        updateData.current_value = currentValue
-      }
-
-      // Create optimistic game object for immediate response
-      const optimisticGame = { ...game, ...updateData }
-      const publicGame = serializeMinesGame(optimisticGame)
-      
-      // Respond immediately with optimistic result
-      if (typeof acknowledge === 'function') acknowledge({ ok: true, game: publicGame, is_mine: isMine })
-      
-      // Update database in background
-      fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-        method: 'PATCH',
-        headers: getSupabaseAdminHeaders(supabaseKey, { 
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        }),
-        body: JSON.stringify(updateData),
-        signal: AbortSignal.timeout(2_000),
-      }).then(updateRes => {
-        if (updateRes.ok) {
-          updateRes.json().then(updatedGameData => {
-            const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
-            const finalPublicGame = serializeMinesGame(updatedGame)
-            io.emit('mines:updated', finalPublicGame)
-            if (updatedGame?.game_state === 'exploded') {
-              void emitProfileUpdates([profileId])
-            }
-          })
-        }
-      }).catch(err => {
-        console.error('[socket] mines:reveal background update error', err)
-      })
-    } catch (err) {
-      console.error('[socket] mines:reveal error', err)
-      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: String(err) })
-    }
-  })
-
-  socket.on('mines:cashout', async (payload, acknowledge) => {
-    try {
-      const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-      if (!supabaseUrl || !supabaseKey) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'supabase config missing' })
-        return
-      }
-
-      const profileId = String(socket.data.identity?.profileId)
-      const gameId = String(payload.game_id || '')
-
-      if (gameId === '') {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Invalid game ID.' })
-        return
-      }
-
-      const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-        headers: getSupabaseAdminHeaders(supabaseKey),
-        signal: AbortSignal.timeout(2_000),
-      })
-
-      if (!gameRes.ok) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game not found.' })
-        return
-      }
-
-      const gameData = await gameRes.json()
-      const game = Array.isArray(gameData) ? gameData[0] : gameData
-
-      if (!game || game.profile_id !== profileId) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'You can only cash out your own games.' })
-        return
-      }
-
-      if (game.game_state !== 'active') {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Game is not active.' })
-        return
-      }
-
-      if (game.revealed_positions.length === 0) {
-        if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Reveal at least one position before cashing out.' })
-        return
-      }
-
-      const winnings = game.current_value
-
-      // Create optimistic game object for immediate response
-      const optimisticGame = { 
-        ...game, 
-        game_state: 'cashed_out',
-        cashed_out_at: new Date().toISOString()
-      }
-      const publicGame = serializeMinesGame(optimisticGame)
-      
-      // Respond immediately with optimistic result
-      if (typeof acknowledge === 'function') acknowledge({ ok: true, game: publicGame, winnings })
-      
-      // Update database in background
-      fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-        method: 'PATCH',
-        headers: getSupabaseAdminHeaders(supabaseKey, { 
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        }),
-        body: JSON.stringify({
-          game_state: 'cashed_out',
-          cashed_out_at: new Date().toISOString(),
-        }),
-        signal: AbortSignal.timeout(2_000),
-      }).then(async updateRes => {
-        if (updateRes.ok) {
-          const updatedGameData = await updateRes.json()
-          const profile = await loadProfileById(profileId)
-          
-          if (profile) {
-            await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
-              method: 'PATCH',
-              body: { balance: Number(profile.balance) + winnings },
-            })
-          }
-
-          const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
-          const finalPublicGame = serializeMinesGame(updatedGame)
-          io.emit('mines:updated', finalPublicGame)
-          void emitProfileUpdates([profileId])
-        }
-      }).catch(err => {
-        console.error('[socket] mines:cashout background update error', err)
-      })
-    } catch (err) {
-      console.error('[socket] mines:cashout error', err)
-      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: String(err) })
-    }
-  })
-
-
-
   socket.on('disconnect', () => {
     clearTimeout(unidentifiedPresenceTimer)
     emitOnlineCount()
@@ -2053,6 +1873,14 @@ const ROBLOX_PHRASE_WORDS = [
 const authAttempts = new Map()
 const chatMessageReceipts = new Map()
 const chatMessageWindows = new Map()
+const apiRequestWindows = new Map()
+const extremeApiRequestWindows = new Map()
+const ipMutationWindows = new Map()
+const extremeIpMutationWindows = new Map()
+const profileMutationWindows = new Map()
+const extremeProfileMutationWindows = new Map()
+const temporaryIpBlocks = new Map()
+const temporaryProfileBlocks = new Map()
 
 function getRecentChatMessages(profileId, now) {
   const recentMessages = (chatMessageWindows.get(profileId) || []).filter(
@@ -2092,6 +1920,84 @@ function generateRobloxPhrase() {
   }
   return words.slice(0, 10).join(' ')
 }
+
+function isUnsafeHttpMethod(method) {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(String(method || '').toUpperCase())
+}
+
+async function recordSecurityEvent(req, eventType, severity, metadata = {}) {
+  try {
+    await adminRest('security_events', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: [{
+        profile_id: req.identity?.profileId || metadata.profile_id || null,
+        ip_address: getRequestIp(req) || null,
+        event_type: eventType,
+        severity,
+        route: String(req.originalUrl || req.url || '').slice(0, 300),
+        user_agent: String(req.headers['user-agent'] || '').slice(0, 500) || null,
+        metadata,
+      }],
+    })
+  } catch (error) {
+    console.warn('[security] failed to record event', error?.message || error)
+  }
+}
+
+// This protects application capacity and wallet endpoints from a single source.
+// Ordinary bursts receive 429 only. A sustained, extreme flood gets a temporary
+// block and an audit event; it never permanently bans a user automatically.
+app.use('/api', (req, res, next) => {
+  const ipAddress = getRequestIp(req) || 'unknown'
+  const blockedUntil = temporaryIpBlocks.get(ipAddress) || 0
+  if (blockedUntil > Date.now()) {
+    res.setHeader('Retry-After', String(Math.ceil((blockedUntil - Date.now()) / 1000)))
+    res.status(429).json({ ok: false, error: 'This network is temporarily rate limited.' })
+    return
+  }
+
+  if (isRateLimited(extremeApiRequestWindows, ipAddress, 3_000, 60_000)) {
+    temporaryIpBlocks.set(ipAddress, Date.now() + 10 * 60_000)
+    void recordSecurityEvent(req, 'extreme_api_request_flood', 'high')
+    res.setHeader('Retry-After', '600')
+    res.status(429).json({ ok: false, error: 'This network is temporarily rate limited.' })
+    return
+  }
+  if (isRateLimited(apiRequestWindows, ipAddress, 600, 60_000)) {
+    res.setHeader('Retry-After', '60')
+    res.status(429).json({ ok: false, error: 'Too many requests. Please wait a moment.' })
+    return
+  }
+
+  if (!isUnsafeHttpMethod(req.method) || req.path === '/betnex/callback') {
+    next()
+    return
+  }
+
+  const origin = String(req.headers.origin || '').trim()
+  if (origin && !isAllowedOrigin(origin)) {
+    void recordSecurityEvent(req, 'rejected_cross_origin_mutation', 'medium', { origin: origin.slice(0, 300) })
+    res.status(403).json({ ok: false, error: 'Request origin is not allowed.' })
+    return
+  }
+
+  if (isRateLimited(extremeIpMutationWindows, ipAddress, 600, 60_000)) {
+    temporaryIpBlocks.set(ipAddress, Date.now() + 10 * 60_000)
+    void recordSecurityEvent(req, 'extreme_ip_request_flood', 'high')
+    res.setHeader('Retry-After', '600')
+    res.status(429).json({ ok: false, error: 'This network is temporarily rate limited.' })
+    return
+  }
+
+  if (isRateLimited(ipMutationWindows, ipAddress, 180, 60_000)) {
+    res.setHeader('Retry-After', '60')
+    res.status(429).json({ ok: false, error: 'Too many requests. Please wait a moment.' })
+    return
+  }
+
+  next()
+})
 
 function normalizeRobloxProfileText(value) {
   return String(value || '')
@@ -3854,6 +3760,13 @@ function getCoinflipWagerValue(items) {
   }, 0)
 }
 
+function serializeCoinflipGame(game) {
+  if (!game || typeof game !== 'object') return game
+  const { server_seed_encrypted, ...publicGame } = game
+  if (!publicGame.result) delete publicGame.server_seed
+  return publicGame
+}
+
 app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
   const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
   if (!supabaseUrl || !supabaseKey) {
@@ -3863,14 +3776,16 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
 
   const payload = req.body || {}
   const creator_uuid = String(req.identity.profileId)
-  const creator_username = String(payload.creator_username || '')
   const creator_side = String(payload.creator_side || '').trim().toLowerCase() === 'tails'
     ? 'tails'
     : 'heads'
   const assigned_opponent_side = creator_side === 'heads' ? 'tails' : 'heads'
-  const creator_avatar_url = payload.creator_avatar_url || payload.creator_avatar || null
 
   try {
+    const creatorProfile = await loadProfileById(creator_uuid)
+    if (!creatorProfile) return res.status(404).json({ ok: false, error: 'Profile not found.' })
+    const creator_username = String(creatorProfile.username || 'Player')
+    const creator_avatar_url = creatorProfile.avatar_headshot_url || creatorProfile.avatar_url || null
     const gameId = crypto.randomUUID()
     const serverSeed = crypto.randomBytes(32).toString('hex')
     const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
@@ -3950,7 +3865,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       data = null
     }
 
-    const createdRoom = Array.isArray(data) ? data[0] : data
+    const createdRoom = serializeCoinflipGame(Array.isArray(data) ? data[0] : data)
     io.emit('coinflip:created', createdRoom)
     res.json({ ok: true, data: createdRoom })
     return
@@ -3989,8 +3904,9 @@ app.post(
         return
       }
 
-      io.emit('coinflip:updated', updatedRoom)
-      res.json({ ok: true, data: updatedRoom })
+      const publicRoom = serializeCoinflipGame(updatedRoom)
+      io.emit('coinflip:updated', publicRoom)
+      res.json({ ok: true, data: publicRoom })
     } catch (error) {
       console.error('[api/coinflip/cancel] error', error)
       res.status(500).json({ ok: false, error: error?.message || 'Unable to cancel coinflip.' })
@@ -4009,8 +3925,6 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
   const payload = req.body || {}
   const roomId = payload.roomId || payload.id || null
   const opponent_uuid = String(req.identity.profileId)
-  const opponent_username = String(payload.opponent_username || '')
-  const opponent_avatar_url = payload.opponent_avatar_url || payload.opponent_avatar || null
 
   if (!roomId) {
     res.status(400).json({ ok: false, error: 'roomId is required' })
@@ -4018,6 +3932,10 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
   }
 
   try {
+    const opponentProfile = await loadProfileById(opponent_uuid)
+    if (!opponentProfile) return res.status(404).json({ ok: false, error: 'Profile not found.' })
+    const opponent_username = String(opponentProfile.username || 'Player')
+    const opponent_avatar_url = opponentProfile.avatar_headshot_url || opponentProfile.avatar_url || null
     let assignedOpponentSide = 'heads'
     let roomObj = null
 
@@ -4153,8 +4071,9 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
     }
 
     await emitProfileUpdates([roomObj.creator_uuid, opponent_uuid])
-    io.emit('coinflip:updated', updatedRoom || { id: roomId })
-    res.json({ ok: true, data: updatedRoom })
+    const publicRoom = serializeCoinflipGame(updatedRoom)
+    io.emit('coinflip:updated', publicRoom || { id: roomId })
+    res.json({ ok: true, data: publicRoom })
     return
   } catch (err) {
     console.error('[api/coinflip/join] error', err)
@@ -4452,8 +4371,8 @@ app.get('/api/mines/state', requireAuthenticatedUser, async (req, res) => {
 
 // Create a new mines game
 app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
-  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-  if (!supabaseUrl || !supabaseKey) {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) {
     res.status(500).json({ ok: false, error: 'supabase config missing' })
     return
   }
@@ -4477,41 +4396,7 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
     })
   }
 
-  let balanceBeforeWager = null
-  let balanceAfterWager = null
-  let gameCreated = false
-
   try {
-    const activeGames = await adminRest(
-      `mines_games?profile_id=eq.${encodeURIComponent(profileId)}&game_state=eq.active&select=id&limit=1`,
-    )
-    if (Array.isArray(activeGames) && activeGames.length > 0) {
-      return res.status(409).json({
-        ok: false,
-        error: 'You already have an active Mines game.',
-      })
-    }
-
-    // Check user balance
-    const profile = await loadProfileById(profileId)
-    if (!profile) {
-      return res.status(404).json({ ok: false, error: 'Profile not found.' })
-    }
-
-    balanceBeforeWager = Number(profile.balance || 0)
-    if (balanceBeforeWager < wagerValue) {
-      return res.status(400).json({ ok: false, error: 'Insufficient balance.' })
-    }
-
-    // Deduct wager from balance
-    balanceAfterWager = balanceBeforeWager - wagerValue
-    await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${profile.balance}`, {
-      method: 'PATCH',
-      body: { balance: balanceAfterWager },
-    })
-
-    // Commit this game to the player's active Mines fairness seed and consume
-    // one nonce before storing the board.
     const gameId = crypto.randomUUID()
     const fairnessState = await ensureMinesFairnessState(profileId, supabaseKey)
     const serverSeed = validateMinesFairnessState(fairnessState, supabaseKey)
@@ -4519,88 +4404,43 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
     const nonce = Number(fairnessState.nonce || 0)
     if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error('Mines fairness nonce is invalid.')
 
-    await callRainRpc('claim_mines_fairness_nonce', {
-      p_profile_id: profileId,
-      p_expected_seed_id: fairnessState.seed_id,
-      p_expected_server_seed_hash: fairnessState.server_seed_hash,
-      p_expected_nonce: nonce,
-    })
-
     const minePositions = generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId)
-
-    const gameData = {
-      id: gameId,
-      profile_id: profileId,
-      username: profile.username,
-      avatar_url: profile.avatar_url,
-      wager_value: wagerValue,
-      mines_count: minesCount,
-      revealed_positions: [],
-      mine_positions: minePositions,
-      game_state: 'active',
-      multiplier: 1.0,
-      current_value: 0,
-      server_seed_encrypted: encryptMinesServerSeed(serverSeed, supabaseKey),
-      server_seed_hash: fairnessState.server_seed_hash,
-      fairness_seed_id: fairnessState.seed_id,
-      client_seed: clientSeed,
-      nonce,
-      grid_size: gridSize,
-    }
-
-    const response = await fetch(`${supabaseUrl}/rest/v1/mines_games?select=*`, {
-      method: 'POST',
-      headers: getSupabaseAdminHeaders(supabaseKey, {
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
-      }),
-      body: JSON.stringify(gameData),
-      signal: AbortSignal.timeout(10_000),
+    const result = await callRainRpc('create_mines_game_secure', {
+      p_profile_id: profileId,
+      p_game_id: gameId,
+      p_wager_value: wagerValue,
+      p_mines_count: minesCount,
+      p_grid_size: gridSize,
+      p_mine_positions: minePositions,
+      p_server_seed_encrypted: encryptMinesServerSeed(serverSeed, supabaseKey),
+      p_server_seed_hash: fairnessState.server_seed_hash,
+      p_fairness_seed_id: fairnessState.seed_id,
+      p_client_seed: clientSeed,
+      p_nonce: nonce,
     })
-    const responseText = await response.text()
-
-    if (!response.ok) {
-      console.warn('[api/mines/create] failed to create game', response.status, responseText)
-      throw new Error(`Failed to create mines game: ${responseText}`)
-    }
-    gameCreated = true
-
-    let createdGame
-    try {
-      createdGame = responseText ? JSON.parse(responseText) : null
-    } catch (parseError) {
-      console.error('[api/mines/create] failed to parse response:', responseText)
-      throw new Error(`Failed to parse mines game response: ${parseError.message}`)
-    }
-    
-    const storedGame = Array.isArray(createdGame) ? createdGame[0] : createdGame
+    const storedGame = result?.game
+    if (!storedGame?.id) throw new Error('Mines game transaction returned no game.')
     const returnGame = storedGame ? { ...storedGame, grid_size: gridSize } : storedGame
 
     // Emit real-time update
     const publicGame = serializeMinesGame(returnGame)
     io.emit('mines:created', publicGame)
+    void emitProfileUpdates([profileId])
 
-    res.json({ ok: true, game: publicGame })
+    res.json({ ok: true, game: publicGame, balance: Number(result.balance || 0) })
   } catch (err) {
-    if (!gameCreated && balanceBeforeWager != null && balanceAfterWager != null) {
-      try {
-        await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}&balance=eq.${balanceAfterWager}`, {
-          method: 'PATCH',
-          body: { balance: balanceBeforeWager },
-        })
-      } catch (refundError) {
-        console.error('[api/mines/create] failed to restore wager after create error', refundError)
-      }
-    }
-    console.error('[api/mines/create] error', err)
-    res.status(500).json({ ok: false, error: String(err) })
+    const message = err?.message || 'Unable to create Mines game.'
+    const expected = /active Mines|Insufficient balance|fairness state changed|invalid Mines/i.test(message)
+    if (!expected) console.error('[api/mines/create] error', err)
+    res.status(/active Mines|fairness state changed/i.test(message) ? 409 : expected ? 400 : 500)
+      .json({ ok: false, error: message })
   }
 })
 
 // Reveal a position in mines game
 app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
-  const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-  if (!supabaseUrl || !supabaseKey) {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) {
     res.status(500).json({ ok: false, error: 'supabase config missing' })
     return
   }
@@ -4615,99 +4455,27 @@ app.post('/api/mines/reveal', express.json({ limit: '24kb' }), requireAuthentica
   }
 
   try {
-    const gameRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-      headers: getSupabaseAdminHeaders(supabaseKey),
-      signal: AbortSignal.timeout(10_000),
+    const result = await callRainRpc('reveal_mines_position_secure', {
+      p_profile_id: profileId,
+      p_game_id: gameId,
+      p_position: position,
     })
-
-    if (!gameRes.ok) {
-      const txt = await gameRes.text()
-      console.warn('[api/mines/reveal] failed to fetch game', gameRes.status, txt)
-      return res.status(404).json({ ok: false, error: 'Game not found.' })
-    }
-
-    const gameData = await gameRes.json()
-    const game = Array.isArray(gameData) ? gameData[0] : gameData
-
-    if (!game || game.profile_id !== profileId) {
-      return res.status(403).json({ ok: false, error: 'You can only reveal your own games.' })
-    }
-
-    if (game.game_state !== 'active') {
-      return res.status(400).json({ ok: false, error: 'Game is not active.' })
-    }
-
-    const gridSize = resolveMinesGridSize(game, supabaseKey)
-    const totalPositions = gridSize * gridSize
-    if (position >= totalPositions) {
-      return res.status(400).json({ ok: false, error: 'Invalid game or position.' })
-    }
-
-    if (game.revealed_positions.includes(position)) {
-      return res.status(400).json({ ok: false, error: 'Position already revealed.' })
-    }
-
-    const minePositions = Array.isArray(game.mine_positions) ? game.mine_positions : []
-    const newRevealedPositions = [...game.revealed_positions, position]
-    const isMine = minePositions.includes(position)
-
-    let updateData = {
-      revealed_positions: newRevealedPositions,
-    }
-
-    if (isMine) {
-      updateData.game_state = 'exploded'
-      updateData.multiplier = 0
-      updateData.current_value = 0
-    } else {
-      const revealedCount = newRevealedPositions.length
-      const multiplier = getMinesMultiplier(revealedCount, totalPositions, game.mines_count)
-      const currentValue = Math.round(game.wager_value * multiplier)
-      
-      updateData.multiplier = multiplier
-      updateData.current_value = currentValue
-    }
-
-    const updateRes = await fetch(`${supabaseUrl}/rest/v1/mines_games?id=eq.${encodeURIComponent(gameId)}&select=*`, {
-      method: 'PATCH',
-      headers: getSupabaseAdminHeaders(supabaseKey, { 
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      }),
-      body: JSON.stringify(updateData),
-      signal: AbortSignal.timeout(10_000),
-    })
-
-    const responseText = await updateRes.text()
-
-    if (!updateRes.ok) {
-      console.warn('[api/mines/reveal] failed to update game', updateRes.status, responseText)
-      throw new Error(`Failed to update mines game: ${responseText}`)
-    }
-
-    let updatedGameData
-    try {
-      updatedGameData = responseText ? JSON.parse(responseText) : null
-    } catch (parseError) {
-      console.error('[api/mines/reveal] failed to parse response:', responseText)
-      throw new Error(`Failed to parse mines game response: ${parseError.message}`)
-    }
-    
-    const updatedGame = Array.isArray(updatedGameData) ? updatedGameData[0] : updatedGameData
-
-    // If exploded, refund nothing (already lost wager)
-    // If not exploded, user can continue or cash out
-
+    const updatedGame = result?.game
+    if (!updatedGame?.id) throw new Error('Mines reveal transaction returned no game.')
+    const gridSize = resolveMinesGridSize(updatedGame, supabaseKey)
     const publicGame = serializeMinesGame({ ...updatedGame, grid_size: gridSize })
     io.emit('mines:updated', publicGame)
     if (updatedGame?.game_state === 'exploded') {
       void emitProfileUpdates([profileId])
     }
 
-    res.json({ ok: true, game: publicGame, is_mine: isMine })
+    res.json({ ok: true, game: publicGame, is_mine: Boolean(result.is_mine) })
   } catch (err) {
-    console.error('[api/mines/reveal] error', err)
-    res.status(500).json({ ok: false, error: String(err) })
+    const message = err?.message || 'Unable to reveal this Mines position.'
+    const expected = /not found|own games|not active|invalid game or position/i.test(message)
+    if (!expected) console.error('[api/mines/reveal] error', err)
+    res.status(/not found/i.test(message) ? 404 : /own games/i.test(message) ? 403 : expected ? 400 : 500)
+      .json({ ok: false, error: message })
   }
 })
 
