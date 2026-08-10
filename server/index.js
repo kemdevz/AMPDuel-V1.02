@@ -2907,15 +2907,23 @@ function getCaseBattleAvatar(profile) {
   return String(profile?.avatar_headshot_url || profile?.avatar_url || '').trim() || null
 }
 
+function stampCaseBattleServerTime(battle) {
+  return battle ? { ...battle, server_now: new Date().toISOString() } : battle
+}
+
 async function enrichCaseBattleProfiles(value) {
   const battles = (Array.isArray(value) ? value : [value]).filter(Boolean)
+  const serverNow = new Date().toISOString()
   const profileIds = [...new Set(battles.flatMap((battle) => (
     (Array.isArray(battle?.players) ? battle.players : [])
       .filter((player) => player?.profile_type !== 'bot')
       .map((player) => String(player?.profile_id || '').trim())
       .filter(isUuidLike)
   )))]
-  if (!profileIds.length) return Array.isArray(value) ? battles : battles[0] || null
+  if (!profileIds.length) {
+    const stampedBattles = battles.map((battle) => ({ ...battle, server_now: serverNow }))
+    return Array.isArray(value) ? stampedBattles : stampedBattles[0] || null
+  }
 
   const chunks = []
   for (let index = 0; index < profileIds.length; index += 50) chunks.push(profileIds.slice(index, index + 50))
@@ -2925,6 +2933,7 @@ async function enrichCaseBattleProfiles(value) {
   const profilesById = new Map(profileGroups.flat().map((profile) => [String(profile.id), profile]))
   const enriched = battles.map((battle) => ({
     ...battle,
+    server_now: serverNow,
     players: (Array.isArray(battle.players) ? battle.players : []).map((player) => {
       if (player?.profile_type === 'bot') return player
       const profile = profilesById.get(String(player?.profile_id || ''))
@@ -3254,7 +3263,7 @@ app.post('/api/case-battles', express.json({ limit: '64kb' }), requireAuthentica
     if (!battle) throw new Error('The Case Battle was not returned after creation.')
     io.emit('case-battle:created', battle)
     void emitWalletRefreshes([profileId])
-    res.status(result?.replayed ? 200 : 201).json({ ok: true, battle, balance: result?.balance, replayed: Boolean(result?.replayed) })
+    res.status(result?.replayed ? 200 : 201).json({ ok: true, battle: stampCaseBattleServerTime(battle), balance: result?.balance, replayed: Boolean(result?.replayed) })
   } catch (error) {
     const message = error?.message || 'Unable to create this Case Battle.'
     const expected = /select|case|mode|profile|available|balance|cost/i.test(message)
@@ -3343,7 +3352,7 @@ app.post('/api/case-battles/:battleId/call-bot', express.json({ limit: '8kb' }),
       ? await startCaseBattle(updatedBattle)
       : updatedBattle
     if (responseBattle === updatedBattle) io.emit('case-battle:updated', updatedBattle)
-    res.json({ ok: true, battle: responseBattle })
+    res.json({ ok: true, battle: stampCaseBattleServerTime(responseBattle) })
   } catch (error) {
     const message = error?.message || 'Unable to call a bot.'
     console.warn('[api/case-battles] call bot error', message)
@@ -3388,7 +3397,7 @@ app.post('/api/case-battles/:battleId/join', express.json({ limit: '8kb' }), req
       : joinedBattle
     if (responseBattle === joinedBattle) io.emit('case-battle:updated', joinedBattle)
     void emitWalletRefreshes([profileId])
-    res.json({ ok: true, battle: responseBattle, balance: result?.balance })
+    res.json({ ok: true, battle: stampCaseBattleServerTime(responseBattle), balance: result?.balance })
   } catch (error) {
     const missingJoinFunction = /join_case_battle_game.*schema cache|schema cache.*join_case_battle_game/i.test(error?.message || '')
     const message = missingJoinFunction
@@ -3429,7 +3438,7 @@ app.post('/api/case-battles/:battleId/cancel', express.json({ limit: '8kb' }), r
     }
     io.emit('case-battle:updated', battle)
     void emitWalletRefreshes([req.identity.profileId])
-    res.json({ ok: true, battle, balance: result?.balance })
+    res.json({ ok: true, battle: stampCaseBattleServerTime(battle), balance: result?.balance })
   } catch (error) {
     console.warn('[api/case-battles] cancel error', error?.message || error)
     const message = error?.message || 'Unable to cancel this Case Battle.'

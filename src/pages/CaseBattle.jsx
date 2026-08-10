@@ -1610,15 +1610,24 @@ function normalizeBattleGame(row, previous = null) {
   const requestedModes = Array.isArray(source.modes) ? source.modes : [];
   const modes = requestedModes.filter((mode) => MODE_OPTIONS.some((option) => option.id === mode));
   if (!modes.length) modes.push("normal");
+  const providedServerNow = new Date(row?.server_now || "").getTime();
+  const providedServerClockOffset = Number(row?.serverClockOffset);
+  const inheritedServerClockOffset = Number(previous?.serverClockOffset);
+  const serverClockOffset = Number.isFinite(providedServerClockOffset)
+    ? providedServerClockOffset
+    : Number.isFinite(providedServerNow)
+      ? providedServerNow - Date.now()
+      : Number.isFinite(inheritedServerClockOffset) ? inheritedServerClockOffset : 0;
+  const timelineNow = Date.now() + serverClockOffset;
   const startedAt = new Date(source.started_at || 0).getTime();
   const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
   const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
   const hasLocalCountdown = previous?.phase === "countdown" && previousCountdownStartedAt > 0;
   const countdownStartedAt = hasLocalCountdown
     ? previousCountdownStartedAt
-    : (justStarted ? Date.now() : startedAt);
+    : (justStarted ? timelineNow : startedAt);
   const activeElapsed = source.status === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
-    ? Math.max(0, Date.now() - countdownStartedAt)
+    ? Math.max(0, timelineNow - countdownStartedAt)
     : 0;
   let phase = ["waiting", "ready"].includes(source.status) ? "waiting" : source.status === "resolved" ? "finished" : "waiting";
   let currentRound = source.status === "resolved"
@@ -1631,7 +1640,7 @@ function normalizeBattleGame(row, previous = null) {
   let visibleRoundCount = source.status === "resolved" ? cases.length : 0;
 
   if (source.status === "ready" && hasLocalCountdown) {
-    const countdownRemaining = Math.max(0, BATTLE_COUNTDOWN_DURATION - (Date.now() - countdownStartedAt));
+    const countdownRemaining = Math.max(0, BATTLE_COUNTDOWN_DURATION - (timelineNow - countdownStartedAt));
     phase = "countdown";
     countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
     resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
@@ -1696,6 +1705,7 @@ function normalizeBattleGame(row, previous = null) {
     currentRound,
     countdown,
     countdownStartedAt,
+    serverClockOffset,
     resumeCountdownMs,
     resumeSpinMs,
     resumeDelayMs,
@@ -2862,7 +2872,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
           ...(filled ? {
             phase: "countdown",
             countdown: 3,
-            countdownStartedAt: Date.now(),
+            countdownStartedAt: Date.now() + Number(current.serverClockOffset || 0),
             resumeCountdownMs: 1000,
           } : {}),
         };
@@ -2910,7 +2920,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         ...(filled ? {
           phase: "countdown",
           countdown: 3,
-          countdownStartedAt: Date.now(),
+          countdownStartedAt: Date.now() + Number(current.serverClockOffset || 0),
           resumeCountdownMs: 1000,
         } : {}),
       };
