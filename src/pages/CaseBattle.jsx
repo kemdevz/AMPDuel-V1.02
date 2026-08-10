@@ -1643,19 +1643,17 @@ function normalizeBattleGame(row, previous = null) {
   const roundDelay = fastSpin ? FAST_BATTLE_ROUND_DELAY : BATTLE_ROUND_DELAY;
   const roundCycle = fastSpin ? FAST_BATTLE_ROUND_CYCLE : BATTLE_ROUND_CYCLE;
   const startedAt = new Date(source.started_at || 0).getTime();
-  const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
   const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
   const hasLocalCountdown = previous?.phase === "countdown" && previousCountdownStartedAt > 0;
   const hasActiveTimeline = source.status === "active"
     && previous?.status === "active"
     && previousCountdownStartedAt > 0;
-  // A waiting -> active response is the authoritative start boundary. Always
-  // re-anchor it to the synchronized server timeline, then preserve that same
-  // boundary for every realtime update so the client cannot jump ahead when
-  // the countdown changes into the first spin.
-  const countdownStartedAt = justStarted
-    ? timelineNow
-    : hasActiveTimeline || hasLocalCountdown ? previousCountdownStartedAt : startedAt;
+  // Follow the backend start boundary and preserve it for later realtime
+  // updates. Starting a second browser-owned clock here lets deployment
+  // latency make settlement overtake the visible animation.
+  const countdownStartedAt = hasActiveTimeline || hasLocalCountdown
+    ? previousCountdownStartedAt
+    : startedAt;
   const activeElapsed = source.status === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
     ? Math.max(0, timelineNow - countdownStartedAt)
     : 0;
@@ -1679,9 +1677,10 @@ function normalizeBattleGame(row, previous = null) {
   if (source.status === "active") {
     if (activeElapsed < BATTLE_COUNTDOWN_DURATION) {
       phase = "countdown";
+      const timeUntilStart = Math.max(0, startedAt - timelineNow);
       const countdownRemaining = BATTLE_COUNTDOWN_DURATION - activeElapsed;
       countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
-      resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
+      resumeCountdownMs = timeUntilStart + Math.max(20, countdownRemaining - (countdown - 1) * 1000);
     } else {
       const roundElapsed = activeElapsed - BATTLE_COUNTDOWN_DURATION;
       currentRound = Math.min(cases.length, Math.floor(roundElapsed / roundCycle));

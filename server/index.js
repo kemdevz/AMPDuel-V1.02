@@ -2988,6 +2988,7 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
 const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
 const CASE_BATTLE_ROUND_MS = 6_250
 const CASE_BATTLE_FAST_ROUND_MS = 1_990
+const CASE_BATTLE_START_BUFFER_MS = 1_000
 const caseBattleSettlementTimers = new Map()
 
 function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
@@ -3109,7 +3110,11 @@ async function startCaseBattle(battle) {
   const secret = Array.isArray(secretRows) ? secretRows[0] : secretRows
   const serverSeed = decryptCaseBattleServerSeed(secret?.server_seed_encrypted)
   const outcome = resolveCaseBattleOutcome(battle, serverSeed)
-  const startedAt = new Date()
+  // Give the active-row update and realtime delivery time to reach every
+  // viewer before the shared countdown begins. This is especially important
+  // for fast-spin battles where one remote database round trip can otherwise
+  // consume most of the first round.
+  const startedAt = new Date(Date.now() + CASE_BATTLE_START_BUFFER_MS)
   const roundDuration = battle.gold_spin ? CASE_BATTLE_FAST_ROUND_MS : CASE_BATTLE_ROUND_MS
   const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(battle.case_count) * roundDuration)
   const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}&status=in.(waiting,ready)`, {
@@ -3123,12 +3128,7 @@ async function startCaseBattle(battle) {
       started_at: startedAt.toISOString(), settle_at: settleAt.toISOString(), updated_at: startedAt.toISOString(),
     },
   })
-  const patched = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows
-  let updated = patched
-  if (patched?.id) {
-    const fullRows = await adminRest(`case_battle_games?select=*&id=eq.${encodeURIComponent(patched.id)}&limit=1`)
-    updated = Array.isArray(fullRows) ? fullRows[0] : fullRows
-  }
+  const updated = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows
   if (updated) {
     io.emit('case-battle:updated', updated)
     scheduleCaseBattleSettlement(updated)
