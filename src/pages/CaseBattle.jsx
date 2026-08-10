@@ -645,8 +645,7 @@ const BATTLE_STYLES = String.raw`
   .bb-header-meta-value { display: inline-flex; align-items: center; gap: 5px; color: #e1e4f2; font-size: 14px; font-weight: 600; }
   .bb-header-meta-value img { width: 15px; height: 15px; }
   .bb-header-meta-divider { width: 1px; height: 16px; background: #252839; }
-  .bb-fast-spin { display: inline-flex; width: 38px; height: 38px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 1px solid #252839; border-radius: 6px; background: #20222f; color: #fff; cursor: pointer; transform-origin: center; transition: transform var(--dur-fast) var(--ease-out),background .15s ease,opacity .15s ease; }
-  .bb-fast-spin:hover { background: #252839; }
+  .bb-fast-spin { display: inline-flex; width: 38px; height: 38px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 1px solid #1b1e2c; border-radius: 6px; background: #131520; color: #fff; cursor: pointer; transform-origin: center; transition: transform var(--dur-fast) var(--ease-out),opacity .15s ease; }
   .bb-fast-spin:active { transform: scale(var(--press-scale)); }
   .bb-fast-spin:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
   .bb-fast-spin svg { display: block; transition: fill .15s ease; }
