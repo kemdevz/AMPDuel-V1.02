@@ -251,7 +251,7 @@ export function registerRollGame({
   }
 
   function seedKey() {
-    const [secret] = seedSecrets()
+    const secret = String(process.env.JWT_SECRET || '').trim()
     if (!secret) throw new Error('JWT_SECRET is required for Roll fairness.')
     return deriveSeedKey(secret)
   }

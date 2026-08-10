@@ -9,9 +9,11 @@ import {
   Zap,
 } from "lucide-react";
 import { getInventoryItemAccent } from "../components/InventoryItemCard";
+import MiniProfileModal, { preloadMiniProfile } from "../components/MiniProfileModal";
 import { notifications } from "../components/Notifications";
 import SortDirectionIcon from "../components/SortDirectionIcon";
 import { apiRequest } from "../lib/apiClient";
+import { useNavigate } from "../lib/router";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../store/auth";
 import { formatPriceValue } from "../Utils/FormatPriceValues";
@@ -449,7 +451,8 @@ const BATTLE_STYLES = String.raw`
   .bb-stat-label { color: #fff; font-size: 14px; line-height: 1.25; }
   .bb-list-actions { display: flex; align-items: center; margin-top: 12px; }
   .bb-create-battle-btn { white-space: nowrap; }
-  .bb-battle-list { display: flex; flex-direction: column; margin-top: 16px; }
+  .bb-battle-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+  .bb-battle-section { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
 
   @keyframes bb-row-in {
     from { opacity: 0; transform: translateY(12px) scale(.985); filter: blur(4px); }
@@ -466,7 +469,7 @@ const BATTLE_STYLES = String.raw`
   }
   .bb-row-finished-overlay { position: absolute; z-index: 0; inset: 0; pointer-events: none; background: rgba(0,0,0,.35); }
   .bb-row-finished-content { position: relative; z-index: 1; opacity: .82; filter: grayscale(.18); }
-  .bb-battle-divider { width: 100%; height: 1px; margin: 12px 0; background: linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent); }
+  .bb-battle-divider { width: 100%; height: 1px; flex: 0 0 1px; background: linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent); }
 
   .bb-row {
     position: relative;
@@ -1549,16 +1552,30 @@ function normalizeBattleGame(row, previous = null) {
   if (!modes.length) modes.push("normal");
   const startedAt = new Date(source.started_at || 0).getTime();
   const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
-  const activeElapsed = source.status === "active" && Number.isFinite(startedAt) && startedAt > 0
-    ? (justStarted ? 0 : Math.max(0, Date.now() - startedAt))
+  const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
+  const hasLocalCountdown = previous?.phase === "countdown" && previousCountdownStartedAt > 0;
+  const countdownStartedAt = hasLocalCountdown
+    ? previousCountdownStartedAt
+    : (justStarted ? Date.now() : startedAt);
+  const activeElapsed = source.status === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
+    ? Math.max(0, Date.now() - countdownStartedAt)
     : 0;
   let phase = ["waiting", "ready"].includes(source.status) ? "waiting" : source.status === "resolved" ? "finished" : "waiting";
-  let currentRound = Math.max(0, Number(source.current_round ?? source.currentRound ?? 0));
+  let currentRound = source.status === "resolved"
+    ? Math.max(0, cases.length - 1)
+    : Math.max(0, Number(source.current_round ?? source.currentRound ?? 0));
   let countdown = 3;
   let resumeCountdownMs = 1000;
   let resumeSpinMs = 0;
   let resumeDelayMs = 0;
   let visibleRoundCount = source.status === "resolved" ? cases.length : 0;
+
+  if (source.status === "ready" && hasLocalCountdown) {
+    const countdownRemaining = Math.max(0, BATTLE_COUNTDOWN_DURATION - (Date.now() - countdownStartedAt));
+    phase = "countdown";
+    countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
+    resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
+  }
 
   if (source.status === "active") {
     if (activeElapsed < BATTLE_COUNTDOWN_DURATION) {
@@ -1618,6 +1635,7 @@ function normalizeBattleGame(row, previous = null) {
     phase,
     currentRound,
     countdown,
+    countdownStartedAt,
     resumeCountdownMs,
     resumeSpinMs,
     resumeDelayMs,
@@ -2067,7 +2085,7 @@ function BattleCasePreview({ caseItem, onPreview }) {
   );
 }
 
-function BattleRow({ battle, finished = false, onView, onPreview }) {
+function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen }) {
   const viewer = useAuth((state) => state.user);
   const viewerProfileId = String(viewer?.profile_id || viewer?.id || "");
   const viewerUsername = String(viewer?.username || "").trim().toLowerCase();
@@ -2097,7 +2115,12 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
                 <button
                   type="button"
                   className={`bb-row-avatar${battle.versus && index === battle.players.length / 2 - 1 ? " bb-row-player-before-vs" : ""}${battle.versus && index === battle.players.length / 2 ? " bb-row-player-after-vs" : ""}`}
-                  tabIndex={-1}
+                  disabled={!player || player.type !== "user"}
+                  aria-label={player?.type === "user" ? `Open ${player.name || "player"} profile` : undefined}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (player?.type === "user") onProfileOpen?.(player);
+                  }}
                   key={player?.id || `open-${index}`}
                 >
                   {player?.avatar ? (
@@ -2166,7 +2189,7 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
   );
 }
 
-function BattlesList({ battles, loading, error, onCreate, onView, onPreview }) {
+function BattlesList({ battles, loading, error, onCreate, onView, onPreview, onProfileOpen }) {
   const activeBattles = battles.filter((battle) => ["waiting", "ready", "active"].includes(battle.status));
   const resolvedBattles = battles.filter((battle) => battle.status === "resolved");
   const totalValue = activeBattles.reduce((sum, battle) => sum + Number(battle.cost || 0), 0);
@@ -2199,18 +2222,23 @@ function BattlesList({ battles, loading, error, onCreate, onView, onPreview }) {
       <div className="bb-battle-list">
         {loading ? <div className="bb-picker-empty">Loading Case Battles...</div> : null}
         {!loading && error ? <div className="bb-picker-empty">{error}</div> : null}
-        {!loading && !error && activeBattles.map((battle, index) => (
-          <div key={battle.id}>
-            {index > 0 ? <div className="bb-battle-divider" aria-hidden="true" /> : null}
-            <BattleRow battle={battle} onView={() => onView(battle)} onPreview={onPreview} />
+        {!loading && !error && activeBattles.length > 0 ? (
+          <div className="bb-battle-section">
+            {activeBattles.map((battle) => (
+              <BattleRow key={battle.id} battle={battle} onView={() => onView(battle)} onPreview={onPreview} onProfileOpen={onProfileOpen} />
+            ))}
           </div>
-        ))}
-        {!loading && !error && resolvedBattles.map((battle, index) => (
-          <div key={battle.id}>
-            {(activeBattles.length > 0 || index > 0) ? <div className="bb-battle-divider" aria-hidden="true" /> : null}
-            <BattleRow battle={battle} finished onView={() => onView(battle)} onPreview={onPreview} />
+        ) : null}
+        {!loading && !error && activeBattles.length > 0 && resolvedBattles.length > 0
+          ? <div className="bb-battle-divider" aria-hidden="true" />
+          : null}
+        {!loading && !error && resolvedBattles.length > 0 ? (
+          <div className="bb-battle-section">
+            {resolvedBattles.map((battle) => (
+              <BattleRow key={battle.id} battle={battle} finished onView={() => onView(battle)} onPreview={onPreview} onProfileOpen={onProfileOpen} />
+            ))}
           </div>
-        ))}
+        ) : null}
       </div>
     </div>
   );
@@ -2476,7 +2504,7 @@ function FairnessModal({ battle, onClose }) {
   );
 }
 
-function BattlePlayerCard({ player, results }) {
+function BattlePlayerCard({ player, results, onProfileOpen }) {
   const total = getPlayerTotal(results);
   const highestValueResult = (Array.isArray(results) ? results : []).reduce((highest, item) => (
     !highest || Number(item?.value || 0) > Number(highest?.value || 0) ? item : highest
@@ -2488,7 +2516,13 @@ function BattlePlayerCard({ player, results }) {
   return (
     <article className="bb-player-card">
       <div className="bb-player-top">
-        <button type="button" className="bb-player-avatar" disabled={!player}>
+        <button
+          type="button"
+          className="bb-player-avatar"
+          disabled={!player || player.type !== "user"}
+          aria-label={player?.type === "user" ? `Open ${player.name || "player"} profile` : undefined}
+          onClick={() => player?.type === "user" && onProfileOpen?.(player)}
+        >
           {player?.avatar && <img src={player.avatar} alt="" draggable={false} />}
         </button>
         <div className="bb-player-meta">
@@ -2525,7 +2559,7 @@ function BattlePlayerCard({ player, results }) {
   );
 }
 
-function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecreate, onPreview }) {
+function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecreate, onPreview, onProfileOpen }) {
   const viewer = useAuth((state) => state.user);
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
   const [fairnessOpen, setFairnessOpen] = useState(false);
@@ -2540,7 +2574,10 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const spinnerInnerRef = useRef(null);
   const firstWheelTrackRef = useRef(null);
   const modeIds = getSelectedModeIds(battle.mode);
-  const currentCase = battle.cases[battle.currentRound] || battle.cases[0];
+  const displayedRound = battle.status === "resolved" || battle.finished || battle.phase === "finished"
+    ? Math.max(0, battle.cases.length - 1)
+    : Math.max(0, Number(battle.currentRound || 0));
+  const currentCase = battle.cases[displayedRound] || battle.cases[0];
   const calculatedCost = battle.cases.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const totalCost = Number(battle.cost_per_player ?? battle.cost ?? calculatedCost) || calculatedCost;
   const allJoined = battle.players.every(Boolean);
@@ -2569,6 +2606,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   useEffect(() => {
     if (battle.phase !== "countdown") return undefined;
     if (battle.countdown <= 1) {
+      if (battle.serverManaged && battle.status !== "active") return undefined;
       const timer = window.setTimeout(() => {
         setBattle((state) => ({
           ...state,
@@ -2771,7 +2809,17 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         if (!current || current.id !== battle.id || current.players[index]) return current;
         const players = [...current.players];
         players[index] = optimisticBot;
-        return { ...current, players };
+        const filled = players.every(Boolean);
+        return {
+          ...current,
+          players,
+          ...(filled ? {
+            phase: "countdown",
+            countdown: 3,
+            countdownStartedAt: Date.now(),
+            resumeCountdownMs: 1000,
+          } : {}),
+        };
       });
     }
     try {
@@ -2779,8 +2827,9 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         method: "POST",
         body: JSON.stringify({ slot_index: index, bot_profile_id: optimisticBot?.id || undefined }),
       });
-      const updatedBattle = normalizeBattleGame(response?.battle, previousBattle);
-      if (updatedBattle) setBattle(updatedBattle);
+      if (response?.battle) {
+        setBattle((current) => normalizeBattleGame(response.battle, current || previousBattle));
+      }
     } catch (error) {
       if (optimisticBot) {
         setBattle((current) => current?.id === previousBattle.id ? previousBattle : current);
@@ -2797,15 +2846,39 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       setAuthModalOpen(true);
       return;
     }
+    const previousBattle = battle;
     setJoiningSlot(index);
+    setBattle((current) => {
+      if (!current || current.id !== battle.id || current.players[index]) return current;
+      const players = [...current.players];
+      players[index] = {
+        id: viewerProfileId,
+        type: "user",
+        name: String(viewer?.username || "Player"),
+        avatar: viewer?.avatar_headshot_url || viewer?.avatar_url || null,
+      };
+      const filled = players.every(Boolean);
+      return {
+        ...current,
+        players,
+        ...(filled ? {
+          phase: "countdown",
+          countdown: 3,
+          countdownStartedAt: Date.now(),
+          resumeCountdownMs: 1000,
+        } : {}),
+      };
+    });
     try {
       const response = await apiRequest(`/api/case-battles/${encodeURIComponent(battle.id)}/join`, {
         method: "POST",
         body: JSON.stringify({ slot_index: index }),
       });
-      const updatedBattle = normalizeBattleGame(response?.battle, battle);
-      if (updatedBattle) setBattle(updatedBattle);
+      if (response?.battle) {
+        setBattle((current) => normalizeBattleGame(response.battle, current || previousBattle));
+      }
     } catch (error) {
+      setBattle((current) => current?.id === previousBattle.id ? previousBattle : current);
       notifications.error(error?.message || "Unable to join this Case Battle.");
     } finally {
       setJoiningSlot(null);
@@ -2814,7 +2887,8 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
 
   const shareBattle = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const battleUrl = new URL(`/battles/${encodeURIComponent(battle.id)}`, window.location.origin).href;
+      await navigator.clipboard.writeText(battleUrl);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
@@ -2852,12 +2926,12 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
             <span className="bb-meta-type">{battle.playerOption.label}</span>
           </div>
           <div className="bb-case-strip">
-            <div className="bb-case-strip-track" style={{ transform: `translate3d(${69 - battle.currentRound * 65}px,0,0)` }}>
+            <div className="bb-case-strip-track" style={{ transform: `translate3d(${69 - displayedRound * 65}px,0,0)` }}>
               {battle.cases.map((caseItem, actualIndex) => (
                   <button
                     type="button"
                     key={caseItem.id + actualIndex}
-                    className={"bb-strip-case" + (actualIndex === battle.currentRound ? " bb-strip-case-active" : "")}
+                    className={"bb-strip-case" + (actualIndex === displayedRound ? " bb-strip-case-active" : "")}
                     onClick={() => onPreview(caseItem)}
                     title="Open case content"
                   >
@@ -2866,7 +2940,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
               ))}
             </div>
           </div>
-          <div className="bb-battle-meta-right">Case {Math.min(battle.currentRound + 1, battle.cases.length)} of {battle.cases.length}</div>
+          <div className="bb-battle-meta-right">Case {Math.min(displayedRound + 1, battle.cases.length)} of {battle.cases.length}</div>
         </div>
 
         <div className="bb-reel-box">
@@ -2983,7 +3057,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
             <div className="bb-players-scroller" style={{ "--player-cols": battle.players.length }}>
               {battle.players.map((player, index) => (
                 <div className="bb-player-card-wrap" key={(player?.name || "awaiting") + index}>
-                  <BattlePlayerCard player={player} results={displayedResults[index]} />
+                  <BattlePlayerCard player={player} results={displayedResults[index]} onProfileOpen={onProfileOpen} />
                 </div>
               ))}
             </div>
@@ -3011,10 +3085,11 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   );
 }
 
-export default function CaseBattles() {
+export default function CaseBattles({ battleId = "" }) {
   const user = useAuth((state) => state.user);
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
-  const [screen, setScreen] = useState("list");
+  const navigate = useNavigate();
+  const [screen, setScreen] = useState(battleId ? "battle" : "list");
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState("");
@@ -3028,6 +3103,8 @@ export default function CaseBattles() {
   const [selectedMode, setSelectedMode] = useState("normal");
   const [previewCase, setPreviewCase] = useState(null);
   const [battle, setBattle] = useState(null);
+  const [directBattleError, setDirectBattleError] = useState("");
+  const [selectedProfile, setSelectedProfile] = useState(null);
   const [battleCreatedToast, setBattleCreatedToast] = useState(false);
   const pendingCreateIdRef = useRef(null);
   const revealedBattleRoundsRef = useRef(new Map());
@@ -3076,6 +3153,33 @@ export default function CaseBattles() {
       Math.max(Number(revealedBattleRoundsRef.current.get(battleId) || 0), revealedCount),
     );
   }, [battle]);
+
+  useEffect(() => {
+    const selectedId = String(battleId || "").trim();
+    if (!selectedId) {
+      setDirectBattleError("");
+      return undefined;
+    }
+
+    let mounted = true;
+    setScreen("battle");
+    setDirectBattleError("");
+    setBattle((current) => current?.id === selectedId ? current : null);
+    void apiRequest(`/api/case-battles/${encodeURIComponent(selectedId)}`)
+      .then((response) => {
+        if (!mounted) return;
+        const loadedBattle = normalizeWithSavedProgress(response?.battle);
+        if (!loadedBattle) throw new Error("This Case Battle could not be loaded.");
+        setBattle(loadedBattle);
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setBattle(null);
+        setDirectBattleError(error?.message || "This Case Battle could not be loaded.");
+      });
+
+    return () => { mounted = false; };
+  }, [battleId]);
 
   useEffect(() => {
     let mounted = true;
@@ -3199,6 +3303,7 @@ export default function CaseBattles() {
       setBattles((current) => [createdBattle, ...current.filter((item) => item.id !== createdBattle.id)]);
       setBattle(createdBattle);
       setScreen("battle");
+      navigate(`/battles/${encodeURIComponent(createdBattle.id)}`);
       setBattleCreatedToast(true);
     } catch (error) {
       if (error?.status && error.status < 500) pendingCreateIdRef.current = null;
@@ -3218,6 +3323,7 @@ export default function CaseBattles() {
       setBattles((current) => current.filter((item) => item.id !== battle.id));
       setBattle(null);
       setScreen("list");
+      navigate("/battles", { replace: true });
     } catch (error) {
       notifications.error(error?.message || "Unable to cancel this Case Battle.");
     }
@@ -3235,6 +3341,8 @@ export default function CaseBattles() {
       setBattles((current) => current.map((item) => item.id === battle.id ? { ...item, ...battle } : item));
     }
     setScreen("list");
+    setBattle(null);
+    navigate("/battles");
   };
 
   const openBattle = (selectedBattle) => {
@@ -3242,6 +3350,7 @@ export default function CaseBattles() {
     if (!selectedId) return;
     setBattle(normalizeWithSavedProgress(selectedBattle, selectedBattle));
     setScreen("battle");
+    navigate(`/battles/${encodeURIComponent(selectedId)}`);
     void apiRequest(`/api/case-battles/${encodeURIComponent(selectedId)}`)
       .then((response) => {
         setBattle((current) => current?.id === selectedId
@@ -3251,11 +3360,29 @@ export default function CaseBattles() {
       .catch(() => undefined);
   };
 
+  const openMiniProfile = (player) => {
+    if (!player || player.type !== "user") return;
+    const profileCandidate = {
+      ...player,
+      id: player.id,
+      profile_id: player.id,
+      username: player.name,
+      avatar_url: player.avatar,
+      avatar_headshot_url: player.avatar,
+    };
+    setSelectedProfile(profileCandidate);
+    void preloadMiniProfile(profileCandidate).then((loadedProfile) => {
+      setSelectedProfile((current) => current?.profile_id === profileCandidate.profile_id
+        ? { ...profileCandidate, ...(loadedProfile || {}) }
+        : current);
+    });
+  };
+
   return (
     <div className="battles-page">
       <style>{BATTLE_STYLES}</style>
       {screen === "list" && (
-        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={openBattle} onPreview={setPreviewCase} />
+        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={openBattle} onPreview={setPreviewCase} onProfileOpen={openMiniProfile} />
       )}
       {screen === "create" && (
         <CreationPage
@@ -3286,11 +3413,17 @@ export default function CaseBattles() {
             setPlayerOption(battle.playerOption);
             setSelectedMode(battle.mode);
             setScreen("create");
+            navigate("/battles");
           }}
           onPreview={setPreviewCase}
+          onProfileOpen={openMiniProfile}
         />
       )}
+      {screen === "battle" && !battle && (
+        <div className="bb-picker-empty">{directBattleError || "Loading Case Battle..."}</div>
+      )}
       {previewCase && <CasePreview item={previewCase} onClose={() => setPreviewCase(null)} />}
+      <MiniProfileModal isOpen={Boolean(selectedProfile)} player={selectedProfile} onClose={() => setSelectedProfile(null)} />
       {battleCreatedToast && (
         <div className="bb-created-toast-layer" aria-live="polite">
           <div className="bb-created-toast" role="status">Battle created!</div>

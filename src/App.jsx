@@ -38,17 +38,20 @@ function AppRoutes() {
     'live-casino': <LiveCasino />,
   }
   const caseRouteMatch = pathname.match(/^\/cases\/([^/]+)$/)
+  const battleRouteMatch = pathname.match(/^\/battles\/([^/]+)$/)
   const casinoGameRouteMatch = pathname.match(/^\/live-casino\/play\/([^/]+)\/([^/]+)$/)
   const page = caseRouteMatch
     ? <Cases caseSlug={caseRouteMatch[1]} />
-    : casinoGameRouteMatch
-      ? (
-          <LiveCasinoGame
-            providerId={decodeRouteSegment(casinoGameRouteMatch[1])}
-            gameId={decodeRouteSegment(casinoGameRouteMatch[2])}
-          />
-        )
-      : pages[routeName]
+    : battleRouteMatch
+      ? <CaseBattle battleId={decodeRouteSegment(battleRouteMatch[1])} />
+      : casinoGameRouteMatch
+        ? (
+            <LiveCasinoGame
+              providerId={decodeRouteSegment(casinoGameRouteMatch[1])}
+              gameId={decodeRouteSegment(casinoGameRouteMatch[2])}
+            />
+          )
+        : pages[routeName]
 
   useEffect(() => {
     if (!page) navigate('/', { replace: true })

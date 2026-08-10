@@ -577,7 +577,7 @@ function getSessionSigningSecrets() {
 }
 
 function getSessionSigningSecret() {
-  return getSessionSigningSecrets()[0] || ''
+  return String(process.env.JWT_SECRET || '').trim()
 }
 
 function deriveGameSeedEncryptionKey(game, secret) {
@@ -2818,9 +2818,7 @@ app.post('/api/promocode/redeem', express.json({ limit: '24kb' }), requireAuthen
 function getCoinflipSeedEncryptionKey(supabaseKey) {
   const jwtKey = getJwtGameSeedEncryptionKey('coinflip')
   if (jwtKey) return jwtKey
-  const secret = process.env.COINFLIP_SEED_SECRET || supabaseKey
-  if (!secret) throw new Error('JWT_SECRET is required for Coinflip fairness.')
-  return crypto.createHash('sha256').update(String(secret)).digest()
+  throw new Error('JWT_SECRET is required for Coinflip fairness.')
 }
 
 function getCoinflipSeedDecryptionKeys(supabaseKey) {
@@ -2834,9 +2832,7 @@ function getCoinflipSeedDecryptionKeys(supabaseKey) {
 function getCaseOpenSeedEncryptionKey() {
   const jwtKey = getJwtGameSeedEncryptionKey('cases')
   if (jwtKey) return jwtKey
-  const secret = String(process.env.CASE_OPEN_SEED_SECRET || '').trim()
-  if (!secret) throw new Error('JWT_SECRET is required for case fairness.')
-  return crypto.createHash('sha256').update(secret).digest()
+  throw new Error('JWT_SECRET is required for case fairness.')
 }
 
 function getCaseOpenSeedDecryptionKeys() {
@@ -2914,10 +2910,7 @@ function getCaseBattleAvatar(profile) {
 function getCaseBattleSeedEncryptionKey() {
   const jwtKey = getJwtGameSeedEncryptionKey('case-battles')
   if (jwtKey) return jwtKey
-  const { supabaseKey } = getSupabaseAdminConfig()
-  const secret = process.env.CASE_BATTLE_SEED_SECRET || process.env.CASE_OPEN_SEED_SECRET || supabaseKey
-  if (!secret) throw new Error('JWT_SECRET is required for Case Battle fairness.')
-  return crypto.createHash('sha256').update(String(secret)).digest()
+  throw new Error('JWT_SECRET is required for Case Battle fairness.')
 }
 
 function getCaseBattleSeedDecryptionKeys() {
@@ -3521,9 +3514,7 @@ app.post('/api/cases/open', express.json({ limit: '8kb' }), requireAuthenticated
 function getUpgraderSeedEncryptionKey() {
   const jwtKey = getJwtGameSeedEncryptionKey('upgrader')
   if (jwtKey) return jwtKey
-  const secret = String(process.env.UPGRADER_SEED_SECRET || process.env.CASE_OPEN_SEED_SECRET || '').trim()
-  if (!secret) throw new Error('JWT_SECRET is required for Upgrader fairness.')
-  return crypto.createHash('sha256').update(secret).digest()
+  throw new Error('JWT_SECRET is required for Upgrader fairness.')
 }
 
 function getUpgraderSeedDecryptionKeys() {
@@ -4154,9 +4145,7 @@ function generateMinePositions(totalPositions, minesCount, serverSeed, clientSee
 function getMinesSeedEncryptionKey(supabaseKey) {
   const jwtKey = getJwtGameSeedEncryptionKey('mines')
   if (jwtKey) return jwtKey
-  const secret = String(process.env.MINES_SEED_SECRET || process.env.COINFLIP_SEED_SECRET || supabaseKey || '').trim()
-  if (!secret) throw new Error('JWT_SECRET is required for Mines fairness.')
-  return crypto.createHash('sha256').update(`mines:${secret}`).digest()
+  throw new Error('JWT_SECRET is required for Mines fairness.')
 }
 
 function getMinesSeedDecryptionKeys(supabaseKey) {
