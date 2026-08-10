@@ -1646,12 +1646,16 @@ function normalizeBattleGame(row, previous = null) {
   const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
   const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
   const hasLocalCountdown = previous?.phase === "countdown" && previousCountdownStartedAt > 0;
+  const hasActiveTimeline = source.status === "active"
+    && previous?.status === "active"
+    && previousCountdownStartedAt > 0;
   // A waiting -> active response is the authoritative start boundary. Always
-  // re-anchor it to the synchronized server timeline so an optimistic join
-  // timestamp from a differently offset clock cannot skip the whole battle.
+  // re-anchor it to the synchronized server timeline, then preserve that same
+  // boundary for every realtime update so the client cannot jump ahead when
+  // the countdown changes into the first spin.
   const countdownStartedAt = justStarted
     ? timelineNow
-    : hasLocalCountdown ? previousCountdownStartedAt : startedAt;
+    : hasActiveTimeline || hasLocalCountdown ? previousCountdownStartedAt : startedAt;
   const activeElapsed = source.status === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
     ? Math.max(0, timelineNow - countdownStartedAt)
     : 0;
