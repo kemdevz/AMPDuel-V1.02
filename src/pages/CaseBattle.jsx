@@ -44,7 +44,6 @@ const FAST_BATTLE_ROUND_DELAY = 350;
 const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
 const FAST_BATTLE_ROUND_CYCLE = FAST_REEL_DURATION + FAST_BATTLE_ROUND_DELAY;
 const RESOLVED_BATTLE_LIFETIME_MS = 40_000;
-const NEWLY_RESOLVED_REPLAY_WINDOW_MS = 5_000;
 const BATTLE_ROW_EXIT_ANIMATION_MS = 500;
 const MAX_CASES = 25;
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
@@ -1621,16 +1620,6 @@ function normalizeBattleGame(row, previous = null) {
     };
   });
   const cases = (Array.isArray(source.cases) ? source.cases : []).map(normalizeCase);
-  const previousAnimationComplete = Boolean(previous?.animationComplete);
-  const previousAnimationLocked = Boolean(previous?.animationLocked)
-    || Boolean(previous?.serverManaged && ["countdown", "spinning", "round-delay"].includes(previous?.phase))
-    || Boolean(
-      previous?.serverManaged
-      && previous?.phase === "waiting"
-      && source.status === "resolved"
-      && source.started_at
-      && players.every(Boolean)
-    );
   const providedServerNow = new Date(row?.server_now || "").getTime();
   const providedServerClockOffset = Number(row?.serverClockOffset);
   const inheritedServerClockOffset = Number(previous?.serverClockOffset);
@@ -1640,24 +1629,7 @@ function normalizeBattleGame(row, previous = null) {
       ? providedServerNow - Date.now()
       : Number.isFinite(inheritedServerClockOffset) ? inheritedServerClockOffset : 0;
   const timelineNow = Date.now() + serverClockOffset;
-  const resolvedAt = new Date(source.resolved_at || source.updated_at || "").getTime();
-  // A route fetch can lose the active update race and observe a brand-new
-  // battle only after settlement. Treat that brief first observation as an
-  // animation handoff; otherwise the complete stored result matrix flashes
-  // before the countdown has ever mounted. Older history remains immediate.
-  const replayNewlyResolved = source.status === "resolved"
-    && !previous
-    && Number.isFinite(resolvedAt)
-    && Math.max(0, timelineNow - resolvedAt) <= NEWLY_RESOLVED_REPLAY_WINDOW_MS
-    && cases.length > 0
-    && players.every(Boolean);
-  const deferResolution = source.status === "resolved"
-    && !previousAnimationComplete
-    && (replayNewlyResolved || (
-      previous?.serverManaged
-      && previousAnimationLocked
-    ));
-  const timelineStatus = deferResolution ? "active" : source.status;
+  const timelineStatus = source.status;
   const storedResults = timelineStatus === "active" && Array.isArray(source.outcomeResults)
     ? source.outcomeResults
     : Array.isArray(source.results) ? source.results : [];
@@ -1680,23 +1652,10 @@ function normalizeBattleGame(row, previous = null) {
   const roundDelay = fastSpin ? FAST_BATTLE_ROUND_DELAY : BATTLE_ROUND_DELAY;
   const roundCycle = fastSpin ? FAST_BATTLE_ROUND_CYCLE : BATTLE_ROUND_CYCLE;
   const startedAt = new Date(source.started_at || 0).getTime();
-  const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
-  const hasLocalCountdown = previous?.phase === "countdown" && previousCountdownStartedAt > 0;
-  const firstLiveActivation = timelineStatus === "active"
-    && previous
-    && ["waiting", "ready"].includes(previous.status);
-  const hasActiveTimeline = timelineStatus === "active"
-    && (previous?.status === "active" || previous?.deferResolution)
-    && previousCountdownStartedAt > 0;
-  const firstActiveObservation = timelineStatus === "active" && !previous;
-  // A battle can become active while it only exists in the list, where no
-  // BattleView timers are mounted. Anchor the first actual playback snapshot
-  // locally, then preserve that boundary across realtime/route updates.
-  const countdownStartedAt = firstLiveActivation || firstActiveObservation
-    ? timelineNow
-    : hasActiveTimeline || hasLocalCountdown
-    ? previousCountdownStartedAt
-    : startedAt;
+  // Every viewer derives playback from the same server-authored boundary.
+  // Reopening a battle therefore resumes the countdown/spin/round delay at
+  // the real current position instead of restarting or inheriting list state.
+  const countdownStartedAt = startedAt;
   const activeElapsed = timelineStatus === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
     ? Math.max(0, timelineNow - countdownStartedAt)
     : 0;
@@ -1710,19 +1669,13 @@ function normalizeBattleGame(row, previous = null) {
   let resumeDelayMs = 0;
   let visibleRoundCount = timelineStatus === "resolved" ? cases.length : 0;
 
-  if (timelineStatus === "ready" && hasLocalCountdown) {
-    const countdownRemaining = Math.max(0, BATTLE_COUNTDOWN_DURATION - (timelineNow - countdownStartedAt));
-    phase = "countdown";
-    countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
-    resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
-  }
-
   if (timelineStatus === "active") {
     if (activeElapsed < BATTLE_COUNTDOWN_DURATION) {
       phase = "countdown";
+      const timeUntilStart = Math.max(0, startedAt - timelineNow);
       const countdownRemaining = BATTLE_COUNTDOWN_DURATION - activeElapsed;
       countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
-      resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
+      resumeCountdownMs = timeUntilStart + Math.max(20, countdownRemaining - (countdown - 1) * 1000);
     } else {
       const roundElapsed = activeElapsed - BATTLE_COUNTDOWN_DURATION;
       currentRound = Math.min(cases.length, Math.floor(roundElapsed / roundCycle));
@@ -1744,35 +1697,8 @@ function normalizeBattleGame(row, previous = null) {
       }
     }
   }
-  const preservedRevealedCount = Math.max(0, Math.min(cases.length, Number(source.revealedRoundCount || 0)));
-  if (timelineStatus === "active" && preservedRevealedCount > visibleRoundCount) {
-    visibleRoundCount = preservedRevealedCount;
-    if (phase === "countdown" || (phase === "spinning" && currentRound < preservedRevealedCount)) {
-      currentRound = Math.max(0, preservedRevealedCount - 1);
-      phase = preservedRevealedCount >= cases.length ? "finished" : "round-delay";
-      resumeDelayMs = 0;
-      resumeSpinMs = 0;
-    }
-  }
-  if (deferResolution) {
-    const beginMissedAnimation = replayNewlyResolved || previous?.phase === "waiting";
-    phase = beginMissedAnimation ? "countdown" : previous?.phase;
-    currentRound = Math.max(0, Number(previous?.currentRound || 0));
-    countdown = beginMissedAnimation ? 3 : Math.max(1, Number(previous?.countdown || 1));
-    resumeCountdownMs = beginMissedAnimation ? 1000 : Number(previous?.resumeCountdownMs || 1000);
-    resumeSpinMs = Number(previous?.resumeSpinMs || 0);
-    resumeDelayMs = Number(previous?.resumeDelayMs || 0);
-    visibleRoundCount = Math.max(
-      Number(previous?.revealedRoundCount || 0),
-      ...(Array.isArray(previous?.results)
-        ? previous.results.map((items) => Array.isArray(items) ? items.length : 0)
-        : [0]),
-    );
-  }
   const visibleResults = authoritativeResults.map((items) => items.slice(0, visibleRoundCount));
-  const activeReels = deferResolution && previous?.reels
-    ? previous.reels
-    : timelineStatus === "active" && phase === "spinning"
+  const activeReels = timelineStatus === "active" && phase === "spinning"
     ? players.map((_, index) => buildReel(cases[currentRound] || cases[0], authoritativeResults[index]?.[currentRound] || null))
     : source.reels;
 
@@ -1790,10 +1716,10 @@ function normalizeBattleGame(row, previous = null) {
     modes,
     mode: modes.length === 1 ? modes[0] : buildCombinedModeValue(modes),
     fastSpin,
-    deferResolution,
-    serverResolved: source.status === "resolved" || Boolean(previous?.serverResolved),
-    animationLocked: timelineStatus === "active" && !previousAnimationComplete,
-    animationComplete: timelineStatus === "resolved" || previousAnimationComplete,
+    deferResolution: false,
+    serverResolved: source.status === "resolved",
+    animationLocked: timelineStatus === "active" && phase !== "finished",
+    animationComplete: phase === "finished",
     phase,
     currentRound,
     countdown,
@@ -1802,7 +1728,7 @@ function normalizeBattleGame(row, previous = null) {
     resumeCountdownMs,
     resumeSpinMs,
     resumeDelayMs,
-    revealedRoundCount: Math.max(preservedRevealedCount, visibleRoundCount),
+    revealedRoundCount: visibleRoundCount,
     demoWaiting: true,
     serverManaged: true,
     versus: playerOption.family === "team",
@@ -3291,26 +3217,12 @@ export default function CaseBattles({ battleId = "" }) {
   const [directBattleError, setDirectBattleError] = useState("");
   const [selectedProfile, setSelectedProfile] = useState(null);
   const pendingCreateIdRef = useRef(null);
-  const revealedBattleRoundsRef = useRef(new Map());
-  const viewedBattleIdsRef = useRef(new Set());
   const ownedBattleIdsRef = useRef(new Set());
 
-  const normalizeWithSavedProgress = (row, previous = null) => {
+  const normalizeBattleRow = (row, previous = null) => {
     if (!row?.id) return normalizeBattleGame(row, previous);
     const battleId = String(row.id);
-    const trackPlayback = viewedBattleIdsRef.current.has(battleId);
-    const savedProgress = revealedBattleRoundsRef.current.get(battleId);
-    const savedCount = trackPlayback && savedProgress?.source === "battle-view"
-      ? Number(savedProgress.count || 0)
-      : 0;
-    const previousCount = Number(previous?.revealedRoundCount || 0);
-    const progressSource = previous
-      ? { ...previous, revealedRoundCount: Math.max(savedCount, previousCount) }
-      : null;
-    const rowWithSavedProgress = !previous && savedCount > 0
-      ? { ...row, revealedRoundCount: Math.max(Number(row.revealedRoundCount || 0), savedCount) }
-      : row;
-    const normalized = normalizeBattleGame(rowWithSavedProgress, progressSource);
+    const normalized = normalizeBattleGame(row, previous);
     if (normalized) {
       const activeProfileId = String(user?.profile_id || user?.id || "");
       const activeUsername = String(user?.username || "").trim().toLowerCase();
@@ -3329,24 +3241,6 @@ export default function CaseBattles({ battleId = "" }) {
   };
 
   useEffect(() => {
-    if (!battle?.id) return;
-    const revealedFromResults = Math.max(
-      0,
-      ...(Array.isArray(battle.results) ? battle.results : []).map((items) => Array.isArray(items) ? items.length : 0),
-    );
-    const revealedCount = Math.max(Number(battle.revealedRoundCount || 0), revealedFromResults);
-    const battleId = String(battle.id);
-    const savedProgress = revealedBattleRoundsRef.current.get(battleId);
-    revealedBattleRoundsRef.current.set(
-      battleId,
-      {
-        source: "battle-view",
-        count: Math.max(Number(savedProgress?.count || 0), revealedCount),
-      },
-    );
-  }, [battle]);
-
-  useEffect(() => {
     const selectedId = String(battleId || "").trim();
     if (!selectedId) {
       setDirectBattleError("");
@@ -3354,7 +3248,6 @@ export default function CaseBattles({ battleId = "" }) {
     }
 
     let mounted = true;
-    viewedBattleIdsRef.current.add(selectedId);
     setScreen("battle");
     setDirectBattleError("");
     setBattle((current) => current?.id === selectedId ? current : null);
@@ -3362,7 +3255,7 @@ export default function CaseBattles({ battleId = "" }) {
       .then((response) => {
         if (!mounted) return;
         if (!response?.battle) throw new Error("This Case Battle could not be loaded.");
-        setBattle((current) => normalizeWithSavedProgress(
+        setBattle((current) => normalizeBattleRow(
           response.battle,
           current?.id === selectedId ? current : null,
         ));
@@ -3404,7 +3297,7 @@ export default function CaseBattles({ battleId = "" }) {
     const applyBattleRow = (row) => {
       setBattles((current) => {
         const previous = current.find((item) => item.id === String(row.id)) || null;
-        const normalized = normalizeWithSavedProgress(row, previous);
+        const normalized = normalizeBattleRow(row, previous);
         if (!normalized) return current;
         if (normalized.status === "cancelled") return current.filter((item) => item.id !== normalized.id);
         if (isResolvedBattleExpired(normalized)) return current.filter((item) => item.id !== normalized.id);
@@ -3414,7 +3307,7 @@ export default function CaseBattles({ battleId = "" }) {
           : [normalized, ...current];
         return next.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       });
-      setBattle((current) => current?.id === String(row.id) ? normalizeWithSavedProgress(row, current) : current);
+      setBattle((current) => current?.id === String(row.id) ? normalizeBattleRow(row, current) : current);
     };
     const loadBattles = async () => {
       setBattlesLoading(true);
@@ -3424,7 +3317,7 @@ export default function CaseBattles({ battleId = "" }) {
         if (!mounted) return;
         const now = Date.now();
         setBattles((Array.isArray(response?.battles) ? response.battles : [])
-          .map((row) => normalizeWithSavedProgress(row))
+          .map((row) => normalizeBattleRow(row))
           .filter((loadedBattle) => loadedBattle && !isResolvedBattleExpired(loadedBattle, now)));
       } catch (error) {
         if (!mounted) return;
@@ -3516,13 +3409,12 @@ export default function CaseBattles({ battleId = "" }) {
           fast_spin: fastSpin,
         }),
       });
-      const createdBattle = normalizeWithSavedProgress(response?.battle);
+      const createdBattle = normalizeBattleRow(response?.battle);
       if (!createdBattle) throw new Error("The created Case Battle could not be loaded.");
       createdBattle.ownedByViewer = true;
       ownedBattleIdsRef.current.add(createdBattle.id);
       pendingCreateIdRef.current = null;
       setBattles((current) => [createdBattle, ...current.filter((item) => item.id !== createdBattle.id)]);
-      viewedBattleIdsRef.current.add(createdBattle.id);
       setBattle(createdBattle);
       setScreen("battle");
       navigate(`/battles/${encodeURIComponent(createdBattle.id)}`);
@@ -3571,31 +3463,13 @@ export default function CaseBattles({ battleId = "" }) {
   const openBattle = (selectedBattle) => {
     const selectedId = String(selectedBattle?.id || "");
     if (!selectedId) return;
-    const wasAlreadyViewed = viewedBattleIdsRef.current.has(selectedId);
-    viewedBattleIdsRef.current.add(selectedId);
-    const freshPlaybackRow = !wasAlreadyViewed && selectedBattle.status === "active"
-      ? {
-          ...selectedBattle,
-          phase: undefined,
-          currentRound: 0,
-          countdownStartedAt: 0,
-          revealedRoundCount: 0,
-          animationComplete: false,
-          animationLocked: false,
-          results: selectedBattle.outcomeResults || selectedBattle.results,
-          reels: undefined,
-        }
-      : selectedBattle;
-    setBattle(normalizeWithSavedProgress(
-      freshPlaybackRow,
-      wasAlreadyViewed ? selectedBattle : null,
-    ));
+    setBattle(normalizeBattleRow(selectedBattle, selectedBattle));
     setScreen("battle");
     navigate(`/battles/${encodeURIComponent(selectedId)}`);
     void apiRequest(`/api/case-battles/${encodeURIComponent(selectedId)}`)
       .then((response) => {
         setBattle((current) => current?.id === selectedId
-          ? normalizeWithSavedProgress(response?.battle, current)
+          ? normalizeBattleRow(response?.battle, current)
           : current);
       })
       .catch(() => undefined);
