@@ -24,7 +24,7 @@ export const navSections = [
       { name: 'Upgrader', icon: UpgraderIcon, path: 'upgrader' },
       { name: 'Mines', icon: MinesIcon, path: 'mines' },
       { name: 'Roll', icon: RollIcon, path: 'roll' },
-      { name: 'Jackpot', icon: JackpotIcon, path: 'jackpot', enabled: false },
+      { name: 'Jackpot', icon: JackpotIcon, path: 'jackpot' },
       { name: 'Live Casino', icon: LiveCasinoIcon, path: 'live-casino', enabled: false },
     ],
   },

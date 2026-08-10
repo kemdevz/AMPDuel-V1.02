@@ -2637,6 +2637,11 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   );
   const viewerAlreadyJoined = viewerSlotIndex >= 0;
   const canJoinBattle = !allJoined && !canManageBattle && !viewerAlreadyJoined;
+  const participantCount = Math.max(
+    Number(battle.player_count || 0),
+    battle.players.filter(Boolean).length,
+  );
+  const canCancelBattle = canManageBattle && battle.status === "waiting" && participantCount === 1;
 
   useEffect(() => {
     if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting || battle.serverManaged) return undefined;
@@ -2995,7 +3000,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                         player ? (
                           <div className="bb-ready">
                             <div className="bb-ready-text"><span>READY TO START</span></div>
-                            {index === 0 && canManageBattle && (
+                            {index === 0 && canCancelBattle && (
                               <button type="button" className="bb-btn bb-btn-danger bb-mini-button" onClick={onCancel}>Cancel</button>
                             )}
                           </div>

@@ -3407,6 +3407,17 @@ app.post('/api/case-battles/:battleId/cancel', express.json({ limit: '8kb' }), r
     return
   }
   try {
+    const rows = await adminRest(`case_battle_games?select=id,creator_profile_id,status,player_count&id=eq.${encodeURIComponent(battleId)}&limit=1`)
+    const currentBattle = Array.isArray(rows) ? rows[0] || null : rows
+    if (
+      !currentBattle
+      || String(currentBattle.creator_profile_id) !== String(req.identity.profileId)
+      || currentBattle.status !== 'waiting'
+      || Number(currentBattle.player_count) !== 1
+    ) {
+      res.status(409).json({ ok: false, error: 'A Case Battle cannot be cancelled after another player or bot has joined.' })
+      return
+    }
     const result = await callRainRpc('cancel_case_battle_game', {
       p_battle_id: battleId,
       p_profile_id: String(req.identity.profileId),
@@ -3421,7 +3432,9 @@ app.post('/api/case-battles/:battleId/cancel', express.json({ limit: '8kb' }), r
     res.json({ ok: true, battle, balance: result?.balance })
   } catch (error) {
     console.warn('[api/case-battles] cancel error', error?.message || error)
-    res.status(500).json({ ok: false, error: error?.message || 'Unable to cancel this Case Battle.' })
+    const message = error?.message || 'Unable to cancel this Case Battle.'
+    const expected = /cannot be cancelled|player|bot|joined|creator/i.test(message)
+    res.status(expected ? 409 : 500).json({ ok: false, error: message })
   }
 })
 
