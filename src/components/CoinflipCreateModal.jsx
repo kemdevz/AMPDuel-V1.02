@@ -48,15 +48,6 @@ function SortStackIcon({ ascending = false }) {
   return <SortDirectionIcon ascending={ascending} />
 }
 
-function SettingsCogIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  )
-}
-
 function AutoSelectIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }} aria-hidden="true">
@@ -78,8 +69,6 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('Highest to Lowest')
   const [selectedCoin, setSelectedCoin] = useState('heads')
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [gameMode, setGameMode] = useState(null)
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState(null)
   const [depositOpen, setDepositOpen] = useState(false)
@@ -399,53 +388,6 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
               >
                 <img src={TAILS_ICON} alt="tails" />
               </button>
-            </div>
-            <div className="_settingsWrap_2jqwz_526" style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className="_settingsBtn_2jqwz_531"
-                onClick={() => setSettingsOpen((prev) => !prev)}
-                aria-expanded={settingsOpen}
-                aria-label="Game Settings"
-                title="Game Settings"
-              >
-                <SettingsCogIcon />
-              </button>
-              {settingsOpen && (
-                <div className="_settingsDropdown_2jqwz_552">
-                  <p className="_settingsTitle_2jqwz_568">Game Modes</p>
-                  <button
-                    type="button"
-                    className="_settingsItem_2jqwz_578"
-                    onClick={() => setGameMode((prev) => (prev === 'bigs' ? null : 'bigs'))}
-                    aria-pressed={gameMode === 'bigs'}
-                  >
-                    <span className="_settingsEmoji_2jqwz_593">💎</span>
-                    <div className="_settingsItemText_2jqwz_599">
-                      <span className="_settingsItemName_2jqwz_606">Bigs Only</span>
-                      <span className="_settingsItemDesc_2jqwz_612">All items must be 50K+ value</span>
-                    </div>
-                    <div className={`_settingsToggle_2jqwz_619 ${gameMode === 'bigs' ? '_settingsToggleOn_2jqwz_628' : ''}`}>
-                      <div className="_settingsToggleThumb_2jqwz_629" />
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="_settingsItem_2jqwz_578"
-                    onClick={() => setGameMode((prev) => (prev === 'wild' ? null : 'wild'))}
-                    aria-pressed={gameMode === 'wild'}
-                  >
-                    <span className="_settingsEmoji_2jqwz_593">🌴</span>
-                    <div className="_settingsItemText_2jqwz_599">
-                      <span className="_settingsItemName_2jqwz_606">Wild Mode</span>
-                      <span className="_settingsItemDesc_2jqwz_612">Loser side wins instead</span>
-                    </div>
-                    <div className={`_settingsToggle_2jqwz_619 ${gameMode === 'wild' ? '_settingsToggleOn_2jqwz_628' : ''}`}>
-                      <div className="_settingsToggleThumb_2jqwz_629" />
-                    </div>
-                  </button>
-                </div>
-              )}
             </div>
             <button
               className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298 _autoSelectBtn_2jqwz_320"

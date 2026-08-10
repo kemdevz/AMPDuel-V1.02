@@ -2987,6 +2987,7 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
 
 const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
 const CASE_BATTLE_ROUND_MS = 6_250
+const CASE_BATTLE_FAST_ROUND_MS = 1_990
 const caseBattleSettlementTimers = new Map()
 
 function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
@@ -3109,7 +3110,8 @@ async function startCaseBattle(battle) {
   const serverSeed = decryptCaseBattleServerSeed(secret?.server_seed_encrypted)
   const outcome = resolveCaseBattleOutcome(battle, serverSeed)
   const startedAt = new Date()
-  const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(battle.case_count) * CASE_BATTLE_ROUND_MS)
+  const roundDuration = battle.gold_spin ? CASE_BATTLE_FAST_ROUND_MS : CASE_BATTLE_ROUND_MS
+  const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(battle.case_count) * roundDuration)
   const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}&status=in.(waiting,ready)`, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
@@ -3185,6 +3187,7 @@ app.post('/api/case-battles', express.json({ limit: '64kb' }), requireAuthentica
   const requestId = String(req.body?.request_id || '').trim()
   const playerOption = String(req.body?.player_option || '').trim()
   const caseIds = Array.isArray(req.body?.case_ids) ? req.body.case_ids.map((id) => String(id || '').trim()) : []
+  const fastSpin = req.body?.fast_spin === true
   const maxPlayers = CASE_BATTLE_PLAYER_OPTIONS.get(playerOption)
 
   if (!isUuidLike(requestId) || !maxPlayers || caseIds.length < 1 || caseIds.length > 25 || caseIds.some((id) => !isUuidLike(id))) {
@@ -3259,8 +3262,16 @@ app.post('/api/case-battles', express.json({ limit: '64kb' }), requireAuthentica
       p_server_seed_encrypted: encryptCaseBattleServerSeed(serverSeed),
       p_client_seed: createCaseClientSeed(),
     })
-    const battle = result?.battle || null
+    let battle = result?.battle || null
     if (!battle) throw new Error('The Case Battle was not returned after creation.')
+    if (Boolean(battle.gold_spin) !== fastSpin) {
+      const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: { gold_spin: fastSpin },
+      })
+      battle = Array.isArray(updatedRows) ? updatedRows[0] || battle : updatedRows || battle
+    }
     io.emit('case-battle:created', battle)
     void emitWalletRefreshes([profileId])
     res.status(result?.replayed ? 200 : 201).json({ ok: true, battle: stampCaseBattleServerTime(battle), balance: result?.balance, replayed: Boolean(result?.replayed) })

@@ -33,9 +33,16 @@ const REEL_MAIN_DURATION = 4800;
 const REEL_SETTLE_PAUSE = 100;
 const REEL_SETTLE_DURATION = 250;
 const REEL_DURATION = REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE + REEL_SETTLE_DURATION;
+const FAST_REEL_START_DELAY = 40;
+const FAST_REEL_MAIN_DURATION = 1400;
+const FAST_REEL_SETTLE_PAUSE = 40;
+const FAST_REEL_SETTLE_DURATION = 160;
+const FAST_REEL_DURATION = FAST_REEL_START_DELAY + FAST_REEL_MAIN_DURATION + FAST_REEL_SETTLE_PAUSE + FAST_REEL_SETTLE_DURATION;
 const BATTLE_COUNTDOWN_DURATION = 3000;
 const BATTLE_ROUND_DELAY = 850;
+const FAST_BATTLE_ROUND_DELAY = 350;
 const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
+const FAST_BATTLE_ROUND_CYCLE = FAST_REEL_DURATION + FAST_BATTLE_ROUND_DELAY;
 const RESOLVED_BATTLE_LIFETIME_MS = 40_000;
 const BATTLE_ROW_EXIT_ANIMATION_MS = 500;
 const MAX_CASES = 25;
@@ -244,6 +251,14 @@ function PickerSearchIcon() {
         fill="currentColor"
         d="M9.75 3.5a6.25 6.25 0 0 1 4.96 10.06l4.36 4.36a1 1 0 0 1-1.42 1.41l-4.35-4.35A6.25 6.25 0 1 1 9.75 3.5Zm0 2a4.25 4.25 0 1 0 0 8.5 4.25 4.25 0 0 0 0-8.5Z"
       />
+    </svg>
+  );
+}
+
+function FastSpinIcon({ active }) {
+  return (
+    <svg width="19" height="19" viewBox="37.86 -1 428.21 511.45" fill={active ? "#ffe472" : "#ffffff"} aria-hidden="true">
+      <path d="M459.866 218.346l-186.7.701c-4.619.017-7.618-4.861-5.517-8.975L370.845 8.024c3.103-6.075-4.493-11.949-9.592-7.417L39.948 286.141c-4.221 3.751-1.602 10.732 4.045 10.78l170.444 1.457c4.443.038 7.391 4.619 5.583 8.679L133.317 501.73c-2.688 6.035 4.709 11.501 9.689 7.16l320.937-279.725c4.307-3.753 1.637-10.84-4.077-10.819z" />
     </svg>
   );
 }
@@ -630,6 +645,11 @@ const BATTLE_STYLES = String.raw`
   .bb-header-meta-value { display: inline-flex; align-items: center; gap: 5px; color: #e1e4f2; font-size: 14px; font-weight: 600; }
   .bb-header-meta-value img { width: 15px; height: 15px; }
   .bb-header-meta-divider { width: 1px; height: 16px; background: #252839; }
+  .bb-fast-spin { display: inline-flex; width: 38px; height: 38px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 1px solid #252839; border-radius: 6px; background: #20222f; color: #fff; cursor: pointer; transform-origin: center; transition: transform var(--dur-fast) var(--ease-out),background .15s ease,opacity .15s ease; }
+  .bb-fast-spin:hover { background: #252839; }
+  .bb-fast-spin:active { transform: scale(var(--press-scale)); }
+  .bb-fast-spin:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
+  .bb-fast-spin svg { display: block; transition: fill .15s ease; }
 
   .bb-section { margin-bottom: 20px; }
   .bb-section-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -1418,7 +1438,7 @@ const BATTLE_STYLES = String.raw`
     .bb-create-header { gap: 10px; margin-bottom: 16px; }
     .bb-create-title-wrap { width: 100%; }
     .bb-create-title { min-width: 0; flex: 1; font-size: 19px; }
-    .bb-create-header-right { display: grid; width: 100%; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+    .bb-create-header-right { display: grid; width: 100%; grid-template-columns: auto minmax(0,1fr) auto; gap: 8px; }
     .bb-create-header-right > .bb-btn { height: 38px; min-width: 92px; padding-inline: 12px; }
     .bb-header-meta { width: 100%; min-width: 0; justify-content: center; box-sizing: border-box; gap: 10px; padding-inline: 10px; }
     .bb-section { margin-bottom: 14px; }
@@ -1619,6 +1639,10 @@ function normalizeBattleGame(row, previous = null) {
       ? providedServerNow - Date.now()
       : Number.isFinite(inheritedServerClockOffset) ? inheritedServerClockOffset : 0;
   const timelineNow = Date.now() + serverClockOffset;
+  const fastSpin = Boolean(source.fast_spin ?? source.fastSpin ?? source.gold_spin);
+  const reelDuration = fastSpin ? FAST_REEL_DURATION : REEL_DURATION;
+  const roundDelay = fastSpin ? FAST_BATTLE_ROUND_DELAY : BATTLE_ROUND_DELAY;
+  const roundCycle = fastSpin ? FAST_BATTLE_ROUND_CYCLE : BATTLE_ROUND_CYCLE;
   const startedAt = new Date(source.started_at || 0).getTime();
   const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
   const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
@@ -1657,20 +1681,20 @@ function normalizeBattleGame(row, previous = null) {
       resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
     } else {
       const roundElapsed = activeElapsed - BATTLE_COUNTDOWN_DURATION;
-      currentRound = Math.min(cases.length, Math.floor(roundElapsed / BATTLE_ROUND_CYCLE));
+      currentRound = Math.min(cases.length, Math.floor(roundElapsed / roundCycle));
       if (currentRound >= cases.length) {
         currentRound = Math.max(0, cases.length - 1);
         visibleRoundCount = cases.length;
         phase = "finished";
       } else {
-        const withinRound = roundElapsed % BATTLE_ROUND_CYCLE;
-        if (withinRound < REEL_DURATION) {
+        const withinRound = roundElapsed % roundCycle;
+        if (withinRound < reelDuration) {
           phase = "spinning";
           resumeSpinMs = withinRound;
           visibleRoundCount = currentRound;
         } else {
           phase = "round-delay";
-          resumeDelayMs = withinRound - REEL_DURATION;
+          resumeDelayMs = withinRound - reelDuration;
           visibleRoundCount = currentRound + 1;
         }
       }
@@ -1704,6 +1728,7 @@ function normalizeBattleGame(row, previous = null) {
     reels: activeReels,
     modes,
     mode: modes.length === 1 ? modes[0] : buildCombinedModeValue(modes),
+    fastSpin,
     phase,
     currentRound,
     countdown,
@@ -2360,6 +2385,8 @@ function CreationPage({
   setPlayerOption,
   selectedMode,
   setSelectedMode,
+  fastSpin,
+  setFastSpin,
   onBack,
   onCreate,
   onPreview,
@@ -2380,6 +2407,16 @@ function CreationPage({
             <h1 className="bb-create-title">Battle Creation</h1>
           </div>
           <div className="bb-create-header-right">
+            <button
+              type="button"
+              className="bb-fast-spin"
+              aria-pressed={fastSpin}
+              aria-label="Fast spin"
+              title={fastSpin ? "Fast spin enabled" : "Enable fast spin"}
+              onClick={() => setFastSpin((active) => !active)}
+            >
+              <FastSpinIcon active={fastSpin} />
+            </button>
             <div className="bb-header-meta">
               <div className="bb-header-meta-item">
                 <span className="bb-header-meta-label">Cases</span>
@@ -2655,6 +2692,21 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     battle.players.filter(Boolean).length,
   );
   const canCancelBattle = canManageBattle && battle.status === "waiting" && participantCount === 1;
+  const reelTiming = battle.fastSpin ? {
+    startDelay: FAST_REEL_START_DELAY,
+    mainDuration: FAST_REEL_MAIN_DURATION,
+    settlePause: FAST_REEL_SETTLE_PAUSE,
+    settleDuration: FAST_REEL_SETTLE_DURATION,
+    duration: FAST_REEL_DURATION,
+    roundDelay: FAST_BATTLE_ROUND_DELAY,
+  } : {
+    startDelay: REEL_START_DELAY,
+    mainDuration: REEL_MAIN_DURATION,
+    settlePause: REEL_SETTLE_PAUSE,
+    settleDuration: REEL_SETTLE_DURATION,
+    duration: REEL_DURATION,
+    roundDelay: BATTLE_ROUND_DELAY,
+  };
 
   useEffect(() => {
     if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting || battle.serverManaged) return undefined;
@@ -2686,8 +2738,8 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   useEffect(() => {
     if (battle.phase !== "spinning") return undefined;
 
-    const resumeOffset = Math.max(0, Math.min(REEL_DURATION - 1, Number(battle.resumeSpinMs || 0)));
-    const resumedProgress = resumeOffset / REEL_DURATION;
+    const resumeOffset = Math.max(0, Math.min(reelTiming.duration - 1, Number(battle.resumeSpinMs || 0)));
+    const resumedProgress = resumeOffset / reelTiming.duration;
     setReelTransition("none");
     setReelPosition(resumeOffset > 0
       ? REEL_INITIAL_POSITION + (REEL_FINAL_POSITION - REEL_INITIAL_POSITION) * resumedProgress
@@ -2720,19 +2772,19 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     if (resumeOffset > 0) {
       mainTimer = window.setTimeout(() => {
         ticksEnabled = true;
-        setReelTransition(`transform ${Math.max(1, REEL_DURATION - resumeOffset)}ms cubic-bezier(.1,0,.2,1)`);
+        setReelTransition(`transform ${Math.max(1, reelTiming.duration - resumeOffset)}ms cubic-bezier(.1,0,.2,1)`);
         setReelPosition(REEL_FINAL_POSITION);
       }, 20);
     } else {
       mainTimer = window.setTimeout(() => {
         ticksEnabled = true;
-        setReelTransition(`transform ${REEL_MAIN_DURATION}ms cubic-bezier(.1,0,.2,1)`);
+        setReelTransition(`transform ${reelTiming.mainDuration}ms cubic-bezier(.1,0,.2,1)`);
         setReelPosition(REEL_FINAL_POSITION - jitter + 52.5);
-      }, REEL_START_DELAY);
+      }, reelTiming.startDelay);
       settleTimer = window.setTimeout(() => {
-        setReelTransition(`transform ${REEL_SETTLE_DURATION}ms cubic-bezier(.1,0,.2,1)`);
+        setReelTransition(`transform ${reelTiming.settleDuration}ms cubic-bezier(.1,0,.2,1)`);
         setReelPosition(REEL_FINAL_POSITION);
-      }, REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE);
+      }, reelTiming.startDelay + reelTiming.mainDuration + reelTiming.settlePause);
     }
     const finishTimer = window.setTimeout(() => {
       ticksEnabled = false;
@@ -2752,7 +2804,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
           revealedRoundCount: Math.max(Number(state.revealedRoundCount || 0), state.currentRound + 1),
         };
       });
-    }, Math.max(5, REEL_DURATION - resumeOffset + 5));
+    }, Math.max(5, reelTiming.duration - resumeOffset + 5));
 
     return () => {
       if (trackingFrame) window.cancelAnimationFrame(trackingFrame);
@@ -2760,7 +2812,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       window.clearTimeout(settleTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [battle.phase, battle.resumeSpinMs, setBattle]);
+  }, [battle.fastSpin, battle.phase, battle.resumeSpinMs, reelTiming.duration, reelTiming.mainDuration, reelTiming.settleDuration, reelTiming.settlePause, reelTiming.startDelay, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "round-delay") return undefined;
@@ -2776,9 +2828,9 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
           state.outcomeResults?.[index]?.[state.currentRound + 1] || null,
         )),
       }));
-    }, Math.max(0, BATTLE_ROUND_DELAY - Number(battle.resumeDelayMs || 0)));
+    }, Math.max(0, reelTiming.roundDelay - Number(battle.resumeDelayMs || 0)));
     return () => window.clearTimeout(timer);
-  }, [battle.phase, battle.resumeDelayMs, setBattle]);
+  }, [battle.phase, battle.resumeDelayMs, reelTiming.roundDelay, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "finished") {
@@ -3146,6 +3198,7 @@ export default function CaseBattles({ battleId = "" }) {
   const [selectedCases, setSelectedCases] = useState([]);
   const [playerOption, setPlayerOption] = useState(PLAYER_OPTIONS.find((item) => item.id === "ffa-2"));
   const [selectedMode, setSelectedMode] = useState("normal");
+  const [fastSpin, setFastSpin] = useState(false);
   const [previewCase, setPreviewCase] = useState(null);
   const [battle, setBattle] = useState(null);
   const [directBattleError, setDirectBattleError] = useState("");
@@ -3362,6 +3415,7 @@ export default function CaseBattles({ battleId = "" }) {
           case_ids: selectedCases.map((caseItem) => caseItem.id),
           player_option: playerOption.id,
           modes: getSelectedModeIds(selectedMode),
+          fast_spin: fastSpin,
         }),
       });
       const createdBattle = normalizeWithSavedProgress(response?.battle);
@@ -3402,6 +3456,7 @@ export default function CaseBattles({ battleId = "" }) {
     setSelectedCases([]);
     setPlayerOption(PLAYER_OPTIONS.find((item) => item.id === "ffa-2"));
     setSelectedMode("normal");
+    setFastSpin(false);
     setScreen("create");
   };
 
@@ -3464,6 +3519,8 @@ export default function CaseBattles({ battleId = "" }) {
           setPlayerOption={setPlayerOption}
           selectedMode={selectedMode}
           setSelectedMode={setSelectedMode}
+          fastSpin={fastSpin}
+          setFastSpin={setFastSpin}
           onBack={() => setScreen("list")}
           onCreate={createBattle}
           onPreview={setPreviewCase}
@@ -3481,6 +3538,7 @@ export default function CaseBattles({ battleId = "" }) {
             setSelectedCases(battle.cases);
             setPlayerOption(battle.playerOption);
             setSelectedMode(battle.mode);
+            setFastSpin(Boolean(battle.fastSpin));
             setScreen("create");
             navigate("/battles");
           }}
