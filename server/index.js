@@ -563,18 +563,69 @@ const SESSION_COOKIE_NAME = 'bloxy_session'
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30
 const CHALLENGE_TTL_SECONDS = 15 * 60
 
+function uniqueSecrets(values) {
+  return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))]
+}
+
+function getSessionSigningSecrets() {
+  return uniqueSecrets([
+    process.env.JWT_SECRET,
+    process.env.APP_SESSION_SECRET,
+    process.env.SUPABASE_SECRET_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  ])
+}
+
 function getSessionSigningSecret() {
-  return String(
-    process.env.APP_SESSION_SECRET ||
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    '',
-  )
+  return getSessionSigningSecrets()[0] || ''
+}
+
+function deriveGameSeedEncryptionKey(game, secret) {
+  return crypto
+    .createHash('sha256')
+    .update(`bloxy:${game}:seed-encryption:v1:${secret}`)
+    .digest()
+}
+
+function getJwtGameSeedEncryptionKey(game) {
+  const secret = String(process.env.JWT_SECRET || '').trim()
+  return secret ? deriveGameSeedEncryptionKey(game, secret) : null
+}
+
+function uniqueEncryptionKeys(keys) {
+  const seen = new Set()
+  return keys.filter((key) => {
+    if (!Buffer.isBuffer(key)) return false
+    const fingerprint = key.toString('hex')
+    if (seen.has(fingerprint)) return false
+    seen.add(fingerprint)
+    return true
+  })
+}
+
+function decryptAesGcmWithKeys(encryptedSeed, keys, invalidMessage, decryptMessage) {
+  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error(invalidMessage)
+
+  for (const key of uniqueEncryptionKeys(keys)) {
+    try {
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
+      decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
+      return Buffer.concat([
+        decipher.update(Buffer.from(encryptedHex, 'hex')),
+        decipher.final(),
+      ]).toString('utf8')
+    } catch {
+      // Try legacy keys so games created before the JWT_SECRET migration remain readable.
+    }
+  }
+
+  throw new Error(decryptMessage)
 }
 
 function encodeSignedToken(payload) {
   const secret = getSessionSigningSecret()
-  if (!secret) throw new Error('APP_SESSION_SECRET is required for authentication.')
+  if (!secret) throw new Error('JWT_SECRET is required for authentication.')
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url')
   const signature = crypto
     .createHmac('sha256', `bloxy-session:${secret}`)
@@ -584,26 +635,25 @@ function encodeSignedToken(payload) {
 }
 
 function decodeSignedToken(token, expectedKind) {
-  const secret = getSessionSigningSecret()
   const [encodedPayload, providedSignature] = String(token || '').split('.')
-  if (!secret || !encodedPayload || !providedSignature) return null
+  const secrets = getSessionSigningSecrets()
+  if (!secrets.length || !encodedPayload || !providedSignature) return null
 
-  const expectedSignature = crypto
-    .createHmac('sha256', `bloxy-session:${secret}`)
-    .update(encodedPayload)
-    .digest()
   let providedBuffer
   try {
     providedBuffer = Buffer.from(providedSignature, 'base64url')
   } catch {
     return null
   }
-  if (
-    providedBuffer.length !== expectedSignature.length ||
-    !crypto.timingSafeEqual(providedBuffer, expectedSignature)
-  ) {
-    return null
-  }
+  const hasValidSignature = secrets.some((secret) => {
+    const expectedSignature = crypto
+      .createHmac('sha256', `bloxy-session:${secret}`)
+      .update(encodedPayload)
+      .digest()
+    return providedBuffer.length === expectedSignature.length &&
+      crypto.timingSafeEqual(providedBuffer, expectedSignature)
+  })
+  if (!hasValidSignature) return null
 
   try {
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'))
@@ -2766,14 +2816,35 @@ app.post('/api/promocode/redeem', express.json({ limit: '24kb' }), requireAuthen
 })
 
 function getCoinflipSeedEncryptionKey(supabaseKey) {
+  const jwtKey = getJwtGameSeedEncryptionKey('coinflip')
+  if (jwtKey) return jwtKey
   const secret = process.env.COINFLIP_SEED_SECRET || supabaseKey
+  if (!secret) throw new Error('JWT_SECRET is required for Coinflip fairness.')
   return crypto.createHash('sha256').update(String(secret)).digest()
 }
 
+function getCoinflipSeedDecryptionKeys(supabaseKey) {
+  return uniqueEncryptionKeys([
+    getJwtGameSeedEncryptionKey('coinflip'),
+    ...uniqueSecrets([process.env.COINFLIP_SEED_SECRET, supabaseKey])
+      .map((secret) => crypto.createHash('sha256').update(secret).digest()),
+  ])
+}
+
 function getCaseOpenSeedEncryptionKey() {
+  const jwtKey = getJwtGameSeedEncryptionKey('cases')
+  if (jwtKey) return jwtKey
   const secret = String(process.env.CASE_OPEN_SEED_SECRET || '').trim()
-  if (!secret) throw new Error('CASE_OPEN_SEED_SECRET is required for case fairness.')
+  if (!secret) throw new Error('JWT_SECRET is required for case fairness.')
   return crypto.createHash('sha256').update(secret).digest()
+}
+
+function getCaseOpenSeedDecryptionKeys() {
+  return uniqueEncryptionKeys([
+    getJwtGameSeedEncryptionKey('cases'),
+    ...uniqueSecrets([process.env.CASE_OPEN_SEED_SECRET])
+      .map((secret) => crypto.createHash('sha256').update(secret).digest()),
+  ])
 }
 
 function encryptCaseServerSeed(serverSeed) {
@@ -2784,18 +2855,12 @@ function encryptCaseServerSeed(serverSeed) {
 }
 
 function decryptCaseServerSeed(encryptedSeed) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted case server seed')
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getCaseOpenSeedEncryptionKey(),
-    Buffer.from(ivHex, 'hex'),
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    getCaseOpenSeedDecryptionKeys(),
+    'invalid encrypted case server seed',
+    'Unable to decrypt the case server seed. Keep the previous CASE_OPEN_SEED_SECRET during migration.',
   )
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8')
 }
 
 function createCaseFairnessSeed() {
@@ -2847,10 +2912,21 @@ function getCaseBattleAvatar(profile) {
 }
 
 function getCaseBattleSeedEncryptionKey() {
+  const jwtKey = getJwtGameSeedEncryptionKey('case-battles')
+  if (jwtKey) return jwtKey
   const { supabaseKey } = getSupabaseAdminConfig()
   const secret = process.env.CASE_BATTLE_SEED_SECRET || process.env.CASE_OPEN_SEED_SECRET || supabaseKey
-  if (!secret) throw new Error('CASE_BATTLE_SEED_SECRET is not configured.')
+  if (!secret) throw new Error('JWT_SECRET is required for Case Battle fairness.')
   return crypto.createHash('sha256').update(String(secret)).digest()
+}
+
+function getCaseBattleSeedDecryptionKeys() {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  return uniqueEncryptionKeys([
+    getJwtGameSeedEncryptionKey('case-battles'),
+    ...uniqueSecrets([process.env.CASE_BATTLE_SEED_SECRET, process.env.CASE_OPEN_SEED_SECRET, supabaseKey])
+      .map((secret) => crypto.createHash('sha256').update(secret).digest()),
+  ])
 }
 
 function encryptCaseBattleServerSeed(serverSeed) {
@@ -2861,11 +2937,12 @@ function encryptCaseBattleServerSeed(serverSeed) {
 }
 
 function decryptCaseBattleServerSeed(encryptedSeed) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('Invalid Case Battle server seed.')
-  const decipher = crypto.createDecipheriv('aes-256-gcm', getCaseBattleSeedEncryptionKey(), Buffer.from(ivHex, 'hex'))
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8')
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    getCaseBattleSeedDecryptionKeys(),
+    'Invalid Case Battle server seed.',
+    'Unable to decrypt the Case Battle server seed. Keep the previous game secret during migration.',
+  )
 }
 
 const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
@@ -3442,9 +3519,19 @@ app.post('/api/cases/open', express.json({ limit: '8kb' }), requireAuthenticated
 })
 
 function getUpgraderSeedEncryptionKey() {
+  const jwtKey = getJwtGameSeedEncryptionKey('upgrader')
+  if (jwtKey) return jwtKey
   const secret = String(process.env.UPGRADER_SEED_SECRET || process.env.CASE_OPEN_SEED_SECRET || '').trim()
-  if (!secret) throw new Error('UPGRADER_SEED_SECRET is required for Upgrader fairness.')
+  if (!secret) throw new Error('JWT_SECRET is required for Upgrader fairness.')
   return crypto.createHash('sha256').update(secret).digest()
+}
+
+function getUpgraderSeedDecryptionKeys() {
+  return uniqueEncryptionKeys([
+    getJwtGameSeedEncryptionKey('upgrader'),
+    ...uniqueSecrets([process.env.UPGRADER_SEED_SECRET, process.env.CASE_OPEN_SEED_SECRET])
+      .map((secret) => crypto.createHash('sha256').update(secret).digest()),
+  ])
 }
 
 function encryptUpgraderServerSeed(serverSeed) {
@@ -3455,18 +3542,12 @@ function encryptUpgraderServerSeed(serverSeed) {
 }
 
 function decryptUpgraderServerSeed(encryptedSeed) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('Invalid encrypted Upgrader server seed.')
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getUpgraderSeedEncryptionKey(),
-    Buffer.from(ivHex, 'hex'),
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    getUpgraderSeedDecryptionKeys(),
+    'Invalid encrypted Upgrader server seed.',
+    'Unable to decrypt the Upgrader server seed. Keep the previous game secret during migration.',
   )
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8')
 }
 
 function createUpgraderFairnessSeed() {
@@ -3669,19 +3750,12 @@ function encryptCoinflipServerSeed(serverSeed, supabaseKey) {
 }
 
 function decryptCoinflipServerSeed(encryptedSeed, supabaseKey) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted coinflip server seed')
-
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getCoinflipSeedEncryptionKey(supabaseKey),
-    Buffer.from(ivHex, 'hex'),
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    getCoinflipSeedDecryptionKeys(supabaseKey),
+    'invalid encrypted coinflip server seed',
+    'Unable to decrypt the Coinflip server seed. Keep the previous COINFLIP_SEED_SECRET during migration.',
   )
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8')
 }
 
 function resolveCoinflip(serverSeed, clientSeed, nonce, gameId, opponentUuid) {
@@ -4036,7 +4110,7 @@ function getMinesMultiplier(revealedCount, totalPositions, minesCount) {
   return Math.round(multiplier * 100) / 100
 }
 
-function generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId) {
+function generateLegacyMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId) {
   const message = `${clientSeed}:${nonce}:${gameId}`
   const digest = crypto.createHmac('sha256', serverSeed).update(message).digest('hex')
   
@@ -4053,21 +4127,50 @@ function generateMinePositions(totalPositions, minesCount, serverSeed, clientSee
   return positions.sort((a, b) => a - b)
 }
 
+function generateMinePositions(totalPositions, minesCount, serverSeed, clientSeed, nonce, gameId) {
+  const positions = []
+  const available = Array.from({ length: totalPositions }, (_, index) => index)
+
+  for (let mineIndex = 0; mineIndex < minesCount && available.length > 0; mineIndex += 1) {
+    const unbiasedLimit = Math.floor(0x100000000 / available.length) * available.length
+    let attempt = 0
+    let candidate
+
+    do {
+      candidate = crypto
+        .createHmac('sha256', serverSeed)
+        .update(`${clientSeed}:${nonce}:${gameId}:mine:${mineIndex}:${attempt}`)
+        .digest()
+        .readUInt32BE(0)
+      attempt += 1
+    } while (candidate >= unbiasedLimit)
+
+    positions.push(available.splice(candidate % available.length, 1)[0])
+  }
+
+  return positions.sort((a, b) => a - b)
+}
+
 function getMinesSeedEncryptionKey(supabaseKey) {
+  const jwtKey = getJwtGameSeedEncryptionKey('mines')
+  if (jwtKey) return jwtKey
   const secret = String(process.env.MINES_SEED_SECRET || process.env.COINFLIP_SEED_SECRET || supabaseKey || '').trim()
-  if (!secret) throw new Error('MINES_SEED_SECRET is required for Mines fairness.')
+  if (!secret) throw new Error('JWT_SECRET is required for Mines fairness.')
   return crypto.createHash('sha256').update(`mines:${secret}`).digest()
 }
 
-function decryptMinesServerSeedWithKey(encryptedSeed, encryptionKey) {
-  const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
-  if (!ivHex || !tagHex || !encryptedHex) throw new Error('invalid encrypted mines server seed')
-  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey, Buffer.from(ivHex, 'hex'))
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'))
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8')
+function getMinesSeedDecryptionKeys(supabaseKey) {
+  const minesLegacySecrets = uniqueSecrets([
+    process.env.MINES_SEED_SECRET,
+    process.env.COINFLIP_SEED_SECRET,
+    supabaseKey,
+  ])
+  const coinflipLegacySecrets = uniqueSecrets([process.env.COINFLIP_SEED_SECRET, supabaseKey])
+  return uniqueEncryptionKeys([
+    getJwtGameSeedEncryptionKey('mines'),
+    ...minesLegacySecrets.map((secret) => crypto.createHash('sha256').update(`mines:${secret}`).digest()),
+    ...coinflipLegacySecrets.map((secret) => crypto.createHash('sha256').update(secret).digest()),
+  ])
 }
 
 function encryptMinesServerSeed(serverSeed, supabaseKey) {
@@ -4079,12 +4182,12 @@ function encryptMinesServerSeed(serverSeed, supabaseKey) {
 }
 
 function decryptMinesServerSeed(encryptedSeed, supabaseKey) {
-  try {
-    return decryptMinesServerSeedWithKey(encryptedSeed, getMinesSeedEncryptionKey(supabaseKey))
-  } catch (error) {
-    // Games created before the dedicated Mines key used the Coinflip-derived key.
-    return decryptMinesServerSeedWithKey(encryptedSeed, getCoinflipSeedEncryptionKey(supabaseKey))
-  }
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    getMinesSeedDecryptionKeys(supabaseKey),
+    'invalid encrypted mines server seed',
+    'Unable to decrypt the Mines server seed. Keep the previous game secrets during migration.',
+  )
 }
 
 function createMinesFairnessSeed(supabaseKey) {
@@ -4146,19 +4249,23 @@ function resolveMinesGridSize(game, supabaseKey) {
       .sort((a, b) => a - b)
 
     for (const candidate of [5, 6, 7, 8]) {
-      const expectedMines = generateMinePositions(
+      const generationArgs = [
         candidate * candidate,
         Number(game?.mines_count) || 3,
         serverSeed,
         game?.client_seed,
         game?.nonce,
         game?.id,
-      )
+      ]
+      const expectedBoards = [
+        generateMinePositions(...generationArgs),
+        generateLegacyMinePositions(...generationArgs),
+      ]
 
-      if (
+      if (expectedBoards.some((expectedMines) =>
         expectedMines.length === actualMines.length &&
         expectedMines.every((position, index) => position === actualMines[index])
-      ) {
+      )) {
         return candidate
       }
     }

@@ -241,6 +241,7 @@ export function registerRollGame({
   function seedSecrets() {
     const { supabaseKey } = getSupabaseAdminConfig()
     return [
+      process.env.JWT_SECRET,
       process.env.ROLL_SEED_SECRET,
       process.env.COINFLIP_SEED_SECRET,
       supabaseKey,
@@ -251,7 +252,7 @@ export function registerRollGame({
 
   function seedKey() {
     const [secret] = seedSecrets()
-    if (!secret) throw new Error('A server seed secret or Supabase service key is required for Roll.')
+    if (!secret) throw new Error('JWT_SECRET is required for Roll fairness.')
     return deriveSeedKey(secret)
   }
 
@@ -266,7 +267,7 @@ export function registerRollGame({
     const [ivHex, tagHex, encryptedHex] = String(encryptedSeed || '').split('.')
     if (!ivHex || !tagHex || !encryptedHex) throw new Error('Invalid encrypted Roll server seed.')
     const secrets = seedSecrets()
-    if (secrets.length === 0) throw new Error('A server seed secret or Supabase service key is required for Roll.')
+    if (secrets.length === 0) throw new Error('JWT_SECRET is required for Roll fairness.')
 
     for (const secret of secrets) {
       try {
@@ -283,7 +284,7 @@ export function registerRollGame({
     }
 
     throw new Error(
-      'Unable to decrypt the active Roll round. Keep the previous ROLL_SEED_SECRET configured until that round settles.',
+      'Unable to decrypt the active Roll round. Keep the previous game secrets configured until that round settles.',
     )
   }
 
