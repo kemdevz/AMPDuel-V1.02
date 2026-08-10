@@ -1584,6 +1584,11 @@ function normalizeBattleGame(row, previous = null) {
     results: completeResults ?? row.results,
     outcomeResults: completeResults ?? row.outcomeResults,
   };
+  if (previous?.serverResolved && source.status !== "resolved") {
+    source.status = "resolved";
+    source.server_seed = previous.server_seed || source.server_seed;
+    source.resolved_at = previous.resolved_at || source.resolved_at;
+  }
   const playerOption = PLAYER_OPTIONS.find((option) => option.id === source.player_option)
     || PLAYER_OPTIONS.find((option) => option.id === "ffa-2");
   const maxPlayers = Math.max(2, Math.min(6, Number(source.max_players || playerOption.count)));
@@ -1612,11 +1617,20 @@ function normalizeBattleGame(row, previous = null) {
     };
   });
   const cases = (Array.isArray(source.cases) ? source.cases : []).map(normalizeCase);
+  const previousAnimationComplete = Boolean(previous?.animationComplete);
+  const previousAnimationLocked = Boolean(previous?.animationLocked)
+    || Boolean(previous?.serverManaged && ["countdown", "spinning", "round-delay"].includes(previous?.phase))
+    || Boolean(
+      previous?.serverManaged
+      && previous?.phase === "waiting"
+      && source.status === "resolved"
+      && source.started_at
+      && players.every(Boolean)
+    );
   const deferResolution = source.status === "resolved"
     && previous?.serverManaged
-    && previous?.phase !== "finished"
-    && Number(previous?.countdownStartedAt || 0) > 0
-    && Number(previous?.revealedRoundCount || 0) < cases.length;
+    && previousAnimationLocked
+    && !previousAnimationComplete;
   const timelineStatus = deferResolution ? "active" : source.status;
   const storedResults = timelineStatus === "active" && Array.isArray(source.outcomeResults)
     ? source.outcomeResults
@@ -1651,13 +1665,18 @@ function normalizeBattleGame(row, previous = null) {
   const startedAt = new Date(source.started_at || 0).getTime();
   const previousCountdownStartedAt = Number(previous?.countdownStartedAt || 0);
   const hasLocalCountdown = previous?.phase === "countdown" && previousCountdownStartedAt > 0;
+  const firstLiveActivation = timelineStatus === "active"
+    && previous
+    && ["waiting", "ready"].includes(previous.status);
   const hasActiveTimeline = timelineStatus === "active"
     && (previous?.status === "active" || previous?.deferResolution)
     && previousCountdownStartedAt > 0;
   // Follow the backend start boundary and preserve it for later realtime
   // updates. Starting a second browser-owned clock here lets deployment
   // latency make settlement overtake the visible animation.
-  const countdownStartedAt = hasActiveTimeline || hasLocalCountdown
+  const countdownStartedAt = firstLiveActivation
+    ? timelineNow
+    : hasActiveTimeline || hasLocalCountdown
     ? previousCountdownStartedAt
     : startedAt;
   const activeElapsed = timelineStatus === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
@@ -1683,10 +1702,9 @@ function normalizeBattleGame(row, previous = null) {
   if (timelineStatus === "active") {
     if (activeElapsed < BATTLE_COUNTDOWN_DURATION) {
       phase = "countdown";
-      const timeUntilStart = Math.max(0, startedAt - timelineNow);
       const countdownRemaining = BATTLE_COUNTDOWN_DURATION - activeElapsed;
       countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
-      resumeCountdownMs = timeUntilStart + Math.max(20, countdownRemaining - (countdown - 1) * 1000);
+      resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
     } else {
       const roundElapsed = activeElapsed - BATTLE_COUNTDOWN_DURATION;
       currentRound = Math.min(cases.length, Math.floor(roundElapsed / roundCycle));
@@ -1719,10 +1737,11 @@ function normalizeBattleGame(row, previous = null) {
     }
   }
   if (deferResolution) {
-    phase = previous.phase;
+    const beginMissedAnimation = previous.phase === "waiting";
+    phase = beginMissedAnimation ? "countdown" : previous.phase;
     currentRound = Math.max(0, Number(previous.currentRound || 0));
-    countdown = Math.max(1, Number(previous.countdown || 1));
-    resumeCountdownMs = Number(previous.resumeCountdownMs || 1000);
+    countdown = beginMissedAnimation ? 3 : Math.max(1, Number(previous.countdown || 1));
+    resumeCountdownMs = beginMissedAnimation ? 1000 : Number(previous.resumeCountdownMs || 1000);
     resumeSpinMs = Number(previous.resumeSpinMs || 0);
     resumeDelayMs = Number(previous.resumeDelayMs || 0);
     visibleRoundCount = Math.max(
@@ -1755,6 +1774,8 @@ function normalizeBattleGame(row, previous = null) {
     fastSpin,
     deferResolution,
     serverResolved: source.status === "resolved" || Boolean(previous?.serverResolved),
+    animationLocked: timelineStatus === "active" && !previousAnimationComplete,
+    animationComplete: timelineStatus === "resolved" || previousAnimationComplete,
     phase,
     currentRound,
     countdown,
@@ -2828,6 +2849,8 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
           phase: finalRound ? "finished" : "round-delay",
           deferResolution: finalRound ? false : state.deferResolution,
           finished: finalRound ? Boolean(state.serverResolved || state.finished) : state.finished,
+          animationLocked: finalRound ? false : state.animationLocked,
+          animationComplete: finalRound ? true : state.animationComplete,
           resumeDelayMs: 0,
           revealedRoundCount: Math.max(Number(state.revealedRoundCount || 0), state.currentRound + 1),
         };
