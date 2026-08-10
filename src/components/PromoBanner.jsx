@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../store/auth'
-import { getLevelStyle } from '../lib/levelStyles'
-import { getLevelProgress } from '../lib/levelProgression'
 
 const PROMO_IMAGE = 'https://i.ibb.co/v450phsZ/rounded-corners.png'
 
@@ -37,11 +35,7 @@ export default function PromoBanner() {
   const user = useAuth((s) => s.user)
   const isGuest = !user
   const displayName = user?.username || 'Guest'
-  const currentLevel = user?.level ?? 1
-  const maxLevel = user?.max_level ?? 200
-  const levelProgress = getLevelProgress(currentLevel, user?.xp, maxLevel)
   const avatarSrc = user?.avatar_headshot_url || user?.avatar_url || ''
-  const progressWidth = isGuest ? '0%' : `${levelProgress.percent}%`
 
   return (
     <div className="heroWrap">
@@ -55,34 +49,6 @@ export default function PromoBanner() {
                 <div className="heroWelcome">
                   <span className="heroWelcomeMuted">Welcome back,</span>
                   <span className={`heroName ${isGuest ? 'heroNameGuest' : ''}`}>{displayName}</span>
-                </div>
-              </div>
-
-              <div className="heroProgressWrap">
-                <div className="heroProgressBar" data-state="closed" style={{ cursor: 'default' }}>
-                  <div className="heroProgressFill" style={{ width: progressWidth }} />
-                </div>
-                <div className="heroLevelRow">
-                  <span className="heroLevelLabel">CURRENT LEVEL</span>
-                  <span
-                    style={{
-                      ...getLevelStyle(currentLevel),
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '4px',
-                      padding: '1px 6px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      userSelect: 'none',
-                      lineHeight: '14px',
-                      height: '18px',
-                      minWidth: '24px',
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    {currentLevel}
-                  </span>
                 </div>
               </div>
 
@@ -207,48 +173,6 @@ export default function PromoBanner() {
           color: #8E92A7;
         }
 
-        .heroProgressWrap {
-          width: 100%;
-          max-width: 320px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .heroProgressBar {
-          margin: 0;
-          font-family: Poppins, sans-serif;
-          height: 14px;
-          padding: 3px;
-          border-radius: 6px;
-          background: #2a2e44d9;
-          border: 1px solid rgba(94,85,217,.25);
-          cursor: default;
-        }
-
-        .heroProgressFill {
-          height: 100%;
-          border-radius: 4px;
-          background: linear-gradient(135deg,#6c63ff,#5147d9);
-          box-shadow: 0 2px 10px #6c63ff40;
-        }
-
-        .heroLevelRow {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 12px;
-          font-weight: 600;
-          color: #e1e4f2cc;
-        }
-
-        .heroLevelLabel {
-          color: #8E92A7;
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-        }
-
         .heroCtaFlat {
           min-width: 96px;
           cursor: pointer;
@@ -344,7 +268,6 @@ export default function PromoBanner() {
           .heroWelcome { min-width: 0; }
           .heroName { max-width: 62vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           .heroAvatar, .heroAvatarGuest { width: 44px; height: 44px; }
-          .heroProgressWrap { max-width: none; }
           .heroCtaFlat { min-height: 40px; height: 40px; font-size: 14px; }
           .heroBannerBox { height: 140px; border-radius: 8px; }
         }

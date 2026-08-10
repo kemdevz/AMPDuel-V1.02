@@ -9,7 +9,6 @@ import MiniProfileModal from "./MiniProfileModal";
 import TipUserModal from "./TipUserModal";
 import CoinTipModal from "./CoinTipModal";
 import { notifications } from "./Notifications";
-import { getLevelStyle } from "../lib/levelStyles";
 import { getRoleStyle } from "../lib/roleStyles";
 import { loadRecaptcha, RECAPTCHA_TEST_SITE_KEY } from "../lib/recaptcha";
 
@@ -426,8 +425,6 @@ function ReplyPreview({ reply }) {
 }
 
 function ChatMessage({ message, onReply, onProfileOpen }) {
-  const level = Math.max(1, Number(message.level) || 1);
-  const badgeStyle = useMemo(() => getLevelStyle(level), [level]);
   const roleStyle = useMemo(() => getRoleStyle(message.role), [message.role]);
   const hasRankIcon = Boolean(roleStyle.image);
 
@@ -479,25 +476,6 @@ function ChatMessage({ message, onReply, onProfileOpen }) {
         <div className="relative flex-1 min-w-0">
           <div className="mb-[2px] flex flex-wrap items-center">
             <span className="inline-flex items-center gap-[9px] min-w-0">
-              <span
-                title={`Level ${level}`}
-                style={{
-                  ...badgeStyle,
-                  borderRadius: "4px",
-                  padding: "1px 6px",
-                  fontSize: "10.5px",
-                  fontWeight: 600,
-                  lineHeight: "14px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  userSelect: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {level}
-              </span>
-
               <span className="inline-flex min-w-0 items-center">
                 <span
                   className="w-max text-[0.75rem] select-none truncate"

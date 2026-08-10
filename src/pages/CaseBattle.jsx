@@ -5,10 +5,7 @@ import {
   Flag,
   Hash,
   RefreshCw,
-  Rocket,
-  Shuffle,
   Trophy,
-  Users,
   Zap,
 } from "lucide-react";
 import { getInventoryItemAccent } from "../components/InventoryItemCard";
@@ -76,9 +73,7 @@ const PLAYER_OPTIONS = [
   { id: "ffa-3", family: "ffa", label: "1v1v1", count: 3, color: "#6c63ff" },
   { id: "ffa-4", family: "ffa", label: "1v1v1v1", count: 4, color: "#6c63ff" },
   { id: "team-4", family: "team", label: "2v2", count: 4, color: "#3a89eb" },
-  { id: "group-2", family: "group", label: "2P", count: 2, color: "#2dd4bf" },
-  { id: "group-3", family: "group", label: "3P", count: 3, color: "#2dd4bf" },
-  { id: "group-4", family: "group", label: "4P", count: 4, color: "#2dd4bf" },
+  { id: "team-6", family: "team", label: "3v3", count: 6, color: "#3a89eb" },
 ];
 
 const MODE_OPTIONS = [
@@ -88,27 +83,6 @@ const MODE_OPTIONS = [
     color: "#6c63ff",
     description: "Player or team with the biggest total value wins the battle.",
     Icon: Trophy,
-  },
-  {
-    id: "group",
-    title: "Group",
-    color: "#2dd4bf",
-    description: "Play together as a group, all winnings are split equally.",
-    Icon: Users,
-  },
-  {
-    id: "coinflip",
-    title: "Coinflip",
-    color: "#38bdf8",
-    description: "At the end of the battle, a winner is drawn randomly between all players or teams.",
-    Icon: Shuffle,
-  },
-  {
-    id: "jackpot",
-    title: "Jackpot",
-    color: "#f59e0b",
-    description: "At the end of the battle, a winner is drawn randomly. The higher your total value, the greater your odds.",
-    Icon: Rocket,
   },
   {
     id: "terminal",
@@ -126,8 +100,8 @@ const MODE_OPTIONS = [
   },
 ];
 
-const STACKABLE_MODE_IDS = new Set(["jackpot", "terminal", "wild"]);
-const STACKABLE_MODE_ORDER = ["wild", "jackpot", "terminal"];
+const STACKABLE_MODE_IDS = new Set(["terminal", "wild"]);
+const STACKABLE_MODE_ORDER = ["wild", "terminal"];
 
 function getSelectedModeIds(mode) {
   const normalized = String(mode || "normal").toLowerCase().trim();
@@ -304,11 +278,14 @@ function CrossedSwordsGlyph() {
 }
 
 function PlayerSlotIcons({ option, active }) {
-  const color = active ? (option.family === "group" ? "#2dd4bf" : "#e1e4f2") : "#4a5070";
+  const color = active ? "#e1e4f2" : "#4a5070";
   const icons = [];
 
   if (option.family === "team") {
-    icons.push(<PlayerGlyph key="p1" />, <PlayerGlyph key="p2" />, <CrossedSwordsGlyph key="s1" />, <PlayerGlyph key="p3" />, <PlayerGlyph key="p4" />);
+    const teamSize = option.count / 2;
+    for (let index = 0; index < teamSize; index += 1) icons.push(<PlayerGlyph key={`left-${index}`} />);
+    icons.push(<CrossedSwordsGlyph key="versus" />);
+    for (let index = 0; index < teamSize; index += 1) icons.push(<PlayerGlyph key={`right-${index}`} />);
   } else {
     for (let index = 0; index < option.count; index += 1) {
       if (option.family === "ffa" && index > 0) icons.push(<CrossedSwordsGlyph key={`s${index}`} />);
@@ -351,30 +328,18 @@ function TerminalCreationIcon() {
 function CreationModeIcon({ type }) {
   const Icon = type === "normal"
     ? NormalCreationIcon
-    : type === "group"
-      ? GroupModeIcon
-      : type === "coinflip"
-        ? CoinflipCreationIcon
-        : type === "jackpot"
-          ? JackpotModeIcon
-          : type === "terminal"
-            ? TerminalCreationIcon
-            : WildModeIcon;
+    : type === "terminal"
+      ? TerminalCreationIcon
+      : WildModeIcon;
   return <span className={`bb-mode-icon bb-mode-icon-${type}`}><Icon /></span>;
 }
 
 function BattleModeIcon({ type }) {
   const Icon = type === "normal"
     ? NormalCreationIcon
-    : type === "group"
-      ? GroupModeIcon
-      : type === "coinflip"
-        ? CoinflipCreationIcon
-        : type === "jackpot"
-          ? JackpotModeIcon
-          : type === "terminal"
-            ? TerminalCreationIcon
-            : WildModeIcon;
+    : type === "terminal"
+      ? TerminalCreationIcon
+      : WildModeIcon;
   const title = MODE_OPTIONS.find((option) => option.id === type)?.title || "Normal";
   return (
     <span className={`bb-row-mode-icon bb-row-mode-${type}`} title={title} aria-label={`${title} mode`}>
@@ -525,7 +490,8 @@ const BATTLE_STYLES = String.raw`
   .bb-row-badges { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
   .bb-round-badge { padding: 4px 10px; color: rgba(225,228,242,.85); font-size: 14px; font-weight: 600; }
   .bb-row-players { position: relative; display: flex; width: 220px; min-width: 220px; align-items: center; justify-content: center; gap: 10px; }
-  .bb-row-avatar { display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; overflow: hidden; padding: 0; border: 2px solid rgba(255,255,255,.08); border-radius: 999px; background: #1c1f2e; }
+  .bb-row-avatar { display: inline-flex; width: 38px; height: 38px; flex: 0 0 38px; align-items: center; justify-content: center; overflow: hidden; padding: 0; border: 2px solid rgba(255,255,255,.08); border-radius: 999px; background: #1c1f2e; }
+  .bb-row-players-six { width: 308px; min-width: 308px; }
   .bb-row-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
   .bb-row-avatar-loading { display: block; width: 100%; height: 100%; }
   .bb-vs { position: absolute; top: 50%; left: 50%; padding: 5px; color: rgba(225,228,242,.78); font-size: 11px; font-weight: 900; letter-spacing: .9px; transform: translate(-50%,-50%); }
@@ -647,7 +613,7 @@ const BATTLE_STYLES = String.raw`
   .bb-section { margin-bottom: 20px; }
   .bb-section-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .bb-section-label { color: #6c7399; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
-  .bb-players-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .bb-players-row { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
   .bb-player-group { overflow: hidden; padding: 10px 12px 12px; border-radius: 8px; border-bottom: 2px solid var(--family-color); background: #131520; }
   .bb-player-group-title { margin-bottom: 8px; color: var(--family-color); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
   .bb-player-buttons { display: flex; gap: 4px; }
@@ -843,6 +809,14 @@ const BATTLE_STYLES = String.raw`
   .bb-reel-result-name { width: 100%; margin-bottom: 6px; overflow: hidden; color: rgba(220,225,255,.65); font-size: 15px; font-weight: 600; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
   .bb-reel-result-value { display: flex; margin-top: 6px; align-items: center; justify-content: flex-start; gap: 8px; color: #fff; font-size: 14px; font-weight: 700; }
   .bb-reel-result-value img { width: 18px; height: 18px; object-fit: contain; }
+  .bb-spinner-six-player .bb-reel-item.is-result .bb-reel-image { transform: translateY(-22px); }
+  .bb-spinner-six-player .bb-reel-image { width: 72px; height: 105px; flex-basis: 72px; }
+  .bb-spinner-six-player .bb-reel-image img { width: 66px; height: 66px; }
+  .bb-spinner-six-player .bb-reel-item.is-active .bb-reel-image img { transform: translate(-50%,-50%) scale(1.12); }
+  .bb-spinner-six-player .bb-reel-result { position: absolute; z-index: 8; top: 70px; left: 2px; width: calc(100% - 4px); max-width: none; margin-left: 0; align-items: center; gap: 0; }
+  .bb-spinner-six-player .bb-reel-result-name { display: -webkit-box; width: 100%; margin: 0 0 2px; overflow: hidden; color: rgba(225,228,242,.9); font-size: 9px; line-height: 1.1; text-align: center; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .bb-spinner-six-player .bb-reel-result-value { margin-top: 1px; justify-content: center; gap: 3px; font-size: 10px; line-height: 1; white-space: nowrap; }
+  .bb-spinner-six-player .bb-reel-result-value img { width: 11px; height: 11px; }
 
   .bb-countdown { position: absolute; z-index: 100; inset: 0; display: grid; place-items: center; background: #000 !important; opacity: 1; filter: none !important; backdrop-filter: none !important; }
   .bb-countdown-column { width: 100%; height: 100%; background: #000; }
@@ -1462,7 +1436,10 @@ const BATTLE_STYLES = String.raw`
   @media (max-width: 420px) {
     .bb-list { padding: 10px; }
     .bb-row-players { width: 210px; min-width: 210px; gap: 8px; }
-    .bb-row-avatar { width: 34px; height: 34px; }
+    .bb-row-avatar { width: 34px; height: 34px; flex-basis: 34px; }
+    .bb-row-players-six { width: 240px; min-width: 240px; gap: 2px; }
+    .bb-row-players-six .bb-row-player-before-vs { margin-right: 6px; }
+    .bb-row-players-six .bb-row-player-after-vs { margin-left: 6px; }
     .bb-picker-footer { align-items: stretch; flex-direction: column; }
     .bb-picker-stats { width: 100%; }
     .bb-picker-stat { flex: 1; justify-content: center; }
@@ -1539,7 +1516,7 @@ function normalizeBattleGame(row, previous = null) {
   };
   const playerOption = PLAYER_OPTIONS.find((option) => option.id === source.player_option)
     || PLAYER_OPTIONS.find((option) => option.id === "ffa-2");
-  const maxPlayers = Math.max(2, Math.min(4, Number(source.max_players || playerOption.count)));
+  const maxPlayers = Math.max(2, Math.min(6, Number(source.max_players || playerOption.count)));
   const players = Array.from({ length: maxPlayers }, () => null);
   (Array.isArray(source.players) ? source.players : []).forEach((player, index) => {
     if (!player) return;
@@ -1567,7 +1544,9 @@ function normalizeBattleGame(row, previous = null) {
       return { ...normalized, accent: getInventoryItemAccent(normalized) };
     }) : []
   ));
-  const modes = Array.isArray(source.modes) && source.modes.length ? source.modes : ["normal"];
+  const requestedModes = Array.isArray(source.modes) ? source.modes : [];
+  const modes = requestedModes.filter((mode) => MODE_OPTIONS.some((option) => option.id === mode));
+  if (!modes.length) modes.push("normal");
   const startedAt = new Date(source.started_at || 0).getTime();
   const justStarted = source.status === "active" && previous && ["waiting", "ready"].includes(previous.status);
   const activeElapsed = source.status === "active" && Number.isFinite(startedAt) && startedAt > 0
@@ -2113,11 +2092,11 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
             <div className="bb-row-badges">
               <span className="bb-round-badge">{battle.caseCount} {battle.caseCount === 1 ? "Case" : "Cases"}</span>
             </div>
-            <div className="bb-row-players">
+            <div className={`bb-row-players${battle.players.length === 6 ? " bb-row-players-six" : ""}`}>
               {battle.players.map((player, index) => (
                 <button
                   type="button"
-                  className={`bb-row-avatar${battle.versus && index === 1 ? " bb-row-player-before-vs" : ""}${battle.versus && index === 2 ? " bb-row-player-after-vs" : ""}`}
+                  className={`bb-row-avatar${battle.versus && index === battle.players.length / 2 - 1 ? " bb-row-player-before-vs" : ""}${battle.versus && index === battle.players.length / 2 ? " bb-row-player-after-vs" : ""}`}
                   tabIndex={-1}
                   key={player?.id || `open-${index}`}
                 >
@@ -2240,8 +2219,7 @@ function BattlesList({ battles, loading, error, onCreate, onView, onPreview }) {
 function PlayerSelector({ selected, onSelect }) {
   const groups = [
     { id: "ffa", title: "Free For All", color: "#6c63ff" },
-    { id: "team", title: "Team", color: "#3a89eb" },
-    { id: "group", title: "Group", color: "#2dd4bf" },
+    { id: "team", title: "Teams", color: "#3a89eb" },
   ];
 
   return (
@@ -2729,7 +2707,6 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const totals = displayedResults.map(getPlayerTotal);
   const hasWildMode = modeIds.includes("wild");
   const hasTerminalMode = modeIds.includes("terminal");
-  const hasJackpotMode = modeIds.includes("jackpot");
   let winnerIndex = 0;
   let winnerIndices = [0];
   const storedWinnerIndices = (Array.isArray(battle.winner_profile_ids) ? battle.winner_profile_ids : [])
@@ -2738,32 +2715,52 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   if (battle.serverManaged && storedWinnerIndices.length) {
     winnerIndices = storedWinnerIndices;
     winnerIndex = storedWinnerIndices[0];
-  } else if (battle.mode === "coinflip" || hasJackpotMode) {
-    winnerIndex = battle.winnerIndex ?? 0;
-    winnerIndices = [winnerIndex];
-  } else if (hasTerminalMode) {
-    const terminalTotals = displayedResults.map((items) => Number(items[items.length - 1]?.value || 0));
-    const winningTerminalTotal = hasWildMode ? Math.min(...terminalTotals) : Math.max(...terminalTotals);
-    winnerIndices = terminalTotals.map((value, index) => value === winningTerminalTotal ? index : -1).filter((index) => index >= 0);
-    winnerIndex = winnerIndices[0] ?? 0;
   } else {
-    const winningTotal = hasWildMode ? Math.min(...totals) : Math.max(...totals);
-    winnerIndices = totals.map((value, index) => value === winningTotal ? index : -1).filter((index) => index >= 0);
+    const scores = hasTerminalMode
+      ? displayedResults.map((items) => Number(items[items.length - 1]?.value || 0))
+      : totals;
+    if (battle.playerOption.family === "team") {
+      const teamSize = battle.players.length / 2;
+      const teamTotals = [
+        scores.slice(0, teamSize).reduce((sum, value) => sum + value, 0),
+        scores.slice(teamSize).reduce((sum, value) => sum + value, 0),
+      ];
+      const winningTeamTotal = hasWildMode ? Math.min(...teamTotals) : Math.max(...teamTotals);
+      winnerIndices = teamTotals.flatMap((value, teamIndex) => (
+        value === winningTeamTotal
+          ? Array.from({ length: teamSize }, (_, index) => teamIndex * teamSize + index)
+          : []
+      ));
+    } else {
+      const winningTotal = hasWildMode ? Math.min(...scores) : Math.max(...scores);
+      winnerIndices = scores.map((value, index) => value === winningTotal ? index : -1).filter((index) => index >= 0);
+    }
     winnerIndex = winnerIndices[0] ?? 0;
   }
   const winner = battle.players[winnerIndex] || battle.players[0];
   const winners = winnerIndices.map((index) => battle.players[index]).filter(Boolean);
-  const isTie = battle.phase === "finished" && winners.length > 1;
-  const isTeamWin = isTie && battle.playerOption.family === "team";
-  const isGroupSplit = isTie && battle.playerOption.family === "group";
+  const teamSize = battle.playerOption.family === "team" ? battle.players.length / 2 : 0;
+  const isTeamWin = battle.phase === "finished" && teamSize > 0 && winners.length === teamSize;
+  const isTeamTie = battle.phase === "finished" && teamSize > 0 && winners.length > teamSize;
+  const isIndividualTie = battle.phase === "finished" && teamSize === 0 && winners.length > 1;
+  const isTie = isTeamTie || isIndividualTie;
+  const isSplitPayout = battle.phase === "finished" && winners.length > 1;
   const calculatedPotValue = totals.reduce((sum, value) => sum + value, 0);
   const potValue = Number(battle.payout_value || calculatedPotValue);
   const storedWinnerPayouts = Array.isArray(battle.payouts)
     ? battle.payouts.filter((payout) => winnerIndices.some((index) => String(battle.players[index]?.id) === String(payout?.profile_id)))
     : [];
-  const tieShare = isTie
+  const tieShare = isSplitPayout
     ? Number(storedWinnerPayouts[0]?.amount ?? potValue / Math.max(1, winners.length))
     : Number(storedWinnerPayouts[0]?.amount ?? potValue);
+  const splitPayoutAmounts = storedWinnerPayouts.length
+    ? storedWinnerPayouts.map((payout) => Number(payout?.amount || 0))
+    : [Math.floor(tieShare)];
+  const smallestSplitPayout = Math.min(...splitPayoutAmounts);
+  const largestSplitPayout = Math.max(...splitPayoutAmounts);
+  const splitPayoutText = smallestSplitPayout === largestSplitPayout
+    ? formatPriceValue(smallestSplitPayout, { compactNumbers: false })
+    : `${formatPriceValue(smallestSplitPayout, { compactNumbers: false })}â€“${formatPriceValue(largestSplitPayout, { compactNumbers: false })}`;
 
   const callBot = async (index) => {
     if (callingBotSlot !== null) return;
@@ -2878,7 +2875,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         <div className="bb-reel-box">
           <div className="bb-reel-inner">
             <div className="bb-spinner-wrap">
-              <div className={`bb-spinner${winnerVisible ? " bb-spinner-hide-reels" : ""}${battle.phase === "countdown" ? " bb-spinner-countdown" : ""}`}>
+              <div className={`bb-spinner${battle.players.length === 6 ? " bb-spinner-six-player" : ""}${winnerVisible ? " bb-spinner-hide-reels" : ""}${battle.phase === "countdown" ? " bb-spinner-countdown" : ""}`}>
                 <div className="bb-spinner-inner" ref={spinnerInnerRef}>
                   {battle.players.map((player, index) => (
                     <div className="bb-spinner-column" key={index}>
@@ -2958,20 +2955,20 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                 {battle.phase === "finished" && winnerVisible && (
                   <div className="bb-winner-overlay">
                     <div className="bb-winner-panel">
-                      <div className="bb-winner-title">{isTie ? "That's a Tie!" : "Battle Winner"}</div>
+                      <div className="bb-winner-title">{isTie ? "That's a Tie!" : isTeamWin ? "Battle Winners" : "Battle Winner"}</div>
                       <div className="bb-winner-avatar-wrap">
                         <div className="bb-winner-avatar-row">
-                          {(isTie ? winners : [winner]).map((winningPlayer, index) => (
+                          {(isSplitPayout ? winners : [winner]).map((winningPlayer, index) => (
                             <div className="bb-winner-avatar" title={winningPlayer?.name || "Winner"} key={(winningPlayer?.name || "winner") + index}>
                               <img src={winningPlayer?.avatar || "/login.png"} alt={winningPlayer?.name || "Winner"} />
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div className="bb-winner-name">{isTeamWin ? "Winning Team" : isGroupSplit ? `Split between ${winners.length} players` : isTie ? `Split between ${winners.length} tied winners` : (winner?.name || "Winner")}</div>
+                      <div className="bb-winner-name">{isTeamWin ? "Winning Team" : isTeamTie ? "Split between tied teams" : isIndividualTie ? `Split between ${winners.length} tied winners` : (winner?.name || "Winner")}</div>
                       <div className="bb-winner-amount"><img src={COIN_ICON} alt="" /><span>{formatPriceValue(potValue, { compactNumbers: false })}</span></div>
-                      <div className="bb-winner-sub">{isTie ? <>Each gets <span style={{ fontWeight: 700 }}>{formatPriceValue(tieShare, { compactNumbers: false })}</span></> : "Won this battle"}</div>
-                      {isTie && !isTeamWin && !isGroupSplit && <div className="bb-winner-sub bb-winner-tie-note">Split between tied winners</div>}
+                      <div className="bb-winner-sub">{isSplitPayout ? <>Each gets <span style={{ fontWeight: 700 }}>{splitPayoutText}</span></> : "Won this battle"}</div>
+                      {isIndividualTie && <div className="bb-winner-sub bb-winner-tie-note">Split between tied winners</div>}
                       <button type="button" className="bb-btn bb-btn-primary bb-recreate" onClick={onRecreate}><RefreshCw size={14} strokeWidth={2.5} />Recreate this Battle</button>
                     </div>
                   </div>

@@ -7,8 +7,9 @@ import ProfileModal from './ProfileModal'
 import LeaderboardModal from './LeaderboardModal'
 import Notifications from './Notifications'
 import { useAuth } from '../store/auth'
-import { Home, Menu, MessageSquare } from 'lucide-react'
+import { Menu, MessageSquare } from 'lucide-react'
 import { NavLink } from '../lib/router'
+import { CoinflipIcon } from './icons'
 
 export default function Layout({ children }) {
   const user = useAuth((s) => s.user)
@@ -132,8 +133,8 @@ export default function Layout({ children }) {
           }}
           className={({ isActive }) => `relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold no-underline ${isActive && !mobileNavOpen && !mobileChatOpen ? 'text-[#766dff]' : 'text-[#969dc8]'}`}
         >
-          <Home className="h-6 w-6" fill="currentColor" strokeWidth={1.8} />
-          <span>Home</span>
+          <CoinflipIcon className="h-6 w-6" />
+          <span>Coinflip</span>
         </NavLink>
 
         <button

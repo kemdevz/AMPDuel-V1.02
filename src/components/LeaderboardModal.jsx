@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { get } from '../lib/api'
-import { getLevelStyle } from '../lib/levelStyles'
 import MiniProfileModal from './MiniProfileModal'
 
 const TABS = [
@@ -97,7 +96,6 @@ export default function LeaderboardModal({ isOpen, onClose }) {
             {!loading && error ? <div className="leaderboardState error">{error}</div> : null}
             {!loading && !error && rows.length === 0 ? <div className="leaderboardState">No players to display yet.</div> : null}
             {!loading && !error && rows.map((player, index) => {
-              const level = Math.max(1, Math.floor(Number(player.level) || 1))
               const avatar = player.avatar_headshot_url || player.avatar_url
               return (
                 <div className="leaderboardItem" key={player.id || `${player.username}-${index}`}>
@@ -120,7 +118,6 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                     </div>
                     <div className="leaderboardUsernameColumn">
                       <span className="leaderboardUsernameInline">
-                        <span className="leaderboardLevel" title={`Level ${level}`} style={getLevelStyle(level)}>{level}</span>
                         <span className="leaderboardUsername" title={player.username}>{player.username || 'Unknown'}</span>
                       </span>
                     </div>
@@ -156,7 +153,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
         .leaderboardItem{display:grid;grid-template-columns:52px minmax(0,1fr) 130px;gap:10px;padding:8px 12px;align-items:center;border:0;border-radius:12px}
         .leaderboardPosition{color:#6f7694;font-size:12px;font-weight:700}.leaderboardPosition.rank-1{color:#f5c84c}.leaderboardPosition.rank-2{color:#c9cede}.leaderboardPosition.rank-3{color:#d88b5c}
         .leaderboardUser{display:flex;align-items:center;min-width:0;gap:9px}.leaderboardAvatar{width:35px;height:35px;flex:0 0 35px;overflow:hidden;padding:0;border:1px solid rgba(255,255,255,.08);border-radius:50%;background:#24283a;cursor:pointer}.leaderboardAvatar img{width:100%;height:100%;object-fit:cover}.leaderboardAvatar span{display:grid;width:100%;height:100%;place-items:center;color:#aeb4dd;font-weight:700}
-        .leaderboardUsernameColumn,.leaderboardUsernameInline{min-width:0}.leaderboardUsernameInline{display:flex;align-items:center;gap:6px}.leaderboardLevel{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;line-height:14px;white-space:nowrap}.leaderboardUsername{overflow:hidden;color:#cdd1e3;font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+        .leaderboardUsernameColumn,.leaderboardUsernameInline{min-width:0}.leaderboardUsernameInline{display:flex;align-items:center;gap:6px}.leaderboardUsername{overflow:hidden;color:#cdd1e3;font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
         .leaderboardStat{display:flex;align-items:center;justify-content:flex-end;gap:5px;color:#e1e4f2;font-size:12px;font-weight:650}.leaderboardStat.negative{color:#ff7474}.leaderboardStat img{width:15px;height:15px;object-fit:contain}
         .leaderboardState{display:grid;height:100%;min-height:180px;place-items:center;color:#737b9b;font-size:12px;text-align:center}.leaderboardState.error{color:#ff7474}
         @keyframes leaderboardFade{from{opacity:0}to{opacity:1}}@keyframes leaderboardOpen{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}

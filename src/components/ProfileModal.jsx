@@ -3,8 +3,6 @@ import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
-import { getLevelStyle } from '../lib/levelStyles'
-import { getLevelProgress } from '../lib/levelProgression'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import {
@@ -840,10 +838,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [discordAvatarEnabled, setDiscordAvatarEnabled] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [levelUpFlash, setLevelUpFlash] = useState(null)
   const closeTimerRef = useRef(null)
-  const levelUpTimerRef = useRef(null)
-  const observedLevelRef = useRef(null)
 
   useEffect(() => {
     const handleSessionActivity = (event) => {
@@ -878,7 +873,6 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
       setClosing(false)
       setMobileMenuOpen(false)
       setCopied(false)
-      setLevelUpFlash(null)
       return undefined
     }
 
@@ -1030,12 +1024,6 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   }, [isOpen, user?.ignored_users])
 
   useEffect(() => {
-    return () => {
-      if (levelUpTimerRef.current) window.clearTimeout(levelUpTimerRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
     if (isOpen && initialTab !== 'admin' && availableTabs.has(initialTab)) {
       setActiveTab(initialTab)
     }
@@ -1080,28 +1068,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const userId = String(account?.roblox_id ?? profile?.id ?? '').replace(/^roblox:/, '')
   const username = account?.username
   const avatarUrl = account?.avatar_headshot_url || account?.avatar_url
-  const level = account?.level
-  const maxLevel = account?.max_level ?? 200
   const roleStyle = getRoleStyle(account?.role)
-  const levelProgress = useMemo(
-    () => getLevelProgress(level, account?.xp, maxLevel),
-    [level, account?.xp, maxLevel],
-  )
-  useEffect(() => {
-    if (!isOpen) {
-      observedLevelRef.current = null
-      return
-    }
-
-    const nextLevel = Math.max(1, Number(level) || 1)
-    const previousLevel = observedLevelRef.current
-    observedLevelRef.current = nextLevel
-    if (previousLevel === null || nextLevel <= previousLevel) return
-
-    setLevelUpFlash(nextLevel)
-    if (levelUpTimerRef.current) window.clearTimeout(levelUpTimerRef.current)
-    levelUpTimerRef.current = window.setTimeout(() => setLevelUpFlash(null), 2200)
-  }, [isOpen, level])
   const isDiscordLinked = Boolean(account?.discord_linked)
   const discordHandle = account?.discord_username
     ? `@${String(account.discord_username).replace(/^@/, '')}`
@@ -1521,12 +1488,6 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   />
                   <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
                     <div className="inline-flex flex-wrap items-center gap-1 sm:gap-2">
-                      <span
-                        className="inline-flex h-[18px] min-w-6 items-center justify-center rounded px-1.5 py-px text-[11px] font-bold leading-[14px]"
-                        style={getLevelStyle(level)}
-                      >
-                        {level}
-                      </span>
                       <span className="text-[.85rem] font-bold text-white sm:text-[1.05rem]">{username}</span>
                       <span className="font-mono text-[9px] text-[rgba(225,228,242,.4)] sm:text-[11px]">{userId}</span>
                       <button
@@ -1561,23 +1522,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                             ) : null}
                           </p>
                         </div>
-                        {levelUpFlash ? (
-                          <span className="animate-[profileTabFadeIn_.15s_ease-out] whitespace-nowrap rounded bg-[rgba(108,99,255,.15)] px-1.5 py-px text-[8px] font-bold uppercase tracking-[.04em] text-[#a78bfa] sm:text-[9px]">
-                            Level Up!
-                          </span>
-                        ) : null}
                       </div>
-                      <span className="text-[9px] font-semibold text-[rgba(225,228,242,.4)] sm:text-[10px]">
-                        {levelProgress.isMaxLevel
-                          ? 'MAX LEVEL'
-                          : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()}`}
-                      </span>
-                    </div>
-                    <div className="h-[4px] w-full overflow-hidden rounded-full bg-[#1c1f2e]">
-                      <div
-                        className="h-full rounded-full bg-[linear-gradient(90deg,#6c63ff,#a78bfa)] transition-[width] duration-300 ease-out"
-                        style={{ width: `${levelProgress.percent}%` }}
-                      />
                     </div>
                   </div>
                 </div>

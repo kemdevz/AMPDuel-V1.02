@@ -2826,11 +2826,9 @@ const CASE_BATTLE_PLAYER_OPTIONS = new Map([
   ['ffa-3', 3],
   ['ffa-4', 4],
   ['team-4', 4],
-  ['group-2', 2],
-  ['group-3', 3],
-  ['group-4', 4],
+  ['team-6', 6],
 ])
-const CASE_BATTLE_MODES = new Set(['normal', 'group', 'coinflip', 'jackpot', 'terminal', 'wild'])
+const CASE_BATTLE_MODES = new Set(['normal', 'terminal', 'wild'])
 
 function normalizeCaseBattleModes(value) {
   const requested = Array.isArray(value) ? value : String(value || 'normal').split('_')
@@ -2838,7 +2836,7 @@ function normalizeCaseBattleModes(value) {
   if (modes.length < 1 || modes.length > 3 || modes.some((mode) => !CASE_BATTLE_MODES.has(mode))) {
     throw new Error('Select valid Case Battle modes.')
   }
-  if (modes.some((mode) => ['normal', 'group', 'coinflip'].includes(mode)) && modes.length !== 1) {
+  if (modes.includes('normal') && modes.length !== 1) {
     throw new Error('This Case Battle mode cannot be combined with another mode.')
   }
   return modes
@@ -2928,11 +2926,20 @@ function resolveCaseBattleOutcome(battle, serverSeed) {
       if (cursor <= 0) { winnerIndex = index; break }
     }
     winnerIndexes = [winnerIndex]
-  } else if (battle.player_option === 'team-4') {
+  } else if (String(battle.player_option).startsWith('team-')) {
     const score = (index) => terminal ? Number(results[index]?.at(-1)?.value || 0) : totals[index]
-    const teamTotals = [score(0) + score(1), score(2) + score(3)]
+    const teamSize = players.length / 2
+    const teamTotals = [
+      players.slice(0, teamSize).reduce((sum, _, index) => sum + score(index), 0),
+      players.slice(teamSize).reduce((sum, _, index) => sum + score(index + teamSize), 0),
+    ]
     const winningValue = wild ? Math.min(...teamTotals) : Math.max(...teamTotals)
-    winnerIndexes = teamTotals[0] === winningValue ? [0, 1] : [2, 3]
+    const winningTeams = teamTotals
+      .map((value, index) => value === winningValue ? index : -1)
+      .filter((index) => index >= 0)
+    winnerIndexes = winningTeams.flatMap((teamIndex) => (
+      Array.from({ length: teamSize }, (_, index) => teamIndex * teamSize + index)
+    ))
   } else {
     const scores = terminal ? results.map((items) => Number(items.at(-1)?.value || 0)) : totals
     const winningValue = wild ? Math.min(...scores) : Math.max(...scores)
@@ -3233,7 +3240,7 @@ app.post('/api/case-battles/:battleId/call-bot', express.json({ limit: '8kb' }),
 app.post('/api/case-battles/:battleId/join', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
   const battleId = String(req.params?.battleId || '').trim()
   const slotIndex = Number(req.body?.slot_index)
-  if (!isUuidLike(battleId) || !Number.isInteger(slotIndex) || slotIndex < 1 || slotIndex > 3) {
+  if (!isUuidLike(battleId) || !Number.isInteger(slotIndex) || slotIndex < 1 || slotIndex > 5) {
     res.status(400).json({ ok: false, error: 'The Case Battle or player slot is invalid.' })
     return
   }

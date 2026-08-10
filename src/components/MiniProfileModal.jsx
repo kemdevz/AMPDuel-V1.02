@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike, resolveStorageProfileId } from '../lib/supabaseClient'
-import { getLevelStyle } from '../lib/levelStyles'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import { notifications } from './Notifications'
@@ -226,7 +225,6 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     resolvedProfile?.avatar ||
     resolvedProfile?.avatar_url ||
     FALLBACK_AVATAR
-  const level = Math.max(1, Number(resolvedProfile?.level ?? 1))
   const roleStyle = getRoleStyle(resolvedProfile?.role)
   const targetProfileId = String(
     immediateProfile?.id ||
@@ -369,19 +367,6 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
           min-width: 0;
           align-items: center;
           gap: 10px;
-        }
-
-        .miniProfileLevel {
-          display: flex;
-          flex-shrink: 0;
-          align-items: center;
-          justify-content: center;
-          padding: 1px 6px;
-          border-left: 2px solid;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
-          user-select: none;
         }
 
         .miniProfileUsername {
@@ -649,13 +634,6 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
 
           <div className="miniProfileUserInfo">
             <div className="miniProfileUserRow">
-              <div
-                className="miniProfileLevel"
-                title={`Level ${level}`}
-                style={getLevelStyle(level)}
-              >
-                <span>{level}</span>
-              </div>
               <h2 id="mini-profile-username" className="miniProfileUsername">
                 {username}
               </h2>

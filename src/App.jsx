@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, useNavigate, usePathname } from './lib/router'
 import Layout from './components/Layout'
-import Home from './pages/Home'
 import Coinflip from './pages/Coinflip'
 import SummerEvent from './pages/SummerEvent'
 import Cases from './pages/Cases'
@@ -27,7 +26,7 @@ function AppRoutes() {
   const navigate = useNavigate()
   const routeName = pathname.replace(/^\/+|\/+$/g, '')
   const pages = {
-    '': <Home />,
+    '': <Coinflip />,
     battles: <CaseBattle />,
     coinflip: <Coinflip />,
     events: <SummerEvent />,
@@ -55,7 +54,7 @@ function AppRoutes() {
     if (!page) navigate('/', { replace: true })
   }, [navigate, page])
 
-  return <Layout>{page || <Home />}</Layout>
+  return <Layout>{page || <Coinflip />}</Layout>
 }
 
 export default function App() {
