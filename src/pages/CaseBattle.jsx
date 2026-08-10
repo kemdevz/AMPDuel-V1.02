@@ -34,6 +34,9 @@ const REEL_MAIN_DURATION = 4800;
 const REEL_SETTLE_PAUSE = 100;
 const REEL_SETTLE_DURATION = 250;
 const REEL_DURATION = REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE + REEL_SETTLE_DURATION;
+const BATTLE_COUNTDOWN_DURATION = 2900;
+const BATTLE_ROUND_DELAY = 850;
+const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
 const MAX_CASES = 25;
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
 
@@ -524,7 +527,7 @@ const BATTLE_STYLES = String.raw`
   .bb-row-players { position: relative; display: flex; width: 220px; min-width: 220px; align-items: center; justify-content: center; gap: 10px; }
   .bb-row-avatar { display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; overflow: hidden; padding: 0; border: 2px solid rgba(255,255,255,.08); border-radius: 999px; background: #1c1f2e; }
   .bb-row-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
-  .bb-row-avatar-open { color: #6c7399; font-size: 18px; font-weight: 500; line-height: 1; }
+  .bb-row-avatar-loading { display: block; width: 100%; height: 100%; }
   .bb-vs { position: absolute; top: 50%; left: 50%; padding: 5px; color: rgba(225,228,242,.78); font-size: 11px; font-weight: 900; letter-spacing: .9px; transform: translate(-50%,-50%); }
   .bb-row-player-before-vs { margin-right: 15px; }
   .bb-row-player-after-vs { margin-left: 15px; }
@@ -812,6 +815,8 @@ const BATTLE_STYLES = String.raw`
   .bb-reel-inner { position: relative; overflow: hidden; padding: 4px; border-radius: 10px; background: #131520; }
   .bb-spinner-wrap { position: relative; display: flex; width: 100%; min-height: 348px; flex-direction: column; align-items: stretch; justify-content: center; overflow: hidden; box-sizing: border-box; padding: 4px; border-radius: 10px; }
   .bb-spinner { position: relative; z-index: 1; display: flex; width: 100%; height: 340px; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; padding: 2px; border-radius: 10px; background: #131520; }
+  .bb-spinner-countdown,.bb-spinner-countdown .bb-spinner-inner,.bb-spinner-countdown .bb-spinner-column { background: #000 !important; filter: none !important; backdrop-filter: none !important; }
+  .bb-spinner-countdown .bb-spinner-column::after { display: none; }
   .bb-spinner-hide-reels .bb-spinner-inner { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
   .bb-spinner-inner { position: relative; display: flex; width: 100%; height: 100%; min-width: 0; flex: 1 1 auto; overflow: hidden; box-sizing: border-box; border-radius: 8px; background: rgba(0,0,0,.72); }
   .bb-spinner-column { position: relative; display: flex; width: auto; min-width: 0; height: 100%; flex: 1; }
@@ -839,7 +844,8 @@ const BATTLE_STYLES = String.raw`
   .bb-reel-result-value { display: flex; margin-top: 6px; align-items: center; justify-content: flex-start; gap: 8px; color: #fff; font-size: 14px; font-weight: 700; }
   .bb-reel-result-value img { width: 18px; height: 18px; object-fit: contain; }
 
-  .bb-countdown { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.72); backdrop-filter: none; }
+  .bb-countdown { position: absolute; z-index: 100; inset: 0; display: grid; place-items: center; background: #000 !important; opacity: 1; filter: none !important; backdrop-filter: none !important; }
+  .bb-countdown-column { width: 100%; height: 100%; background: #000; }
   .bb-countdown-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .bb-countdown-title { margin-bottom: 8px; color: rgba(255,255,255,.32); font-size: 15px; font-weight: 500; line-height: 1; text-transform: uppercase; letter-spacing: 2.5px; }
   .bb-countdown-number { color: #fff; font-size: 68px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; animation: bb-countdown-up .38s cubic-bezier(.22,1,.36,1) both; }
@@ -1524,7 +1530,9 @@ function normalizeBattleGame(row, previous = null) {
     };
   });
   const cases = (Array.isArray(source.cases) ? source.cases : []).map(normalizeCase);
-  const storedResults = Array.isArray(source.results) ? source.results : [];
+  const storedResults = source.status === "active" && Array.isArray(source.outcomeResults)
+    ? source.outcomeResults
+    : Array.isArray(source.results) ? source.results : [];
   const authoritativeResults = Array.from({ length: maxPlayers }, (_, index) => (
     Array.isArray(storedResults[index]) ? storedResults[index].map((item) => {
       const normalized = {
@@ -1537,6 +1545,59 @@ function normalizeBattleGame(row, previous = null) {
     }) : []
   ));
   const modes = Array.isArray(source.modes) && source.modes.length ? source.modes : ["normal"];
+  const startedAt = new Date(source.started_at || 0).getTime();
+  const activeElapsed = source.status === "active" && Number.isFinite(startedAt) && startedAt > 0
+    ? Math.max(0, Date.now() - startedAt)
+    : 0;
+  let phase = ["waiting", "ready"].includes(source.status) ? "waiting" : source.status === "resolved" ? "finished" : "waiting";
+  let currentRound = Math.max(0, Number(source.current_round ?? source.currentRound ?? 0));
+  let countdown = 3;
+  let resumeCountdownMs = 1000;
+  let resumeSpinMs = 0;
+  let resumeDelayMs = 0;
+  let visibleRoundCount = source.status === "resolved" ? cases.length : 0;
+
+  if (source.status === "active") {
+    if (activeElapsed < BATTLE_COUNTDOWN_DURATION) {
+      phase = "countdown";
+      const countdownRemaining = BATTLE_COUNTDOWN_DURATION - activeElapsed;
+      countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
+      resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
+    } else {
+      const roundElapsed = activeElapsed - BATTLE_COUNTDOWN_DURATION;
+      currentRound = Math.min(cases.length, Math.floor(roundElapsed / BATTLE_ROUND_CYCLE));
+      if (currentRound >= cases.length) {
+        currentRound = Math.max(0, cases.length - 1);
+        visibleRoundCount = cases.length;
+        phase = "finished";
+      } else {
+        const withinRound = roundElapsed % BATTLE_ROUND_CYCLE;
+        if (withinRound < REEL_DURATION) {
+          phase = "spinning";
+          resumeSpinMs = withinRound;
+          visibleRoundCount = currentRound;
+        } else {
+          phase = "round-delay";
+          resumeDelayMs = withinRound - REEL_DURATION;
+          visibleRoundCount = currentRound + 1;
+        }
+      }
+    }
+  }
+  const preservedRevealedCount = Math.max(0, Math.min(cases.length, Number(source.revealedRoundCount || 0)));
+  if (source.status === "active" && preservedRevealedCount > visibleRoundCount) {
+    visibleRoundCount = preservedRevealedCount;
+    if (phase === "countdown" || (phase === "spinning" && currentRound < preservedRevealedCount)) {
+      currentRound = Math.max(0, preservedRevealedCount - 1);
+      phase = preservedRevealedCount >= cases.length ? "finished" : "round-delay";
+      resumeDelayMs = 0;
+      resumeSpinMs = 0;
+    }
+  }
+  const visibleResults = authoritativeResults.map((items) => items.slice(0, visibleRoundCount));
+  const activeReels = source.status === "active" && phase === "spinning"
+    ? players.map((_, index) => buildReel(cases[currentRound] || cases[0], authoritativeResults[index]?.[currentRound] || null))
+    : source.reels;
 
   return {
     ...source,
@@ -1546,13 +1607,18 @@ function normalizeBattleGame(row, previous = null) {
     cost: Number(source.cost_per_player ?? source.cost ?? 0),
     playerOption,
     players,
-    results: source.status === "active" ? Array.from({ length: maxPlayers }, () => []) : authoritativeResults,
+    results: source.status === "active" ? visibleResults : authoritativeResults,
     outcomeResults: authoritativeResults,
+    reels: activeReels,
     modes,
     mode: modes.length === 1 ? modes[0] : buildCombinedModeValue(modes),
-    phase: ["waiting", "ready"].includes(source.status) ? "waiting" : source.status === "active" ? "countdown" : source.status === "resolved" ? "finished" : "waiting",
-    currentRound: Math.max(0, Number(source.current_round ?? source.currentRound ?? 0)),
-    countdown: 3,
+    phase,
+    currentRound,
+    countdown,
+    resumeCountdownMs,
+    resumeSpinMs,
+    resumeDelayMs,
+    revealedRoundCount: Math.max(preservedRevealedCount, visibleRoundCount),
     demoWaiting: true,
     serverManaged: true,
     versus: playerOption.family === "team",
@@ -2015,7 +2081,22 @@ function BattleRow({ battle, finished = false, onView, onPreview }) {
                   tabIndex={-1}
                   key={player?.id || `open-${index}`}
                 >
-                  {player?.avatar ? <img loading="lazy" src={player.avatar} alt={player.name || "Player"} draggable={false} /> : <span className="bb-row-avatar-open">+</span>}
+                  {player?.avatar ? (
+                    <img loading="lazy" src={player.avatar} alt={player.name || "Player"} draggable={false} />
+                  ) : (
+                    <svg viewBox="0 0 64 64" className="bb-row-avatar-loading" aria-label="Waiting for player" role="img">
+                      <circle cx="32" cy="32" r="32" fill="#1c1f2e" />
+                      <circle cx="22" cy="32" r="4" fill="#6C63FF">
+                        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0s" />
+                      </circle>
+                      <circle cx="32" cy="32" r="4" fill="#6C63FF">
+                        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.4s" />
+                      </circle>
+                      <circle cx="42" cy="32" r="4" fill="#6C63FF">
+                        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.8s" />
+                      </circle>
+                    </svg>
+                  )}
                 </button>
               ))}
               {battle.versus && <span className="bb-vs">VS</span>}
@@ -2415,6 +2496,7 @@ function BattlePlayerCard({ player, results }) {
 
 function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecreate, onPreview }) {
   const viewer = useAuth((state) => state.user);
+  const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen);
   const [fairnessOpen, setFairnessOpen] = useState(false);
   const [reelPosition, setReelPosition] = useState(REEL_INITIAL_POSITION);
   const [reelTransition, setReelTransition] = useState("none");
@@ -2423,6 +2505,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const [winnerVisible, setWinnerVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const [callingBotSlot, setCallingBotSlot] = useState(null);
+  const [joiningSlot, setJoiningSlot] = useState(null);
   const spinnerInnerRef = useRef(null);
   const firstWheelTrackRef = useRef(null);
   const modeIds = getSelectedModeIds(battle.mode);
@@ -2430,7 +2513,15 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const calculatedCost = battle.cases.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const totalCost = Number(battle.cost_per_player ?? battle.cost ?? calculatedCost) || calculatedCost;
   const allJoined = battle.players.every(Boolean);
-  const canManageBattle = String(viewer?.profile_id || viewer?.id || "") === String(battle.creator_profile_id || "");
+  const viewerProfileId = String(viewer?.profile_id || viewer?.id || "");
+  const creatorProfileId = String(battle.creator_profile_id || battle.players[0]?.id || "");
+  const viewerSlotIndex = viewerProfileId
+    ? battle.players.findIndex((player) => player?.type === "user" && String(player.id) === viewerProfileId)
+    : -1;
+  const canManageBattle = Boolean(viewerProfileId) && (viewerProfileId === creatorProfileId || viewerSlotIndex === 0);
+  const viewerAlreadyJoined = viewerSlotIndex >= 0;
+  const acceptingPlayers = battle.phase === "waiting" && !allJoined && battle.status !== "cancelled" && battle.status !== "resolved";
+  const canJoinBattle = acceptingPlayers && !canManageBattle && !viewerAlreadyJoined;
 
   useEffect(() => {
     if (battle.phase !== "waiting" || !allJoined || battle.demoWaiting || battle.serverManaged) return undefined;
@@ -2445,23 +2536,28 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         setBattle((state) => ({
           ...state,
           phase: "spinning",
+          resumeSpinMs: 0,
           reels: state.players.map((_, index) => buildReel(
             state.cases[state.currentRound] || state.cases[0],
             state.outcomeResults?.[index]?.[state.currentRound] || null,
           )),
         }));
-      }, 900);
+      }, Math.min(900, Math.max(20, Number(battle.resumeCountdownMs || 900))));
       return () => window.clearTimeout(timer);
     }
-    const timer = window.setTimeout(() => setBattle((state) => ({ ...state, countdown: state.countdown - 1 })), 1000);
+    const timer = window.setTimeout(() => setBattle((state) => ({ ...state, countdown: state.countdown - 1, resumeCountdownMs: 1000 })), Math.max(20, Number(battle.resumeCountdownMs || 1000)));
     return () => window.clearTimeout(timer);
-  }, [battle.countdown, battle.phase, setBattle]);
+  }, [battle.countdown, battle.phase, battle.resumeCountdownMs, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "spinning") return undefined;
 
+    const resumeOffset = Math.max(0, Math.min(REEL_DURATION - 1, Number(battle.resumeSpinMs || 0)));
+    const resumedProgress = resumeOffset / REEL_DURATION;
     setReelTransition("none");
-    setReelPosition(REEL_INITIAL_POSITION);
+    setReelPosition(resumeOffset > 0
+      ? REEL_INITIAL_POSITION + (REEL_FINAL_POSITION - REEL_INITIAL_POSITION) * resumedProgress
+      : REEL_INITIAL_POSITION);
     setHasSpinResult(false);
     setActiveReelIndex(INITIAL_REEL_INDEX);
     const jitter = 13.125 * (Math.floor(Math.random() * 7) + 1);
@@ -2477,7 +2573,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
           Math.round((viewport.top + viewport.height / 2 - firstItem.top - 52.5) / REEL_ITEM_STRIDE),
         ));
         if (nextIndex !== lastTrackedIndex) {
-          if (ticksEnabled) playSound(TICK_SOUND, 0.2);
+          if (ticksEnabled) playSound(TICK_SOUND, 0.3);
           lastTrackedIndex = nextIndex;
         }
         setActiveReelIndex((current) => current === nextIndex ? current : nextIndex);
@@ -2485,21 +2581,31 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       trackingFrame = window.requestAnimationFrame(followCenteredItem);
     };
     trackingFrame = window.requestAnimationFrame(followCenteredItem);
-    const mainTimer = window.setTimeout(() => {
-      ticksEnabled = true;
-      setReelTransition(`transform ${REEL_MAIN_DURATION}ms cubic-bezier(.1,0,.2,1)`);
-      setReelPosition(REEL_FINAL_POSITION - jitter + 52.5);
-    }, REEL_START_DELAY);
-    const settleTimer = window.setTimeout(() => {
-      setReelTransition(`transform ${REEL_SETTLE_DURATION}ms cubic-bezier(.1,0,.2,1)`);
-      setReelPosition(REEL_FINAL_POSITION);
-    }, REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE);
+    let mainTimer;
+    let settleTimer;
+    if (resumeOffset > 0) {
+      mainTimer = window.setTimeout(() => {
+        ticksEnabled = true;
+        setReelTransition(`transform ${Math.max(1, REEL_DURATION - resumeOffset)}ms cubic-bezier(.1,0,.2,1)`);
+        setReelPosition(REEL_FINAL_POSITION);
+      }, 20);
+    } else {
+      mainTimer = window.setTimeout(() => {
+        ticksEnabled = true;
+        setReelTransition(`transform ${REEL_MAIN_DURATION}ms cubic-bezier(.1,0,.2,1)`);
+        setReelPosition(REEL_FINAL_POSITION - jitter + 52.5);
+      }, REEL_START_DELAY);
+      settleTimer = window.setTimeout(() => {
+        setReelTransition(`transform ${REEL_SETTLE_DURATION}ms cubic-bezier(.1,0,.2,1)`);
+        setReelPosition(REEL_FINAL_POSITION);
+      }, REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE);
+    }
     const finishTimer = window.setTimeout(() => {
       ticksEnabled = false;
       if (trackingFrame) window.cancelAnimationFrame(trackingFrame);
       setActiveReelIndex(REEL_STOP_INDEX);
       setHasSpinResult(true);
-      playSound(PULL_SOUND, 0.4);
+      playSound(PULL_SOUND, 0.34);
       setBattle((state) => {
         const winningItems = state.reels.map((reel) => reel[REEL_STOP_INDEX]);
         const results = state.results.map((items, index) => items.concat(winningItems[index]));
@@ -2508,9 +2614,11 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
           ...state,
           results,
           phase: finalRound ? "finished" : "round-delay",
+          resumeDelayMs: 0,
+          revealedRoundCount: Math.max(Number(state.revealedRoundCount || 0), state.currentRound + 1),
         };
       });
-    }, REEL_DURATION + 5);
+    }, Math.max(5, REEL_DURATION - resumeOffset + 5));
 
     return () => {
       if (trackingFrame) window.cancelAnimationFrame(trackingFrame);
@@ -2518,7 +2626,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       window.clearTimeout(settleTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [battle.phase, setBattle]);
+  }, [battle.phase, battle.resumeSpinMs, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "round-delay") return undefined;
@@ -2527,14 +2635,16 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         ...state,
         currentRound: state.currentRound + 1,
         phase: "spinning",
+        resumeSpinMs: 0,
+        resumeDelayMs: 0,
         reels: state.players.map((_, index) => buildReel(
           state.cases[state.currentRound + 1] || state.cases[0],
           state.outcomeResults?.[index]?.[state.currentRound + 1] || null,
         )),
       }));
-    }, 850);
+    }, Math.max(0, BATTLE_ROUND_DELAY - Number(battle.resumeDelayMs || 0)));
     return () => window.clearTimeout(timer);
-  }, [battle.phase, setBattle]);
+  }, [battle.phase, battle.resumeDelayMs, setBattle]);
 
   useEffect(() => {
     if (battle.phase !== "finished") {
@@ -2545,7 +2655,17 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     return () => window.clearTimeout(timer);
   }, [battle.phase]);
 
-  const totals = battle.results.map(getPlayerTotal);
+  const revealedResultCount = Math.max(
+    Number(battle.revealedRoundCount || 0),
+    ...battle.results.map((items) => Array.isArray(items) ? items.length : 0),
+  );
+  const hasVisibleResults = revealedResultCount > 0;
+  const displayedResults = battle.status === "active" && Array.isArray(battle.outcomeResults)
+    ? battle.outcomeResults.map((items) => Array.isArray(items) ? items.slice(0, revealedResultCount) : [])
+    : battle.phase === "finished" && !hasVisibleResults && Array.isArray(battle.outcomeResults)
+      ? battle.outcomeResults
+      : battle.results;
+  const totals = displayedResults.map(getPlayerTotal);
   const hasWildMode = modeIds.includes("wild");
   const hasTerminalMode = modeIds.includes("terminal");
   const hasJackpotMode = modeIds.includes("jackpot");
@@ -2561,7 +2681,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     winnerIndex = battle.winnerIndex ?? 0;
     winnerIndices = [winnerIndex];
   } else if (hasTerminalMode) {
-    const terminalTotals = battle.results.map((items) => Number(items[items.length - 1]?.value || 0));
+    const terminalTotals = displayedResults.map((items) => Number(items[items.length - 1]?.value || 0));
     const winningTerminalTotal = hasWildMode ? Math.min(...terminalTotals) : Math.max(...terminalTotals);
     winnerIndices = terminalTotals.map((value, index) => value === winningTerminalTotal ? index : -1).filter((index) => index >= 0);
     winnerIndex = winnerIndices[0] ?? 0;
@@ -2573,8 +2693,16 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const winner = battle.players[winnerIndex] || battle.players[0];
   const winners = winnerIndices.map((index) => battle.players[index]).filter(Boolean);
   const isTie = battle.phase === "finished" && winners.length > 1;
-  const potValue = totals.reduce((sum, value) => sum + value, 0);
-  const tieShare = isTie ? potValue / winners.length : potValue;
+  const isTeamWin = isTie && battle.playerOption.family === "team";
+  const isGroupSplit = isTie && battle.playerOption.family === "group";
+  const calculatedPotValue = totals.reduce((sum, value) => sum + value, 0);
+  const potValue = Number(battle.payout_value || calculatedPotValue);
+  const storedWinnerPayouts = Array.isArray(battle.payouts)
+    ? battle.payouts.filter((payout) => winnerIndices.some((index) => String(battle.players[index]?.id) === String(payout?.profile_id)))
+    : [];
+  const tieShare = isTie
+    ? Number(storedWinnerPayouts[0]?.amount ?? potValue / Math.max(1, winners.length))
+    : Number(storedWinnerPayouts[0]?.amount ?? potValue);
 
   const callBot = async (index) => {
     if (callingBotSlot !== null) return;
@@ -2605,6 +2733,27 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       notifications.error(error?.message || "Unable to call a bot.");
     } finally {
       setCallingBotSlot(null);
+    }
+  };
+
+  const joinBattle = async (index) => {
+    if (joiningSlot !== null || callingBotSlot !== null || !canJoinBattle) return;
+    if (!viewerProfileId) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setJoiningSlot(index);
+    try {
+      const response = await apiRequest(`/api/case-battles/${encodeURIComponent(battle.id)}/join`, {
+        method: "POST",
+        body: JSON.stringify({ slot_index: index }),
+      });
+      const updatedBattle = normalizeBattleGame(response?.battle, battle);
+      if (updatedBattle) setBattle(updatedBattle);
+    } catch (error) {
+      notifications.error(error?.message || "Unable to join this Case Battle.");
+    } finally {
+      setJoiningSlot(null);
     }
   };
 
@@ -2668,7 +2817,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         <div className="bb-reel-box">
           <div className="bb-reel-inner">
             <div className="bb-spinner-wrap">
-              <div className={"bb-spinner" + (winnerVisible ? " bb-spinner-hide-reels" : "")}>
+              <div className={`bb-spinner${winnerVisible ? " bb-spinner-hide-reels" : ""}${battle.phase === "countdown" ? " bb-spinner-countdown" : ""}`}>
                 <div className="bb-spinner-inner" ref={spinnerInnerRef}>
                   {battle.players.map((player, index) => (
                     <div className="bb-spinner-column" key={index}>
@@ -2683,9 +2832,15 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                         ) : (
                           <div className="bb-waiting">
                             <div className="bb-waiting-text">WAITING FOR PLAYER</div>
-                            {canManageBattle ? <button type="button" className="bb-btn bb-btn-secondary bb-mini-button" disabled={callingBotSlot !== null} onClick={() => callBot(index)}>{callingBotSlot === index ? "Calling..." : "Call Bot"}</button> : null}
+                            {canManageBattle ? (
+                              <button type="button" className="bb-btn bb-btn-secondary bb-mini-button" disabled={callingBotSlot !== null || joiningSlot !== null} onClick={() => callBot(index)}>{callingBotSlot === index ? "Calling..." : "Call Bot"}</button>
+                            ) : canJoinBattle ? (
+                              <button type="button" className="bb-btn bb-btn-primary bb-mini-button" disabled={joiningSlot !== null} onClick={() => joinBattle(index)}>{joiningSlot === index ? "Joining..." : "Join"}</button>
+                            ) : null}
                           </div>
                         )
+                      ) : battle.phase === "countdown" ? (
+                        <div className="bb-countdown-column" aria-hidden="true" />
                       ) : (
                         <div className="bb-wheel">
                           <div
@@ -2752,10 +2907,10 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                           ))}
                         </div>
                       </div>
-                      <div className="bb-winner-name">{isTie ? `Split between ${winners.length} players` : (winner?.name || "Winner")}</div>
+                      <div className="bb-winner-name">{isTeamWin ? "Winning Team" : isGroupSplit ? `Split between ${winners.length} players` : isTie ? `Split between ${winners.length} tied winners` : (winner?.name || "Winner")}</div>
                       <div className="bb-winner-amount"><img src={COIN_ICON} alt="" /><span>{formatPriceValue(potValue, { compactNumbers: false })}</span></div>
                       <div className="bb-winner-sub">{isTie ? <>Each gets <span style={{ fontWeight: 700 }}>{formatPriceValue(tieShare, { compactNumbers: false })}</span></> : "Won this battle"}</div>
-                      {isTie && <div className="bb-winner-sub bb-winner-tie-note">Split between tied winners</div>}
+                      {isTie && !isTeamWin && !isGroupSplit && <div className="bb-winner-sub bb-winner-tie-note">Split between tied winners</div>}
                       <button type="button" className="bb-btn bb-btn-primary bb-recreate" onClick={onRecreate}><RefreshCw size={14} strokeWidth={2.5} />Recreate this Battle</button>
                     </div>
                   </div>
@@ -2773,7 +2928,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
             <div className="bb-players-scroller" style={{ "--player-cols": battle.players.length }}>
               {battle.players.map((player, index) => (
                 <div className="bb-player-card-wrap" key={(player?.name || "awaiting") + index}>
-                  <BattlePlayerCard player={player} results={battle.results[index]} />
+                  <BattlePlayerCard player={player} results={displayedResults[index]} />
                 </div>
               ))}
             </div>
@@ -2820,6 +2975,39 @@ export default function CaseBattles() {
   const [battle, setBattle] = useState(null);
   const [battleCreatedToast, setBattleCreatedToast] = useState(false);
   const pendingCreateIdRef = useRef(null);
+  const revealedBattleRoundsRef = useRef(new Map());
+
+  const normalizeWithSavedProgress = (row, previous = null) => {
+    if (!row?.id) return normalizeBattleGame(row, previous);
+    const battleId = String(row.id);
+    const savedCount = Number(revealedBattleRoundsRef.current.get(battleId) || 0);
+    const previousCount = Number(previous?.revealedRoundCount || 0);
+    const progressSource = previous
+      ? { ...previous, revealedRoundCount: Math.max(savedCount, previousCount) }
+      : savedCount > 0 ? { revealedRoundCount: savedCount } : null;
+    const normalized = normalizeBattleGame(row, progressSource);
+    if (normalized) {
+      revealedBattleRoundsRef.current.set(
+        battleId,
+        Math.max(savedCount, Number(normalized.revealedRoundCount || 0)),
+      );
+    }
+    return normalized;
+  };
+
+  useEffect(() => {
+    if (!battle?.id) return;
+    const revealedFromResults = Math.max(
+      0,
+      ...(Array.isArray(battle.results) ? battle.results : []).map((items) => Array.isArray(items) ? items.length : 0),
+    );
+    const revealedCount = Math.max(Number(battle.revealedRoundCount || 0), revealedFromResults);
+    const battleId = String(battle.id);
+    revealedBattleRoundsRef.current.set(
+      battleId,
+      Math.max(Number(revealedBattleRoundsRef.current.get(battleId) || 0), revealedCount),
+    );
+  }, [battle]);
 
   useEffect(() => {
     let mounted = true;
@@ -2849,7 +3037,7 @@ export default function CaseBattles() {
     const applyBattleRow = (row) => {
       setBattles((current) => {
         const previous = current.find((item) => item.id === String(row.id)) || null;
-        const normalized = normalizeBattleGame(row, previous);
+        const normalized = normalizeWithSavedProgress(row, previous);
         if (!normalized) return current;
         if (normalized.status === "cancelled") return current.filter((item) => item.id !== normalized.id);
         const exists = current.some((item) => item.id === normalized.id);
@@ -2858,7 +3046,7 @@ export default function CaseBattles() {
           : [normalized, ...current];
         return next.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       });
-      setBattle((current) => current?.id === String(row.id) ? normalizeBattleGame(row, current) : current);
+      setBattle((current) => current?.id === String(row.id) ? normalizeWithSavedProgress(row, current) : current);
     };
     const loadBattles = async () => {
       setBattlesLoading(true);
@@ -2866,7 +3054,7 @@ export default function CaseBattles() {
       try {
         const response = await apiRequest("/api/case-battles");
         if (!mounted) return;
-        setBattles((Array.isArray(response?.battles) ? response.battles : []).map(normalizeBattleGame).filter(Boolean));
+        setBattles((Array.isArray(response?.battles) ? response.battles : []).map((row) => normalizeWithSavedProgress(row)).filter(Boolean));
       } catch (error) {
         if (!mounted) return;
         setBattles([]);
@@ -2935,7 +3123,7 @@ export default function CaseBattles() {
           modes: getSelectedModeIds(selectedMode),
         }),
       });
-      const createdBattle = normalizeBattleGame(response?.battle);
+      const createdBattle = normalizeWithSavedProgress(response?.battle);
       if (!createdBattle) throw new Error("The created Case Battle could not be loaded.");
       pendingCreateIdRef.current = null;
       setBattles((current) => [createdBattle, ...current.filter((item) => item.id !== createdBattle.id)]);
@@ -2972,11 +3160,18 @@ export default function CaseBattles() {
     setScreen("create");
   };
 
+  const leaveBattle = () => {
+    if (battle?.id) {
+      setBattles((current) => current.map((item) => item.id === battle.id ? { ...item, ...battle } : item));
+    }
+    setScreen("list");
+  };
+
   return (
     <div className="battles-page">
       <style>{BATTLE_STYLES}</style>
       {screen === "list" && (
-        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={(selectedBattle) => { setBattle(selectedBattle); setScreen("battle"); }} onPreview={setPreviewCase} />
+        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={(selectedBattle) => { setBattle(normalizeWithSavedProgress(selectedBattle, selectedBattle)); setScreen("battle"); }} onPreview={setPreviewCase} />
       )}
       {screen === "create" && (
         <CreationPage
@@ -3000,7 +3195,7 @@ export default function CaseBattles() {
           battle={battle}
           setBattle={setBattle}
           botProfiles={botProfiles}
-          onBack={() => setScreen("list")}
+          onBack={leaveBattle}
           onCancel={cancelBattle}
           onRecreate={() => {
             setSelectedCases(battle.cases);

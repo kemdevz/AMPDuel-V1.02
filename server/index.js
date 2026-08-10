@@ -2870,8 +2870,8 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
   return Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8')
 }
 
-const CASE_BATTLE_ANIMATION_BASE_MS = 4_000
-const CASE_BATTLE_ROUND_MS = 6_000
+const CASE_BATTLE_ANIMATION_BASE_MS = 2_900
+const CASE_BATTLE_ROUND_MS = 6_255
 const caseBattleSettlementTimers = new Map()
 
 function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
@@ -3227,6 +3227,50 @@ app.post('/api/case-battles/:battleId/call-bot', express.json({ limit: '8kb' }),
     const message = error?.message || 'Unable to call a bot.'
     console.warn('[api/case-battles] call bot error', message)
     res.status(/creator/i.test(message) ? 403 : /waiting|open|available|changed/i.test(message) ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/case-battles/:battleId/join', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const battleId = String(req.params?.battleId || '').trim()
+  const slotIndex = Number(req.body?.slot_index)
+  if (!isUuidLike(battleId) || !Number.isInteger(slotIndex) || slotIndex < 1 || slotIndex > 3) {
+    res.status(400).json({ ok: false, error: 'The Case Battle or player slot is invalid.' })
+    return
+  }
+
+  try {
+    const profileId = String(req.identity.profileId)
+    const profile = await loadProfileById(profileId)
+    if (!profile) {
+      res.status(404).json({ ok: false, error: 'Your profile could not be found.' })
+      return
+    }
+    const result = await callRainRpc('join_case_battle_game', {
+      p_battle_id: battleId,
+      p_profile_id: profileId,
+      p_slot_index: slotIndex,
+      p_player: {
+        username: String(profile.username || 'Player'),
+        avatar_url: String(profile.avatar_url || '').trim() || null,
+        avatar_headshot_url: String(profile.avatar_headshot_url || '').trim() || null,
+      },
+    })
+    const joinedBattle = result?.battle || null
+    if (!joinedBattle) throw new Error('The joined Case Battle was not returned.')
+    const responseBattle = Number(joinedBattle.player_count) >= Number(joinedBattle.max_players)
+      ? await startCaseBattle(joinedBattle)
+      : joinedBattle
+    if (responseBattle === joinedBattle) io.emit('case-battle:updated', joinedBattle)
+    void emitWalletRefreshes([profileId])
+    res.json({ ok: true, battle: responseBattle, balance: result?.balance })
+  } catch (error) {
+    const missingJoinFunction = /join_case_battle_game.*schema cache|schema cache.*join_case_battle_game/i.test(error?.message || '')
+    const message = missingJoinFunction
+      ? 'Case Battle joining is not installed in Supabase yet. Run migration 20260810015000_add_case_battle_player_join.sql.'
+      : error?.message || 'Unable to join this Case Battle.'
+    console.warn('[api/case-battles] join error', message)
+    const expected = /accepting|full|slot|already joined|balance|profile|not found/i.test(message)
+    res.status(expected ? 409 : 500).json({ ok: false, error: message })
   }
 })
 
