@@ -2500,8 +2500,12 @@ function FairnessModal({ battle, onClose }) {
 
 function BattlePlayerCard({ player, results }) {
   const total = getPlayerTotal(results);
-  const latestResult = results?.[results.length - 1];
-  const totalAccent = latestResult ? (latestResult.accent || getInventoryItemAccent(latestResult)) : "108,108,108";
+  const highestValueResult = (Array.isArray(results) ? results : []).reduce((highest, item) => (
+    !highest || Number(item?.value || 0) > Number(highest?.value || 0) ? item : highest
+  ), null);
+  const totalAccent = highestValueResult
+    ? (highestValueResult.accent || getInventoryItemAccent(highestValueResult))
+    : "108,108,108";
 
   return (
     <article className="bb-player-card">
