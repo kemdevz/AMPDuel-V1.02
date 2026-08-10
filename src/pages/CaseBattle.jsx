@@ -36,8 +36,20 @@ const REEL_DURATION = REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE 
 const BATTLE_COUNTDOWN_DURATION = 3000;
 const BATTLE_ROUND_DELAY = 850;
 const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
+const RESOLVED_BATTLE_LIFETIME_MS = 40_000;
+const BATTLE_ROW_EXIT_ANIMATION_MS = 500;
 const MAX_CASES = 25;
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
+
+function getResolvedBattleAge(battle, now = Date.now()) {
+  if (battle?.status !== "resolved") return 0;
+  const resolvedAt = new Date(battle?.resolved_at || battle?.updated_at || battle?.created_at || "").getTime();
+  return Number.isFinite(resolvedAt) ? Math.max(0, now - resolvedAt) : 0;
+}
+
+function isResolvedBattleExpired(battle, now = Date.now()) {
+  return battle?.status === "resolved" && getResolvedBattleAge(battle, now) >= RESOLVED_BATTLE_LIFETIME_MS;
+}
 
 function getItemsWithRollRanges(items) {
   let nextRoll = 0;
@@ -459,8 +471,14 @@ const BATTLE_STYLES = String.raw`
     to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
   }
 
+  @keyframes bb-row-out {
+    from { opacity: 1; transform: scale(1); filter: blur(0); }
+    to { opacity: 0; transform: scale(.985); filter: blur(2px); }
+  }
+
   .bb-row-wrap { width: 100%; min-width: 0; transform: translateZ(0); will-change: opacity,transform,filter; animation: bb-row-in .7s cubic-bezier(.16,1,.3,1) both; }
   .bb-row-wrap-finished { animation-delay: 55ms; }
+  .bb-row-wrap-exiting { pointer-events: none; animation: bb-row-out ${BATTLE_ROW_EXIT_ANIMATION_MS}ms cubic-bezier(.22,1,.36,1) forwards; }
   .bb-row-finished-surface {
     position: relative;
     overflow: hidden;
@@ -2220,7 +2238,7 @@ function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen 
   );
 
   return (
-    <div className={`bb-row-wrap${finished ? " bb-row-wrap-finished" : ""}`}>
+    <div className={`bb-row-wrap${finished ? " bb-row-wrap-finished" : ""}${battle.isExiting ? " bb-row-wrap-exiting" : ""}`}>
       {finished ? (
         <div className="bb-row-finished-surface">
           <div className="bb-row-finished-overlay" />
@@ -3234,6 +3252,7 @@ export default function CaseBattles({ battleId = "" }) {
         const normalized = normalizeWithSavedProgress(row, previous);
         if (!normalized) return current;
         if (normalized.status === "cancelled") return current.filter((item) => item.id !== normalized.id);
+        if (isResolvedBattleExpired(normalized)) return current.filter((item) => item.id !== normalized.id);
         const exists = current.some((item) => item.id === normalized.id);
         const next = exists
           ? current.map((item) => item.id === normalized.id ? normalized : item)
@@ -3248,7 +3267,10 @@ export default function CaseBattles({ battleId = "" }) {
       try {
         const response = await apiRequest("/api/case-battles");
         if (!mounted) return;
-        setBattles((Array.isArray(response?.battles) ? response.battles : []).map((row) => normalizeWithSavedProgress(row)).filter(Boolean));
+        const now = Date.now();
+        setBattles((Array.isArray(response?.battles) ? response.battles : [])
+          .map((row) => normalizeWithSavedProgress(row))
+          .filter((loadedBattle) => loadedBattle && !isResolvedBattleExpired(loadedBattle, now)));
       } catch (error) {
         if (!mounted) return;
         setBattles([]);
@@ -3277,6 +3299,33 @@ export default function CaseBattles({ battleId = "" }) {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    const timers = [];
+
+    battles.forEach((listedBattle) => {
+      if (listedBattle?.status !== "resolved") return;
+
+      if (listedBattle.isExiting) {
+        timers.push(window.setTimeout(() => {
+          setBattles((current) => current.filter((item) => item.id !== listedBattle.id));
+        }, BATTLE_ROW_EXIT_ANIMATION_MS));
+        return;
+      }
+
+      const remaining = Math.max(
+        0,
+        RESOLVED_BATTLE_LIFETIME_MS - getResolvedBattleAge(listedBattle),
+      );
+      timers.push(window.setTimeout(() => {
+        setBattles((current) => current.map((item) => (
+          item.id === listedBattle.id ? { ...item, isExiting: true } : item
+        )));
+      }, remaining));
+    });
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [battles]);
 
   useEffect(() => {
     let mounted = true;
