@@ -2868,16 +2868,9 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         if (!current || current.id !== battle.id || current.players[index]) return current;
         const players = [...current.players];
         players[index] = optimisticBot;
-        const filled = players.every(Boolean);
         return {
           ...current,
           players,
-          ...(filled ? {
-            phase: "countdown",
-            countdown: 3,
-            countdownStartedAt: Date.now() + Number(current.serverClockOffset || 0),
-            resumeCountdownMs: 1000,
-          } : {}),
         };
       });
     }
@@ -2916,16 +2909,9 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         name: String(viewer?.username || "Player"),
         avatar: viewer?.avatar_headshot_url || viewer?.avatar_url || null,
       };
-      const filled = players.every(Boolean);
       return {
         ...current,
         players,
-        ...(filled ? {
-          phase: "countdown",
-          countdown: 3,
-          countdownStartedAt: Date.now() + Number(current.serverClockOffset || 0),
-          resumeCountdownMs: 1000,
-        } : {}),
       };
     });
     try {
