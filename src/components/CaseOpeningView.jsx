@@ -6,6 +6,8 @@ import { useAuth } from "../store/auth";
 import { notifications } from "./Notifications";
 
 const COIN_ICON = "/bobux.png";
+const TICK_SOUND = "/tick-CkSUroeR.mp3";
+const PULL_SOUND = "/pull-Ce7kkHjK.mp3";
 const REEL_LENGTH = 80;
 const REEL_ITEM_STRIDE = 130;
 const MULTI_ITEM_STRIDE = 125;
@@ -17,6 +19,17 @@ const MULTI_INITIAL_POSITION = -2392.5;
 const MULTI_FINAL_POSITION = -7392.5;
 
 const rollFormatter = new Intl.NumberFormat("en-US");
+
+function playSound(path, volume = 0.4) {
+  if (!path) return;
+  try {
+    const sound = new Audio(path);
+    sound.volume = volume;
+    void sound.play().catch(() => undefined);
+  } catch {
+    // Case sounds are optional when audio playback is unavailable.
+  }
+}
 
 function priceToNumber(price) {
   return Number(String(price).replaceAll(",", ""));
@@ -328,6 +341,8 @@ export default function CaseOpeningView({ item, onBack }) {
   const multiWheelRefs = useRef([]);
   const timersRef = useRef([]);
   const frameRef = useRef(null);
+  const ticksEnabledRef = useRef(false);
+  const lastTrackedIndexRef = useRef(INITIAL_REEL_INDEX);
   const pendingOpeningIdRef = useRef(null);
   const pendingBalanceRef = useRef(null);
   const balanceBeforeSpinRef = useRef(null);
@@ -362,6 +377,7 @@ export default function CaseOpeningView({ item, onBack }) {
   };
 
   const clearAnimationWork = () => {
+    ticksEnabledRef.current = false;
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
     timersRef.current = [];
     if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
@@ -424,6 +440,10 @@ export default function CaseOpeningView({ item, onBack }) {
       }
 
       nextIndex = Math.max(0, Math.min(REEL_LENGTH - 1, nextIndex));
+      if (nextIndex !== lastTrackedIndexRef.current) {
+        if (ticksEnabledRef.current) playSound(TICK_SOUND, 0.12);
+        lastTrackedIndexRef.current = nextIndex;
+      }
       setActiveReelIndex((current) => current === nextIndex ? current : nextIndex);
       frameRef.current = window.requestAnimationFrame(followCenteredItem);
     };
@@ -456,6 +476,7 @@ export default function CaseOpeningView({ item, onBack }) {
   };
 
   const finishSpin = () => {
+    ticksEnabledRef.current = false;
     if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     if (pendingBalanceRef.current !== null) {
@@ -467,9 +488,12 @@ export default function CaseOpeningView({ item, onBack }) {
     setHasResult(true);
     setActiveReelIndex(REEL_STOP_INDEX);
     setSpinning(false);
+    playSound(PULL_SOUND, 0.4);
   };
 
   const runSpinAnimation = (selected) => {
+    ticksEnabledRef.current = false;
+    lastTrackedIndexRef.current = INITIAL_REEL_INDEX;
     setActiveReelIndex(INITIAL_REEL_INDEX);
 
     if (quantity === 1) {
@@ -484,6 +508,7 @@ export default function CaseOpeningView({ item, onBack }) {
       const jitter = 13.125 * (Math.floor(Math.random() * 7) + 1);
 
       timersRef.current.push(window.setTimeout(() => {
+        ticksEnabledRef.current = true;
         setReelTransition(`transform ${mainDuration}ms cubic-bezier(.1, 0, .2, 1)`);
         setReelPosition(SINGLE_FINAL_POSITION - jitter + 52.5);
       }, startDelay));
@@ -514,6 +539,7 @@ export default function CaseOpeningView({ item, onBack }) {
     );
 
     timersRef.current.push(window.setTimeout(() => {
+      ticksEnabledRef.current = true;
       setMultiTransitions(Array(quantity).fill(`transform ${mainDuration}ms cubic-bezier(.15, .55, .2, 1)`));
       setMultiPositions(overshoots);
     }, startDelay));
@@ -541,6 +567,7 @@ export default function CaseOpeningView({ item, onBack }) {
     }
 
     clearAnimationWork();
+    lastTrackedIndexRef.current = INITIAL_REEL_INDEX;
     setHasResult(false);
     setSpinning(true);
     try {
