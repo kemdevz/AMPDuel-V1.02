@@ -2259,7 +2259,7 @@ function BattlesList({ battles, loading, error, onCreate, onView, onPreview, onP
         </div>
       </div>
       <div className="bb-list-actions">
-        <button type="button" className="bb-btn bb-btn-primary bb-create-battle-btn" onClick={onCreate}>Create</button>
+        <button type="button" className="bb-btn bb-btn-primary bb-create-battle-btn" onClick={onCreate}>Create Battle</button>
       </div>
       <div className="bb-battle-list">
         {loading ? <div className="bb-picker-empty">Loading Case Battles...</div> : null}
@@ -2363,7 +2363,7 @@ function CreationPage({
               </div>
             </div>
             <button type="button" className="bb-btn bb-btn-primary" disabled={!selectedCases.length || creating} onClick={onCreate}>
-              {creating ? "Creating..." : "Create"}
+              {creating ? "Creating..." : "Create Battle"}
             </button>
           </div>
         </header>
