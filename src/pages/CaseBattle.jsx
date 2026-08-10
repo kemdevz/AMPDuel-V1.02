@@ -19,6 +19,7 @@ import { formatPriceValue } from "../Utils/FormatPriceValues";
 const COIN_ICON = "/bobux.png";
 const PICKER_SEARCH_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAASDSURBVGhD7ZnJbh1FFIa76ibECSuww6BcJglCJthkCwRWCCkIIR4hXDACiUeI8gAskDLbeYpEUVhBYMEGkBIRxwTEEBkwg80KE7i5Xfx/53fLPdzurh7gLvxJ1j2n5K6qv+vUqaGDTSYMo99WeOeIm5cZcfyceV1m5zQS8tYgvOSC4KB1wT3WmZ6KE4TGjfC3agLz+ak5+5KKW6eWkNlBuNgLzW487PU8RLvbNlw8M9fbp6LW8OrI7GD08ZbQPgOz0UhS0Mi6T07P2UMqakzlDmEUlreE5n65rXDbumWIeVBuIyoJwVxYQyhtl5thZNyt0LqbxpnfMF9+ZFlogr4zbsaG5uGeM1PRP+aAkVnD3Llbbm1KhRSJwBv9Cm90j9xCEJZXEZZPyU3QhphCIePCCQJWTp81OwNjEO4eOGdm33C/o857VRKDJIAw69UOM6vfDHcmdlbE0IYLGIUZbxEEz+DZadRxXSUxGK0H8OI+kuvNWCHKTgkoAqlzv9zaMP2irkW5MQjh52R6kyuE6wR+EmHHcGpDxDqoay/qXJUbgQbNm4PRNble5ArhYiczJpoTLYM6Z2TGIBL2yvQiI4TbDr4ZuRFRGNSZE2WgTmY+eRFsG324KLcyGSHo7UGZMQwDma2Tl77z+lBGRgg3gDIjuNjJ7Ix0G+jDtMzK5AhJ7mK5YsvsDLSxJDNi3E66iISQ9HmCcNshszPQxi8yY/L6UkRmRNJgmH+S2RlttFEqBCQyWEd4h1KaUiHYxbayzS4CbTQ+HiSE5J2xsRVvfSFMgzYyQnzP+5kR4RlbZgTPEzI7A208JDMCfRjKrEyOkOAPmRFFh6I2YHZCG9vkRqAPmSxWRkYIZvZnMmO0ieyEYS98VmYMstgXMiuTEcIrG2wREvsqnEue5KFIbnugzq0jm9igMrRPzttX5FYmI4TwykZmDE92MlsDda7IjIGQKzK9GPuW3z7iEKqZXfB1HorkNoLhGo30BjDm4Yl5/+0JyR0RwnsnmTFbcVbAwSdzTPUlTwQJA+e9fV9nrBBsrw/hrLAsNwZi9qAjK7XmDC8fBuFqnghyedfCazK9Ke0MDjl/4sS4Q26CoXU3zszZ3E5thCmW2Sk9sdMwyVzof7/jh2OPeR8dKr3VIjFEF3RL2MX+itS5fkG3Cyv2fVzs0utEERTzYf/a1MKxA/+oqBKVw2N2MPqZVzZyO4ViPnj66+3fvLv7bxWVMnaOpOHlGebM5fQaUwdmJ/7c8bLg7ZoXrz7x1+Pv36g8kpWFECSA50+cM5b3W3UEUQDm1RWm2POYC0V1+IqpHFp58LYDPeGHnumCDz1DzJdV44JPT83bV1Uc8cjR76YOLz26xk6rKAPFVgmzRkLS1Pn0tu/ol3e9sLT/VpmYsmzWqpC6VBEDHMNxnJiJEEKaipkYIaSJGK+s1TVcBLkYFmUzYF5Ggui/dzPx8WmihBCK4cQuE3N4sf+t7IiJE0IYNkUjw091WNMStzsTNUfS5M2Zcd8bJ1oI2SimrS/A/xvcAXDTKneTTf47guBfRB/4oi5eINMAAAAASUVORK5CYII=";
 const TICK_SOUND = "/tick-CkSUroeR.mp3";
+const PULL_SOUND = "/pull-Ce7kkHjK.mp3";
 const SUCCESS_SOUND = "/success-jgkLyONA.mp3";
 const REEL_LENGTH = 80;
 const REEL_ITEM_STRIDE = 125;
@@ -1565,19 +1566,6 @@ function handleItemImageError(event) {
   image.src = "/cases/test/test-case.png";
 }
 
-function scheduleTicks() {
-  if (!TICK_SOUND) return () => {};
-  const timers = [];
-  let elapsed = 0;
-  while (elapsed < REEL_DURATION - 110) {
-    const time = elapsed;
-    timers.push(window.setTimeout(() => playSound(TICK_SOUND, 0.12), time));
-    const progress = elapsed / REEL_DURATION;
-    elapsed += 58 + 150 * progress * progress;
-  }
-  return () => timers.forEach((timer) => window.clearTimeout(timer));
-}
-
 function Toggle({ label, value, onChange, gold = false }) {
   return (
     <button type="button" className={"bb-switch" + (gold ? " bb-switch-gold" : "")} onClick={() => onChange(!value)}>
@@ -2115,8 +2103,6 @@ function CreationPage({
   onPreview,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [funded, setFunded] = useState(false);
   const [gold, setGold] = useState(true);
   const total = selectedCases.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const activeModeIds = getSelectedModeIds(selectedMode);
@@ -2132,8 +2118,6 @@ function CreationPage({
             <h1 className="bb-create-title">Battle Creation</h1>
           </div>
           <div className="bb-create-header-right">
-            <Toggle label="Private" value={isPrivate} onChange={setIsPrivate} />
-            <Toggle label="Funded" value={funded} onChange={setFunded} />
             <Toggle label="Gold Spin" value={gold} onChange={setGold} gold />
             <div className="bb-header-meta">
               <div className="bb-header-meta-item">
@@ -2148,7 +2132,7 @@ function CreationPage({
                 </span>
               </div>
             </div>
-            <button type="button" className="bb-btn bb-btn-primary" disabled={!selectedCases.length} onClick={() => onCreate({ isPrivate, funded, gold })}>
+            <button type="button" className="bb-btn bb-btn-primary" disabled={!selectedCases.length} onClick={() => onCreate({ gold })}>
               Create Battle
             </button>
           </div>
@@ -2339,6 +2323,8 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
     setActiveReelIndex(INITIAL_REEL_INDEX);
     const jitter = 13.125 * (Math.floor(Math.random() * 7) + 1);
     let trackingFrame = null;
+    let ticksEnabled = false;
+    let lastTrackedIndex = INITIAL_REEL_INDEX;
     const followCenteredItem = () => {
       const viewport = spinnerInnerRef.current?.getBoundingClientRect();
       const firstItem = firstWheelTrackRef.current?.firstElementChild?.getBoundingClientRect();
@@ -2347,13 +2333,17 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
           REEL_LENGTH - 1,
           Math.round((viewport.top + viewport.height / 2 - firstItem.top - 52.5) / REEL_ITEM_STRIDE),
         ));
+        if (nextIndex !== lastTrackedIndex) {
+          if (ticksEnabled) playSound(TICK_SOUND, 0.12);
+          lastTrackedIndex = nextIndex;
+        }
         setActiveReelIndex((current) => current === nextIndex ? current : nextIndex);
       }
       trackingFrame = window.requestAnimationFrame(followCenteredItem);
     };
     trackingFrame = window.requestAnimationFrame(followCenteredItem);
-    const cancelTicks = scheduleTicks();
     const mainTimer = window.setTimeout(() => {
+      ticksEnabled = true;
       setReelTransition(`transform ${REEL_MAIN_DURATION}ms cubic-bezier(.1,0,.2,1)`);
       setReelPosition(REEL_FINAL_POSITION - jitter + 52.5);
     }, REEL_START_DELAY);
@@ -2362,9 +2352,11 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
       setReelPosition(REEL_FINAL_POSITION);
     }, REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE);
     const finishTimer = window.setTimeout(() => {
+      ticksEnabled = false;
       if (trackingFrame) window.cancelAnimationFrame(trackingFrame);
       setActiveReelIndex(REEL_STOP_INDEX);
       setHasSpinResult(true);
+      playSound(PULL_SOUND, 0.4);
       setBattle((state) => {
         const winningItems = state.reels.map((reel) => reel[REEL_STOP_INDEX]);
         const results = state.results.map((items, index) => items.concat(winningItems[index]));
@@ -2382,7 +2374,6 @@ function BattleView({ battle, setBattle, onBack, onRecreate, onPreview }) {
       window.clearTimeout(mainTimer);
       window.clearTimeout(settleTimer);
       window.clearTimeout(finishTimer);
-      cancelTicks();
     };
   }, [battle.phase, setBattle]);
 
