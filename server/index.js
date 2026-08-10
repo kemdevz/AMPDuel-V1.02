@@ -2907,6 +2907,44 @@ function getCaseBattleAvatar(profile) {
   return String(profile?.avatar_headshot_url || profile?.avatar_url || '').trim() || null
 }
 
+async function enrichCaseBattleProfiles(value) {
+  const battles = (Array.isArray(value) ? value : [value]).filter(Boolean)
+  const profileIds = [...new Set(battles.flatMap((battle) => (
+    (Array.isArray(battle?.players) ? battle.players : [])
+      .filter((player) => player?.profile_type !== 'bot')
+      .map((player) => String(player?.profile_id || '').trim())
+      .filter(isUuidLike)
+  )))]
+  if (!profileIds.length) return Array.isArray(value) ? battles : battles[0] || null
+
+  const chunks = []
+  for (let index = 0; index < profileIds.length; index += 50) chunks.push(profileIds.slice(index, index + 50))
+  const profileGroups = await Promise.all(chunks.map((ids) => adminRest(
+    `user_profiles?select=id,username,avatar_url,avatar_headshot_url,role,level,played,won,lost&id=in.(${ids.join(',')})`,
+  )))
+  const profilesById = new Map(profileGroups.flat().map((profile) => [String(profile.id), profile]))
+  const enriched = battles.map((battle) => ({
+    ...battle,
+    players: (Array.isArray(battle.players) ? battle.players : []).map((player) => {
+      if (player?.profile_type === 'bot') return player
+      const profile = profilesById.get(String(player?.profile_id || ''))
+      if (!profile) return player
+      return {
+        ...player,
+        username: profile.username || player.username,
+        avatar_url: profile.avatar_url || player.avatar_url || null,
+        avatar_headshot_url: profile.avatar_headshot_url || profile.avatar_url || player.avatar_headshot_url || player.avatar_url || null,
+        role: profile.role || null,
+        level: Number(profile.level) || 1,
+        played: Number(profile.played) || 0,
+        won: Number(profile.won) || 0,
+        lost: Number(profile.lost) || 0,
+      }
+    }),
+  }))
+  return Array.isArray(value) ? enriched : enriched[0] || null
+}
+
 function getCaseBattleSeedEncryptionKey() {
   const jwtKey = getJwtGameSeedEncryptionKey('case-battles')
   if (jwtKey) return jwtKey
@@ -3104,7 +3142,8 @@ app.get('/api/case-battles', async (_req, res) => {
     const rows = await adminRest(
       'case_battle_games?select=*&status=in.(waiting,ready,active,resolved)&order=created_at.desc&limit=50',
     )
-    res.json({ ok: true, battles: Array.isArray(rows) ? rows : [] })
+    const battles = await enrichCaseBattleProfiles(Array.isArray(rows) ? rows : [])
+    res.json({ ok: true, battles })
   } catch (error) {
     console.error('[api/case-battles] list error', error)
     res.status(500).json({ ok: false, error: error?.message || 'Unable to load Case Battles.' })
@@ -3126,7 +3165,7 @@ app.get('/api/case-battles/:battleId', async (req, res) => {
       res.status(404).json({ ok: false, error: 'This Case Battle could not be found.' })
       return
     }
-    res.json({ ok: true, battle })
+    res.json({ ok: true, battle: await enrichCaseBattleProfiles(battle) })
   } catch (error) {
     console.error('[api/case-battles] view error', error)
     res.status(500).json({ ok: false, error: error?.message || 'Unable to load this Case Battle.' })
@@ -3191,6 +3230,11 @@ app.post('/api/case-battles', express.json({ limit: '64kb' }), requireAuthentica
       username: String(profile.username || 'user'),
       avatar_url: String(profile.avatar_url || '').trim() || null,
       avatar_headshot_url: String(profile.avatar_headshot_url || '').trim() || null,
+      role: profile.role || null,
+      level: Number(profile.level) || 1,
+      played: Number(profile.played) || 0,
+      won: Number(profile.won) || 0,
+      lost: Number(profile.lost) || 0,
       joined_at: createdAt,
     }
     const result = await callRainRpc('create_case_battle_game', {
@@ -3330,6 +3374,11 @@ app.post('/api/case-battles/:battleId/join', express.json({ limit: '8kb' }), req
         username: String(profile.username || 'Player'),
         avatar_url: String(profile.avatar_url || '').trim() || null,
         avatar_headshot_url: String(profile.avatar_headshot_url || '').trim() || null,
+        role: profile.role || null,
+        level: Number(profile.level) || 1,
+        played: Number(profile.played) || 0,
+        won: Number(profile.won) || 0,
+        lost: Number(profile.lost) || 0,
       },
     })
     const joinedBattle = result?.battle || null

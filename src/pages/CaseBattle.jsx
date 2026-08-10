@@ -875,12 +875,6 @@ const BATTLE_STYLES = String.raw`
   .bb-vs-icon { position: relative; z-index: 1; width: 18px; height: 18px; opacity: .95; transform: rotate(-45deg); }
   .bb-vs-icon svg { display: block; width: 100%; height: 100%; }
 
-  .bb-created-toast-layer { position: fixed; z-index: 9999; inset: 16px; pointer-events: none; }
-  .bb-created-toast { position: absolute; left: 0; bottom: 0; overflow: hidden; padding: 10px 14px 14px; border: 1px solid #181a28; border-radius: 8px; background: #131520; color: #fff; font-size: 14px; animation: bb-created-toast-in .4s cubic-bezier(.06,.71,.55,1) both; }
-  .bb-created-toast::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #22c55e; transform-origin: left; animation: bb-created-toast-progress 4s linear forwards; }
-  @keyframes bb-created-toast-in { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-  @keyframes bb-created-toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-
   .bb-fairness-backdrop { z-index: 2147483100; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,.58); transition: opacity 180ms ease; }
   .bb-fairness-backdrop.is-closing { opacity: 0; }
   .bb-fairness-modal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: bb-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease,transform 180ms ease; }
@@ -900,12 +894,6 @@ const BATTLE_STYLES = String.raw`
   .bb-fairness-copy:active { transform: scale(.93); }
   .bb-fairness-copy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
   .bb-fairness-pending { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
-  .bb-fairness-reveal { margin-top: 1.4rem; padding: 1rem; border-radius: 6px; background: rgba(108,99,255,.06); animation: bb-fairness-modal-in .24s ease-out both; }
-  .bb-fairness-reveal-title { display: block; color: #e1e4f2; font-size: 13px; font-weight: 700; }
-  .bb-fairness-reveal-description { display: block; margin-top: 5px; color: #a6b2d3; font-size: 11px; font-weight: 500; line-height: 1.55; }
-  .bb-fairness-reveal-section { margin-top: .6rem; }
-  .bb-fairness-reveal-meta { display: flex; margin-top: 9px; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; color: #6c7399; font-size: 11px; font-weight: 500; }
-  .bb-fairness-reveal-meta b { color: #a6b2d3; font-weight: 700; }
   @keyframes bb-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
   @keyframes case-preview-fade-in {
@@ -1387,8 +1375,8 @@ const BATTLE_STYLES = String.raw`
     .bb-picker-search-row,.bb-picker-input-wrap { width: 100%; }
     .bb-picker-input { width: 100%; }
     .bb-picker .bb-modal-close { top: 10px; right: 10px; width: 36px; height: 36px; }
-    .bb-picker-grid-wrap { left: 50%; width: 95%; height: 80%; box-sizing: border-box; padding: 10px; transform: translateX(-50%); }
-    .bb-picker-footer { width: 100%; padding-top: 10px; }
+    .bb-picker-grid-wrap { left: 50%; width: 95%; height: auto; min-height: 0; box-sizing: border-box; padding: 10px; flex: 1; overflow-y: auto; transform: translateX(-50%); -webkit-overflow-scrolling: touch; }
+    .bb-picker-footer { width: 100%; padding-top: 10px; flex-shrink: 0; }
     .bb-picker-footer > .bb-btn { width: 100%; min-width: 0; }
   }
 
@@ -1408,8 +1396,22 @@ const BATTLE_STYLES = String.raw`
     .bb-fairness-modal { width: 100%; max-height: calc(100dvh - 16px); padding: 1.25rem; }
     .bb-fairness-header { font-size: 20px; }
     .bb-stats { grid-template-columns: 1fr; }
-    .bb-create-title { flex: 1 0 100%; }
-    .bb-create-header-right { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+    .bb-create-inner { padding: 14px 10px 36px; }
+    .bb-create-header { gap: 10px; margin-bottom: 16px; }
+    .bb-create-title-wrap { width: 100%; }
+    .bb-create-title { min-width: 0; flex: 1; font-size: 19px; }
+    .bb-create-header-right { display: grid; width: 100%; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+    .bb-create-header-right > .bb-btn { height: 38px; min-width: 92px; padding-inline: 12px; }
+    .bb-header-meta { width: 100%; min-width: 0; justify-content: center; box-sizing: border-box; gap: 10px; padding-inline: 10px; }
+    .bb-section { margin-bottom: 14px; }
+    .bb-selected-cases { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; max-height: none; padding: 6px 0; }
+    .bb-add-case { min-height: 190px; padding: 10px; }
+    .bb-selected-card { min-width: 0; padding: 9px; }
+    .bb-selected-name { width: 100%; font-size: 12px; }
+    .bb-selected-image-wrap { width: 92px; height: 92px; margin: 9px 0; }
+    .bb-selected-image { width: 92px; height: 92px; }
+    .bb-remove-case { width: 100%; }
+    .bb-mode-item { gap: 8px; padding: 10px; }
     .bb-mode-list { grid-template-columns: repeat(2,1fr); }
     .bb-picker-card { min-width: 0; }
     .bb-picker-stats { min-width: 0; flex-wrap: wrap; }
@@ -1418,6 +1420,20 @@ const BATTLE_STYLES = String.raw`
     .bb-battle-top { align-items: flex-start; }
     .bb-battle-top-right { flex-wrap: wrap; justify-content: flex-end; }
     .bb-players-scroller { grid-template-columns: 1fr; }
+    .bb-players-scroller-six { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 8px; }
+    .bb-players-scroller-six .bb-player-card { padding: 8px; }
+    .bb-players-scroller-six .bb-player-top { min-height: 88px; gap: 5px; padding: 4px 2px 8px; }
+    .bb-players-scroller-six .bb-player-avatar { width: 46px; height: 46px; border-width: 2px; }
+    .bb-players-scroller-six .bb-player-name { max-width: 100%; font-size: 11px; }
+    .bb-players-scroller-six .bb-player-meta { gap: 5px; }
+    .bb-players-scroller-six .bb-player-total { min-height: 26px; gap: 4px; padding: 0 7px; font-size: 10px; }
+    .bb-players-scroller-six .bb-player-total img { width: 11px; height: 11px; }
+    .bb-players-scroller-six .bb-result-item { padding: 6px; }
+    .bb-players-scroller-six .bb-result-image-wrap { width: 30px; height: 30px; margin-right: 5px; }
+    .bb-players-scroller-six .bb-result-name { font-size: 9px; }
+    .bb-players-scroller-six .bb-result-value { gap: 3px; font-size: 10px; }
+    .bb-players-scroller-six .bb-result-value img { width: 10px; height: 10px; }
+    .bb-players-scroller-six .bb-waiting-item { height: 70px; font-size: 10px; text-align: center; }
     .bb-vs-badge { display: none; }
     .bb-reel-image { width: 75px; height: 105px; flex-basis: 75px; }
     .bb-reel-image img { width: 62px; height: 62px; }
@@ -1428,12 +1444,26 @@ const BATTLE_STYLES = String.raw`
     .bb-reel-result-name { display: -webkit-box; width: 100%; margin-bottom: 2px; overflow: hidden; color: rgba(225,228,242,.9); font-size: 10px; line-height: 1.15; text-align: center; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     .bb-reel-result-value { margin-top: 1px; justify-content: center; gap: 3px; font-size: 11px; line-height: 1; white-space: nowrap; }
     .bb-reel-result-value img { width: 13px; height: 13px; }
+    .bb-spinner-six-player .bb-reel-image { width: 48px; height: 105px; flex-basis: 48px; }
+    .bb-spinner-six-player .bb-reel-image img { width: 43px; height: 43px; }
+    .bb-spinner-six-player .bb-reel-result { top: 66px; }
+    .bb-spinner-six-player .bb-reel-result-name { font-size: 8px; }
+    .bb-spinner-six-player .bb-reel-result-value { gap: 2px; font-size: 8px; }
+    .bb-spinner-six-player .bb-reel-result-value img { width: 9px; height: 9px; }
+    .bb-spinner-six-player .bb-ready-text,.bb-spinner-six-player .bb-waiting-text { padding-inline: 2px; font-size: 8px; line-height: 1.2; text-align: center; }
+    .bb-spinner-six-player .bb-mini-button { height: 30px; margin-top: 8px; padding: 0 4px; font-size: 9px; }
     .bb-countdown-title { font-size: 12px; letter-spacing: 2px; }
     .bb-countdown-number { font-size: 50px; }
   }
 
   @media (max-width: 540px) {
     .bb-players-row { grid-template-columns: 1fr; }
+    .bb-picker-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+    .bb-picker-card-inner { padding: 8px; }
+    .bb-picker-name { font-size: 12px; }
+    .bb-picker-image-wrap { width: 90px; height: 90px; margin: 8px 0; }
+    .bb-picker-image { width: 90px; height: 90px; }
+    .bb-picker-price,.bb-picker-quantity { width: 100%; }
   }
 
   @media (max-width: 420px) {
@@ -1457,7 +1487,7 @@ const BATTLE_STYLES = String.raw`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .bb-battle,.bb-row-wrap,.bb-case-tooltip,.bb-created-toast,.bb-created-toast::after,.bb-picker,.bb-picker-backdrop,.case-preview-backdrop,.case-preview-modal,.case-preview-item,.bb-result-item,.bb-countdown-number,.bb-winner-panel { animation: none; transition: none; }
+    .bb-battle,.bb-row-wrap,.bb-case-tooltip,.bb-picker,.bb-picker-backdrop,.case-preview-backdrop,.case-preview-modal,.case-preview-item,.bb-result-item,.bb-countdown-number,.bb-winner-panel { animation: none; transition: none; }
     .bb-wheel-track { transition-duration: .01ms !important; }
   }
 `;
@@ -1521,15 +1551,27 @@ function normalizeBattleGame(row, previous = null) {
     || PLAYER_OPTIONS.find((option) => option.id === "ffa-2");
   const maxPlayers = Math.max(2, Math.min(6, Number(source.max_players || playerOption.count)));
   const players = Array.from({ length: maxPlayers }, () => null);
+  const previousPlayersById = new Map((Array.isArray(previous?.players) ? previous.players : [])
+    .filter(Boolean)
+    .map((player) => [String(player?.profile_id || player?.id || ""), player]));
   (Array.isArray(source.players) ? source.players : []).forEach((player, index) => {
     if (!player) return;
     const slotIndex = Number.isInteger(Number(player?.slot_index)) ? Number(player.slot_index) : index;
     if (slotIndex < 0 || slotIndex >= maxPlayers) return;
+    const profileId = String(player?.profile_id || player?.id || "");
+    const previousPlayer = previousPlayersById.get(profileId) || null;
     players[slotIndex] = {
-      id: String(player?.profile_id || player?.id || ""),
+      ...previousPlayer,
+      id: profileId,
+      profile_id: profileId,
       type: player?.profile_type === "bot" || player?.type === "bot" ? "bot" : "user",
       name: String(player?.username || player?.name || "Player"),
       avatar: player?.avatar_headshot_url || player?.avatar_url || player?.avatar || null,
+      role: player?.role ?? previousPlayer?.role ?? null,
+      level: Number(player?.level ?? previousPlayer?.level) || 1,
+      played: Number(player?.played ?? previousPlayer?.played) || 0,
+      won: Number(player?.won ?? previousPlayer?.won) || 0,
+      lost: Number(player?.lost ?? previousPlayer?.lost) || 0,
     };
   });
   const cases = (Array.isArray(source.cases) ? source.cases : []).map(normalizeCase);
@@ -2450,10 +2492,14 @@ function FairnessModal({ battle, onClose }) {
     };
   }, []);
 
+  const resolved = battle?.status === "resolved" && Boolean(battle?.server_seed);
   const fields = [
     ["Game ID", battle?.id || "Unavailable"],
+    ...(resolved ? [
+      ["Hashed Server Seed", battle?.server_seed_hash || "Unavailable"],
+      ["Random Seed", battle?.server_seed || "Unavailable"],
+    ] : []),
   ];
-  const resolved = battle?.status === "resolved" && Boolean(battle?.server_seed);
 
   return createPortal(
     <div className={`bb-fairness-backdrop${closing ? " is-closing" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && requestClose()}>
@@ -2472,30 +2518,7 @@ function FairnessModal({ battle, onClose }) {
           </div>
         ))}
 
-        {resolved ? (
-          <div className="bb-fairness-reveal">
-            <span className="bb-fairness-reveal-title">Revealed Server Seed</span>
-            <span className="bb-fairness-reveal-description">Use this retired server seed with the client seed, nonce, and Game ID above to verify the resolved battle.</span>
-            <div className="bb-fairness-section bb-fairness-reveal-section">
-              <span className="bb-fairness-section-title">Hashed Server Seed</span>
-              <div className="bb-fairness-input">
-                <span className="bb-fairness-value" title={battle.server_seed_hash}>{battle.server_seed_hash}</span>
-                <BattleFairnessCopy label="Hashed Server Seed" value={battle.server_seed_hash} />
-              </div>
-            </div>
-            <div className="bb-fairness-section bb-fairness-reveal-section">
-              <span className="bb-fairness-section-title">Server Seed</span>
-              <div className="bb-fairness-input">
-                <span className="bb-fairness-value" title={battle.server_seed}>{battle.server_seed}</span>
-                <BattleFairnessCopy label="Server Seed" value={battle.server_seed} />
-              </div>
-            </div>
-            <div className="bb-fairness-reveal-meta">
-              <span>Client Seed: <b>{battle.client_seed}</b></span>
-              <span>Nonce: <b>{battle.nonce ?? 0}</b></span>
-            </div>
-          </div>
-        ) : (
+        {!resolved && (
           <p className="bb-fairness-pending">The server seed remains hidden until this battle is resolved.</p>
         )}
       </section>
@@ -3054,7 +3077,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
 
         <div className="bb-bottom-box">
           <div className="bb-players-scroller-outer">
-            <div className="bb-players-scroller" style={{ "--player-cols": battle.players.length }}>
+            <div className={`bb-players-scroller${battle.players.length === 6 ? " bb-players-scroller-six" : ""}`} style={{ "--player-cols": battle.players.length }}>
               {battle.players.map((player, index) => (
                 <div className="bb-player-card-wrap" key={(player?.name || "awaiting") + index}>
                   <BattlePlayerCard player={player} results={displayedResults[index]} onProfileOpen={onProfileOpen} />
@@ -3105,7 +3128,6 @@ export default function CaseBattles({ battleId = "" }) {
   const [battle, setBattle] = useState(null);
   const [directBattleError, setDirectBattleError] = useState("");
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const [battleCreatedToast, setBattleCreatedToast] = useState(false);
   const pendingCreateIdRef = useRef(null);
   const revealedBattleRoundsRef = useRef(new Map());
   const ownedBattleIdsRef = useRef(new Set());
@@ -3270,12 +3292,6 @@ export default function CaseBattles({ battleId = "" }) {
     return () => { mounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (!battleCreatedToast) return undefined;
-    const timer = window.setTimeout(() => setBattleCreatedToast(false), 4000);
-    return () => window.clearTimeout(timer);
-  }, [battleCreatedToast]);
-
   const createBattle = async () => {
     if (!user) {
       setAuthModalOpen(true);
@@ -3304,7 +3320,7 @@ export default function CaseBattles({ battleId = "" }) {
       setBattle(createdBattle);
       setScreen("battle");
       navigate(`/battles/${encodeURIComponent(createdBattle.id)}`);
-      setBattleCreatedToast(true);
+      notifications.success("Case Battle Created!");
     } catch (error) {
       if (error?.status && error.status < 500) pendingCreateIdRef.current = null;
       notifications.error(error?.message || "Unable to create this Case Battle.");
@@ -3424,11 +3440,6 @@ export default function CaseBattles({ battleId = "" }) {
       )}
       {previewCase && <CasePreview item={previewCase} onClose={() => setPreviewCase(null)} />}
       <MiniProfileModal isOpen={Boolean(selectedProfile)} player={selectedProfile} onClose={() => setSelectedProfile(null)} />
-      {battleCreatedToast && (
-        <div className="bb-created-toast-layer" aria-live="polite">
-          <div className="bb-created-toast" role="status">Battle created!</div>
-        </div>
-      )}
     </div>
   );
 }
