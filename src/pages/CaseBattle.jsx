@@ -3316,9 +3316,11 @@ export default function CaseBattles({ battleId = "" }) {
     void apiRequest(`/api/case-battles/${encodeURIComponent(selectedId)}`)
       .then((response) => {
         if (!mounted) return;
-        const loadedBattle = normalizeWithSavedProgress(response?.battle);
-        if (!loadedBattle) throw new Error("This Case Battle could not be loaded.");
-        setBattle(loadedBattle);
+        if (!response?.battle) throw new Error("This Case Battle could not be loaded.");
+        setBattle((current) => normalizeWithSavedProgress(
+          response.battle,
+          current?.id === selectedId ? current : null,
+        ));
       })
       .catch((error) => {
         if (!mounted) return;
