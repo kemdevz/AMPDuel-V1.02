@@ -2757,10 +2757,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     ? storedWinnerPayouts.map((payout) => Number(payout?.amount || 0))
     : [Math.floor(tieShare)];
   const smallestSplitPayout = Math.min(...splitPayoutAmounts);
-  const largestSplitPayout = Math.max(...splitPayoutAmounts);
-  const splitPayoutText = smallestSplitPayout === largestSplitPayout
-    ? formatPriceValue(smallestSplitPayout, { compactNumbers: false })
-    : `${formatPriceValue(smallestSplitPayout, { compactNumbers: false })}â€“${formatPriceValue(largestSplitPayout, { compactNumbers: false })}`;
+  const splitPayoutText = formatPriceValue(smallestSplitPayout, { compactNumbers: false });
 
   const callBot = async (index) => {
     if (callingBotSlot !== null) return;
