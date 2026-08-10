@@ -3000,13 +3000,23 @@ async function settleCaseBattle(battleId) {
   return resolved
 }
 
-function scheduleCaseBattleSettlement(battle) {
+function scheduleCaseBattleSettlement(battle, retryAttempt = 0) {
   const battleId = String(battle?.id || '')
   if (!battleId || battle.status !== 'active' || !battle.settle_at) return
   const existing = caseBattleSettlementTimers.get(battleId)
   if (existing) clearTimeout(existing)
   const delay = Math.max(0, new Date(battle.settle_at).getTime() - Date.now())
-  const timer = setTimeout(() => void settleCaseBattle(battleId).catch((error) => console.error('[case-battles] settlement error', error)), delay)
+  const timer = setTimeout(() => void settleCaseBattle(battleId).catch((error) => {
+    console.error('[case-battles] settlement error', error)
+    // The Node and database clocks can differ slightly, and transient REST/RPC
+    // failures must not leave a paid battle permanently active and unpaid.
+    if (retryAttempt >= 29) return
+    scheduleCaseBattleSettlement({
+      id: battleId,
+      status: 'active',
+      settle_at: new Date(Date.now() + 1_000).toISOString(),
+    }, retryAttempt + 1)
+  }), delay)
   caseBattleSettlementTimers.set(battleId, timer)
 }
 

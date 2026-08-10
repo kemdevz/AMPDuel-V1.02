@@ -44,6 +44,7 @@ const FAST_BATTLE_ROUND_DELAY = 350;
 const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
 const FAST_BATTLE_ROUND_CYCLE = FAST_REEL_DURATION + FAST_BATTLE_ROUND_DELAY;
 const RESOLVED_BATTLE_LIFETIME_MS = 40_000;
+const NEWLY_RESOLVED_REPLAY_WINDOW_MS = 5_000;
 const BATTLE_ROW_EXIT_ANIMATION_MS = 500;
 const MAX_CASES = 25;
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
@@ -1630,10 +1631,32 @@ function normalizeBattleGame(row, previous = null) {
       && source.started_at
       && players.every(Boolean)
     );
+  const providedServerNow = new Date(row?.server_now || "").getTime();
+  const providedServerClockOffset = Number(row?.serverClockOffset);
+  const inheritedServerClockOffset = Number(previous?.serverClockOffset);
+  const serverClockOffset = Number.isFinite(providedServerClockOffset)
+    ? providedServerClockOffset
+    : Number.isFinite(providedServerNow)
+      ? providedServerNow - Date.now()
+      : Number.isFinite(inheritedServerClockOffset) ? inheritedServerClockOffset : 0;
+  const timelineNow = Date.now() + serverClockOffset;
+  const resolvedAt = new Date(source.resolved_at || source.updated_at || "").getTime();
+  // A route fetch can lose the active update race and observe a brand-new
+  // battle only after settlement. Treat that brief first observation as an
+  // animation handoff; otherwise the complete stored result matrix flashes
+  // before the countdown has ever mounted. Older history remains immediate.
+  const replayNewlyResolved = source.status === "resolved"
+    && !previous
+    && Number.isFinite(resolvedAt)
+    && Math.max(0, timelineNow - resolvedAt) <= NEWLY_RESOLVED_REPLAY_WINDOW_MS
+    && cases.length > 0
+    && players.every(Boolean);
   const deferResolution = source.status === "resolved"
-    && previous?.serverManaged
-    && previousAnimationLocked
-    && !previousAnimationComplete;
+    && !previousAnimationComplete
+    && (replayNewlyResolved || (
+      previous?.serverManaged
+      && previousAnimationLocked
+    ));
   const timelineStatus = deferResolution ? "active" : source.status;
   const storedResults = timelineStatus === "active" && Array.isArray(source.outcomeResults)
     ? source.outcomeResults
@@ -1652,15 +1675,6 @@ function normalizeBattleGame(row, previous = null) {
   const requestedModes = Array.isArray(source.modes) ? source.modes : [];
   const modes = requestedModes.filter((mode) => MODE_OPTIONS.some((option) => option.id === mode));
   if (!modes.length) modes.push("normal");
-  const providedServerNow = new Date(row?.server_now || "").getTime();
-  const providedServerClockOffset = Number(row?.serverClockOffset);
-  const inheritedServerClockOffset = Number(previous?.serverClockOffset);
-  const serverClockOffset = Number.isFinite(providedServerClockOffset)
-    ? providedServerClockOffset
-    : Number.isFinite(providedServerNow)
-      ? providedServerNow - Date.now()
-      : Number.isFinite(inheritedServerClockOffset) ? inheritedServerClockOffset : 0;
-  const timelineNow = Date.now() + serverClockOffset;
   const fastSpin = Boolean(source.fast_spin ?? source.fastSpin ?? source.gold_spin);
   const reelDuration = fastSpin ? FAST_REEL_DURATION : REEL_DURATION;
   const roundDelay = fastSpin ? FAST_BATTLE_ROUND_DELAY : BATTLE_ROUND_DELAY;
@@ -1740,22 +1754,22 @@ function normalizeBattleGame(row, previous = null) {
     }
   }
   if (deferResolution) {
-    const beginMissedAnimation = previous.phase === "waiting";
-    phase = beginMissedAnimation ? "countdown" : previous.phase;
-    currentRound = Math.max(0, Number(previous.currentRound || 0));
-    countdown = beginMissedAnimation ? 3 : Math.max(1, Number(previous.countdown || 1));
-    resumeCountdownMs = beginMissedAnimation ? 1000 : Number(previous.resumeCountdownMs || 1000);
-    resumeSpinMs = Number(previous.resumeSpinMs || 0);
-    resumeDelayMs = Number(previous.resumeDelayMs || 0);
+    const beginMissedAnimation = replayNewlyResolved || previous?.phase === "waiting";
+    phase = beginMissedAnimation ? "countdown" : previous?.phase;
+    currentRound = Math.max(0, Number(previous?.currentRound || 0));
+    countdown = beginMissedAnimation ? 3 : Math.max(1, Number(previous?.countdown || 1));
+    resumeCountdownMs = beginMissedAnimation ? 1000 : Number(previous?.resumeCountdownMs || 1000);
+    resumeSpinMs = Number(previous?.resumeSpinMs || 0);
+    resumeDelayMs = Number(previous?.resumeDelayMs || 0);
     visibleRoundCount = Math.max(
-      Number(previous.revealedRoundCount || 0),
-      ...(Array.isArray(previous.results)
+      Number(previous?.revealedRoundCount || 0),
+      ...(Array.isArray(previous?.results)
         ? previous.results.map((items) => Array.isArray(items) ? items.length : 0)
         : [0]),
     );
   }
   const visibleResults = authoritativeResults.map((items) => items.slice(0, visibleRoundCount));
-  const activeReels = deferResolution
+  const activeReels = deferResolution && previous?.reels
     ? previous.reels
     : timelineStatus === "active" && phase === "spinning"
     ? players.map((_, index) => buildReel(cases[currentRound] || cases[0], authoritativeResults[index]?.[currentRound] || null))
@@ -2904,6 +2918,14 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     const timer = window.setTimeout(() => setWinnerVisible(true), 850);
     return () => window.clearTimeout(timer);
   }, [battle.phase]);
+
+  useEffect(() => {
+    if (!battle.serverResolved) return;
+    // Settlement and the resolved row are committed in the same transaction.
+    // Refresh the displayed wallet even if this browser missed the socket
+    // notification while the battle animation was running.
+    window.dispatchEvent(new CustomEvent("wallet:updated"));
+  }, [battle.serverResolved]);
 
   const completeResultMatrix = Array.from({ length: battle.players.length }, (_, index) => {
     const visibleItems = Array.isArray(battle.results?.[index]) ? battle.results[index] : [];
