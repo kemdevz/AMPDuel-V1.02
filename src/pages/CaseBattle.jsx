@@ -1688,10 +1688,11 @@ function normalizeBattleGame(row, previous = null) {
   const hasActiveTimeline = timelineStatus === "active"
     && (previous?.status === "active" || previous?.deferResolution)
     && previousCountdownStartedAt > 0;
-  // Follow the backend start boundary and preserve it for later realtime
-  // updates. Starting a second browser-owned clock here lets deployment
-  // latency make settlement overtake the visible animation.
-  const countdownStartedAt = firstLiveActivation
+  const firstActiveObservation = timelineStatus === "active" && !previous;
+  // A battle can become active while it only exists in the list, where no
+  // BattleView timers are mounted. Anchor the first actual playback snapshot
+  // locally, then preserve that boundary across realtime/route updates.
+  const countdownStartedAt = firstLiveActivation || firstActiveObservation
     ? timelineNow
     : hasActiveTimeline || hasLocalCountdown
     ? previousCountdownStartedAt
@@ -3291,12 +3292,16 @@ export default function CaseBattles({ battleId = "" }) {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const pendingCreateIdRef = useRef(null);
   const revealedBattleRoundsRef = useRef(new Map());
+  const viewedBattleIdsRef = useRef(new Set());
   const ownedBattleIdsRef = useRef(new Set());
 
   const normalizeWithSavedProgress = (row, previous = null) => {
     if (!row?.id) return normalizeBattleGame(row, previous);
     const battleId = String(row.id);
-    const savedCount = Number(revealedBattleRoundsRef.current.get(battleId) || 0);
+    const trackPlayback = viewedBattleIdsRef.current.has(battleId);
+    const savedCount = trackPlayback
+      ? Number(revealedBattleRoundsRef.current.get(battleId) || 0)
+      : 0;
     const previousCount = Number(previous?.revealedRoundCount || 0);
     const progressSource = previous
       ? { ...previous, revealedRoundCount: Math.max(savedCount, previousCount) }
@@ -3315,10 +3320,12 @@ export default function CaseBattles({ battleId = "" }) {
         || (activeUsername && creatorUsername && activeUsername === creatorUsername),
       );
       if (normalized.ownedByViewer) ownedBattleIdsRef.current.add(battleId);
-      revealedBattleRoundsRef.current.set(
-        battleId,
-        Math.max(savedCount, Number(normalized.revealedRoundCount || 0)),
-      );
+      if (trackPlayback) {
+        revealedBattleRoundsRef.current.set(
+          battleId,
+          Math.max(savedCount, Number(normalized.revealedRoundCount || 0)),
+        );
+      }
     }
     return normalized;
   };
@@ -3345,6 +3352,7 @@ export default function CaseBattles({ battleId = "" }) {
     }
 
     let mounted = true;
+    viewedBattleIdsRef.current.add(selectedId);
     setScreen("battle");
     setDirectBattleError("");
     setBattle((current) => current?.id === selectedId ? current : null);
@@ -3512,6 +3520,7 @@ export default function CaseBattles({ battleId = "" }) {
       ownedBattleIdsRef.current.add(createdBattle.id);
       pendingCreateIdRef.current = null;
       setBattles((current) => [createdBattle, ...current.filter((item) => item.id !== createdBattle.id)]);
+      viewedBattleIdsRef.current.add(createdBattle.id);
       setBattle(createdBattle);
       setScreen("battle");
       navigate(`/battles/${encodeURIComponent(createdBattle.id)}`);
@@ -3560,7 +3569,25 @@ export default function CaseBattles({ battleId = "" }) {
   const openBattle = (selectedBattle) => {
     const selectedId = String(selectedBattle?.id || "");
     if (!selectedId) return;
-    setBattle(normalizeWithSavedProgress(selectedBattle, selectedBattle));
+    const wasAlreadyViewed = viewedBattleIdsRef.current.has(selectedId);
+    viewedBattleIdsRef.current.add(selectedId);
+    const freshPlaybackRow = !wasAlreadyViewed && selectedBattle.status === "active"
+      ? {
+          ...selectedBattle,
+          phase: undefined,
+          currentRound: 0,
+          countdownStartedAt: 0,
+          revealedRoundCount: 0,
+          animationComplete: false,
+          animationLocked: false,
+          results: selectedBattle.outcomeResults || selectedBattle.results,
+          reels: undefined,
+        }
+      : selectedBattle;
+    setBattle(normalizeWithSavedProgress(
+      freshPlaybackRow,
+      wasAlreadyViewed ? selectedBattle : null,
+    ));
     setScreen("battle");
     navigate(`/battles/${encodeURIComponent(selectedId)}`);
     void apiRequest(`/api/case-battles/${encodeURIComponent(selectedId)}`)
