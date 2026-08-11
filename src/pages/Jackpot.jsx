@@ -5,6 +5,7 @@ import { useSocket } from '../lib/socket'
 import { useAuth } from '../store/auth'
 
 const COIN_ICON = '/bobux.png'
+const JACKPOT_SPIN_MS = 10_000
 
 function formatPotValue(value) {
   const amount = Number(value || 0)
@@ -31,6 +32,8 @@ export default function Jackpot() {
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [joining, setJoining] = useState(false)
   const [showWinner, setShowWinner] = useState(false)
+  const [isSpinning, setIsSpinning] = useState(false)
+  const [displayRotation, setDisplayRotation] = useState(0)
   const rollAudioRef = useRef(null)
   const settledWalletRoundRef = useRef('')
   const countdownAnchorRef = useRef({ remainingMs: 0, receivedAt: 0 })
@@ -48,7 +51,7 @@ export default function Jackpot() {
       return segment
     })
   }, [entrants, potValue])
-  const wheelRotation = useMemo(() => {
+  const targetWheelRotation = useMemo(() => {
     if (!round.result || !round.winnerId) return 0
     const winnerSegment = wheelSegments.find((segment) => String(segment.entrant?.profileId) === String(round.winnerId))
     if (!winnerSegment) return -3600
@@ -100,6 +103,8 @@ export default function Jackpot() {
 
   useEffect(() => {
     setShowWinner(false)
+    setIsSpinning(false)
+    setDisplayRotation(0)
     if (!round.result) {
       if (rollAudioRef.current) {
         rollAudioRef.current.pause()
@@ -110,12 +115,26 @@ export default function Jackpot() {
 
     const audio = new Audio('/money-D3u6qQYl.mp3')
     rollAudioRef.current = audio
-    void audio.play().catch(() => undefined)
+    let secondFrame = 0
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        setIsSpinning(true)
+        setDisplayRotation(targetWheelRotation)
+        void audio.play().catch(() => undefined)
+      })
+    })
+    const winnerTimer = window.setTimeout(() => {
+      setIsSpinning(false)
+      setShowWinner(true)
+    }, JACKPOT_SPIN_MS + 100)
     return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+      window.clearTimeout(winnerTimer)
       audio.pause()
       audio.currentTime = 0
     }
-  }, [round.id, round.result])
+  }, [round.id, round.result, targetWheelRotation])
 
   useEffect(() => {
     if (!round.result || !round.id || settledWalletRoundRef.current === round.id) return
@@ -512,16 +531,20 @@ export default function Jackpot() {
                 </filter>
               </defs>
               <g mask="url(#mask)">
-                <g
-                  transform="matrix(1 0 0 -1 0 0)"
-                  style={{
-                    rotate: `${wheelRotation}deg`,
-                    transition: round.result ? 'rotate 10s cubic-bezier(0.4, 0, 0.2, 1)' : '',
-                  }}
-                  onTransitionEnd={() => {
-                    if (round.result) setShowWinner(true)
-                  }}
-                >
+                <g transform="matrix(1 0 0 -1 0 0)">
+                  <g
+                    style={{
+                      transform: `rotate(${displayRotation}deg)`,
+                      transformBox: 'fill-box',
+                      transformOrigin: 'center',
+                      transition: isSpinning ? `transform ${JACKPOT_SPIN_MS}ms cubic-bezier(0.12, 0.72, 0.12, 1)` : 'none',
+                    }}
+                    onTransitionEnd={(event) => {
+                      if (event.propertyName !== 'transform' || !round.result) return
+                      setIsSpinning(false)
+                      setShowWinner(true)
+                    }}
+                  >
                   {(wheelSegments.length ? wheelSegments : [{ share: 1, rotation: 0, color: '#6c63ff', entrant: null }]).map((segment, index) => {
                     const middleAngle = segment.share * 180
                     const avatarX = 72.5 * Math.sin(middleAngle * Math.PI / 180)
@@ -535,6 +558,7 @@ export default function Jackpot() {
                       </g>
                     )
                   })}
+                  </g>
                 </g>
                 <g strokeWidth="2">
                   <circle r="49" fill="none" stroke="#343c44" />
@@ -548,7 +572,9 @@ export default function Jackpot() {
                 <span>{formatPotValue(potValue)}</span>
               </h1>
               <div className="text-center text-base font-semibold text-white">
-                {showWinner && round.result ? `🎉 ${round.winnerUsername || 'Player'}` : `${entrants.length} | ${secondsLeft}s`}
+                {round.result
+                  ? showWinner ? `🎉 ${round.winnerUsername || 'Player'}` : 'Rolling...'
+                  : `${entrants.length} | ${secondsLeft}s`}
               </div>
             </div>
           </div>

@@ -1734,7 +1734,9 @@ function startRainTimer() {
 }
 
 const JACKPOT_COUNTDOWN_MS = 60_000
-const JACKPOT_RESULT_DISPLAY_MS = 12_000
+// The client wheel spins for ten seconds. Keep the resolved round visible long
+// enough for network delivery, the full spin, and a clear winner display.
+const JACKPOT_RESULT_DISPLAY_MS = 18_000
 let jackpotVisibleGame = null
 let jackpotResultExpiresAt = 0
 let jackpotLifecycleBusy = false
@@ -5360,6 +5362,45 @@ app.get('/api/health', (req, res) => {
 })
 
 // PS99 Trading Bot Endpoints
+function requirePs99Bot(req, res, next) {
+  const configuredSecret = String(process.env.PS99_BOT_API_SECRET || '')
+  const suppliedHeader = String(req.get('authorization') || '')
+  const suppliedSecret = suppliedHeader.replace(/^Bearer\s+/i, '')
+  if (!configuredSecret) {
+    res.status(503).json({ success: false, error: 'PS99 bot authentication is not configured' })
+    return
+  }
+  const expected = Buffer.from(configuredSecret)
+  const actual = Buffer.from(suppliedSecret)
+  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+    res.status(401).json({ success: false, error: 'Invalid bot credentials' })
+    return
+  }
+  next()
+}
+
+function normalizePs99DepositNames(pets, gems) {
+  const petNames = Array.isArray(pets) ? pets : []
+  const gemNames = Array.isArray(gems) ? gems : []
+  const names = petNames.map((item) => typeof item === 'string' ? item : item?.name)
+  const petNameCounts = new Map()
+  for (const name of names) {
+    const normalized = String(name || '').trim()
+    if (normalized) petNameCounts.set(normalized, (petNameCounts.get(normalized) || 0) + 1)
+  }
+  // The current Lua item scanner includes gem-item names in `pets` and then
+  // mirrors them in `gems`. Only append gem entries not already represented.
+  const mirroredCounts = new Map()
+  for (const item of gemNames) {
+    const normalized = String(typeof item === 'string' ? item : item?.name || '').trim()
+    if (!normalized) continue
+    const seen = (mirroredCounts.get(normalized) || 0) + 1
+    mirroredCounts.set(normalized, seen)
+    if (seen > (petNameCounts.get(normalized) || 0)) names.push(normalized)
+  }
+  return names.map((name) => String(name || '').trim()).filter(Boolean)
+}
+
 app.get('/items/all', async (req, res) => {
   try {
     const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
@@ -5395,11 +5436,12 @@ app.get('/items/all', async (req, res) => {
   }
 })
 
-app.post('/withdraw/method', express.json({ limit: '8kb' }), async (req, res) => {
+app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, async (req, res) => {
   try {
     const { userId, game } = req.body
+    const robloxId = String(userId || '').trim()
 
-    if (!userId || !game) {
+    if (!/^\d+$/.test(robloxId) || !game) {
       res.status(400).json({ method: 'USERNOTFOUND' })
       return
     }
@@ -5409,43 +5451,28 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), async (req, res) =>
       return
     }
 
-    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-    if (!supabaseUrl || !supabaseKey) {
-      res.status(503).json({ method: 'USERNOTFOUND' })
-      return
-    }
-
-    // Check if user exists in database
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
-      {
-        headers: getSupabaseAdminHeaders(supabaseKey),
-      }
+    const profiles = await adminRest(
+      `user_profiles?select=id,username,roblox_id&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
     )
-
-    if (!response.ok) {
+    const user = Array.isArray(profiles) ? profiles[0] || null : profiles
+    if (!user) {
       res.json({ method: 'USERNOTFOUND' })
       return
     }
 
-    const users = await response.json()
-    if (!Array.isArray(users) || users.length === 0) {
-      res.json({ method: 'USERNOTFOUND' })
-      return
-    }
-
-    const user = users[0]
-    const inventory = user.inventory || []
+    const inventory = await adminRest(
+      `inventory_items?select=id,name,type&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.asc&limit=500`,
+    )
 
     // Filter for pet items (not gem items)
     const gemItemNames = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
-    const petItems = inventory.filter(item => {
+    const petItems = (Array.isArray(inventory) ? inventory : []).filter(item => {
       const itemName = typeof item === 'string' ? item : item.name
       return !gemItemNames.includes(itemName)
     })
 
     // Filter for gem items
-    const gemItems = inventory.filter(item => {
+    const gemItems = (Array.isArray(inventory) ? inventory : []).filter(item => {
       const itemName = typeof item === 'string' ? item : item.name
       return gemItemNames.includes(itemName)
     })
@@ -5466,11 +5493,15 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), async (req, res) =>
   }
 })
 
-app.post('/deposit/deposit', express.json({ limit: '64kb' }), async (req, res) => {
+app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, async (req, res) => {
   try {
-    const { userId, pets, gems, game } = req.body
+    const { userId, pets, gems, game, tradeId, botUserId } = req.body
+    const robloxId = String(userId || '').trim()
+    const externalTradeId = String(tradeId || '').trim()
+    const botRobloxId = String(botUserId || '').trim()
+    const itemNames = normalizePs99DepositNames(pets, gems)
 
-    if (!userId || !game) {
+    if (!/^\d+$/.test(robloxId) || !externalTradeId || externalTradeId.length > 128 || !/^\d+$/.test(botRobloxId)) {
       res.status(400).json({ success: false, error: 'Missing required fields' })
       return
     }
@@ -5480,108 +5511,41 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), async (req, res) =
       return
     }
 
-    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-    if (!supabaseUrl || !supabaseKey) {
-      res.status(503).json({ success: false, error: 'Database not configured' })
+    if (itemNames.length < 1 || itemNames.length > 50) {
+      res.status(400).json({ success: false, error: 'Deposit must contain between 1 and 50 items' })
       return
     }
 
-    // Get current user
-    const userResponse = await fetch(
-      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
-      {
-        headers: getSupabaseAdminHeaders(supabaseKey),
-      }
+    const profiles = await adminRest(
+      `user_profiles?select=id,roblox_id,username&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
     )
-
-    if (!userResponse.ok) {
+    const profile = Array.isArray(profiles) ? profiles[0] || null : profiles
+    if (!profile) {
       res.status(404).json({ success: false, error: 'User not found' })
       return
     }
 
-    const users = await userResponse.json()
-    if (!Array.isArray(users) || users.length === 0) {
-      res.status(404).json({ success: false, error: 'User not found' })
-      return
-    }
+    const result = await callRainRpc('record_ps99_deposit', {
+      p_profile_id: String(profile.id),
+      p_roblox_id: robloxId,
+      p_external_trade_id: externalTradeId,
+      p_bot_roblox_id: botRobloxId,
+      p_item_names: itemNames,
+    })
 
-    const user = users[0]
-    const currentInventory = user.inventory || []
+    await emitWalletRefreshes([profile.id])
 
-    // Update inventory with deposited pets and gems (both as items)
-    const updatedInventory = [...currentInventory]
-    
-    // Add pets
-    if (Array.isArray(pets)) {
-      for (const pet of pets) {
-        if (typeof pet === 'string') {
-          updatedInventory.push({ name: pet, type: 'PS99' })
-        } else if (pet.name) {
-          updatedInventory.push({ name: pet.name, type: 'PS99' })
-        }
-      }
-    }
-    
-    // Add gems as items
-    if (Array.isArray(gems)) {
-      for (const gem of gems) {
-        if (typeof gem === 'string') {
-          updatedInventory.push({ name: gem, type: 'PS99' })
-        } else if (gem.name) {
-          updatedInventory.push({ name: gem.name, type: 'PS99' })
-        }
-      }
-    }
-
-    // Update user
-    const updateResponse = await fetch(
-      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`,
-      {
-        method: 'PATCH',
-        headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          inventory: updatedInventory
-        })
-      }
-    )
-
-    if (!updateResponse.ok) {
-      res.status(500).json({ success: false, error: 'Failed to update user' })
-      return
-    }
-
-    // Record deposits in inventory_items table for proper tracking
-    const allItems = []
-    if (Array.isArray(pets)) {
-      allItems.push(...pets)
-    }
-    if (Array.isArray(gems)) {
-      allItems.push(...gems)
-    }
-    
-    if (allItems.length > 0) {
-      for (const item of allItems) {
-        const itemName = typeof item === 'string' ? item : item.name
-        await fetch(`${supabaseUrl}/rest/v1/inventory_items`, {
-          method: 'POST',
-          headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            user_id: userId,
-            name: itemName,
-            value: 0, // PS99 items don't have values in this system
-            type: 'PS99',
-            item_id: null // No reference to items table for PS99 items
-          })
-        })
-      }
-    }
-
-    await emitWalletRefreshes([userId])
-
-    res.json({ success: true, message: 'Deposit successful' })
+    res.json({
+      success: true,
+      duplicate: Boolean(result?.duplicate),
+      message: result?.duplicate ? 'Deposit already recorded' : 'Deposit successful',
+      deposit: result?.deposit || null,
+    })
   } catch (error) {
     console.error('[PS99] Deposit failed:', error)
-    res.status(500).json({ success: false, error: 'Deposit failed' })
+    const message = error?.message || 'Deposit failed'
+    const expected = /deposit|item|profile|trade|catalog/i.test(message)
+    res.status(expected ? 400 : 500).json({ success: false, error: message })
   }
 })
 

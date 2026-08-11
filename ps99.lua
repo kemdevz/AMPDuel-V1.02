@@ -1,6 +1,7 @@
 --// Configuration
-local website = "https://example.com"
-local auth = "NOTTODAY"
+local website = "https://bloxdice.com"
+-- Must match PS99_BOT_API_SECRET in the website server environment.
+local auth = "REPLACE_WITH_PS99_BOT_API_SECRET"
 
 print("[PS99 Trade Bot] Starting initialization...")
 
@@ -301,7 +302,7 @@ local function checkItems(assetIds, goldAssetids, nameAssetIds)
 	local itemTotal          = 0
 	local onlyHugesTitanics  = true
 	local unsupportedPets    = {}
-	local gemItemNames       = {"100K gems", "500K gems", "1M gems", "5M gems", "10M gems", "25M gems", "50M gems", "100M gems", "1B gems"}
+	local gemItemNames       = {"100K gems", "500K gems", "1M gems", "5M gems", "10M gems", "25M gems", "50M gems", "100M gems"}
 	
 	print("[Pet Check] Starting checkItems...")
 	
@@ -564,7 +565,9 @@ local function connectMessage(localId, method, tradingItemsFunc)
                         ["userId"] = tradeUser,
                         ["pets"] = tradingItemsFunc,
                         ["gems"] = gems,  -- Now an array of gem item names
-                        ["game"] = "PS99"
+                        ["game"] = "PS99",
+                        ["tradeId"] = tostring(game.JobId) .. ":" .. tostring(localId),
+                        ["botUserId"] = tostring(localPlayer.UserId)
                     }
                     
                     print("[Deposit API] Sending deposit request...")
