@@ -668,23 +668,18 @@ export default function Coinflip() {
             icon="/assets/room-icon.png"
             value={String(activeRoomsCount)}
             label="Active Rooms"
-            gradient="rgba(108, 99, 255, 0.22)"
-            bgColor="rgba(108, 99, 255, 0.04)"
             showIcon={false}
           />
           <StatCard
             icon="/bobux.png"
             value={String(totalValueSum.toLocaleString('en-US'))}
             label="Total Value"
-            gradient="rgba(255, 216, 77, 0.22)"
-            bgColor="rgba(255, 216, 77, 0.04)"
+            gradientRgb="255,216,77"
           />
           <StatCard
             icon="/assets/items-icon.png"
             value={String(totalItemsCount)}
             label="Total Items"
-            gradient="rgba(108, 99, 255, 0.22)"
-            bgColor="rgba(108, 99, 255, 0.04)"
             showIcon={false}
           />
         </div>
@@ -876,20 +871,20 @@ export default function Coinflip() {
   )
 }
 
-function StatCard({ icon, value, label, gradient, bgColor, showIcon = true }) {
+function StatCard({ icon, value, label, gradientRgb = '108,99,255', showIcon = true }) {
   return (
     <div
-      className="flex items-start justify-start gap-3 rounded-md p-3"
+      className="flex min-h-[72px] items-center justify-start gap-3 rounded-lg p-3"
       style={{
-        background: `radial-gradient(circle at 100% 100%, ${gradient} 0%, rgba(108, 99, 255, 0.16) 24%, rgba(108, 99, 255, 0.09) 52%, rgba(108, 99, 255, 0.04) 68%, transparent 82%), rgb(27, 31, 46)`,
+        background: `radial-gradient(circle at 100% 100%,rgba(${gradientRgb},.22) 0%,rgba(${gradientRgb},.16) 24%,rgba(${gradientRgb},.09) 52%,rgba(${gradientRgb},.04) 68%,transparent 82%),#1b1f2e`,
       }}
     >
       <div className="flex w-full flex-col items-start justify-center text-left">
-        <span className="flex items-center justify-start gap-2 text-left text-lg font-bold text-white">
+        <span className="flex items-center justify-start gap-2 text-left text-xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
           {value}
         </span>
-        <span className="text-left text-xs text-white">{label}</span>
+        <span className="text-left text-sm leading-tight text-white">{label}</span>
       </div>
     </div>
   )
