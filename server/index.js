@@ -35,7 +35,9 @@ const isAllowedOrigin = (origin) => {
     origin === 'http://bloxdice.com' ||
     origin === 'https://bloxdice.com' ||
     origin === 'https://bloxybattles-main.onrender.com' ||
-    origin === 'http://localhost:5173'
+    origin === 'http://localhost:5173' ||
+    origin === 'https://ampflip-back-o9jr.onrender.com' || // Add your Render URL
+    origin.startsWith('https://') // Allow all HTTPS for development
 }
 const io = new Server(server, {
   cors: {
@@ -5356,6 +5358,359 @@ app.post(
 app.get('/api/health', (req, res) => {
   res.json({ ok: true })
 })
+
+// PS99 Trading Bot Endpoints
+app.get('/items/all', async (req, res) => {
+  try {
+    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+    if (!supabaseUrl || !supabaseKey) {
+      res.status(503).json({ success: 'ERROR', items: [] })
+      return
+    }
+
+    // Fetch PS99 items from existing items table
+    const response = await fetch(`${supabaseUrl}/rest/v1/items?select=name&type=eq.PS99&order=name`, {
+      headers: getSupabaseAdminHeaders(supabaseKey),
+    })
+
+    if (response.ok) {
+      const items = await response.json()
+      const itemNames = items.map(item => item.name).filter(Boolean)
+      
+      // Add gem items to the list
+      const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
+      const allItems = [...itemNames, ...gemItems]
+      
+      res.json({ success: 'OK', items: allItems })
+      return
+    }
+
+    // Fallback: Return only gem items if table doesn't exist
+    console.warn('[PS99] Items table not found, returning gem items only')
+    const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
+    res.json({ success: 'OK', items: gemItems })
+  } catch (error) {
+    console.error('[PS99] Failed to fetch items:', error)
+    res.status(500).json({ success: 'ERROR', items: [] })
+  }
+})
+
+app.post('/withdraw/method', express.json({ limit: '8kb' }), async (req, res) => {
+  try {
+    const { userId, game } = req.body
+
+    if (!userId || !game) {
+      res.status(400).json({ method: 'USERNOTFOUND' })
+      return
+    }
+
+    if (game !== 'PS99') {
+      res.status(400).json({ method: 'USERNOTFOUND' })
+      return
+    }
+
+    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+    if (!supabaseUrl || !supabaseKey) {
+      res.status(503).json({ method: 'USERNOTFOUND' })
+      return
+    }
+
+    // Check if user exists in database
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
+      {
+        headers: getSupabaseAdminHeaders(supabaseKey),
+      }
+    )
+
+    if (!response.ok) {
+      res.json({ method: 'USERNOTFOUND' })
+      return
+    }
+
+    const users = await response.json()
+    if (!Array.isArray(users) || users.length === 0) {
+      res.json({ method: 'USERNOTFOUND' })
+      return
+    }
+
+    const user = users[0]
+    const inventory = user.inventory || []
+
+    // Filter for pet items (not gem items)
+    const gemItemNames = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
+    const petItems = inventory.filter(item => {
+      const itemName = typeof item === 'string' ? item : item.name
+      return !gemItemNames.includes(itemName)
+    })
+
+    // Filter for gem items
+    const gemItems = inventory.filter(item => {
+      const itemName = typeof item === 'string' ? item : item.name
+      return gemItemNames.includes(itemName)
+    })
+
+    // Check if user has items to withdraw (pets or gems)
+    if (petItems.length > 0 || gemItems.length > 0) {
+      res.json({
+        method: 'Withdraw',
+        pets: petItems.map(item => item.name || item.id || item),
+        gems: gemItems.map(item => item.name || item.id || item)
+      })
+    } else {
+      res.json({ method: 'Deposit' })
+    }
+  } catch (error) {
+    console.error('[PS99] Withdraw method check failed:', error)
+    res.status(500).json({ method: 'USERNOTFOUND' })
+  }
+})
+
+app.post('/deposit/deposit', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const { userId, pets, gems, game } = req.body
+
+    if (!userId || !game) {
+      res.status(400).json({ success: false, error: 'Missing required fields' })
+      return
+    }
+
+    if (game !== 'PS99') {
+      res.status(400).json({ success: false, error: 'Invalid game' })
+      return
+    }
+
+    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+    if (!supabaseUrl || !supabaseKey) {
+      res.status(503).json({ success: false, error: 'Database not configured' })
+      return
+    }
+
+    // Get current user
+    const userResponse = await fetch(
+      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
+      {
+        headers: getSupabaseAdminHeaders(supabaseKey),
+      }
+    )
+
+    if (!userResponse.ok) {
+      res.status(404).json({ success: false, error: 'User not found' })
+      return
+    }
+
+    const users = await userResponse.json()
+    if (!Array.isArray(users) || users.length === 0) {
+      res.status(404).json({ success: false, error: 'User not found' })
+      return
+    }
+
+    const user = users[0]
+    const currentInventory = user.inventory || []
+
+    // Update inventory with deposited pets and gems (both as items)
+    const updatedInventory = [...currentInventory]
+    
+    // Add pets
+    if (Array.isArray(pets)) {
+      for (const pet of pets) {
+        if (typeof pet === 'string') {
+          updatedInventory.push({ name: pet, type: 'PS99' })
+        } else if (pet.name) {
+          updatedInventory.push({ name: pet.name, type: 'PS99' })
+        }
+      }
+    }
+    
+    // Add gems as items
+    if (Array.isArray(gems)) {
+      for (const gem of gems) {
+        if (typeof gem === 'string') {
+          updatedInventory.push({ name: gem, type: 'PS99' })
+        } else if (gem.name) {
+          updatedInventory.push({ name: gem.name, type: 'PS99' })
+        }
+      }
+    }
+
+    // Update user
+    const updateResponse = await fetch(
+      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`,
+      {
+        method: 'PATCH',
+        headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          inventory: updatedInventory
+        })
+      }
+    )
+
+    if (!updateResponse.ok) {
+      res.status(500).json({ success: false, error: 'Failed to update user' })
+      return
+    }
+
+    // Record deposits in inventory_items table for proper tracking
+    const allItems = []
+    if (Array.isArray(pets)) {
+      allItems.push(...pets)
+    }
+    if (Array.isArray(gems)) {
+      allItems.push(...gems)
+    }
+    
+    if (allItems.length > 0) {
+      for (const item of allItems) {
+        const itemName = typeof item === 'string' ? item : item.name
+        await fetch(`${supabaseUrl}/rest/v1/inventory_items`, {
+          method: 'POST',
+          headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            user_id: userId,
+            name: itemName,
+            value: 0, // PS99 items don't have values in this system
+            type: 'PS99',
+            item_id: null // No reference to items table for PS99 items
+          })
+        })
+      }
+    }
+
+    await emitWalletRefreshes([userId])
+
+    res.json({ success: true, message: 'Deposit successful' })
+  } catch (error) {
+    console.error('[PS99] Deposit failed:', error)
+    res.status(500).json({ success: false, error: 'Deposit failed' })
+  }
+})
+
+app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const { userId, pets, gems, game } = req.body
+
+    if (!userId || !game) {
+      res.status(400).json({ success: false, error: 'Missing required fields' })
+      return
+    }
+
+    if (game !== 'PS99') {
+      res.status(400).json({ success: false, error: 'Invalid game' })
+      return
+    }
+
+    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+    if (!supabaseUrl || !supabaseKey) {
+      res.status(503).json({ success: false, error: 'Database not configured' })
+      return
+    }
+
+    // Get current user
+    const userResponse = await fetch(
+      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
+      {
+        headers: getSupabaseAdminHeaders(supabaseKey),
+      }
+    )
+
+    if (!userResponse.ok) {
+      res.status(404).json({ success: false, error: 'User not found' })
+      return
+    }
+
+    const users = await userResponse.json()
+    if (!Array.isArray(users) || users.length === 0) {
+      res.status(404).json({ success: false, error: 'User not found' })
+      return
+    }
+
+    const user = users[0]
+    const currentInventory = user.inventory || []
+
+    // Remove withdrawn pets and gems from inventory (both as items)
+    const updatedInventory = [...currentInventory]
+    
+    // Remove pets
+    if (Array.isArray(pets)) {
+      for (const pet of pets) {
+        const petName = typeof pet === 'string' ? pet : pet.name
+        const index = updatedInventory.findIndex(item => {
+          const itemName = typeof item === 'string' ? item : item.name
+          return itemName === petName
+        })
+        if (index !== -1) {
+          updatedInventory.splice(index, 1)
+        }
+      }
+    }
+    
+    // Remove gems
+    if (Array.isArray(gems)) {
+      for (const gem of gems) {
+        const gemName = typeof gem === 'string' ? gem : gem.name
+        const index = updatedInventory.findIndex(item => {
+          const itemName = typeof item === 'string' ? item : item.name
+          return itemName === gemName
+        })
+        if (index !== -1) {
+          updatedInventory.splice(index, 1)
+        }
+      }
+    }
+
+    // Update user
+    const updateResponse = await fetch(
+      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`,
+      {
+        method: 'PATCH',
+        headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          inventory: updatedInventory
+        })
+      }
+    )
+
+    if (!updateResponse.ok) {
+      res.status(500).json({ success: false, error: 'Failed to update user' })
+      return
+    }
+
+    // Record withdrawal in withdraws table for all items
+    const allItems = []
+    if (Array.isArray(pets)) {
+      allItems.push(...pets)
+    }
+    if (Array.isArray(gems)) {
+      allItems.push(...gems)
+    }
+    
+    if (allItems.length > 0) {
+      for (const item of allItems) {
+        const itemName = typeof item === 'string' ? item : item.name
+        await fetch(`${supabaseUrl}/rest/v1/withdraws`, {
+          method: 'POST',
+          headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            user_id: userId,
+            user_name: user.username || 'Unknown',
+            item_name: itemName,
+            value: 0, // PS99 items don't have values in this system
+            withdrawed_at: new Date().toISOString(),
+            canceled: false
+          })
+        })
+      }
+    }
+
+    await emitWalletRefreshes([userId])
+
+    res.json({ success: true, message: 'Withdraw successful' })
+  } catch (error) {
+    console.error('[PS99] Withdraw failed:', error)
+    res.status(500).json({ success: false, error: 'Withdraw failed' })
+  }
+})
+
 
 const frontendDistPath = path.resolve(process.cwd(), 'dist')
 const frontendIndexPath = path.join(frontendDistPath, 'index.html')
