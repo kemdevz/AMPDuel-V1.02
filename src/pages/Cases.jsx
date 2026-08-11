@@ -1438,13 +1438,7 @@ export default function CasesPage({ caseSlug = null }) {
                       <CaseCard key={item.id} item={item} onPreview={setPreviewCase} onOpen={(selectedCase) => navigate(`/cases/${selectedCase.slug}`)} />
                     ))}
                   </div>
-                ) : (
-                  <div className="flex w-full justify-center px-0.5 py-8 text-sm text-[#8b92b8]">
-                    {activeTab === "Your Cases" && !user
-                      ? "Sign in to view your cases."
-                      : `No ${activeTab.toLowerCase()} cases found.`}
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
