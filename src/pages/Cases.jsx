@@ -1402,7 +1402,7 @@ export default function CasesPage({ caseSlug = null }) {
                       <span className="your-cases-divider" aria-hidden="true" />
                       <div className="your-cases-stat"><span className="your-cases-stat-label">Claimable</span><span className="your-cases-stat-value is-claimable"><img src={COIN_ICON} alt="" />{formatPriceValue(yourCasesStats.claimable, { compactNumbers: false })}</span></div>
                       <span className="your-cases-divider" aria-hidden="true" />
-                      <button type="button" className="your-cases-create" disabled={claimingCommission || yourCasesStats.claimable <= 0} onClick={claimCommissions}>{claimingCommission ? "Claiming..." : "Claim"}</button>
+                      {yourCasesStats.claimable > 0 ? <button type="button" className="your-cases-create" disabled={claimingCommission} onClick={claimCommissions}>{claimingCommission ? "Claiming..." : "Claim"}</button> : null}
                       <button type="button" className="your-cases-create" onClick={() => navigate("/cases/create")}>Create Case</button>
                     </div>
                     <div className="your-cases-status" role="tablist" aria-label="Your cases status">
