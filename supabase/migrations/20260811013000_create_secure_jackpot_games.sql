@@ -207,7 +207,7 @@ BEGIN
   IF v_game.entrant_count < 1 OR v_game.pot_value <= 0 OR p_random_value < 0 THEN
     RAISE EXCEPTION 'The Jackpot result is invalid.';
   END IF;
-  IF encode(digest(p_server_seed, 'sha256'), 'hex') <> v_game.server_seed_hash THEN
+  IF encode(extensions.digest(convert_to(p_server_seed, 'UTF8'), 'sha256'::text), 'hex') <> v_game.server_seed_hash THEN
     RAISE EXCEPTION 'The Jackpot server seed does not match its commitment.';
   END IF;
 

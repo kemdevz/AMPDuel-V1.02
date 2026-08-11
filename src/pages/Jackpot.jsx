@@ -571,6 +571,11 @@ export default function Jackpot() {
                 <img src="/bobux.png" alt="Bobux" className={entrants.length ? 'aspect-square w-5 md:w-6 text-[#0276FF]' : 'aspect-square w-4 md:w-5 text-[#0276FF]'} />
                 <span>{formatPotValue(potValue)}</span>
               </h1>
+              <div className="text-center text-base font-semibold text-white">
+                {round.result
+                  ? showWinner ? `🎉 ${round.winnerUsername || 'Player'}` : 'Rolling...'
+                  : `${entrants.length} | ${secondsLeft}s`}
+              </div>
             </div>
           </div>
 
