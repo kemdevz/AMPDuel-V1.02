@@ -10,6 +10,7 @@ import { useAuth } from '../store/auth'
 import { Menu, MessageSquare } from 'lucide-react'
 import { NavLink } from '../lib/router'
 import { CoinflipIcon } from './icons'
+import ProfileTipManager from './ProfileTipManager'
 
 export default function Layout({ children }) {
   const user = useAuth((s) => s.user)
@@ -162,6 +163,7 @@ export default function Layout({ children }) {
         onClose={() => setLeaderboardModalOpen(false)}
       />
 
+      <ProfileTipManager />
       <Notifications />
     </div>
   )

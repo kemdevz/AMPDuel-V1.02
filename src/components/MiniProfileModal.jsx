@@ -6,6 +6,7 @@ import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import { notifications } from './Notifications'
 import AnimatedStatNumber from './AnimatedStatNumber'
+import { PROFILE_TIP_OPEN_EVENT } from './ProfileTipManager'
 
 const profileCache = new Map()
 const profilePreloadRequests = new Map()
@@ -260,6 +261,17 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
       )
     }
     setIgnoreUpdating(false)
+  }
+
+  const handleTip = () => {
+    if (typeof onTip === 'function') {
+      onTip(resolvedProfile)
+      return
+    }
+    window.dispatchEvent(new CustomEvent(PROFILE_TIP_OPEN_EVENT, {
+      detail: { recipient: resolvedProfile },
+    }))
+    onClose?.()
   }
 
   return createPortal(
@@ -722,7 +734,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
           <button
             type="button"
             className="miniProfileAction"
-            onClick={() => onTip?.(resolvedProfile)}
+            onClick={handleTip}
           >
             Tip User
           </button>
