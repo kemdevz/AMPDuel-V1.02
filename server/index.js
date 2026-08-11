@@ -3451,6 +3451,205 @@ app.post('/api/case-battles/:battleId/cancel', express.json({ limit: '8kb' }), r
   }
 })
 
+const COMMUNITY_CASE_MAX_ITEMS = 50
+const COMMUNITY_CASE_MAX_COMMISSION_BPS = 300
+const CASE_ROLL_TICKETS = 100_000
+
+function getCommunityCaseSlug(name) {
+  return String(name || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps) {
+  const catalogById = new Map(catalogItems.map((item) => [String(item.id), item]))
+  let nextRoll = 0
+  let weightedValue = 0n
+
+  const items = submittedItems.map((submittedItem) => {
+    const itemId = String(submittedItem?.item_id || '').trim()
+    const catalogItem = catalogById.get(itemId)
+    if (!catalogItem) throw new Error('One or more selected items are unavailable.')
+
+    const chance = Number(submittedItem?.chance)
+    const tickets = Math.round(chance * 1000)
+    if (!Number.isFinite(chance) || chance <= 0 || tickets <= 0 || Math.abs(chance * 1000 - tickets) > 0.000001) {
+      throw new Error('Every item chance must be greater than 0 and use no more than two decimal places.')
+    }
+
+    const value = Number(catalogItem.value)
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error('A selected item has an invalid value.')
+
+    const start = nextRoll
+    const end = start + tickets - 1
+    nextRoll = end + 1
+    weightedValue += BigInt(value) * BigInt(tickets)
+
+    return {
+      item_id: itemId,
+      name: String(catalogItem.name || 'Unknown item'),
+      image_url: String(catalogItem.image_url || ''),
+      type: catalogItem.type || null,
+      value,
+      chance: tickets / 1000,
+      roll_range: { start, end },
+    }
+  })
+
+  if (nextRoll !== CASE_ROLL_TICKETS) throw new Error('Item chances must add up to exactly 100%.')
+  const denominator = BigInt(CASE_ROLL_TICKETS) * BigInt(10_000 - commissionBps)
+  const price = (weightedValue * 10_000n + denominator - 1n) / denominator
+  if (price <= 0n || price > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The calculated case price is invalid.')
+  const commissionAmount = (price * BigInt(commissionBps)) / 10_000n
+
+  return {
+    items,
+    expectedValue: Number(weightedValue / BigInt(CASE_ROLL_TICKETS)),
+    price: Number(price),
+    commissionAmount: Number(commissionAmount),
+  }
+}
+
+app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthenticatedUser, async (req, res) => {
+  const name = String(req.body?.name || '').trim().replace(/\s+/g, ' ')
+  const commissionBps = Number(req.body?.commission_bps)
+  const imageUrl = String(req.body?.image_url || '').trim()
+  const submittedItems = Array.isArray(req.body?.items) ? req.body.items : []
+  const requestedSlug = getCommunityCaseSlug(name)
+
+  if (!name || name.length > 23 || !requestedSlug || requestedSlug === 'create') {
+    res.status(400).json({ ok: false, error: 'Case names must contain between 1 and 23 characters.' })
+    return
+  }
+  if (!Number.isInteger(commissionBps) || commissionBps < 0 || commissionBps > COMMUNITY_CASE_MAX_COMMISSION_BPS) {
+    res.status(400).json({ ok: false, error: 'Commission must be between 0% and 3%.' })
+    return
+  }
+  if (imageUrl.length > 2048 || (imageUrl && !/^https?:\/\//i.test(imageUrl) && !imageUrl.startsWith('/'))) {
+    res.status(400).json({ ok: false, error: 'The selected case image is invalid.' })
+    return
+  }
+  if (!submittedItems.length || submittedItems.length > COMMUNITY_CASE_MAX_ITEMS) {
+    res.status(400).json({ ok: false, error: `Select between 1 and ${COMMUNITY_CASE_MAX_ITEMS} items.` })
+    return
+  }
+
+  const itemIds = submittedItems.map((item) => String(item?.item_id || '').trim())
+  if (itemIds.some((itemId) => !isUuidLike(itemId)) || new Set(itemIds).size !== itemIds.length) {
+    res.status(400).json({ ok: false, error: 'Selected items must be unique catalog items.' })
+    return
+  }
+
+  try {
+    const [profile, existingCases, catalogItems] = await Promise.all([
+      loadProfileById(req.identity.profileId),
+      adminRest('cases?select=uuid,name&limit=5000'),
+      adminRest(`items?select=id,name,value,image_url,type&id=in.(${itemIds.join(',')})`),
+    ])
+    if (!profile) throw new Error('Your user profile could not be found.')
+    if ((existingCases || []).some((item) => getCommunityCaseSlug(item.name) === requestedSlug)) {
+      res.status(409).json({ ok: false, error: 'A case with that name already exists.' })
+      return
+    }
+    if (!Array.isArray(catalogItems) || catalogItems.length !== itemIds.length) {
+      res.status(400).json({ ok: false, error: 'One or more selected items are unavailable.' })
+      return
+    }
+
+    const calculated = calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps)
+    const inserted = await adminRest('cases?select=*', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: {
+        name,
+        price: calculated.price,
+        image_url: imageUrl || null,
+        items: calculated.items,
+        active: true,
+        community: true,
+        owner_user_id: String(req.identity.profileId),
+        owner_username: String(profile.username || 'Player'),
+        commission_bps: commissionBps,
+      },
+    })
+    const createdCase = Array.isArray(inserted) ? inserted[0] || null : inserted
+    res.status(201).json({
+      ok: true,
+      case: createdCase,
+      calculated: {
+        expected_value: calculated.expectedValue,
+        price: calculated.price,
+        commission_amount: calculated.commissionAmount,
+      },
+    })
+  } catch (error) {
+    const message = error?.message || 'Unable to create this case.'
+    const expected = /case name|commission|selected item|item chance|add up|calculated case price|profile/i.test(message)
+    console.warn('[api/cases/community] create error', message)
+    res.status(expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.get('/api/cases/community/me', requireAuthenticatedUser, async (req, res) => {
+  try {
+    const [rows, summary] = await Promise.all([
+      adminRest(`cases?select=*&community=eq.true&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}&order=created_at.desc`),
+      callRainRpc('get_case_creator_summary', { p_profile_id: String(req.identity.profileId) }),
+    ])
+    const caseStats = summary?.case_stats && typeof summary.case_stats === 'object' ? summary.case_stats : {}
+    const cases = (Array.isArray(rows) ? rows : []).map((item) => ({
+      ...item,
+      open_count: Number(caseStats[item.uuid]?.opens || 0),
+      total_earned: Number(caseStats[item.uuid]?.earned || 0),
+      claimable: Number(caseStats[item.uuid]?.claimable || 0),
+    }))
+    res.json({ ok: true, cases, summary: summary || { opens: 0, earned: 0, claimable: 0 } })
+  } catch (error) {
+    console.warn('[api/cases/community/me] error', error?.message || error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load your cases.' })
+  }
+})
+
+app.post('/api/cases/community/claim', express.json({ limit: '2kb' }), requireAuthenticatedUser, async (req, res) => {
+  try {
+    const claim = await callRainRpc('claim_case_commissions', { p_profile_id: String(req.identity.profileId) })
+    void emitWalletRefreshes([req.identity.profileId])
+    res.json({ ok: true, claim })
+  } catch (error) {
+    console.warn('[api/cases/community/claim] error', error?.message || error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to claim case commissions.' })
+  }
+})
+
+app.delete('/api/cases/community/:caseId', requireAuthenticatedUser, async (req, res) => {
+  const caseId = String(req.params?.caseId || '').trim()
+  if (!isUuidLike(caseId)) {
+    res.status(400).json({ ok: false, error: 'The case ID is invalid.' })
+    return
+  }
+  try {
+    const matches = await adminRest(`cases?select=uuid,active&uuid=eq.${caseId}&community=eq.true&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}&limit=1`)
+    const ownedCase = Array.isArray(matches) ? matches[0] || null : matches
+    if (!ownedCase) {
+      res.status(404).json({ ok: false, error: 'That community case was not found.' })
+      return
+    }
+    await adminRest(`cases?uuid=eq.${caseId}&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: { active: false, updated_at: new Date().toISOString() },
+    })
+    res.json({ ok: true, deactivated: true })
+  } catch (error) {
+    console.warn('[api/cases/community] deactivate error', error?.message || error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to deactivate this case.' })
+  }
+})
+
 async function ensureCaseFairnessState(profileId) {
   const seed = createCaseFairnessSeed()
   return callRainRpc('ensure_case_fairness_state', {
