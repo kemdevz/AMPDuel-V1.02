@@ -612,7 +612,7 @@ export default function Coinflip() {
           filter: brightness(.7);
         }
         .coinflip-row-battle-icon {
-          color: #e1e4f2;
+          color: #6c7399;
           transition: color .2s ease;
         }
         .coinflip-room-row:hover .coinflip-row-battle-icon { color: #6c63ff; }
