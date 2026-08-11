@@ -2802,6 +2802,16 @@ function getCaseBattleTeamCount(playerOption) {
   return String(playerOption) === 'team-6-2v2v2' ? 3 : 2
 }
 
+function orderCaseBattlePlayersBySlot(value) {
+  return (Array.isArray(value) ? [...value] : []).sort((left, right) => {
+    const leftSlot = Number(left?.slot_index)
+    const rightSlot = Number(right?.slot_index)
+    const safeLeftSlot = Number.isInteger(leftSlot) ? leftSlot : Number.MAX_SAFE_INTEGER
+    const safeRightSlot = Number.isInteger(rightSlot) ? rightSlot : Number.MAX_SAFE_INTEGER
+    return safeLeftSlot - safeRightSlot
+  })
+}
+
 function normalizeCaseBattleModes(value) {
   const requested = Array.isArray(value) ? value : String(value || 'normal').split('_')
   const modes = [...new Set(requested.map((mode) => String(mode || '').trim().toLowerCase()).filter(Boolean))]
@@ -2930,7 +2940,10 @@ function pickCaseBattleItem(caseRow, fraction) {
 }
 
 function resolveCaseBattleOutcome(battle, serverSeed) {
-  const players = Array.isArray(battle.players) ? battle.players : []
+  // Players are appended to the JSON array in join order, which is not
+  // necessarily their selected visual/team slot. All rolls, team totals and
+  // payouts must use the canonical slot order shown to every client.
+  const players = orderCaseBattlePlayersBySlot(battle.players)
   const cases = Array.isArray(battle.cases) ? battle.cases : []
   const results = players.map((_, slotIndex) => cases.map((caseRow, roundIndex) => pickCaseBattleItem(
     caseRow,
@@ -2985,7 +2998,7 @@ function resolveCaseBattleOutcome(battle, serverSeed) {
     profile_id: String(player.profile_id),
     amount: baseShare + (remainder-- > 0 ? 1 : 0),
   }))
-  return { results, winnerIndexes, winnerProfiles, payouts, totalPot }
+  return { players, results, winnerIndexes, winnerProfiles, payouts, totalPot }
 }
 
 async function settleCaseBattle(battleId) {
@@ -3044,7 +3057,7 @@ async function startCaseBattle(battle) {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
     body: {
-      status: 'active', results: outcome.results,
+      status: 'active', players: outcome.players, results: outcome.results,
       winner_profile_id: outcome.winnerProfiles[0]?.profile_id || null,
       winner_profile_ids: outcome.winnerProfiles.map((player) => String(player.profile_id)),
       payouts: outcome.payouts, payout_value: outcome.totalPot,
