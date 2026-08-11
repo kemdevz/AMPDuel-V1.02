@@ -1738,6 +1738,7 @@ let jackpotResultExpiresAt = 0
 let jackpotLifecycleBusy = false
 let jackpotEnsurePromise = null
 let jackpotRetryAfter = 0
+let jackpotLastBroadcastSecond = null
 
 function getJackpotSeedKey() {
   const key = getJwtGameSeedEncryptionKey('jackpot')
@@ -1762,14 +1763,18 @@ function decryptJackpotServerSeed(encryptedSeed) {
 }
 
 function normalizeJackpotGame(game) {
-  if (!game) return { entrants: [], endsAt: null }
+  const serverNow = Date.now()
+  if (!game) return { entrants: [], endsAt: null, remainingMs: 0, serverNow }
   const entrants = Array.isArray(game.entrants) ? game.entrants : []
+  const endsAt = game.ends_at ? new Date(game.ends_at).getTime() : null
   return {
     id: game.id,
     status: game.status,
     entrants,
     potValue: Number(game.pot_value || 0),
-    endsAt: game.ends_at ? new Date(game.ends_at).getTime() : null,
+    endsAt,
+    remainingMs: endsAt ? Math.max(0, endsAt - serverNow) : 0,
+    serverNow,
     result: game.status === 'resolved' ? 'resolved' : null,
     winnerId: game.winner_profile_id || null,
     winnerUsername: game.winner_username || null,
@@ -1854,6 +1859,7 @@ async function settleJackpotGame(game) {
   })
   jackpotVisibleGame = settled
   jackpotResultExpiresAt = Date.now() + JACKPOT_RESULT_DISPLAY_MS
+  jackpotLastBroadcastSecond = null
   emitJackpotState(settled)
   const entrantIds = (Array.isArray(settled?.entrants) ? settled.entrants : [])
     .map((entrant) => entrant?.profileId)
@@ -1869,10 +1875,19 @@ async function runJackpotLifecycle() {
       if (Date.now() < jackpotResultExpiresAt) return
       jackpotVisibleGame = null
       jackpotResultExpiresAt = 0
+      jackpotLastBroadcastSecond = null
     }
     const game = await ensureActiveJackpotGame()
     if (game?.status === 'countdown' && new Date(game.ends_at).getTime() <= Date.now()) {
       await settleJackpotGame(game)
+    } else if (game?.status === 'countdown') {
+      const remainingSecond = Math.max(0, Math.ceil((new Date(game.ends_at).getTime() - Date.now()) / 1000))
+      if (remainingSecond !== jackpotLastBroadcastSecond) {
+        jackpotLastBroadcastSecond = remainingSecond
+        emitJackpotState(game)
+      }
+    } else {
+      jackpotLastBroadcastSecond = null
     }
     jackpotRetryAfter = 0
   } catch (error) {
@@ -1988,6 +2003,7 @@ io.on('connection', (socket) => {
         p_ends_at: new Date(Date.now() + JACKPOT_COUNTDOWN_MS).toISOString(),
       })
       jackpotVisibleGame = joined
+      jackpotLastBroadcastSecond = null
       emitJackpotState(joined)
       void emitWalletRefreshes([socket.data.identity.profileId])
       respond({ ok: true, round: normalizeJackpotGame(joined) })

@@ -33,6 +33,7 @@ export default function Jackpot() {
   const [showWinner, setShowWinner] = useState(false)
   const rollAudioRef = useRef(null)
   const settledWalletRoundRef = useRef('')
+  const countdownAnchorRef = useRef({ remainingMs: 0, receivedAt: 0 })
 
   const entrants = Array.isArray(round.entrants) ? round.entrants : []
   const potValue = entrants.reduce((sum, entrant) => sum + Number(entrant.value || 0), 0)
@@ -57,22 +58,45 @@ export default function Jackpot() {
 
   useEffect(() => {
     if (!socket) return undefined
-    const handleState = (nextRound) => setRound(nextRound || { entrants: [], endsAt: null })
+    let active = true
+    const handleState = (nextRound) => {
+      if (!active || !nextRound) return
+      setRound(nextRound)
+    }
+    const requestState = () => socket.emit('jackpot:state:get', handleState)
     socket.on('jackpot:state', handleState)
-    socket.emit('jackpot:state:get', handleState)
-    return () => socket.off('jackpot:state', handleState)
+    socket.on('connect', requestState)
+    requestState()
+    const refreshTimer = window.setInterval(requestState, 5000)
+    return () => {
+      active = false
+      window.clearInterval(refreshTimer)
+      socket.off('jackpot:state', handleState)
+      socket.off('connect', requestState)
+    }
   }, [socket])
 
   useEffect(() => {
+    const serverNow = Number(round.serverNow)
+    const endsAt = Number(round.endsAt)
+    const suppliedRemaining = Number(round.remainingMs)
+    const remainingMs = Number.isFinite(suppliedRemaining)
+      ? Math.max(0, suppliedRemaining)
+      : Number.isFinite(serverNow) && Number.isFinite(endsAt)
+        ? Math.max(0, endsAt - serverNow)
+        : 0
+    countdownAnchorRef.current = { remainingMs, receivedAt: performance.now() }
+
     const updateCountdown = () => {
-      const remaining = round.endsAt ? Math.max(0, Math.ceil((Number(round.endsAt) - Date.now()) / 1000)) : 0
+      const elapsed = Math.max(0, performance.now() - countdownAnchorRef.current.receivedAt)
+      const remaining = Math.max(0, Math.ceil((countdownAnchorRef.current.remainingMs - elapsed) / 1000))
       setSecondsLeft(remaining)
     }
     updateCountdown()
     if (!round.endsAt) return undefined
     const timer = window.setInterval(updateCountdown, 250)
     return () => window.clearInterval(timer)
-  }, [round.endsAt])
+  }, [round.endsAt, round.remainingMs, round.serverNow])
 
   useEffect(() => {
     setShowWinner(false)
@@ -519,7 +543,7 @@ export default function Jackpot() {
               </g>
             </svg>
             <div className="box-border grid aspect-square place-content-center gap-1 rounded-full p-2 [grid-area:stack]" style={{ width: '50%' }}>
-              <h1 className={`flex items-center justify-center gap-1${entrants.length ? ' text-xl md:text-2xl' : ' text-lg font-extrabold tracking-tight md:text-xl'}`}>
+              <h1 className={`flex items-center justify-center gap-1 font-extrabold tracking-tight${entrants.length ? ' text-xl md:text-2xl' : ' text-lg md:text-xl'}`}>
                 <img src="/bobux.png" alt="Bobux" className={entrants.length ? 'aspect-square w-5 md:w-6 text-[#0276FF]' : 'aspect-square w-4 md:w-5 text-[#0276FF]'} />
                 <span>{formatPotValue(potValue)}</span>
               </h1>
