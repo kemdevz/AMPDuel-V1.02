@@ -1455,6 +1455,45 @@ async function createInitialRainState() {
   }
 }
 
+function restoreRainStateFromRow(storedState) {
+  if (!storedState) return false
+  const nextRainId = String(storedState.rain_uuid || storedState.id || '')
+  if (!nextRainId) return false
+
+  activeRainId = nextRainId
+  rainUserCount = Array.isArray(storedState.users) ? storedState.users.length : 0
+  rainPool = Number(storedState.pool_amount) || INITIAL_RAIN_POOL
+  rainDiscordMessageId = storedState.discord_message_id
+    ? String(storedState.discord_message_id)
+    : null
+
+  const storedEndsAt = storedState.ends_at ? new Date(storedState.ends_at).getTime() : Number.NaN
+  const storedStartedAt = storedState.started_at ? new Date(storedState.started_at).getTime() : Number.NaN
+  const maximumEndsAt = Number.isFinite(storedStartedAt)
+    ? storedStartedAt + RAIN_DURATION_SECONDS * 1000
+    : Date.now() + RAIN_DURATION_SECONDS * 1000
+  rainEndsAt = new Date(
+    Number.isFinite(storedEndsAt)
+      ? Math.min(storedEndsAt, maximumEndsAt)
+      : maximumEndsAt,
+  ).toISOString()
+  rainSeconds = Math.max(0, Math.ceil((new Date(rainEndsAt).getTime() - Date.now()) / 1000))
+  lastUpdatedAt = Date.now()
+  return true
+}
+
+async function recoverActiveRainState() {
+  const storedState = await loadRainState()
+  if (!restoreRainStateFromRow(storedState)) return false
+  emitRainCountdown()
+  emitRainPool()
+  return true
+}
+
+function isActiveRainMissingError(error) {
+  return /active rain could not be found/i.test(String(error?.message || error || ''))
+}
+
 async function persistRainEvent(eventType, username, amount, profileId, rainId = activeRainId) {
   const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
   if (!supabaseUrl || !supabaseKey) {
@@ -1529,7 +1568,17 @@ async function settleRainPool() {
     emitRainPool()
     io.emit('rain:settled', result || {})
     return true
-  } catch {
+  } catch (error) {
+    // The settlement transaction can commit even if its HTTP response is
+    // interrupted. Re-read the authoritative active row so this instance does
+    // not keep sending the now-settled UUID to join/tip calls forever.
+    const settledRainId = String(activeRainId || '')
+    const recovered = await recoverActiveRainState().catch(() => false)
+    if (recovered && String(activeRainId) !== settledRainId) {
+      void syncActiveRainDiscordLog()
+      return true
+    }
+    console.warn('[rain] settlement failed', error?.message || error)
     return false
   } finally {
     isSettlingRain = false
@@ -1537,47 +1586,19 @@ async function settleRainPool() {
 }
 
 async function initializeRainState() {
-  const storedState = await loadRainState() || await createInitialRainState()
+  // Another server instance may create the first active row after our initial
+  // read but before our insert. Re-read after the create attempt so both
+  // instances converge on the same database-backed rain.
+  const storedState = await loadRainState()
+    || await createInitialRainState()
+    || await loadRainState()
 
   if (!storedState) {
     rainSeconds = 0
     return
   }
 
-  activeRainId = String(storedState.rain_uuid || storedState.id || '')
-  rainUserCount = Array.isArray(storedState.users) ? storedState.users.length : 0
-  const storedEndsAt = storedState.ends_at ? new Date(storedState.ends_at).getTime() : Number.NaN
-  const storedStartedAt = storedState.started_at ? new Date(storedState.started_at).getTime() : Number.NaN
-  const maximumEndsAt = Number.isFinite(storedStartedAt)
-    ? storedStartedAt + RAIN_DURATION_SECONDS * 1000
-    : Date.now() + RAIN_DURATION_SECONDS * 1000
-  rainEndsAt = new Date(
-    Number.isFinite(storedEndsAt)
-      ? Math.min(storedEndsAt, maximumEndsAt)
-      : maximumEndsAt,
-  ).toISOString()
-  rainDiscordMessageId = storedState.discord_message_id
-    ? String(storedState.discord_message_id)
-    : null
-
-  if (storedState?.countdown_seconds != null) {
-    rainSeconds = Number(storedState.countdown_seconds) || RAIN_DURATION_SECONDS
-  }
-
-  if (storedState?.pool_amount != null) {
-    rainPool = Number(storedState.pool_amount) || INITIAL_RAIN_POOL
-  }
-
-  if (rainEndsAt) {
-    rainSeconds = Math.max(0, Math.ceil((new Date(rainEndsAt).getTime() - Date.now()) / 1000))
-  } else {
-    const storedUpdatedAt = storedState?.last_updated_at
-      ? new Date(storedState.last_updated_at).getTime()
-      : Date.now()
-    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - storedUpdatedAt) / 1000))
-    rainSeconds = Math.max(0, rainSeconds - elapsedSeconds)
-    rainEndsAt = new Date(Date.now() + rainSeconds * 1000).toISOString()
-  }
+  restoreRainStateFromRow(storedState)
 
   if (rainSeconds <= 0) {
     rainSeconds = 0
@@ -1642,14 +1663,30 @@ async function processRainTip({ profileId, username, amount }) {
   if (!Number.isSafeInteger(normalizedAmount) || normalizedAmount <= 0 || normalizedAmount > 2_147_483_647) {
     throw new Error('Enter a valid whole-number tip amount.')
   }
-  if (!activeRainId) throw new Error('The active rain could not be found.')
+  if (!activeRainId) {
+    const recovered = await recoverActiveRainState().catch(() => false)
+    if (!recovered) throw new Error('The active rain could not be found.')
+  }
 
-  const targetRainId = activeRainId
-  const result = await callRainRpc('tip_rain', {
-    p_state_id: targetRainId,
-    p_profile_id: normalizedProfileId,
-    p_amount: normalizedAmount,
-  })
+  let targetRainId = activeRainId
+  let result
+  try {
+    result = await callRainRpc('tip_rain', {
+      p_state_id: targetRainId,
+      p_profile_id: normalizedProfileId,
+      p_amount: normalizedAmount,
+    })
+  } catch (error) {
+    if (!isActiveRainMissingError(error)) throw error
+    const recovered = await recoverActiveRainState()
+    if (!recovered || String(activeRainId) === String(targetRainId)) throw error
+    targetRainId = activeRainId
+    result = await callRainRpc('tip_rain', {
+      p_state_id: targetRainId,
+      p_profile_id: normalizedProfileId,
+      p_amount: normalizedAmount,
+    })
+  }
 
   if (String(activeRainId) === String(result?.rain_uuid || targetRainId)) {
     rainPool = Number(result?.pool_amount ?? rainPool)
@@ -2621,6 +2658,12 @@ app.post('/api/rain/join', express.json({ limit: '24kb' }), requireAuthenticated
     return
   }
 
+  // A completed settlement can leave this process with an expired countdown
+  // if the response was lost. Consult Supabase before rejecting the join.
+  if (!activeRainId || rainSeconds <= 0) {
+    await recoverActiveRainState().catch(() => false)
+  }
+
   if (rainSeconds <= 0 || rainSeconds > RAIN_JOIN_WINDOW_SECONDS) {
     res.status(409).json({ ok: false, error: 'The rain is not accepting entries right now.' })
     return
@@ -2635,21 +2678,35 @@ app.post('/api/rain/join', express.json({ limit: '24kb' }), requireAuthenticated
   }
 
   try {
-    const baseJoinPayload = {
-      p_state_id: activeRainId,
-      p_profile_id: profileId,
-      p_join_window_seconds: RAIN_JOIN_WINDOW_SECONDS,
+    const joinCurrentRain = async () => {
+      const baseJoinPayload = {
+        p_state_id: activeRainId,
+        p_profile_id: profileId,
+        p_join_window_seconds: RAIN_JOIN_WINDOW_SECONDS,
+      }
+      try {
+        return await callRainRpc('join_rain', {
+          ...baseJoinPayload,
+          p_roblox_id: req.identity.robloxId || null,
+        })
+      } catch (error) {
+        if (!isMissingRainRpcSignature(error, 'join_rain')) throw error
+        return callRainRpc('join_rain', baseJoinPayload)
+      }
     }
-    let result
 
+    const attemptedRainId = String(activeRainId || '')
+    let result
     try {
-      result = await callRainRpc('join_rain', {
-        ...baseJoinPayload,
-        p_roblox_id: req.identity.robloxId || null,
-      })
+      result = await joinCurrentRain()
     } catch (error) {
-      if (!isMissingRainRpcSignature(error, 'join_rain')) throw error
-      result = await callRainRpc('join_rain', baseJoinPayload)
+      if (!isActiveRainMissingError(error)) throw error
+      const recovered = await recoverActiveRainState()
+      if (!recovered || String(activeRainId) === attemptedRainId) throw error
+      if (rainSeconds <= 0 || rainSeconds > RAIN_JOIN_WINDOW_SECONDS) {
+        throw new Error('The rain is not accepting entries right now.')
+      }
+      result = await joinCurrentRain()
     }
 
     const participant = result?.participant
@@ -2667,7 +2724,7 @@ app.post('/api/rain/join', express.json({ limit: '24kb' }), requireAuthenticated
     })
   } catch (error) {
     const message = error?.message || 'Unable to join the rain.'
-    const status = /not accepting|signed in|profile could not/i.test(message) ? 409 : 500
+    const status = /not accepting|signed in|profile could not|active rain could not/i.test(message) ? 409 : 500
     res.status(status).json({ ok: false, error: message })
   }
 })
