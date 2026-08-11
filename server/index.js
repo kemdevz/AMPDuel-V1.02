@@ -3801,7 +3801,7 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
   try {
     const [profile, existingCases, catalogItems] = await Promise.all([
       loadProfileById(req.identity.profileId),
-      adminRest('cases?select=uuid,name&limit=5000'),
+      adminRest('cases?select=uuid,name&active=eq.true&limit=5000'),
       adminRest(`items?select=id,name,value,image_url,type&id=in.(${itemIds.join(',')})`),
     ])
     if (!profile) throw new Error('Your user profile could not be found.')
@@ -3810,7 +3810,7 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
       return
     }
     if ((existingCases || []).some((item) => getCommunityCaseSlug(item.name) === requestedSlug)) {
-      res.status(409).json({ ok: false, error: 'A case with that name already exists.' })
+      res.status(409).json({ ok: false, error: 'An active case with that name already exists.' })
       return
     }
     if (!Array.isArray(catalogItems) || catalogItems.length !== itemIds.length) {
@@ -3896,14 +3896,33 @@ app.delete('/api/cases/community/:caseId', requireAuthenticatedUser, async (req,
       res.status(404).json({ ok: false, error: 'That community case was not found.' })
       return
     }
+
+    if (ownedCase.active) {
+      const updated = await adminRest(
+        `cases?uuid=eq.${caseId}&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}&active=eq.true&select=*`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: { active: false },
+        },
+      )
+      const deactivatedCase = Array.isArray(updated) ? updated[0] || null : updated
+      if (!deactivatedCase) {
+        res.status(409).json({ ok: false, error: 'That case is no longer active.' })
+        return
+      }
+      res.json({ ok: true, deactivated: true, case: deactivatedCase })
+      return
+    }
+
     await adminRest(`cases?uuid=eq.${caseId}&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}`, {
       method: 'DELETE',
       headers: { Prefer: 'return=minimal' },
     })
     res.json({ ok: true, deleted: true })
   } catch (error) {
-    const message = error?.message || 'Unable to delete this case.'
-    console.warn('[api/cases/community] delete error', message)
+    const message = error?.message || 'Unable to update this case.'
+    console.warn('[api/cases/community] update/delete error', message)
     res.status(500).json({ ok: false, error: message })
   }
 })

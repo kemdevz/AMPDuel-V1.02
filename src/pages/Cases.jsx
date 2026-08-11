@@ -386,7 +386,8 @@ function MyCaseCard({ item, onPreview, onOpen, onDelete, deleting }) {
           <button
             type="button"
             className="your-case-delete"
-            aria-label={`Delete ${item.name}`}
+            aria-label={`${item.active ? "Deactivate" : "Delete"} ${item.name}`}
+            title={item.active ? "Deactivate case" : "Delete case"}
             disabled={deleting}
             onClick={(event) => {
               event.stopPropagation();
@@ -797,21 +798,39 @@ export default function CasesPage({ caseSlug = null }) {
 
   const deleteCase = async (item) => {
     if (!user || deletingCaseId) return;
-    if (!window.confirm(`Delete ${item.name}? This cannot be undone.`)) return;
+    const isActive = Boolean(item.active);
+    const confirmation = isActive
+      ? `Deactivate ${item.name}? It will move to your inactive cases.`
+      : `Delete ${item.name}? This cannot be undone.`;
+    if (!window.confirm(confirmation)) return;
     setDeletingCaseId(item.id);
     try {
-      await apiRequest(`/api/cases/community/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-      setCases((current) => current.filter((entry) => entry.id !== item.id));
-      setOwnedCaseRows((current) => current.filter((entry) => entry.id !== item.id));
-      notifications.success("Case deleted.");
+      const response = await apiRequest(`/api/cases/community/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+      if (response?.deactivated && response?.case) {
+        const deactivatedCase = normalizeCase(response.case);
+        const applyDeactivatedCase = (current) => current.map((entry) => entry.id === item.id ? deactivatedCase : entry);
+        setCases(applyDeactivatedCase);
+        setOwnedCaseRows(applyDeactivatedCase);
+        notifications.success("Case deactivated.");
+      } else {
+        setCases((current) => current.filter((entry) => entry.id !== item.id));
+        setOwnedCaseRows((current) => current.filter((entry) => entry.id !== item.id));
+        notifications.success("Case deleted.");
+      }
     } catch (error) {
-      notifications.error(error?.message || "Unable to delete this case.");
+      notifications.error(error?.message || `Unable to ${isActive ? "deactivate" : "delete"} this case.`);
+    } finally {
+      setDeletingCaseId("");
     }
-    setDeletingCaseId("");
   };
 
   const activeCase = useMemo(
-    () => allCases.find((item) => item.slug === String(caseSlug || "").toLowerCase()) || null,
+    () => {
+      const requestedSlug = String(caseSlug || "").toLowerCase();
+      return allCases.find((item) => item.active && item.slug === requestedSlug)
+        || allCases.find((item) => item.slug === requestedSlug)
+        || null;
+    },
     [caseSlug, allCases],
   );
 
