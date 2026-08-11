@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Check,
@@ -93,9 +93,15 @@ const PLAYER_OPTIONS = [
   { id: "ffa-2", family: "ffa", label: "1v1", count: 2, color: "#6c63ff" },
   { id: "ffa-3", family: "ffa", label: "1v1v1", count: 3, color: "#6c63ff" },
   { id: "ffa-4", family: "ffa", label: "1v1v1v1", count: 4, color: "#6c63ff" },
-  { id: "team-4", family: "team", label: "2v2", count: 4, color: "#3a89eb" },
-  { id: "team-6", family: "team", label: "3v3", count: 6, color: "#3a89eb" },
+  { id: "team-4", family: "team", label: "2v2", count: 4, teams: 2, color: "#3a89eb" },
+  { id: "team-6", family: "team", label: "3v3", count: 6, teams: 2, color: "#3a89eb" },
+  { id: "team-6-2v2v2", family: "team", label: "2v2v2", count: 6, teams: 3, color: "#3a89eb" },
 ];
+
+function getBattleTeamCount(playerOption) {
+  if (playerOption?.family !== "team") return 0;
+  return Math.max(2, Number(playerOption.teams || 2));
+}
 
 const MODE_OPTIONS = [
   {
@@ -311,10 +317,14 @@ function PlayerSlotIcons({ option, active }) {
   const icons = [];
 
   if (option.family === "team") {
-    const teamSize = option.count / 2;
-    for (let index = 0; index < teamSize; index += 1) icons.push(<PlayerGlyph key={`left-${index}`} />);
-    icons.push(<CrossedSwordsGlyph key="versus" />);
-    for (let index = 0; index < teamSize; index += 1) icons.push(<PlayerGlyph key={`right-${index}`} />);
+    const teamCount = getBattleTeamCount(option);
+    const teamSize = option.count / teamCount;
+    for (let teamIndex = 0; teamIndex < teamCount; teamIndex += 1) {
+      if (teamIndex > 0) icons.push(<CrossedSwordsGlyph key={`versus-${teamIndex}`} />);
+      for (let index = 0; index < teamSize; index += 1) {
+        icons.push(<PlayerGlyph key={`team-${teamIndex}-${index}`} />);
+      }
+    }
   } else {
     for (let index = 0; index < option.count; index += 1) {
       if (option.family === "ffa" && index > 0) icons.push(<CrossedSwordsGlyph key={`s${index}`} />);
@@ -527,10 +537,11 @@ const BATTLE_STYLES = String.raw`
   .bb-round-badge { padding: 4px 10px; color: rgba(225,228,242,.85); font-size: 14px; font-weight: 600; }
   .bb-row-players { position: relative; display: flex; width: 220px; min-width: 220px; align-items: center; justify-content: center; gap: 10px; }
   .bb-row-avatar { display: inline-flex; width: 38px; height: 38px; flex: 0 0 38px; align-items: center; justify-content: center; overflow: hidden; padding: 0; border: 2px solid rgba(255,255,255,.08); border-radius: 999px; background: #1c1f2e; }
-  .bb-row-players-six { width: 308px; min-width: 308px; }
+  .bb-row-players-six { width: 330px; min-width: 330px; gap: 7px; }
   .bb-row-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
   .bb-row-avatar-loading { display: block; width: 100%; height: 100%; }
   .bb-vs { position: absolute; top: 50%; left: 50%; padding: 5px; color: rgba(225,228,242,.78); font-size: 11px; font-weight: 900; letter-spacing: .9px; transform: translate(-50%,-50%); }
+  .bb-vs-inline { position: static; flex: 0 0 auto; padding: 2px 0; transform: none; }
   .bb-row-player-before-vs { margin-right: 15px; }
   .bb-row-player-after-vs { margin-left: 15px; }
   .bb-row-mode { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
@@ -1507,7 +1518,7 @@ const BATTLE_STYLES = String.raw`
     .bb-list { padding: 10px; }
     .bb-row-players { width: 210px; min-width: 210px; gap: 8px; }
     .bb-row-avatar { width: 34px; height: 34px; flex-basis: 34px; }
-    .bb-row-players-six { width: 240px; min-width: 240px; gap: 2px; }
+    .bb-row-players-six { width: 278px; min-width: 278px; gap: 3px; }
     .bb-row-players-six .bb-row-player-before-vs { margin-right: 6px; }
     .bb-row-players-six .bb-row-player-after-vs { margin-left: 6px; }
     .bb-picker-footer { align-items: stretch; flex-direction: column; }
@@ -2192,6 +2203,8 @@ function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen 
     && !viewerIsCreator
     && !viewerAlreadyJoined;
   const shownCases = battle.cases.slice(0, 20);
+  const teamCount = getBattleTeamCount(battle.playerOption);
+  const teamSize = teamCount ? battle.players.length / teamCount : 0;
   const row = (
     <article className="bb-row" role="button" tabIndex={0} onClick={onView} onKeyDown={(event) => event.key === "Enter" && onView()}>
         <div className="bb-row-left">
@@ -2201,36 +2214,37 @@ function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen 
             </div>
             <div className={`bb-row-players${battle.players.length === 6 ? " bb-row-players-six" : ""}`}>
               {battle.players.map((player, index) => (
-                <button
-                  type="button"
-                  className={`bb-row-avatar${battle.versus && index === battle.players.length / 2 - 1 ? " bb-row-player-before-vs" : ""}${battle.versus && index === battle.players.length / 2 ? " bb-row-player-after-vs" : ""}`}
-                  disabled={!player || player.type !== "user"}
-                  aria-label={player?.type === "user" ? `Open ${player.name || "player"} profile` : undefined}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (player?.type === "user") onProfileOpen?.(player);
-                  }}
-                  key={player?.id || `open-${index}`}
-                >
-                  {player?.avatar ? (
-                    <img loading="lazy" src={player.avatar} alt={player.name || "Player"} draggable={false} />
-                  ) : (
-                    <svg viewBox="0 0 64 64" className="bb-row-avatar-loading" aria-label="Waiting for player" role="img">
-                      <circle cx="32" cy="32" r="32" fill="#1c1f2e" />
-                      <circle cx="22" cy="32" r="4" fill="#6C63FF">
-                        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0s" />
-                      </circle>
-                      <circle cx="32" cy="32" r="4" fill="#6C63FF">
-                        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.4s" />
-                      </circle>
-                      <circle cx="42" cy="32" r="4" fill="#6C63FF">
-                        <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.8s" />
-                      </circle>
-                    </svg>
-                  )}
-                </button>
+                <Fragment key={player?.id || `open-${index}`}>
+                  {battle.versus && index > 0 && index % teamSize === 0 && <span className="bb-vs bb-vs-inline">VS</span>}
+                  <button
+                    type="button"
+                    className="bb-row-avatar"
+                    disabled={!player || player.type !== "user"}
+                    aria-label={player?.type === "user" ? `Open ${player.name || "player"} profile` : undefined}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (player?.type === "user") onProfileOpen?.(player);
+                    }}
+                  >
+                    {player?.avatar ? (
+                      <img loading="lazy" src={player.avatar} alt={player.name || "Player"} draggable={false} />
+                    ) : (
+                      <svg viewBox="0 0 64 64" className="bb-row-avatar-loading" aria-label="Waiting for player" role="img">
+                        <circle cx="32" cy="32" r="32" fill="#1c1f2e" />
+                        <circle cx="22" cy="32" r="4" fill="#6C63FF">
+                          <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0s" />
+                        </circle>
+                        <circle cx="32" cy="32" r="4" fill="#6C63FF">
+                          <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.4s" />
+                        </circle>
+                        <circle cx="42" cy="32" r="4" fill="#6C63FF">
+                          <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.8s" />
+                        </circle>
+                      </svg>
+                    )}
+                  </button>
+                </Fragment>
               ))}
-              {battle.versus && <span className="bb-vs">VS</span>}
             </div>
             <div className="bb-row-mode">
               {battle.modes.map((mode) => <BattleModeIcon type={mode} key={mode} />)}
@@ -2882,11 +2896,11 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       ? displayedResults.map((items) => Number(items[items.length - 1]?.value || 0))
       : totals;
     if (battle.playerOption.family === "team") {
-      const teamSize = battle.players.length / 2;
-      const teamTotals = [
-        scores.slice(0, teamSize).reduce((sum, value) => sum + value, 0),
-        scores.slice(teamSize).reduce((sum, value) => sum + value, 0),
-      ];
+      const teamCount = getBattleTeamCount(battle.playerOption);
+      const teamSize = battle.players.length / teamCount;
+      const teamTotals = Array.from({ length: teamCount }, (_, teamIndex) => (
+        scores.slice(teamIndex * teamSize, (teamIndex + 1) * teamSize).reduce((sum, value) => sum + value, 0)
+      ));
       const winningTeamTotal = hasWildMode ? Math.min(...teamTotals) : Math.max(...teamTotals);
       winnerIndices = teamTotals.flatMap((value, teamIndex) => (
         value === winningTeamTotal
@@ -2901,7 +2915,8 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   }
   const winner = battle.players[winnerIndex] || battle.players[0];
   const winners = winnerIndices.map((index) => battle.players[index]).filter(Boolean);
-  const teamSize = battle.playerOption.family === "team" ? battle.players.length / 2 : 0;
+  const teamCount = getBattleTeamCount(battle.playerOption);
+  const teamSize = teamCount ? battle.players.length / teamCount : 0;
   const isTeamWin = battle.phase === "finished" && teamSize > 0 && winners.length === teamSize;
   const isTeamTie = battle.phase === "finished" && teamSize > 0 && winners.length > teamSize;
   const isIndividualTie = battle.phase === "finished" && teamSize === 0 && winners.length > 1;
@@ -3171,16 +3186,19 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                 </div>
               ))}
             </div>
-            {battle.playerOption.family === "ffa" && battle.players.length > 1 && (
+            {battle.players.length > 1 && (
               <div className="bb-vs-overlay" aria-hidden="true">
-                {battle.players.slice(0, -1).map((_, index) => (
+                {(battle.playerOption.family === "ffa"
+                  ? battle.players.slice(0, -1).map((_, index) => index + 1)
+                  : Array.from({ length: Math.max(0, teamCount - 1) }, (_, index) => (index + 1) * teamSize)
+                ).map((boundary) => (
                 <div
                   className="bb-vs-badge"
                   style={{
-                    left: `calc(${((index + 1) / battle.players.length) * 100}% + ${1 - (2 * (index + 1)) / battle.players.length}px)`,
+                    left: `calc(${(boundary / battle.players.length) * 100}% + ${1 - (2 * boundary) / battle.players.length}px)`,
                     top: battle.results.some((items) => items.length > 0) ? "98.5px" : "88px",
                   }}
-                  key={index}
+                  key={boundary}
                 >
                     <span className="bb-vs-icon"><BattleVersusIcon /></span>
                   </div>

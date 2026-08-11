@@ -2794,8 +2794,13 @@ const CASE_BATTLE_PLAYER_OPTIONS = new Map([
   ['ffa-4', 4],
   ['team-4', 4],
   ['team-6', 6],
+  ['team-6-2v2v2', 6],
 ])
 const CASE_BATTLE_MODES = new Set(['normal', 'terminal', 'wild'])
+
+function getCaseBattleTeamCount(playerOption) {
+  return String(playerOption) === 'team-6-2v2v2' ? 3 : 2
+}
 
 function normalizeCaseBattleModes(value) {
   const requested = Array.isArray(value) ? value : String(value || 'normal').split('_')
@@ -2953,11 +2958,13 @@ function resolveCaseBattleOutcome(battle, serverSeed) {
     winnerIndexes = [winnerIndex]
   } else if (String(battle.player_option).startsWith('team-')) {
     const score = (index) => terminal ? Number(results[index]?.at(-1)?.value || 0) : totals[index]
-    const teamSize = players.length / 2
-    const teamTotals = [
-      players.slice(0, teamSize).reduce((sum, _, index) => sum + score(index), 0),
-      players.slice(teamSize).reduce((sum, _, index) => sum + score(index + teamSize), 0),
-    ]
+    const teamCount = getCaseBattleTeamCount(battle.player_option)
+    const teamSize = players.length / teamCount
+    const teamTotals = Array.from({ length: teamCount }, (_, teamIndex) => (
+      players
+        .slice(teamIndex * teamSize, (teamIndex + 1) * teamSize)
+        .reduce((sum, _, index) => sum + score(teamIndex * teamSize + index), 0)
+    ))
     const winningValue = wild ? Math.min(...teamTotals) : Math.max(...teamTotals)
     const winningTeams = teamTotals
       .map((value, index) => value === winningValue ? index : -1)
