@@ -12,6 +12,8 @@ import { formatPriceValue } from "../Utils/FormatPriceValues";
 
 const COIN_ICON = "/bobux.png";
 const TABS = ["Official", "Community", "Your Cases"];
+const MAX_COMMUNITY_CASE_PRICE = 1_000_000;
+const MIN_COMMUNITY_CASE_CREATOR_PLAYED = 5_000_000;
 const CASE_IMAGE_OPTIONS = [
   { id: "case-image-1", label: "Image 1", imageUrl: "" },
   { id: "case-image-2", label: "Image 2", imageUrl: "" },
@@ -20,6 +22,10 @@ const CASE_IMAGE_OPTIONS = [
   { id: "case-image-5", label: "Image 5", imageUrl: "" },
 ];
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
+
+function isCommunityCaseCatalogItemAllowed(item) {
+  return Number(item?.value) > 0 && !/\b(?:booth|enchant)\b/i.test(String(item?.name || ""));
+}
 
 function getItemsWithRollRanges(items) {
   let nextRoll = 0;
@@ -415,6 +421,7 @@ function MyCaseCard({ item, onPreview, onOpen, onDelete, deleting }) {
 }
 
 function CaseCreateView({ onBack, onCreated }) {
+  const user = useAuth((state) => state.user);
   const [selectedArtworkId, setSelectedArtworkId] = useState("");
   const [caseName, setCaseName] = useState("");
   const [commission, setCommission] = useState(1.5);
@@ -464,6 +471,9 @@ function CaseCreateView({ onBack, onCreated }) {
           const { data, error } = await supabase
             .from("items")
             .select("id,name,value,image_url,type")
+            .gt("value", 0)
+            .not("name", "ilike", "% Booth")
+            .not("name", "ilike", "% Enchant")
             .order("value", { ascending: false })
             .order("id", { ascending: true })
             .range(offset, offset + pageSize - 1);
@@ -475,7 +485,7 @@ function CaseCreateView({ onBack, onCreated }) {
         }
 
         if (cancelled) return;
-        setCatalogItems(rows.map((item) => ({
+        setCatalogItems(rows.filter(isCommunityCaseCatalogItemAllowed).map((item) => ({
           id: String(item.id),
           name: String(item.name || "Unknown item"),
           image: item.image_url || "",
@@ -542,13 +552,16 @@ function CaseCreateView({ onBack, onCreated }) {
     : 0;
   const casePrice = expectedValue > 0 ? Math.ceil(expectedValue / (1 - commissionBps / 10000)) : 0;
   const commissionPerOpen = Math.floor(casePrice * commissionBps / 10000);
+  const meetsPlayedRequirement = Number(user?.played || 0) >= MIN_COMMUNITY_CASE_CREATOR_PLAYED;
   const canCreate = Boolean(
     selectedArtworkId
     && caseName.trim()
-    && selectedItems.length
+    && selectedItems.length >= 2
     && Math.abs(totalChance - 100) < 0.000001
     && totalTickets === 100000
-    && casePrice > 0,
+    && casePrice > 0
+    && casePrice <= MAX_COMMUNITY_CASE_PRICE
+    && meetsPlayedRequirement
   );
 
   const createCase = async () => {
@@ -612,7 +625,7 @@ function CaseCreateView({ onBack, onCreated }) {
         <section className="case-create-step"><div className="case-create-head"><div className="case-create-head-left"><div className="case-create-badge"><span>1</span></div><span className="case-create-title">Case Image</span></div></div><div className="case-create-art-row">{CASE_IMAGE_OPTIONS.map((option) => { const selected = selectedArtworkId === option.id; return <button type="button" className={`case-create-art${selected ? " is-active" : ""}`} aria-label={`Select ${option.label}`} aria-pressed={selected} onClick={() => setSelectedArtworkId(option.id)} key={option.id}>{option.imageUrl ? <img src={option.imageUrl} alt="" loading="lazy" decoding="async" /> : null}</button>; })}</div></section>
         <section className="case-create-step case-create-step-row"><div className="case-create-head"><div className="case-create-head-left"><div className="case-create-badge"><span>2</span></div><span className="case-create-title">Name Your Case</span></div></div><div className="case-create-name-field"><input type="text" className="case-create-input" placeholder="Enter case name..." maxLength={23} value={caseName} onChange={(event) => setCaseName(event.target.value)} /><span className="case-create-count">{caseName.length}/23</span></div></section>
         <section className="case-create-step"><div className="case-create-head"><div className="case-create-head-left"><div className="case-create-badge"><span>3</span></div><span className="case-create-title">Select item odds</span></div><div className="case-create-head-right">{selectedItems.length ? <><span className={`case-create-odds-total${Math.abs(totalChance - 100) < .001 ? " is-complete" : ""}`}>{totalChance.toFixed(2)}% / 100%</span><button type="button" className="case-create-distribute" onClick={distributeChances}>Auto-distribute</button></> : null}<button type="button" className="case-create-primary case-create-add" onClick={() => setPickerOpen(true)}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 3a1 1 0 10-2 0v8H3a1 1 0 100 2h8v8a1 1 0 102 0v-8h8a1 1 0 100-2h-8V3z" /></svg>Add Items</button></div></div>{selectedItems.length ? <div className="case-create-items-list">{selectedItems.map((item) => <div className="case-create-item-row" key={item.id}><div className="case-create-item-card"><div className="case-create-item-image-wrap">{item.image ? <><img src={item.image} alt={item.name} className="case-create-item-image" loading="eager" /><img src={item.image} alt="" className="case-create-item-blur" loading="eager" /></> : null}</div><div className="case-create-item-details"><p className="case-create-item-name" title={item.name}>{item.name}</p><div className="case-create-item-value"><img src={COIN_ICON} alt="" /><span>{formatPriceValue(item.price, { compactNumbers: false })}</span></div></div></div><div className="case-create-chance-wrap"><input type="number" min="0.01" max="100" step="0.01" placeholder="0.00" className="case-create-chance" value={item.chance} onChange={(event) => updateItemChance(item.id, event.target.value)} /><span className="case-create-chance-suffix">%</span></div><button type="button" className="case-create-remove" aria-label={`Remove ${item.name}`} onClick={() => removeSelectedItem(item.id)}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></button></div>)}</div> : <div className="case-create-empty"><span>No items selected</span></div>}</section>
-        <section className="case-create-step"><div className="case-create-head"><div className="case-create-head-left"><div className="case-create-badge"><span>4</span></div><span className="case-create-title">Finish case creation</span></div></div><div className="case-create-commission"><label className="case-create-label">Commission<span className="case-create-hint"> (0–3%)</span></label><div className="case-create-commission-row"><input type="range" min="0" max="3" step="0.5" className="case-create-slider" value={commission} onChange={(event) => setCommission(Number(event.target.value))} /><div className="case-create-commission-value">{commission.toFixed(1)}%</div></div></div><div className="case-create-bars"><div className="case-create-price-card"><span className="case-create-price-label">CASE PRICE</span><div className="case-create-total"><img src={COIN_ICON} alt="" />{formatPriceValue(casePrice, { compactNumbers: false })}</div></div><div className="case-create-earn-card"><span className="case-create-earn-label">YOU EARN <span className="case-create-per">/ UNBOX</span></span><div className="case-create-total"><img src={COIN_ICON} alt="" />{formatPriceValue(commissionPerOpen, { compactNumbers: false })}</div></div></div>{createError ? <div role="alert" style={{ color: "#ff7b87", fontSize: 13, fontWeight: 600 }}>{createError}</div> : null}<button type="button" className="case-create-primary case-create-submit" disabled={!canCreate || creating} onClick={createCase}>{creating ? "Creating..." : "Create Case"}</button></section>
+        <section className="case-create-step"><div className="case-create-head"><div className="case-create-head-left"><div className="case-create-badge"><span>4</span></div><span className="case-create-title">Finish case creation</span></div></div><div className="case-create-commission"><label className="case-create-label">Commission<span className="case-create-hint"> (0–3%)</span></label><div className="case-create-commission-row"><input type="range" min="0" max="3" step="0.5" className="case-create-slider" value={commission} onChange={(event) => setCommission(Number(event.target.value))} /><div className="case-create-commission-value">{commission.toFixed(1)}%</div></div></div><div className="case-create-bars"><div className="case-create-price-card"><span className="case-create-price-label">CASE PRICE</span><div className="case-create-total"><img src={COIN_ICON} alt="" />{formatPriceValue(casePrice, { compactNumbers: false })}</div></div><div className="case-create-earn-card"><span className="case-create-earn-label">YOU EARN <span className="case-create-per">/ UNBOX</span></span><div className="case-create-total"><img src={COIN_ICON} alt="" />{formatPriceValue(commissionPerOpen, { compactNumbers: false })}</div></div></div>{!meetsPlayedRequirement ? <div role="alert" style={{ color: "#ff7b87", fontSize: 13, fontWeight: 600 }}>You need at least 5,000,000 Coins played to create a case.</div> : selectedItems.length === 1 ? <div role="alert" style={{ color: "#ff7b87", fontSize: 13, fontWeight: 600 }}>Select at least 2 items.</div> : casePrice > MAX_COMMUNITY_CASE_PRICE ? <div role="alert" style={{ color: "#ff7b87", fontSize: 13, fontWeight: 600 }}>Maximum case price is 1,000,000 Coins.</div> : createError ? <div role="alert" style={{ color: "#ff7b87", fontSize: 13, fontWeight: 600 }}>{createError}</div> : null}<button type="button" className="case-create-primary case-create-submit" disabled={!canCreate || creating} onClick={createCase}>{creating ? "Creating..." : "Create Case"}</button></section>
       </div>
       {pickerOpen && createPortal(
         <div className={`case-picker-overlay${pickerClosing ? " is-closing" : ""}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closePicker(); }}>
@@ -633,7 +646,7 @@ function CaseCreateView({ onBack, onCreated }) {
               }}
             >
               {pickerLoading ? (
-                <div className="case-picker-empty"><strong>Loading items...</strong><span>Fetching the Supabase item catalog.</span></div>
+                <div className="case-picker-empty"><strong>Loading items...</strong></div>
               ) : pickerError ? (
                 <div className="case-picker-empty"><strong>Unable to load items</strong><span>{pickerError}</span></div>
               ) : pickerItems.length ? (
@@ -786,10 +799,11 @@ export default function CasesPage({ caseSlug = null }) {
     setDeletingCaseId(item.id);
     try {
       await apiRequest(`/api/cases/community/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-      setOwnedCaseRows((current) => current.map((entry) => entry.id === item.id ? { ...entry, active: false } : entry));
-      notifications.success("Case deactivated.");
+      setCases((current) => current.filter((entry) => entry.id !== item.id));
+      setOwnedCaseRows((current) => current.filter((entry) => entry.id !== item.id));
+      notifications.success("Case deleted.");
     } catch (error) {
-      notifications.error(error?.message || "Unable to deactivate this case.");
+      notifications.error(error?.message || "Unable to delete this case.");
     }
     setDeletingCaseId("");
   };
@@ -842,7 +856,7 @@ export default function CasesPage({ caseSlug = null }) {
         .your-cases-stat{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:80px}
         .your-cases-stat-label{font-size:10px;font-weight:700;color:#4a5278;text-transform:uppercase;letter-spacing:.6px}
         .your-cases-stat-value{font-size:16px;font-weight:700;color:#e1e4f2;display:flex;align-items:center;gap:5px}
-        .your-cases-stat-value img{width:13px;height:13px;object-fit:contain}.your-cases-divider{width:1px;height:32px;background:#1e2235;flex-shrink:0;margin:0 8px}
+        .your-cases-stat-value img{width:13px;height:13px;object-fit:contain}.your-cases-stat-value.is-claimable{color:#22c55e}.your-cases-divider{width:1px;height:32px;background:#1e2235;flex-shrink:0;margin:0 8px}
         .cases-category-tabs{display:flex;width:fit-content;flex-shrink:0;gap:4px;padding:4px;border-radius:8px;background:#131520}
         .cases-category-tab{height:34px;padding:0 16px;border:0;border-radius:6px;background:transparent;color:#6c7399;font-family:Poppins,sans-serif;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s ease,color .15s ease,transform .1s ease}.cases-category-tab:hover{color:#c7cce2;background:#1c1f2e}.cases-category-tab:active{transform:scale(.97)}.cases-category-tab.is-active{background:#2a2e44;color:#e1e4f2}.cases-category-tab:focus-visible{outline:2px solid #8079ff;outline-offset:2px}
         .cases-search-wrap{position:relative;display:flex;min-width:0}.cases-search-input{width:300px;height:40px;box-sizing:border-box;padding:10px 18px 10px 40px;border:2px solid #323240;border-radius:5px;background:#1c1f2e;box-shadow:0 10px 7.8px rgba(0,0,0,.15);color:#fff;font-family:Poppins,sans-serif;font-size:.9rem;opacity:.9;outline:none}.cases-search-input::placeholder{color:#cbd5e1}.cases-search-input:focus{border-color:#45455a}.cases-sort-button{width:40px;height:40px;min-width:40px;padding:0;border:0;border-radius:6px;background:#20222f;color:#e1e4f2;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;flex-shrink:0}.cases-sort-button:hover{background:#2a2e44}.cases-sort-button:active{background:#32364d}.cases-sort-button:focus-visible{outline:2px solid #8079ff;outline-offset:2px}
@@ -1386,7 +1400,7 @@ export default function CasesPage({ caseSlug = null }) {
                       <span className="your-cases-divider" aria-hidden="true" />
                       <div className="your-cases-stat"><span className="your-cases-stat-label">Total Earned</span><span className="your-cases-stat-value"><img src={COIN_ICON} alt="" />{formatPriceValue(yourCasesStats.earned, { compactNumbers: false })}</span></div>
                       <span className="your-cases-divider" aria-hidden="true" />
-                      <div className="your-cases-stat"><span className="your-cases-stat-label">Claimable</span><span className="your-cases-stat-value"><img src={COIN_ICON} alt="" />{formatPriceValue(yourCasesStats.claimable, { compactNumbers: false })}</span></div>
+                      <div className="your-cases-stat"><span className="your-cases-stat-label">Claimable</span><span className="your-cases-stat-value is-claimable"><img src={COIN_ICON} alt="" />{formatPriceValue(yourCasesStats.claimable, { compactNumbers: false })}</span></div>
                       <span className="your-cases-divider" aria-hidden="true" />
                       <button type="button" className="your-cases-create" disabled={claimingCommission || yourCasesStats.claimable <= 0} onClick={claimCommissions}>{claimingCommission ? "Claiming..." : "Claim"}</button>
                       <button type="button" className="your-cases-create" onClick={() => navigate("/cases/create")}>Create Case</button>

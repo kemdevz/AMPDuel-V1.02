@@ -3451,8 +3451,11 @@ app.post('/api/case-battles/:battleId/cancel', express.json({ limit: '8kb' }), r
   }
 })
 
+const COMMUNITY_CASE_MIN_ITEMS = 2
 const COMMUNITY_CASE_MAX_ITEMS = 50
 const COMMUNITY_CASE_MAX_COMMISSION_BPS = 300
+const COMMUNITY_CASE_MAX_PRICE = 1_000_000
+const COMMUNITY_CASE_MIN_PLAYED = 5_000_000
 const CASE_ROLL_TICKETS = 100_000
 
 function getCommunityCaseSlug(name) {
@@ -3465,6 +3468,10 @@ function getCommunityCaseSlug(name) {
     .replace(/^-+|-+$/g, '')
 }
 
+function isCommunityCaseCatalogItemAllowed(item) {
+  return Number(item?.value) > 0 && !/\b(?:booth|enchant)\b/i.test(String(item?.name || ''))
+}
+
 function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps) {
   const catalogById = new Map(catalogItems.map((item) => [String(item.id), item]))
   let nextRoll = 0
@@ -3473,7 +3480,9 @@ function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps
   const items = submittedItems.map((submittedItem) => {
     const itemId = String(submittedItem?.item_id || '').trim()
     const catalogItem = catalogById.get(itemId)
-    if (!catalogItem) throw new Error('One or more selected items are unavailable.')
+    if (!catalogItem || !isCommunityCaseCatalogItemAllowed(catalogItem)) {
+      throw new Error('One or more selected items are unavailable for community cases.')
+    }
 
     const chance = Number(submittedItem?.chance)
     const tickets = Math.round(chance * 1000)
@@ -3482,7 +3491,7 @@ function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps
     }
 
     const value = Number(catalogItem.value)
-    if (!Number.isSafeInteger(value) || value < 0) throw new Error('A selected item has an invalid value.')
+    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('A selected item has an invalid value.')
 
     const start = nextRoll
     const end = start + tickets - 1
@@ -3504,6 +3513,7 @@ function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps
   const denominator = BigInt(CASE_ROLL_TICKETS) * BigInt(10_000 - commissionBps)
   const price = (weightedValue * 10_000n + denominator - 1n) / denominator
   if (price <= 0n || price > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The calculated case price is invalid.')
+  if (price > BigInt(COMMUNITY_CASE_MAX_PRICE)) throw new Error('The maximum community case price is 1,000,000 Coins.')
   const commissionAmount = (price * BigInt(commissionBps)) / 10_000n
 
   return {
@@ -3533,8 +3543,8 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
     res.status(400).json({ ok: false, error: 'The selected case image is invalid.' })
     return
   }
-  if (!submittedItems.length || submittedItems.length > COMMUNITY_CASE_MAX_ITEMS) {
-    res.status(400).json({ ok: false, error: `Select between 1 and ${COMMUNITY_CASE_MAX_ITEMS} items.` })
+  if (submittedItems.length < COMMUNITY_CASE_MIN_ITEMS || submittedItems.length > COMMUNITY_CASE_MAX_ITEMS) {
+    res.status(400).json({ ok: false, error: `Select between ${COMMUNITY_CASE_MIN_ITEMS} and ${COMMUNITY_CASE_MAX_ITEMS} items.` })
     return
   }
 
@@ -3551,6 +3561,10 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
       adminRest(`items?select=id,name,value,image_url,type&id=in.(${itemIds.join(',')})`),
     ])
     if (!profile) throw new Error('Your user profile could not be found.')
+    if (Number(profile.played || 0) < COMMUNITY_CASE_MIN_PLAYED) {
+      res.status(403).json({ ok: false, error: 'You need at least 5,000,000 Coins played to create a community case.' })
+      return
+    }
     if ((existingCases || []).some((item) => getCommunityCaseSlug(item.name) === requestedSlug)) {
       res.status(409).json({ ok: false, error: 'A case with that name already exists.' })
       return
@@ -3588,7 +3602,7 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
     })
   } catch (error) {
     const message = error?.message || 'Unable to create this case.'
-    const expected = /case name|commission|selected item|item chance|add up|calculated case price|profile/i.test(message)
+    const expected = /case name|commission|selected item|item chance|add up|case price|profile/i.test(message)
     console.warn('[api/cases/community] create error', message)
     res.status(expected ? 400 : 500).json({ ok: false, error: message })
   }
@@ -3639,14 +3653,17 @@ app.delete('/api/cases/community/:caseId', requireAuthenticatedUser, async (req,
       return
     }
     await adminRest(`cases?uuid=eq.${caseId}&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}`, {
-      method: 'PATCH',
+      method: 'DELETE',
       headers: { Prefer: 'return=minimal' },
-      body: { active: false, updated_at: new Date().toISOString() },
     })
-    res.json({ ok: true, deactivated: true })
+    res.json({ ok: true, deleted: true })
   } catch (error) {
-    console.warn('[api/cases/community] deactivate error', error?.message || error)
-    res.status(500).json({ ok: false, error: error?.message || 'Unable to deactivate this case.' })
+    const hasOpeningHistory = String(error?.code || '') === '23503'
+    const message = hasOpeningHistory
+      ? 'Cases with opening history cannot be deleted because their fairness records must be preserved.'
+      : error?.message || 'Unable to delete this case.'
+    console.warn('[api/cases/community] delete error', message)
+    res.status(hasOpeningHistory ? 409 : 500).json({ ok: false, error: message })
   }
 })
 
