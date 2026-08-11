@@ -108,7 +108,7 @@ function RollFairnessModal({ round, onClose }) {
   const requestClose = useCallback(() => {
     if (closeTimerRef.current) return
     setClosing(true)
-    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 180)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 220)
   }, [])
 
   useEffect(() => {
@@ -752,9 +752,9 @@ const ROLL_STYLES = `
   .rollBetMult { font-size: 12px; font-weight: 600; color: #6b7280; }
   .rollBetAmount { font-size: 12px; font-weight: 600; color: #f0f0f5; display: inline-flex; align-items: center; }
   .rollFairnessBackdrop { position: fixed; inset: 0; z-index: 2147483100; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,.58); animation: roll-fairness-backdrop-in 180ms ease-out both; transition: opacity 180ms ease; }
-  .rollFairnessBackdrop.isClosing { opacity: 0; }
+  .rollFairnessBackdrop.isClosing { pointer-events: none; animation: roll-fairness-backdrop-out 220ms cubic-bezier(.4,0,1,1) both; }
   .rollFairnessModal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: roll-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease, transform 180ms ease; }
-  .rollFairnessModal.isClosing { opacity: 0; transform: scale(.97) translateY(6px); }
+  .rollFairnessModal.isClosing { animation: roll-fairness-modal-out 220ms cubic-bezier(.4,0,1,1) both; }
   .rollFairnessClose { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease, transform 140ms ease; }
   .rollFairnessClose:hover { color: #fff; }
   .rollFairnessClose:active { transform: scale(.92); }
@@ -778,6 +778,8 @@ const ROLL_STYLES = `
   .rollFairnessRevealMeta b { color: #a6b2d3; font-weight: 700; }
   @keyframes roll-fairness-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes roll-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes roll-fairness-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes roll-fairness-modal-out { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(.96) translateY(8px); } }
   @keyframes roll-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .rollPageLoaded { animation: roll-page-in .35s ease-out both; }
   @media (max-width: 900px) {

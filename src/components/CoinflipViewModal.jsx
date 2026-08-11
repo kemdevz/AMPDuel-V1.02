@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getInventoryItemAccent } from './InventoryItemCard'
 import { notifications } from './Notifications'
@@ -28,6 +28,7 @@ export const VIEW_MODAL_CONFIG = Object.freeze({
 })
 
 const DEFAULT_AVATAR = '/ps99-cat.png'
+const FAIRNESS_CLOSE_MS = 220
 
 function formatValue(value) {
   const numeric = Number(value ?? 0)
@@ -205,6 +206,28 @@ function shortenIdentifier(value, maxLength = 24) {
 }
 
 function FairnessModal({ gameId, serverSeedHash, randomSeed, resolved, onClose }) {
+  const [closing, setClosing] = useState(false)
+  const closeTimerRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current !== null) return
+    setClosing(true)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), FAIRNESS_CLOSE_MS)
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') requestClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [requestClose])
+
   const fields = [
     {
       id: 'game-id',
@@ -240,14 +263,14 @@ function FairnessModal({ gameId, serverSeedHash, randomSeed, resolved, onClose }
 
   return (
     <div
-      className="fairness-modal__backdrop"
+      className={`fairness-modal__backdrop${closing ? ' fairness-modal__backdrop--closing' : ''}`}
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) requestClose()
       }}
     >
-      <div className="fairness-modal__surface" role="dialog" aria-modal="true" aria-labelledby="coinflip-fairness-title">
-        <button type="button" className="fairness-modal__close" onClick={onClose} aria-label="Close fairness details">
+      <div className={`fairness-modal__surface${closing ? ' fairness-modal__surface--closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="coinflip-fairness-title">
+        <button type="button" className="fairness-modal__close" onClick={requestClose} aria-label="Close fairness details">
           ×
         </button>
         <h1 id="coinflip-fairness-title" className="fairness-modal__header">Coinflip Fairness</h1>
@@ -363,10 +386,7 @@ export default function CoinflipViewModal({
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return
       if (profileOpen) return
-      if (fairnessOpen) {
-        setFairnessOpen(false)
-        return
-      }
+      if (fairnessOpen) return
       close()
     }
 
@@ -952,6 +972,11 @@ const VIEW_MODAL_STYLES = `
     animation: view-modal-fade-in 160ms ease-out;
   }
 
+  .fairness-modal__backdrop--closing {
+    pointer-events: none;
+    animation: fairness-modal-fade-out ${FAIRNESS_CLOSE_MS}ms cubic-bezier(.4, 0, 1, 1) both;
+  }
+
   .fairness-modal__surface {
     position: relative;
     box-sizing: border-box;
@@ -971,6 +996,20 @@ const VIEW_MODAL_STYLES = `
     opacity: 1;
     transform: scale(1) translateY(0);
     animation: view-modal-open .3s forwards;
+  }
+
+  .fairness-modal__surface--closing {
+    animation: fairness-modal-shrink-out ${FAIRNESS_CLOSE_MS}ms cubic-bezier(.4, 0, 1, 1) both;
+  }
+
+  @keyframes fairness-modal-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fairness-modal-shrink-out {
+    from { opacity: 1; transform: scale(1) translateY(0); }
+    to { opacity: 0; transform: scale(.96) translateY(8px); }
   }
 
   .fairness-modal__close {
@@ -1117,7 +1156,9 @@ const VIEW_MODAL_STYLES = `
   @media (prefers-reduced-motion: reduce) {
     .view-modal__backdrop,
     .view-modal__surface,
-    .view-modal__surface--closing {
+    .view-modal__surface--closing,
+    .fairness-modal__backdrop--closing,
+    .fairness-modal__surface--closing {
       animation-duration: 1ms;
     }
 

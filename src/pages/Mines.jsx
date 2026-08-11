@@ -90,7 +90,7 @@ function MinesFairnessModal({ fairness, loading, gameActive, onSave, onClose }) 
   const requestClose = useCallback(() => {
     if (closeTimerRef.current) return
     setClosing(true)
-    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 180)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 220)
   }, [])
 
   useEffect(() => {
@@ -554,9 +554,9 @@ export default function Mines() {
         ._fairnessBtn_lhu08_73:hover{background:transparent;color:#fff}
         ._fairnessBtn_lhu08_73 svg{flex-shrink:0}
         .minesFairnessBackdrop{position:fixed;inset:0;z-index:2147483100;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:rgba(0,0,0,.58);animation:mines-fairness-backdrop-in 180ms ease-out both;transition:opacity 180ms ease}
-        .minesFairnessBackdrop.isClosing{opacity:0}
+        .minesFairnessBackdrop.isClosing{pointer-events:none;animation:mines-fairness-backdrop-out 220ms cubic-bezier(.4,0,1,1) both}
         .minesFairnessModal{position:relative;box-sizing:border-box;width:90%;max-width:600px;max-height:90vh;margin:0;padding:2rem;overflow-x:hidden;overflow-y:auto;border:1px solid #181a28;border-radius:5px;background:#131520;color:#e1e4f2;box-shadow:0 20px 80px #0000008c;font-family:Poppins,sans-serif;animation:mines-fairness-modal-in .3s ease-out both;transition:opacity 180ms ease,transform 180ms ease}
-        .minesFairnessModal.isClosing{opacity:0;transform:scale(.97) translateY(6px)}
+        .minesFairnessModal.isClosing{animation:mines-fairness-modal-out 220ms cubic-bezier(.4,0,1,1) both}
         .minesFairnessClose{position:absolute;top:12px;right:14px;display:grid;width:34px;height:34px;place-items:center;padding:0;border:0;background:transparent;color:rgba(255,255,255,.76);font-size:25px;line-height:1;cursor:pointer;transition:color 140ms ease,transform 140ms ease}
         .minesFairnessClose:hover{color:#fff}.minesFairnessClose:active{transform:scale(.92)}
         .minesFairnessHeader{margin:0 38px 12px 0;color:#fff;font-size:24px;font-weight:700;line-height:1.25}
@@ -581,7 +581,7 @@ export default function Mines() {
         .minesFairnessReveal{margin-top:1.4rem;padding:1rem;border:0 solid rgba(108,99,255,.4);border-radius:6px;background:rgba(108,99,255,.06);animation:mines-fairness-modal-in .24s ease-out both}
         .minesFairnessRevealTitle{display:block;color:#e1e4f2;font-size:13px;font-weight:700}.minesFairnessRevealDescription{display:block;margin-top:5px;color:#a6b2d3;font-size:11px;font-weight:500;line-height:1.55}
         .minesFairnessRevealValue{margin-top:.6rem;margin-bottom:0}.minesFairnessRevealMeta{display:flex;margin-top:9px;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;color:#6c7399;font-size:11px;font-weight:500}.minesFairnessRevealMeta b{color:#a6b2d3;font-weight:700}
-        @keyframes mines-fairness-backdrop-in{from{opacity:0}to{opacity:1}}@keyframes mines-fairness-modal-in{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes mines-fairness-backdrop-in{from{opacity:0}to{opacity:1}}@keyframes mines-fairness-modal-in{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes mines-fairness-backdrop-out{from{opacity:1}to{opacity:0}}@keyframes mines-fairness-modal-out{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.96) translateY(8px)}}
         ._volumeBtn_lhu08_96{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);background:transparent;border:none;cursor:pointer;transition:opacity .14s ease;padding:0}
         ._volumeBtn_lhu08_96:hover{opacity:.75}
         ._volumeIcon_lhu08_110{width:18px;height:18px;color:#8f9ac6}

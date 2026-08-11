@@ -145,7 +145,7 @@ function CasesFairnessModal({ serverSeedHash, clientSeed, nonce, gameActive, onS
   const requestClose = () => {
     if (closing || closeTimerRef.current) return;
     setClosing(true);
-    closeTimerRef.current = window.setTimeout(onClose, 180);
+    closeTimerRef.current = window.setTimeout(onClose, 220);
   };
 
   useEffect(() => {
@@ -646,6 +646,16 @@ export default function CaseOpeningView({ item, onBack }) {
         @keyframes case-fairness-modal-in {
           from { opacity: 0; transform: scale(.96) translateY(8px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes case-fairness-backdrop-out {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+
+        @keyframes case-fairness-modal-out {
+          from { opacity: 1; transform: scale(1) translateY(0); }
+          to { opacity: 0; transform: scale(.96) translateY(8px); }
         }
 
         .case-open-root {
@@ -1434,7 +1444,10 @@ export default function CaseOpeningView({ item, onBack }) {
           transition: opacity 180ms ease;
         }
 
-        .case-fairness-backdrop.is-closing { opacity: 0; }
+        .case-fairness-backdrop.is-closing {
+          pointer-events: none;
+          animation: case-fairness-backdrop-out 220ms cubic-bezier(.4, 0, 1, 1) both;
+        }
 
         .case-fairness-surface {
           position: relative;
@@ -1457,8 +1470,7 @@ export default function CaseOpeningView({ item, onBack }) {
         }
 
         .case-fairness-surface.is-closing {
-          opacity: 0;
-          transform: scale(.97) translateY(6px);
+          animation: case-fairness-modal-out 220ms cubic-bezier(.4, 0, 1, 1) both;
         }
 
         .case-fairness-close {

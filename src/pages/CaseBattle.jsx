@@ -924,9 +924,9 @@ const BATTLE_STYLES = String.raw`
   .bb-vs-icon svg { display: block; width: 100%; height: 100%; }
 
   .bb-fairness-backdrop { z-index: 2147483100; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,.58); transition: opacity 180ms ease; }
-  .bb-fairness-backdrop.is-closing { opacity: 0; }
+  .bb-fairness-backdrop.is-closing { pointer-events: none; animation: bb-fairness-backdrop-out 220ms cubic-bezier(.4,0,1,1) both; }
   .bb-fairness-modal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: bb-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease,transform 180ms ease; }
-  .bb-fairness-modal.is-closing { opacity: 0; transform: scale(.97) translateY(6px); }
+  .bb-fairness-modal.is-closing { animation: bb-fairness-modal-out 220ms cubic-bezier(.4,0,1,1) both; }
   .bb-fairness-close { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease,transform 140ms ease; }
   .bb-fairness-close:hover { color: #fff; }
   .bb-fairness-close:active { transform: scale(.92); }
@@ -943,6 +943,8 @@ const BATTLE_STYLES = String.raw`
   .bb-fairness-copy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
   .bb-fairness-pending { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
   @keyframes bb-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes bb-fairness-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes bb-fairness-modal-out { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(.96) translateY(8px); } }
 
   @keyframes case-preview-fade-in {
     from { opacity: 0; }
@@ -2548,7 +2550,7 @@ function FairnessModal({ battle, onClose }) {
   const requestClose = () => {
     if (closeTimerRef.current) return;
     setClosing(true);
-    closeTimerRef.current = window.setTimeout(onClose, 180);
+    closeTimerRef.current = window.setTimeout(onClose, 220);
   };
 
   useEffect(() => {

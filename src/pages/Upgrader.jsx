@@ -490,7 +490,7 @@ function FairnessModal({ onClose, gameActive = false }) {
   const requestClose = useCallback(() => {
     if (closeTimerRef.current) return
     setClosing(true)
-    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 180)
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 220)
   }, [])
 
   useEffect(() => {
@@ -900,9 +900,9 @@ ${inventoryItemCardStyles}
 .upgrader-inventory-empty h1 { margin-bottom: 8px; color: #ddd; font-size: 20px; }
 .upgrader-inventory-empty p { margin-bottom: 15px; color: #aaa; }
 .upgrader-fairness-overlay { position: fixed; z-index: 2147483100; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 20px; background: rgba(0,0,0,.58); animation: upgrader-overlay-in 180ms ease-out both; transition: opacity 180ms ease; }
-.upgrader-fairness-overlay.is-closing { opacity: 0; }
+.upgrader-fairness-overlay.is-closing { pointer-events: none; animation: upgrader-overlay-out 220ms cubic-bezier(.4,0,1,1) both; }
 .upgrader-fairness-modal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: upgrader-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease,transform 180ms ease; }
-.upgrader-fairness-modal.is-closing { opacity: 0; transform: scale(.97) translateY(6px); }
+.upgrader-fairness-modal.is-closing { animation: upgrader-fairness-modal-out 220ms cubic-bezier(.4,0,1,1) both; }
 .upgrader-fairness-close { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease,transform 140ms ease; }
 .upgrader-fairness-close:hover { color: #fff; }
 .upgrader-fairness-close:active { transform: scale(.92); }
@@ -936,8 +936,10 @@ ${inventoryItemCardStyles}
 .upgrader-fairness-reveal-meta b { color: #a6b2d3; font-weight: 700; }
 @keyframes upgrader-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes upgrader-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes upgrader-overlay-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes upgrader-modal-in { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
 @keyframes upgrader-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes upgrader-fairness-modal-out { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(.96) translateY(8px); } }
 @keyframes upgrader-arrow-popup { from { scale: .55; } to { scale: 1; } }
 @keyframes upgrader-arrow-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes upgrader-arrow-pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
