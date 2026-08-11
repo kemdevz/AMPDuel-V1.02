@@ -13,6 +13,7 @@ import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileM
 import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
+import { BattlesIcon } from '../components/icons'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const RESOLVED_ROOM_LIFETIME_MS = 40_000
@@ -610,6 +611,50 @@ export default function Coinflip() {
         .coinflip-row-avatar--loser {
           filter: brightness(.7);
         }
+        .coinflip-row-battle-icon {
+          color: #e1e4f2;
+          transition: color .2s ease;
+        }
+        .coinflip-room-row:hover .coinflip-row-battle-icon { color: #6c63ff; }
+        .coinflip-top-button {
+          position: relative;
+          isolation: isolate;
+          display: inline-flex;
+          height: 42px;
+          min-width: 120px;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          padding: 0 16px;
+          border: 0;
+          border-radius: 8px;
+          color: #fff;
+          font-size: .9rem;
+          font-weight: 600;
+          letter-spacing: .01em;
+          cursor: pointer;
+          transform-origin: center;
+          transition: opacity .2s ease,transform .1s ease,background .25s ease;
+        }
+        .coinflip-top-button:active:not(:disabled) { transform: scale(.97); }
+        .coinflip-top-button:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
+        .coinflip-top-primary {
+          border: 1px solid rgba(94,85,217,.4);
+          background: linear-gradient(135deg,#5b52e2,#4038c0);
+          box-shadow: 0 2px 8px rgba(108,99,255,.2);
+        }
+        .coinflip-top-primary:hover { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
+        .coinflip-top-secondary { background: #2a2e44; box-shadow: none; color: #e1e4f2; }
+        .coinflip-top-secondary:hover { background: #32385a; }
+        .coinflip-top-icon-button { width: 42px; min-width: 42px; padding: 0; }
+        .coinflip-top-counter,
+        .coinflip-sort-trigger { height: 42px; border-radius: 8px; }
+        @media (max-width: 640px) {
+          .coinflip-top-button { height: 38px; min-width: 0; padding-inline: 12px; }
+          .coinflip-top-icon-button { width: 38px; min-width: 38px; padding: 0; }
+          .coinflip-top-counter,
+          .coinflip-sort-trigger { height: 38px; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .coinflip-row-avatar {
             transition-duration: 0ms;
@@ -650,18 +695,18 @@ export default function Coinflip() {
             <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="h-9 px-5 text-sm font-semibold rounded-md border border-[#5E55D9]/40 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] text-white shadow-[0_2px_8px_rgba(108,99,255,0.25)] hover:opacity-90"
+            className="coinflip-top-button coinflip-top-primary w-full"
           >
               Create
             </button>
-            <button className="h-9 px-5 text-sm font-semibold rounded-md bg-[#2a2e44] text-[#E1E4F2] hover:opacity-90">
+            <button type="button" className="coinflip-top-button coinflip-top-secondary w-full">
               Recent
             </button>
-            <button className="h-9 w-9 flex items-center justify-center rounded-md bg-[#2a2e44] text-[#E1E4F2] hover:opacity-90">
+            <button type="button" className="coinflip-top-button coinflip-top-secondary coinflip-top-icon-button">
               <Settings size={18} />
             </button>
           </div>
-          <div className="flex items-center justify-center gap-4 px-3 bg-[#20222f] text-sm font-semibold text-[#E1E4F2] rounded-md h-9" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
+          <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
             <span className="flex items-center gap-1">
               <img src="/heads.png" alt="heads" className="h-4 w-4" />
               {recentHeadsCount}
@@ -680,19 +725,19 @@ export default function Coinflip() {
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="min-w-24 h-9 px-5 text-sm font-semibold rounded-md border border-[#5E55D9]/40 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] text-white shadow-[0_2px_8px_rgba(108,99,255,0.25)] hover:opacity-90"
+              className="coinflip-top-button coinflip-top-primary"
             >
               Create
             </button>
-            <button className="min-w-24 h-9 px-5 text-sm font-semibold rounded-md bg-[#2a2e44] text-[#E1E4F2] hover:opacity-90">
+            <button type="button" className="coinflip-top-button coinflip-top-secondary">
               Recent
             </button>
-            <button className="h-9 w-10 flex items-center justify-center rounded-md bg-[#2a2e44] text-[#E1E4F2] hover:opacity-90">
+            <button type="button" className="coinflip-top-button coinflip-top-secondary coinflip-top-icon-button">
               <Settings size={18} />
             </button>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <div className="flex items-center gap-3 px-3 bg-[#20222f] text-sm font-semibold text-[#E1E4F2] rounded-md h-9" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
+            <div className="coinflip-top-counter flex items-center gap-3 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
               <span className="flex items-center gap-1">
                 <img src="/heads.png" alt="heads" className="h-4 w-4" />
                 {recentHeadsCount}
@@ -900,7 +945,7 @@ function SortDropdown({ value, onChange, className = '' }) {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex h-9 w-full items-center justify-between rounded-md bg-[#20222f] px-3 text-sm text-[#E1E4F2] shadow-none transition-none hover:bg-[#20222f] focus:border-0 focus:outline-none"
+        className="coinflip-sort-trigger flex w-full items-center justify-between bg-[#20222f] px-3 text-sm text-[#E1E4F2] shadow-none transition-none hover:bg-[#20222f] focus:border-0 focus:outline-none"
       >
         <span>{value}</span>
         <ChevronDown size={16} className={`text-[#E1E4F2] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -1114,7 +1159,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
 
   return (
     <div
-      className="relative grid grid-cols-1 items-center gap-2 overflow-visible rounded-lg border border-solid border-[#252839] bg-[#1c1f2e] py-3 pl-6 pr-2.5 xl:grid-cols-[repeat(5,auto)] [&>*]:min-w-0"
+      className="coinflip-room-row relative grid grid-cols-1 items-center gap-2 overflow-visible rounded-lg border border-solid border-[#252839] bg-[#1c1f2e] py-3 pl-6 pr-2.5 xl:grid-cols-[repeat(5,auto)] [&>*]:min-w-0"
       style={
         room.isExiting
           ? {
@@ -1148,7 +1193,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             <img className="block w-full h-full object-contain" alt={player1.side || 'coin'} src={player1.side === 'tails' ? '/tails.png' : '/heads.png'} />
           </div>
         </button>
-        <strong className="text-lg font-bold text-[#B0B8C1]">VS</strong>
+        <BattlesIcon className="coinflip-row-battle-icon h-5 w-5 flex-[0_0_auto]" />
         <button
           type="button"
           aria-label={room.opponent_uuid ? `Open ${room.opponent_username || 'opponent'} profile` : 'Waiting for opponent'}
