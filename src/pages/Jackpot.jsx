@@ -1,6 +1,113 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import WalletModal from '../components/InventoryModal'
+import { notifications } from '../components/Notifications'
+import { useSocket } from '../lib/socket'
+import { useAuth } from '../store/auth'
+
+const COIN_ICON = '/bobux.png'
+
+function formatPotValue(value) {
+  const amount = Number(value || 0)
+  if (amount >= 1000000) return `${Number((amount / 1000000).toFixed(1))}M`
+  if (amount >= 1000) return `${Number((amount / 1000).toFixed(1))}K`
+  return amount > 0 ? amount.toLocaleString() : '0.0'
+}
+
+const JACKPOT_COLORS = ['#6c63ff', '#FFD700', '#22c55e', '#ef4444', '#38bdf8', '#f97316']
+
+function sectorPath(share) {
+  if (share >= 0.999999) return null
+  const angle = Math.max(0, Math.min(1, share)) * Math.PI * 2
+  const x = 95 * Math.sin(angle)
+  const y = 95 * Math.cos(angle)
+  return `M0,0 V95 A95 95 0 ${share > 0.5 ? 1 : 0} 0 ${x},${y} Z`
+}
+
 export default function Jackpot() {
+  const user = useAuth((state) => state.user)
+  const socket = useSocket()
+  const [joinOpen, setJoinOpen] = useState(false)
+  const [round, setRound] = useState({ entrants: [], endsAt: null })
+  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [joining, setJoining] = useState(false)
+  const [showWinner, setShowWinner] = useState(false)
+  const rollAudioRef = useRef(null)
+  const settledWalletRoundRef = useRef('')
+
+  const entrants = Array.isArray(round.entrants) ? round.entrants : []
+  const potValue = entrants.reduce((sum, entrant) => sum + Number(entrant.value || 0), 0)
+  const currentProfileId = String(user?.profile_id || user?.id || '')
+  const hasJoined = Boolean(currentProfileId) && entrants.some((entrant) => String(entrant.profileId) === currentProfileId)
+  const wheelSegments = useMemo(() => {
+    let rotation = 0
+    return entrants.map((entrant, index) => {
+      const share = potValue > 0 ? Number(entrant.value || 0) / potValue : 1 / Math.max(entrants.length, 1)
+      const segment = { entrant, share, rotation, color: entrant.color || JACKPOT_COLORS[index % JACKPOT_COLORS.length] }
+      rotation -= share * 360
+      return segment
+    })
+  }, [entrants, potValue])
+  const wheelRotation = useMemo(() => {
+    if (!round.result || !round.winnerId) return 0
+    const winnerSegment = wheelSegments.find((segment) => String(segment.entrant?.profileId) === String(round.winnerId))
+    if (!winnerSegment) return -3600
+    const winnerMidpoint = Math.abs(winnerSegment.rotation) + winnerSegment.share * 180
+    return -(winnerMidpoint + 3600)
+  }, [round.result, round.winnerId, wheelSegments])
+
+  useEffect(() => {
+    if (!socket) return undefined
+    const handleState = (nextRound) => setRound(nextRound || { entrants: [], endsAt: null })
+    socket.on('jackpot:state', handleState)
+    socket.emit('jackpot:state:get', handleState)
+    return () => socket.off('jackpot:state', handleState)
+  }, [socket])
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const remaining = round.endsAt ? Math.max(0, Math.ceil((Number(round.endsAt) - Date.now()) / 1000)) : 0
+      setSecondsLeft(remaining)
+    }
+    updateCountdown()
+    if (!round.endsAt) return undefined
+    const timer = window.setInterval(updateCountdown, 250)
+    return () => window.clearInterval(timer)
+  }, [round.endsAt])
+
+  useEffect(() => {
+    setShowWinner(false)
+    if (!round.result) {
+      if (rollAudioRef.current) {
+        rollAudioRef.current.pause()
+        rollAudioRef.current.currentTime = 0
+      }
+      return undefined
+    }
+
+    const audio = new Audio('/money-D3u6qQYl.mp3')
+    rollAudioRef.current = audio
+    void audio.play().catch(() => undefined)
+    return () => {
+      audio.pause()
+      audio.currentTime = 0
+    }
+  }, [round.id, round.result])
+
+  useEffect(() => {
+    if (!round.result || !round.id || settledWalletRoundRef.current === round.id) return
+    settledWalletRoundRef.current = round.id
+    window.dispatchEvent(new CustomEvent('wallet:updated'))
+  }, [round.id, round.result])
+
   return (
     <div className="relative z-0 box-border flex-[1_1_auto] overflow-y-auto rounded-t-[0.5rem] [&::-webkit-scrollbar]:hidden">
+      <style>{`
+        .jackpot-join-action._withdrawButton_cpcgp_387{min-width:190px!important;height:42px!important;min-height:42px!important;padding:0 16px!important;border-radius:6px!important;font-family:Poppins,sans-serif;font-weight:450}.jackpot-join-label{display:flex;align-items:center;justify-content:center}.jackpot-join-divider{width:1px;height:16px;margin:0 8px;background:rgba(255,255,255,.28)}.jackpot-join-value{display:inline-flex;align-items:center}.jackpot-join-value img{width:15px;height:15px;margin-right:5px;flex-shrink:0}
+        .jackpot-enter{padding:10px 24px;font-family:Poppins,sans-serif;font-size:16px;font-weight:600;color:#fff;border:none;border-radius:6px;background:linear-gradient(180deg,#8079ff 0%,#6c63ff 45%,#5a51e6 100%);cursor:pointer;transform-origin:center;transition:transform .13s cubic-bezier(.22,1,.36,1),filter .15s ease}.jackpot-enter:hover:not(:disabled){filter:brightness(1.07)}.jackpot-enter:active:not(:disabled){transform:scale(.98)}.jackpot-enter:focus-visible{outline:2px solid #a79fff;outline-offset:2px}.jackpot-enter:disabled{cursor:not-allowed;opacity:.6;filter:none}.jackpot-entry-name{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        ._blurbg_cpcgp_1{z-index:10000!important;animation-duration:.5s!important}._modalbackgroundinventory_cpcgp_15{width:90%!important;max-width:1200px!important;padding:15px!important;border:1px solid #181a28!important;border-radius:10px!important;background-color:#131520!important;align-items:flex-start!important;overflow-y:auto!important}._headerinventory_cpcgp_43{justify-content:flex-start!important;gap:12px!important;margin-top:5px!important;margin-bottom:10px!important}._walletHeaderControls_cpcgp_local{gap:6px!important}._inputWrapper_cpcgp_59{width:300px!important}
+        ._inputv3_cpcgp_65{width:300px!important;height:40px!important;padding:10px 18px 10px 40px!important;border:none!important;border-radius:6px!important;background:#1c1f2e!important;box-shadow:none!important;color:#fff!important;font-family:Poppins,sans-serif!important;font-size:.9rem!important;opacity:1!important;text-align:left!important}._inputv3_cpcgp_65::placeholder{color:#cbd5e1!important;text-align:left!important}._searchIcon_cpcgp_82{left:12px!important;width:18px!important;height:18px!important}._sortToggle_cpcgp_487{background:#20222f!important}
+        @media(max-width:640px){.jackpot-join-action._withdrawButton_cpcgp_387{min-width:0!important;flex:1!important}._inputWrapper_cpcgp_59{width:auto!important}._inputv3_cpcgp_65{width:100%!important}}
+      `}</style>
       <div
         className="relative z-10 flex min-h-full items-center justify-center lg:min-h-[calc(100dvh-5rem)]"
         style={{
@@ -382,10 +489,29 @@ export default function Jackpot() {
                 </filter>
               </defs>
               <g mask="url(#mask)">
-                <g transform="matrix(1 0 0 -1 0 0)" style={{ rotate: '0deg' }}>
-                  <g transform="rotate(0)">
-                    <circle r="95" fill="#6c63ff" style={{ filter: 'url("#neon-glow-0")', opacity: 0.9, transition: 'filter 1.5s ease-in-out, opacity 1.5s ease-in-out' }} />
-                  </g>
+                <g
+                  transform="matrix(1 0 0 -1 0 0)"
+                  style={{
+                    rotate: `${wheelRotation}deg`,
+                    transition: round.result ? 'rotate 10s cubic-bezier(0.4, 0, 0.2, 1)' : '',
+                  }}
+                  onTransitionEnd={() => {
+                    if (round.result) setShowWinner(true)
+                  }}
+                >
+                  {(wheelSegments.length ? wheelSegments : [{ share: 1, rotation: 0, color: '#6c63ff', entrant: null }]).map((segment, index) => {
+                    const middleAngle = segment.share * 180
+                    const avatarX = 72.5 * Math.sin(middleAngle * Math.PI / 180)
+                    const avatarY = 72.5 * Math.cos(middleAngle * Math.PI / 180)
+                    return (
+                      <g key={segment.entrant?.profileId || `empty-${index}`} transform={`rotate(${segment.rotation})`}>
+                        {segment.share >= 0.999999
+                          ? <circle r="95" fill={segment.color} style={{ filter: `url("#neon-glow-${index}")`, opacity: 0.9, transition: 'filter 1.5s ease-in-out, opacity 1.5s ease-in-out' }} />
+                          : <path d={sectorPath(segment.share)} fill={segment.color} style={{ filter: `url("#neon-glow-${index}")`, transition: 'filter 1.5s ease-in-out, opacity 1.5s ease-in-out' }} />}
+                        {segment.entrant ? <image href={segment.entrant.avatar || '/ps99-cat.png'} width="20" height="20" x="-10" y="-10" transform={`translate(${avatarX}, ${avatarY}) rotate(${-middleAngle}) scale(1,-1)`} style={{ clipPath: 'circle(50%)' }} /> : null}
+                      </g>
+                    )
+                  })}
                 </g>
                 <g strokeWidth="2">
                   <circle r="49" fill="none" stroke="#343c44" />
@@ -394,24 +520,79 @@ export default function Jackpot() {
               </g>
             </svg>
             <div className="box-border grid aspect-square place-content-center gap-1 rounded-full p-2 [grid-area:stack]" style={{ width: '50%' }}>
-              <h1 className="flex items-center justify-center gap-1 text-lg font-extrabold tracking-tight md:text-xl">
-                <img src="/bobux.png" alt="Bobux" className="aspect-square w-4 md:w-5 text-[#0276FF]" />
-                <span>0.0</span>
+              <h1 className={`flex items-center justify-center gap-1${entrants.length ? ' text-xl md:text-2xl' : ' text-lg font-extrabold tracking-tight md:text-xl'}`}>
+                <img src="/bobux.png" alt="Bobux" className={entrants.length ? 'aspect-square w-5 md:w-6 text-[#0276FF]' : 'aspect-square w-4 md:w-5 text-[#0276FF]'} />
+                <span>{formatPotValue(potValue)}</span>
               </h1>
-              <div className="text-center text-base font-semibold text-white">0 | 0s</div>
+              <div className="text-center text-base font-semibold text-white">
+                {showWinner && round.result ? `🎉 ${round.winnerUsername || 'Player'}` : `${entrants.length} | ${secondsLeft}s`}
+              </div>
             </div>
           </div>
 
           <div className="flex h-[32rem] w-[min(90vw,22rem)] flex-col items-center justify-center rounded-lg border border-solid border-[#22283F] bg-[#171925] pt-2 text-center box-border">
-            <div className="mx-auto box-border flex flex-1 flex-col gap-2 overflow-y-auto px-2 w-full" />
+            <div className="mx-auto box-border flex w-full flex-1 flex-col gap-2 overflow-y-auto px-2">
+              {entrants.map((entrant, entrantIndex) => {
+                const chance = potValue > 0 ? (Number(entrant.value || 0) / potValue) * 100 : 0
+                return (
+                <div key={entrant.profileId || `entrant-${entrantIndex}`} className="m-0 box-border flex flex-col rounded-lg border border-solid border-[#22283F] bg-[#1A1D2B] p-4 transition-transform duration-200 ease-in-out">
+                  <div className="mb-2 flex items-center justify-start">
+                    <div className="flex min-w-0 items-center">
+                      <img src={entrant.avatar || '/ps99-cat.png'} alt="User Profile Picture" className="mr-4 h-[clamp(30px,4vw,40px)] w-[clamp(30px,4vw,40px)] cursor-pointer rounded-full border-2 border-solid border-[rgba(255,255,255,0.08)] bg-[#1c1f2e] hover:border-[#6c63ff] hover:opacity-90" />
+                      <p className="jackpot-entry-name ml-[-8px] mr-[10px] shrink-0 rounded-full px-[5px] py-[0.5px]" style={{ background: entrant.color || JACKPOT_COLORS[entrantIndex % JACKPOT_COLORS.length], color: '#191818', fontWeight: 600 }}>{entrant.username || 'Player'}</p>
+                      <p className="shrink-0 text-[clamp(14px,1.5vw,16px)] font-medium text-[#E1E4F2]">{Number(chance.toFixed(2))}%</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-self-center xl:grid xl:grid-cols-5 xl:justify-self-start">
+                    {(entrant.items || []).map((item, index) => (
+                      <button type="button" key={item.id || `${item.name}-${index}`} className="relative box-border block h-14 w-14 flex-[0_0_auto] cursor-pointer overflow-hidden rounded-[5px] border-2 border-solid border-[#2F3347] bg-[#141323] transition-colors duration-200 hover:border-[#6c63ff] xl:[transform:var(--shift)] max-xl:[&+*]:-ml-5" style={{ '--shift': `translate(${index * -50}%)` }} title={item.name || 'Item'}>
+                        <img src={item.image_url || item.image || '/ps99-cat.png'} alt={item.name || 'Item'} className="block h-full w-full scale-110 object-contain" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                )
+              })}
+            </div>
             <div className="flex items-center justify-center gap-3 p-4">
-              <button className="rounded-md border border-solid border-[#5E55D9]/40 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] px-6 py-2.5 text-base font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,0.25)] transition-opacity duration-150 hover:opacity-90 active:opacity-100 disabled:cursor-not-allowed disabled:opacity-50">
-                Enter (0s)
+              <button type="button" disabled={hasJoined || joining || round.result || (entrants.length > 0 && secondsLeft === 0)} onClick={() => setJoinOpen(true)} className="jackpot-enter">
+                {round.result ? (showWinner ? 'Starting soon...' : 'Rolling...') : `Enter (${secondsLeft}s)`}
               </button>
             </div>
           </div>
         </div>
       </div>
+      <WalletModal
+        isOpen={joinOpen}
+        onClose={() => setJoinOpen(false)}
+        ariaLabel="Join jackpot"
+        footer={({ selectedItems, selectedAmount, selectedValue, totalItems, onToggleSelectAll }) => (
+          <>
+            <button type="button" className="_flatActionBtn_cpcgp_373" disabled={totalItems === 0} onClick={onToggleSelectAll}>
+              {selectedAmount === totalItems ? 'Unselect All' : 'Select all'}
+            </button>
+            <button type="button" className="_withdrawButton_cpcgp_387 jackpot-join-action" disabled={selectedAmount === 0 || selectedAmount > 20 || hasJoined || joining} onClick={() => {
+              if (!socket) {
+                notifications.error('Jackpot is reconnecting. Please try again.')
+                return
+              }
+              setJoining(true)
+              socket.emit('jackpot:join', { item_ids: selectedItems.map((item) => item.id).filter(Boolean) }, (response) => {
+                setJoining(false)
+                if (!response?.ok) {
+                  notifications.error(response?.error || 'Unable to join the jackpot.')
+                  return
+                }
+                if (response.round) setRound(response.round)
+                setJoinOpen(false)
+                window.dispatchEvent(new CustomEvent('wallet:updated'))
+              })
+            }}>
+              <strong className="jackpot-join-label">{selectedAmount > 20 ? 'Max 20 items' : 'Join'}<span className="jackpot-join-divider" /><span className="jackpot-join-value"><img src={COIN_ICON} alt="Bobux" /><span>{Number(selectedValue || 0).toLocaleString()}</span></span></strong>
+            </button>
+          </>
+        )}
+      />
     </div>
   )
 }

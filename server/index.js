@@ -1731,8 +1731,173 @@ function startRainTimer() {
   }, 1000)
 }
 
+const JACKPOT_COUNTDOWN_MS = 60_000
+const JACKPOT_RESULT_DISPLAY_MS = 12_000
+let jackpotVisibleGame = null
+let jackpotResultExpiresAt = 0
+let jackpotLifecycleBusy = false
+let jackpotEnsurePromise = null
+let jackpotRetryAfter = 0
+
+function getJackpotSeedKey() {
+  const key = getJwtGameSeedEncryptionKey('jackpot')
+  if (!key) throw new Error('JWT_SECRET is required for Jackpot fairness.')
+  return key
+}
+
+function encryptJackpotServerSeed(serverSeed) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getJackpotSeedKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  return `${iv.toString('hex')}.${cipher.getAuthTag().toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptJackpotServerSeed(encryptedSeed) {
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    [getJackpotSeedKey()],
+    'Invalid encrypted Jackpot server seed.',
+    'Unable to decrypt the active Jackpot round.',
+  )
+}
+
+function normalizeJackpotGame(game) {
+  if (!game) return { entrants: [], endsAt: null }
+  const entrants = Array.isArray(game.entrants) ? game.entrants : []
+  return {
+    id: game.id,
+    status: game.status,
+    entrants,
+    potValue: Number(game.pot_value || 0),
+    endsAt: game.ends_at ? new Date(game.ends_at).getTime() : null,
+    result: game.status === 'resolved' ? 'resolved' : null,
+    winnerId: game.winner_profile_id || null,
+    winnerUsername: game.winner_username || null,
+    winningTicket: game.winning_ticket === null || game.winning_ticket === undefined
+      ? null
+      : Number(game.winning_ticket),
+    serverSeedHash: game.server_seed_hash || null,
+    serverSeed: game.status === 'resolved' ? game.server_seed || null : null,
+    clientSeed: game.client_seed || null,
+    resolvedAt: game.resolved_at || null,
+  }
+}
+
+async function loadActiveJackpotGame() {
+  const rows = await adminRest(
+    'jackpot_games?select=*&status=in.(waiting,countdown)&order=created_at.desc&limit=1',
+  )
+  return Array.isArray(rows) ? rows[0] || null : rows
+}
+
+async function createJackpotGame() {
+  const serverSeed = crypto.randomBytes(32).toString('hex')
+  const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  try {
+    const rows = await adminRest('jackpot_games?select=*', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: {
+        status: 'waiting',
+        entrants: [],
+        pot_items: [],
+        entrant_count: 0,
+        pot_value: 0,
+        server_seed_hash: serverSeedHash,
+        server_seed_encrypted: encryptJackpotServerSeed(serverSeed),
+        client_seed: crypto.randomBytes(12).toString('hex'),
+      },
+    })
+    return Array.isArray(rows) ? rows[0] || null : rows
+  } catch (error) {
+    if (String(error?.code || '') !== '23505' && Number(error?.status) !== 409) throw error
+    return loadActiveJackpotGame()
+  }
+}
+
+async function ensureActiveJackpotGame() {
+  if (jackpotVisibleGame && ['waiting', 'countdown'].includes(jackpotVisibleGame.status)) {
+    return jackpotVisibleGame
+  }
+  if (jackpotEnsurePromise) return jackpotEnsurePromise
+  jackpotEnsurePromise = (async () => {
+    const activeGame = await loadActiveJackpotGame() || await createJackpotGame()
+    jackpotVisibleGame = activeGame
+    return activeGame
+  })().finally(() => {
+    jackpotEnsurePromise = null
+  })
+  return jackpotEnsurePromise
+}
+
+function emitJackpotState(game = jackpotVisibleGame) {
+  io.emit('jackpot:state', normalizeJackpotGame(game))
+}
+
+function getJackpotRandomValue(game, serverSeed) {
+  const digestHex = crypto
+    .createHmac('sha256', serverSeed)
+    .update(`${game.client_seed}:${game.id}`)
+    .digest('hex')
+  return BigInt(`0x${digestHex.slice(0, 15)}`).toString()
+}
+
+async function settleJackpotGame(game) {
+  const serverSeed = decryptJackpotServerSeed(game.server_seed_encrypted)
+  const expectedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  if (expectedHash !== game.server_seed_hash) throw new Error('The Jackpot seed commitment is invalid.')
+  const randomValue = getJackpotRandomValue(game, serverSeed)
+  const settled = await callRainRpc('settle_jackpot_game', {
+    p_game_id: game.id,
+    p_random_value: randomValue,
+    p_server_seed: serverSeed,
+  })
+  jackpotVisibleGame = settled
+  jackpotResultExpiresAt = Date.now() + JACKPOT_RESULT_DISPLAY_MS
+  emitJackpotState(settled)
+  const entrantIds = (Array.isArray(settled?.entrants) ? settled.entrants : [])
+    .map((entrant) => entrant?.profileId)
+    .filter(Boolean)
+  void emitWalletRefreshes(entrantIds)
+}
+
+async function runJackpotLifecycle() {
+  if (jackpotLifecycleBusy || Date.now() < jackpotRetryAfter) return
+  jackpotLifecycleBusy = true
+  try {
+    if (jackpotVisibleGame?.status === 'resolved') {
+      if (Date.now() < jackpotResultExpiresAt) return
+      jackpotVisibleGame = null
+      jackpotResultExpiresAt = 0
+    }
+    const game = await ensureActiveJackpotGame()
+    if (game?.status === 'countdown' && new Date(game.ends_at).getTime() <= Date.now()) {
+      await settleJackpotGame(game)
+    }
+    jackpotRetryAfter = 0
+  } catch (error) {
+    console.warn('[jackpot] lifecycle error', error?.message || error)
+    jackpotVisibleGame = null
+    jackpotRetryAfter = Date.now() + 10_000
+  } finally {
+    jackpotLifecycleBusy = false
+  }
+}
+
+async function initializeJackpotState() {
+  try {
+    await ensureActiveJackpotGame()
+  } catch (error) {
+    console.warn('[jackpot] initialization deferred', error?.message || error)
+  }
+  setInterval(() => {
+    void runJackpotLifecycle()
+  }, 500)
+}
+
 await initializeRainState()
 startRainTimer()
+await initializeJackpotState()
 io.use(async (socket, next) => {
   try {
     const identity = await getAuthenticatedIdentityFromHeaders(socket.handshake.headers)
@@ -1774,6 +1939,68 @@ io.on('connection', (socket) => {
   })
   emitRainCountdown()
   emitRainPool()
+
+  socket.on('jackpot:state:get', async (acknowledge) => {
+    try {
+      if (jackpotVisibleGame?.status === 'resolved' && Date.now() < jackpotResultExpiresAt) {
+        if (typeof acknowledge === 'function') acknowledge(normalizeJackpotGame(jackpotVisibleGame))
+        return
+      }
+      const game = await ensureActiveJackpotGame()
+      if (typeof acknowledge === 'function') acknowledge(normalizeJackpotGame(game))
+    } catch (error) {
+      console.warn('[jackpot] state error', error?.message || error)
+      if (typeof acknowledge === 'function') acknowledge({ entrants: [], endsAt: null, error: 'Jackpot is unavailable.' })
+    }
+  })
+
+  socket.on('jackpot:join', async (payload, acknowledge) => {
+    const respond = (response) => {
+      if (typeof acknowledge === 'function') acknowledge(response)
+    }
+    if (!socket.data.identity?.profileId) {
+      respond({ ok: false, error: 'Please sign in to join the Jackpot.' })
+      return
+    }
+    const requestedIds = Array.isArray(payload?.item_ids) ? payload.item_ids.map(String) : []
+    const itemIds = [...new Set(requestedIds.filter(isUuidLike))]
+    if (itemIds.length !== requestedIds.length || itemIds.length < 1 || itemIds.length > 20) {
+      respond({ ok: false, error: 'Select between 1 and 20 unique items.' })
+      return
+    }
+
+    try {
+      if (jackpotVisibleGame?.status === 'resolved' && Date.now() < jackpotResultExpiresAt) {
+        respond({ ok: false, error: 'Wait for the next Jackpot round.' })
+        return
+      }
+      const game = await ensureActiveJackpotGame()
+      const profile = await loadProfileById(socket.data.identity.profileId)
+      if (!profile) throw new Error('Your user profile could not be found.')
+      const joined = await callRainRpc('join_jackpot_game', {
+        p_game_id: game.id,
+        p_profile_id: String(socket.data.identity.profileId),
+        p_item_ids: itemIds,
+        p_entrant: {
+          username: String(profile.username || 'Player'),
+          avatar: String(profile.avatar_headshot_url || profile.avatar_url || ''),
+        },
+        p_ends_at: new Date(Date.now() + JACKPOT_COUNTDOWN_MS).toISOString(),
+      })
+      jackpotVisibleGame = joined
+      emitJackpotState(joined)
+      void emitWalletRefreshes([socket.data.identity.profileId])
+      respond({ ok: true, round: normalizeJackpotGame(joined) })
+    } catch (error) {
+      const missingMigration = /join_jackpot_game.*schema cache|jackpot_games.*does not exist/i.test(error?.message || '')
+      const message = missingMigration
+        ? 'Jackpot is not installed in Supabase yet. Run migration 20260811013000_create_secure_jackpot_games.sql.'
+        : error?.message || 'Unable to join the Jackpot.'
+      const expected = /select between|already joined|closed|full|inventory|selected item|profile|next Jackpot/i.test(message)
+      console.warn('[jackpot] join error', message)
+      respond({ ok: false, error: message, status: expected ? 409 : 500 })
+    }
+  })
 
   const unidentifiedPresenceTimer = setTimeout(() => {
     emitOnlineCount()
@@ -3456,6 +3683,7 @@ const COMMUNITY_CASE_MAX_ITEMS = 50
 const COMMUNITY_CASE_MAX_COMMISSION_BPS = 300
 const COMMUNITY_CASE_MAX_PRICE = 1_000_000
 const COMMUNITY_CASE_MIN_PLAYED = 5_000_000
+const COMMUNITY_CASE_MIN_ITEM_CHANCE = 0.1
 const CASE_ROLL_TICKETS = 100_000
 
 function getCommunityCaseSlug(name) {
@@ -3486,8 +3714,8 @@ function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps
 
     const chance = Number(submittedItem?.chance)
     const tickets = Math.round(chance * 1000)
-    if (!Number.isFinite(chance) || chance <= 0 || tickets <= 0 || Math.abs(chance * 1000 - tickets) > 0.000001) {
-      throw new Error('Every item chance must be greater than 0 and use no more than two decimal places.')
+    if (!Number.isFinite(chance) || chance < COMMUNITY_CASE_MIN_ITEM_CHANCE || Math.abs(chance * 1000 - tickets) > 0.000001) {
+      throw new Error('Every item chance must be at least 0.1%.')
     }
 
     const value = Number(catalogItem.value)
@@ -3658,12 +3886,9 @@ app.delete('/api/cases/community/:caseId', requireAuthenticatedUser, async (req,
     })
     res.json({ ok: true, deleted: true })
   } catch (error) {
-    const hasOpeningHistory = String(error?.code || '') === '23503'
-    const message = hasOpeningHistory
-      ? 'Cases with opening history cannot be deleted because their fairness records must be preserved.'
-      : error?.message || 'Unable to delete this case.'
+    const message = error?.message || 'Unable to delete this case.'
     console.warn('[api/cases/community] delete error', message)
-    res.status(hasOpeningHistory ? 409 : 500).json({ ok: false, error: message })
+    res.status(500).json({ ok: false, error: message })
   }
 })
 
