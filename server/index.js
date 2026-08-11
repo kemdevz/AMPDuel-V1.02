@@ -3700,6 +3700,7 @@ const COMMUNITY_CASE_MAX_COMMISSION_BPS = 300
 const COMMUNITY_CASE_MAX_PRICE = 1_000_000
 const COMMUNITY_CASE_MIN_PLAYED = 5_000_000
 const COMMUNITY_CASE_MIN_ITEM_CHANCE = 0.1
+const COMMUNITY_CASE_MAX_PER_USER = 5
 const CASE_ROLL_TICKETS = 100_000
 
 function getCommunityCaseSlug(name) {
@@ -3799,14 +3800,19 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
   }
 
   try {
-    const [profile, existingCases, catalogItems] = await Promise.all([
+    const [profile, existingCases, ownedCases, catalogItems] = await Promise.all([
       loadProfileById(req.identity.profileId),
       adminRest('cases?select=uuid,name&active=eq.true&limit=5000'),
+      adminRest(`cases?select=uuid&community=eq.true&owner_user_id=eq.${encodeURIComponent(req.identity.profileId)}&limit=${COMMUNITY_CASE_MAX_PER_USER + 1}`),
       adminRest(`items?select=id,name,value,image_url,type&id=in.(${itemIds.join(',')})`),
     ])
     if (!profile) throw new Error('Your user profile could not be found.')
     if (Number(profile.played || 0) < COMMUNITY_CASE_MIN_PLAYED) {
       res.status(403).json({ ok: false, error: 'You need at least 5,000,000 Coins played to create a community case.' })
+      return
+    }
+    if (Array.isArray(ownedCases) && ownedCases.length >= COMMUNITY_CASE_MAX_PER_USER) {
+      res.status(409).json({ ok: false, error: 'You can create up to 5 community cases.' })
       return
     }
     if ((existingCases || []).some((item) => getCommunityCaseSlug(item.name) === requestedSlug)) {
@@ -3846,7 +3852,7 @@ app.post('/api/cases/community', express.json({ limit: '48kb' }), requireAuthent
     })
   } catch (error) {
     const message = error?.message || 'Unable to create this case.'
-    const expected = /case name|commission|selected item|item chance|add up|case price|profile/i.test(message)
+    const expected = /case name|commission|selected item|item chance|add up|case price|profile|up to 5 community cases/i.test(message)
     console.warn('[api/cases/community] create error', message)
     res.status(expected ? 400 : 500).json({ ok: false, error: message })
   }
