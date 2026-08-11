@@ -2908,7 +2908,7 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
 
 const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
 const CASE_BATTLE_ROUND_MS = 6_250
-const CASE_BATTLE_FAST_ROUND_MS = 1_990
+const CASE_BATTLE_FAST_ROUND_MS = 2_090
 const CASE_BATTLE_START_BUFFER_MS = 1_000
 const caseBattleSettlementTimers = new Map()
 
