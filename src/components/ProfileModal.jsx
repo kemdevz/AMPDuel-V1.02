@@ -12,6 +12,7 @@ import {
   UpgraderIcon,
   MinesIcon,
   RollIcon,
+  BlackjackIcon,
   JackpotIcon,
 } from './icons'
 import { notifications } from './Notifications'
@@ -68,6 +69,7 @@ const gameFilters = [
   { id: 'upgrader', label: 'Upgrader', Icon: UpgraderIcon },
   { id: 'mines', label: 'Mines', Icon: MinesIcon },
   { id: 'roll', label: 'Roll', Icon: RollIcon },
+  { id: 'blackjack', label: 'Blackjack', Icon: BlackjackIcon },
   { id: 'jackpot', label: 'Jackpot', Icon: JackpotIcon },
 ]
 
