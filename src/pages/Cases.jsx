@@ -26,7 +26,10 @@ const CASE_IMAGE_OPTIONS = [
 const rollNumberFormatter = new Intl.NumberFormat("en-US");
 
 function isCommunityCaseCatalogItemAllowed(item) {
-  return Number(item?.value) > 0 && !/\b(?:booth|enchant|hoverboard|egg|gems?)\s*$/i.test(String(item?.name || ""));
+  const name = String(item?.name || "");
+  return Number(item?.value) > 0
+    && /\b(?:huge|titanic|gargantuan)\b/i.test(name)
+    && !/\b(?:booth|enchant|hoverboard|egg|gems?)\s*$/i.test(name);
 }
 
 function getItemsWithRollRanges(items) {
@@ -475,6 +478,7 @@ function CaseCreateView({ onBack, onCreated, ownedCaseCount = 0 }) {
             .from("items")
             .select("id,name,value,image_url,type")
             .gt("value", 0)
+            .or("name.ilike.%Huge%,name.ilike.%Titanic%,name.ilike.%Gargantuan%")
             .not("name", "ilike", "% Booth")
             .not("name", "ilike", "% Enchant")
             .not("name", "ilike", "% Hoverboard")
