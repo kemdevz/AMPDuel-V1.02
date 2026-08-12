@@ -11,6 +11,7 @@ import Roll from './pages/Roll'
 import Upgrader from './pages/Upgrader'
 import LiveCasino from './pages/LiveCasino'
 import LiveCasinoGame from './pages/LiveCasinoGame'
+import Blackjack from './pages/Blackjack'
 import { useAuth } from './store/auth'
 
 function decodeRouteSegment(value) {
@@ -34,6 +35,7 @@ function AppRoutes() {
     jackpot: <Jackpot />,
     mines: <Mines />,
     roll: <Roll />,
+    blackjack: <Blackjack />,
     upgrader: <Upgrader />,
     'live-casino': <LiveCasino />,
   }

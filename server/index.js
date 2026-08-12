@@ -4716,6 +4716,270 @@ function generateMinePositions(totalPositions, minesCount, serverSeed, clientSee
   return positions.sort((a, b) => a - b)
 }
 
+const BLACKJACK_MIN_WAGER = 5_000
+const BLACKJACK_MAX_WAGER = 10_000_000
+const BLACKJACK_SUITS = ['S', 'H', 'D', 'C']
+const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+
+function getBlackjackSeedEncryptionKey() {
+  const jwtKey = getJwtGameSeedEncryptionKey('blackjack')
+  if (jwtKey) return jwtKey
+  throw new Error('JWT_SECRET is required for Blackjack fairness.')
+}
+
+function encryptBlackjackServerSeed(serverSeed) {
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', getBlackjackSeedEncryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
+  return `${iv.toString('hex')}.${cipher.getAuthTag().toString('hex')}.${encrypted.toString('hex')}`
+}
+
+function decryptBlackjackServerSeed(encryptedSeed) {
+  return decryptAesGcmWithKeys(
+    encryptedSeed,
+    uniqueEncryptionKeys([getJwtGameSeedEncryptionKey('blackjack')]),
+    'invalid encrypted Blackjack server seed',
+    'Unable to decrypt the Blackjack server seed.',
+  )
+}
+
+function createBlackjackFairnessSeed() {
+  const serverSeed = crypto.randomBytes(32).toString('hex')
+  return {
+    seedId: crypto.randomUUID(),
+    serverSeed,
+    serverSeedHash: crypto.createHash('sha256').update(serverSeed).digest('hex'),
+    serverSeedEncrypted: encryptBlackjackServerSeed(serverSeed),
+  }
+}
+
+function createBlackjackClientSeed() {
+  return crypto.randomBytes(9).toString('base64url').toUpperCase().slice(0, 12)
+}
+
+async function ensureBlackjackFairnessState(profileId) {
+  const seed = createBlackjackFairnessSeed()
+  return callRainRpc('ensure_blackjack_fairness_state', {
+    p_profile_id: profileId,
+    p_seed_id: seed.seedId,
+    p_server_seed_hash: seed.serverSeedHash,
+    p_server_seed_encrypted: seed.serverSeedEncrypted,
+    p_client_seed: createBlackjackClientSeed(),
+  })
+}
+
+function validateBlackjackFairnessState(state) {
+  const serverSeed = decryptBlackjackServerSeed(state?.server_seed_encrypted)
+  const hash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  if (hash !== state?.server_seed_hash) throw new Error('Blackjack fairness seed commitment is invalid.')
+  return serverSeed
+}
+
+function generateBlackjackDeck(serverSeed, clientSeed, nonce, gameId) {
+  const deck = BLACKJACK_SUITS.flatMap((suit) => BLACKJACK_RANKS.map((rank) => ({ rank, suit })))
+  for (let index = deck.length - 1; index > 0; index -= 1) {
+    const range = index + 1
+    const unbiasedLimit = Math.floor(0x100000000 / range) * range
+    let attempt = 0
+    let candidate
+    do {
+      candidate = crypto.createHmac('sha256', serverSeed)
+        .update(`${clientSeed}:${nonce}:${gameId}:shuffle:${index}:${attempt}`)
+        .digest()
+        .readUInt32BE(0)
+      attempt += 1
+    } while (candidate >= unbiasedLimit)
+    const swapIndex = candidate % range
+    ;[deck[index], deck[swapIndex]] = [deck[swapIndex], deck[index]]
+  }
+  return deck
+}
+
+function blackjackHandValue(cards) {
+  let value = 0
+  let aces = 0
+  for (const card of cards) {
+    if (card.rank === 'A') { value += 11; aces += 1 }
+    else if (['J', 'Q', 'K'].includes(card.rank)) value += 10
+    else value += Number(card.rank)
+  }
+  while (value > 21 && aces > 0) { value -= 10; aces -= 1 }
+  return value
+}
+
+function getBlackjackOutcome(playerCards, dealerCards) {
+  const playerValue = blackjackHandValue(playerCards)
+  const dealerValue = blackjackHandValue(dealerCards)
+  if (playerValue > 21) return 'dealer'
+  if (dealerValue > 21) return 'player'
+  if (playerValue === dealerValue) return 'push'
+  return playerValue > dealerValue ? 'player' : 'dealer'
+}
+
+function serializeBlackjackGame(game) {
+  if (!game || typeof game !== 'object') return game
+  const { remaining_deck, server_seed_encrypted, ...publicGame } = game
+  if (publicGame.game_state === 'active') {
+    publicGame.dealer_cards = [publicGame.dealer_cards?.[0], { rank: '?', suit: '' }]
+    delete publicGame.server_seed
+  }
+  return publicGame
+}
+
+app.get('/api/blackjack/fairness', requireAuthenticatedUser, async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const state = await ensureBlackjackFairnessState(req.identity.profileId)
+    validateBlackjackFairnessState(state)
+    res.json({ ok: true, fairness: {
+      seed_id: state.seed_id,
+      server_seed_hash: state.server_seed_hash,
+      client_seed: state.client_seed,
+      nonce: Number(state.nonce || 0),
+    } })
+  } catch (error) {
+    console.error('[api/blackjack/fairness] error', error)
+    res.status(500).json({ ok: false, error: error?.message || 'Unable to load Blackjack fairness.' })
+  }
+})
+
+app.post('/api/blackjack/fairness/rotate', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const clientSeed = String(req.body?.client_seed || '').trim()
+  if (!clientSeed || clientSeed.length > 128) {
+    res.status(400).json({ ok: false, error: 'Client seed must contain between 1 and 128 characters.' })
+    return
+  }
+  try {
+    const current = await ensureBlackjackFairnessState(req.identity.profileId)
+    const previousServerSeed = validateBlackjackFairnessState(current)
+    const next = createBlackjackFairnessSeed()
+    const fairness = await callRainRpc('rotate_blackjack_fairness_state', {
+      p_profile_id: req.identity.profileId,
+      p_expected_seed_id: current.seed_id,
+      p_expected_server_seed_hash: current.server_seed_hash,
+      p_expected_nonce: Number(current.nonce || 0),
+      p_previous_server_seed: previousServerSeed,
+      p_new_seed_id: next.seedId,
+      p_new_server_seed_hash: next.serverSeedHash,
+      p_new_server_seed_encrypted: next.serverSeedEncrypted,
+      p_new_client_seed: clientSeed,
+    })
+    res.json({ ok: true, fairness })
+  } catch (error) {
+    const message = error?.message || 'Unable to change Blackjack fairness seed.'
+    const expected = /seed|fairness|active|client/i.test(message)
+    if (!expected) console.error('[api/blackjack/fairness/rotate] error', error)
+    res.status(/active|changed/i.test(message) ? 409 : expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.get('/api/blackjack/state', requireAuthenticatedUser, async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const games = await adminRest(
+      `blackjack_games?profile_id=eq.${encodeURIComponent(req.identity.profileId)}&game_state=eq.active&order=created_at.desc&limit=1&select=*`,
+    )
+    res.json({ ok: true, game: serializeBlackjackGame(Array.isArray(games) ? games[0] : null) })
+  } catch (error) {
+    console.error('[api/blackjack/state] error', error)
+    res.status(500).json({ ok: false, error: 'Unable to restore Blackjack game.' })
+  }
+})
+
+app.post('/api/blackjack/create', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const wager = Number(req.body?.wager_value)
+  if (!Number.isSafeInteger(wager) || wager < BLACKJACK_MIN_WAGER || wager > BLACKJACK_MAX_WAGER) {
+    res.status(400).json({ ok: false, error: 'Wager must be between 5,000 and 10,000,000 coins.' })
+    return
+  }
+  try {
+    const profileId = String(req.identity.profileId)
+    const fairness = await ensureBlackjackFairnessState(profileId)
+    const serverSeed = validateBlackjackFairnessState(fairness)
+    const nonce = Number(fairness.nonce || 0)
+    if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error('Blackjack fairness nonce is invalid.')
+    const gameId = crypto.randomUUID()
+    const deck = generateBlackjackDeck(serverSeed, fairness.client_seed, nonce, gameId)
+    const playerCards = [deck.shift(), deck.shift()]
+    const dealerCards = [deck.shift(), deck.shift()]
+    const playerNatural = blackjackHandValue(playerCards) === 21
+    const dealerNatural = blackjackHandValue(dealerCards) === 21
+    const initialOutcome = playerNatural && dealerNatural ? 'push'
+      : playerNatural ? 'player_blackjack' : dealerNatural ? 'dealer' : null
+    const result = await callRainRpc('create_blackjack_game_secure', {
+      p_profile_id: profileId,
+      p_game_id: gameId,
+      p_wager_value: wager,
+      p_player_cards: playerCards,
+      p_dealer_cards: dealerCards,
+      p_remaining_deck: deck,
+      p_initial_outcome: initialOutcome,
+      p_fairness_seed_id: fairness.seed_id,
+      p_server_seed_hash: fairness.server_seed_hash,
+      p_server_seed_encrypted: fairness.server_seed_encrypted,
+      p_client_seed: fairness.client_seed,
+      p_nonce: nonce,
+    })
+    void emitProfileUpdates([profileId])
+    res.status(201).json({ ok: true, game: serializeBlackjackGame(result.game), balance: Number(result.balance || 0) })
+  } catch (error) {
+    const message = error?.message || 'Unable to start Blackjack.'
+    const expected = /active Blackjack|balance|fairness|wager|profile|invalid Blackjack/i.test(message)
+    if (!expected) console.error('[api/blackjack/create] error', error)
+    res.status(/active Blackjack|fairness state changed/i.test(message) ? 409 : expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/blackjack/action', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const profileId = String(req.identity.profileId)
+  const gameId = String(req.body?.game_id || '')
+  const action = String(req.body?.action || '').toLowerCase()
+  const requestId = String(req.body?.request_id || '')
+  if (!/^[0-9a-f-]{36}$/i.test(gameId) || !/^[0-9a-f-]{36}$/i.test(requestId)
+      || !['hit', 'stand', 'double'].includes(action)) {
+    res.status(400).json({ ok: false, error: 'Invalid Blackjack action.' })
+    return
+  }
+  try {
+    const rows = await adminRest(`blackjack_games?id=eq.${encodeURIComponent(gameId)}&select=*&limit=1`)
+    const game = Array.isArray(rows) ? rows[0] : null
+    if (!game) return res.status(404).json({ ok: false, error: 'Blackjack game not found.' })
+    if (String(game.profile_id) !== profileId) return res.status(403).json({ ok: false, error: 'You can only play your own game.' })
+    if (game.game_state !== 'active') return res.status(409).json({ ok: false, error: 'Blackjack game is not active.' })
+
+    const playerCards = [...game.player_cards]
+    const dealerCards = [...game.dealer_cards]
+    const deck = [...game.remaining_deck]
+    let outcome = null
+    if (action === 'hit' || action === 'double') playerCards.push(deck.shift())
+    if (blackjackHandValue(playerCards) > 21) outcome = 'dealer'
+    else if (action !== 'hit' || blackjackHandValue(playerCards) === 21) {
+      while (blackjackHandValue(dealerCards) < 17) dealerCards.push(deck.shift())
+      outcome = getBlackjackOutcome(playerCards, dealerCards)
+    }
+
+    const result = await callRainRpc('advance_blackjack_game_secure', {
+      p_profile_id: profileId,
+      p_game_id: gameId,
+      p_request_id: requestId,
+      p_expected_action_count: Number(game.action_count || 0),
+      p_action: action,
+      p_player_cards: playerCards,
+      p_dealer_cards: dealerCards,
+      p_remaining_deck: deck,
+      p_outcome: outcome,
+    })
+    if (action === 'double' || result.game?.game_state === 'finished') void emitProfileUpdates([profileId])
+    res.json({ ok: true, game: serializeBlackjackGame(result.game), balance: Number(result.balance || 0), replayed: Boolean(result.replayed) })
+  } catch (error) {
+    const message = error?.message || 'Unable to play this Blackjack action.'
+    const expected = /Blackjack|balance|own game|active|changed|double/i.test(message)
+    if (!expected) console.error('[api/blackjack/action] error', error)
+    res.status(/not found/i.test(message) ? 404 : /own game/i.test(message) ? 403 : /changed|not active/i.test(message) ? 409 : expected ? 400 : 500)
+      .json({ ok: false, error: message })
+  }
+})
+
 function getMinesSeedEncryptionKey(supabaseKey) {
   const jwtKey = getJwtGameSeedEncryptionKey('mines')
   if (jwtKey) return jwtKey

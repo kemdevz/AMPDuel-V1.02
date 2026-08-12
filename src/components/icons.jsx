@@ -132,6 +132,19 @@ export function LiveCasinoIcon({ className = '' }) {
   )
 }
 
+export function BlackjackIcon({ className = '' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+      <g transform="rotate(-14 9 13)">
+        <rect x="3.5" y="6.5" width="11" height="14" rx="1.7" fill="currentColor" fillOpacity=".22" />
+      </g>
+      <rect x="8.5" y="4.5" width="11" height="15" rx="1.7" fill="currentColor" fillOpacity=".92" />
+      <path d="M13.95 10.4c-1.65 1.6-2.7 2.55-2.7 3.85 0 .86.68 1.4 1.4 1.4.43 0 .83-.18 1.1-.52-.1.55-.38 1-.82 1.4h2.05c-.43-.4-.7-.85-.8-1.4.27.34.67.52 1.1.52.72 0 1.4-.54 1.4-1.4 0-1.3-1.05-2.25-2.73-3.85Z" fill="#171925" stroke="none" />
+      <path d="M10.55 7.3h1.8M10.9 8.55l.55-2.5.55 2.5" stroke="#171925" strokeWidth=".7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function ProfileIcon({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
