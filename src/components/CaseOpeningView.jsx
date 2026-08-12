@@ -1069,8 +1069,11 @@ export default function CaseOpeningView({ item, onBack }) {
 
         .case-open-multi-info {
           display: flex;
-          max-width: calc(100% - 115px);
+          box-sizing: border-box;
+          width: calc(100% - 123px);
+          min-width: 0;
           margin-left: 18px;
+          flex: 0 1 auto;
           flex-direction: column;
           align-items: flex-start;
           justify-content: center;
