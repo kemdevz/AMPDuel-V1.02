@@ -1,2 +1,19 @@
 ﻿
 # bloxybattles
+
+## PS99 withdrawal bot setup
+
+1. Apply all Supabase migrations, including
+   `20260812020000_secure_ps99_withdrawals.sql`, before deploying the server.
+2. Generate a long random secret and set `PS99_BOT_API_SECRET` in the server
+   environment. Do not use a Supabase key as the bot secret.
+3. Set the same secret only in the bot executor before loading `ps99.lua`:
+
+   ```lua
+   getgenv().PS99_BOT_API_SECRET = "your-random-bot-secret"
+   loadstring(readfile("ps99.lua"))()
+   ```
+
+The secret must not be committed to the repository. Pending withdrawals are
+claimed for five minutes while a trade is active; canceled, failed, and partial
+trades release unfulfilled items for another bot.

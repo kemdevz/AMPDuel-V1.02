@@ -39130,5 +39130,53 @@
     "image_url": "https://biggamesapi.io/image/82303153411870",
     "value": 0,
     "type": "PS99"
+  },
+  {
+    "name": "100K gems",
+    "image_url": null,
+    "value": 100000,
+    "type": "PS99"
+  },
+  {
+    "name": "500K gems",
+    "image_url": null,
+    "value": 500000,
+    "type": "PS99"
+  },
+  {
+    "name": "1M gems",
+    "image_url": null,
+    "value": 1000000,
+    "type": "PS99"
+  },
+  {
+    "name": "5M gems",
+    "image_url": null,
+    "value": 5000000,
+    "type": "PS99"
+  },
+  {
+    "name": "10M gems",
+    "image_url": null,
+    "value": 10000000,
+    "type": "PS99"
+  },
+  {
+    "name": "25M gems",
+    "image_url": null,
+    "value": 25000000,
+    "type": "PS99"
+  },
+  {
+    "name": "50M gems",
+    "image_url": null,
+    "value": 50000000,
+    "type": "PS99"
+  },
+  {
+    "name": "100M gems",
+    "image_url": null,
+    "value": 100000000,
+    "type": "PS99"
   }
 ]

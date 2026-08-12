@@ -2294,7 +2294,7 @@ function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen 
   );
 }
 
-function BattlesList({ battles, loading, error, onCreate, onView, onPreview, onProfileOpen }) {
+function BattlesList({ battles, error, onCreate, onView, onPreview, onProfileOpen }) {
   const activeBattles = battles.filter((battle) => ["waiting", "ready", "active"].includes(battle.status));
   const resolvedBattles = battles.filter((battle) => battle.status === "resolved");
   const totalValue = activeBattles.reduce((sum, battle) => sum + Number(battle.cost || 0), 0);
@@ -2325,19 +2325,18 @@ function BattlesList({ battles, loading, error, onCreate, onView, onPreview, onP
         <button type="button" className="bb-btn bb-btn-primary bb-create-battle-btn" onClick={onCreate}>Create Battle</button>
       </div>
       <div className="bb-battle-list">
-        {loading ? <div className="bb-picker-empty">Loading Case Battles...</div> : null}
-        {!loading && error ? <div className="bb-picker-empty">{error}</div> : null}
-        {!loading && !error && activeBattles.length > 0 ? (
+        {error && battles.length === 0 ? <div className="bb-picker-empty">{error}</div> : null}
+        {activeBattles.length > 0 ? (
           <div className="bb-battle-section">
             {activeBattles.map((battle) => (
               <BattleRow key={battle.id} battle={battle} onView={() => onView(battle)} onPreview={onPreview} onProfileOpen={onProfileOpen} />
             ))}
           </div>
         ) : null}
-        {!loading && !error && activeBattles.length > 0 && resolvedBattles.length > 0
+        {activeBattles.length > 0 && resolvedBattles.length > 0
           ? <div className="bb-battle-divider" aria-hidden="true" />
           : null}
-        {!loading && !error && resolvedBattles.length > 0 ? (
+        {resolvedBattles.length > 0 ? (
           <div className="bb-battle-section">
             {resolvedBattles.map((battle) => (
               <BattleRow key={battle.id} battle={battle} finished onView={() => onView(battle)} onPreview={onPreview} onProfileOpen={onProfileOpen} />
@@ -3225,7 +3224,6 @@ export default function CaseBattles({ battleId = "" }) {
   const [casesError, setCasesError] = useState("");
   const [botProfiles, setBotProfiles] = useState([]);
   const [battles, setBattles] = useState([]);
-  const [battlesLoading, setBattlesLoading] = useState(true);
   const [battlesError, setBattlesError] = useState("");
   const [creatingBattle, setCreatingBattle] = useState(false);
   const [selectedCases, setSelectedCases] = useState([]);
@@ -3330,7 +3328,6 @@ export default function CaseBattles({ battleId = "" }) {
       setBattle((current) => current?.id === String(row.id) ? normalizeBattleRow(row, current) : current);
     };
     const loadBattles = async () => {
-      setBattlesLoading(true);
       setBattlesError("");
       try {
         const response = await apiRequest("/api/case-battles");
@@ -3341,10 +3338,7 @@ export default function CaseBattles({ battleId = "" }) {
           .filter((loadedBattle) => loadedBattle && !isResolvedBattleExpired(loadedBattle, now)));
       } catch (error) {
         if (!mounted) return;
-        setBattles([]);
         setBattlesError(error?.message || "Unable to load Case Battles.");
-      } finally {
-        if (mounted) setBattlesLoading(false);
       }
     };
     void loadBattles();
@@ -3517,7 +3511,7 @@ export default function CaseBattles({ battleId = "" }) {
     <div className="battles-page">
       <style>{BATTLE_STYLES}</style>
       {screen === "list" && (
-        <BattlesList battles={battles} loading={battlesLoading} error={battlesError} onCreate={openCreation} onView={openBattle} onPreview={setPreviewCase} onProfileOpen={openMiniProfile} />
+        <BattlesList battles={battles} error={battlesError} onCreate={openCreation} onView={openBattle} onPreview={setPreviewCase} onProfileOpen={openMiniProfile} />
       )}
       {screen === "create" && (
         <CreationPage
@@ -3559,7 +3553,7 @@ export default function CaseBattles({ battleId = "" }) {
         />
       )}
       {screen === "battle" && !battle && (
-        <div className="bb-picker-empty">{directBattleError || "Loading Case Battle..."}</div>
+        directBattleError ? <div className="bb-picker-empty">{directBattleError}</div> : null
       )}
       {previewCase && <CasePreview item={previewCase} onClose={() => setPreviewCase(null)} />}
       <MiniProfileModal isOpen={Boolean(selectedProfile)} player={selectedProfile} onClose={() => setSelectedProfile(null)} />

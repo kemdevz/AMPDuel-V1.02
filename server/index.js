@@ -2627,7 +2627,7 @@ app.get('/api/inventory', requireAuthenticatedUser, async (req, res) => {
 
 app.get('/api/withdrawals', requireAuthenticatedUser, async (req, res) => {
   const rows = await adminRest(
-    `withdraws?select=*&user_id=eq.${encodeURIComponent(req.identity.profileId)}&canceled=eq.false&order=withdrawed_at.desc`,
+    `withdraws?select=*&user_id=eq.${encodeURIComponent(req.identity.profileId)}&canceled=eq.false&completed_at=is.null&order=withdrawed_at.desc`,
   )
   res.json({ ok: true, withdrawals: Array.isArray(rows) ? rows : [] })
 })
@@ -5388,8 +5388,8 @@ function normalizePs99DepositNames(pets, gems) {
     const normalized = String(name || '').trim()
     if (normalized) petNameCounts.set(normalized, (petNameCounts.get(normalized) || 0) + 1)
   }
-  // The current Lua item scanner includes gem-item names in `pets` and then
-  // mirrors them in `gems`. Only append gem entries not already represented.
+  // Preserve duplicate pets while avoiding double-credit if an older bot
+  // mirrors a gem package in both arrays.
   const mirroredCounts = new Map()
   for (const item of gemNames) {
     const normalized = String(typeof item === 'string' ? item : item?.name || '').trim()
@@ -5410,7 +5410,7 @@ app.get('/items/all', async (req, res) => {
     }
 
     // Fetch PS99 items from existing items table
-    const response = await fetch(`${supabaseUrl}/rest/v1/items?select=name&type=eq.PS99&order=name`, {
+    const response = await fetch(`${supabaseUrl}/rest/v1/items?select=name&type=eq.PS99&value=gt.0&order=name`, {
       headers: getSupabaseAdminHeaders(supabaseKey),
     })
 
@@ -5419,8 +5419,8 @@ app.get('/items/all', async (req, res) => {
       const itemNames = items.map(item => item.name).filter(Boolean)
       
       // Add gem items to the list
-      const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
-      const allItems = [...itemNames, ...gemItems]
+      const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems']
+      const allItems = [...new Set([...itemNames, ...gemItems])]
       
       res.json({ success: 'OK', items: allItems })
       return
@@ -5428,7 +5428,7 @@ app.get('/items/all', async (req, res) => {
 
     // Fallback: Return only gem items if table doesn't exist
     console.warn('[PS99] Items table not found, returning gem items only')
-    const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
+    const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems']
     res.json({ success: 'OK', items: gemItems })
   } catch (error) {
     console.error('[PS99] Failed to fetch items:', error)
@@ -5438,10 +5438,12 @@ app.get('/items/all', async (req, res) => {
 
 app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, async (req, res) => {
   try {
-    const { userId, game } = req.body
+    const { userId, game, botUserId, claimToken } = req.body
     const robloxId = String(userId || '').trim()
+    const botRobloxId = String(botUserId || '').trim()
+    const withdrawalClaimToken = String(claimToken || '').trim()
 
-    if (!/^\d+$/.test(robloxId) || !game) {
+    if (!/^\d+$/.test(robloxId) || !/^\d+$/.test(botRobloxId) || !withdrawalClaimToken || withdrawalClaimToken.length > 128 || !game) {
       res.status(400).json({ method: 'USERNOTFOUND' })
       return
     }
@@ -5460,36 +5462,36 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, asy
       return
     }
 
-    const inventory = await adminRest(
-      `inventory_items?select=id,name,type&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.asc&limit=500`,
-    )
-
-    // Filter for pet items (not gem items)
-    const gemItemNames = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems', '1B gems']
-    const petItems = (Array.isArray(inventory) ? inventory : []).filter(item => {
-      const itemName = typeof item === 'string' ? item : item.name
-      return !gemItemNames.includes(itemName)
+    const claimed = await callRainRpc('claim_ps99_withdrawals', {
+      p_profile_id: String(user.id),
+      p_bot_roblox_id: botRobloxId,
+      p_claim_token: withdrawalClaimToken,
     })
+    const withdrawals = (Array.isArray(claimed) ? claimed : [])
+      .map((row) => ({ id: String(row.withdrawal_id || ''), name: String(row.item_name || '') }))
+      .filter((row) => isUuidLike(row.id) && row.name)
 
-    // Filter for gem items
-    const gemItems = (Array.isArray(inventory) ? inventory : []).filter(item => {
-      const itemName = typeof item === 'string' ? item : item.name
-      return gemItemNames.includes(itemName)
-    })
+    const gemItemNames = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems']
+    const petItems = withdrawals.filter((item) => !gemItemNames.includes(item.name))
+    const gemItems = withdrawals.filter((item) => gemItemNames.includes(item.name))
 
-    // Check if user has items to withdraw (pets or gems)
-    if (petItems.length > 0 || gemItems.length > 0) {
+    if (withdrawals.length > 0) {
       res.json({
         method: 'Withdraw',
-        pets: petItems.map(item => item.name || item.id || item),
-        gems: gemItems.map(item => item.name || item.id || item)
+        pets: petItems.map((item) => item.name),
+        gems: gemItems.map((item) => item.name),
+        withdrawals,
+        claimToken: withdrawalClaimToken,
       })
     } else {
-      res.json({ method: 'Deposit' })
+      const pending = await adminRest(
+        `withdraws?select=id&user_id=eq.${encodeURIComponent(user.id)}&item_type=eq.PS99&canceled=eq.false&completed_at=is.null&limit=1`,
+      )
+      res.json({ method: Array.isArray(pending) && pending.length > 0 ? 'BUSY' : 'Deposit' })
     }
   } catch (error) {
     console.error('[PS99] Withdraw method check failed:', error)
-    res.status(500).json({ method: 'USERNOTFOUND' })
+    res.status(503).json({ success: false, error: 'Unable to check withdrawals' })
   }
 })
 
@@ -5549,11 +5551,18 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, as
   }
 })
 
-app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), async (req, res) => {
+app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), requirePs99Bot, async (req, res) => {
   try {
-    const { userId, pets, gems, game } = req.body
+    const { userId, withdrawalIds, claimToken, tradeId, botUserId, game } = req.body
+    const robloxId = String(userId || '').trim()
+    const botRobloxId = String(botUserId || '').trim()
+    const withdrawalClaimToken = String(claimToken || '').trim()
+    const externalTradeId = String(tradeId || '').trim()
+    const ids = Array.isArray(withdrawalIds)
+      ? [...new Set(withdrawalIds.map(String).filter(isUuidLike))].slice(0, 100)
+      : []
 
-    if (!userId || !game) {
+    if (!/^\d+$/.test(robloxId) || !/^\d+$/.test(botRobloxId) || !ids.length || !withdrawalClaimToken || !externalTradeId || withdrawalClaimToken.length > 128 || externalTradeId.length > 128) {
       res.status(400).json({ success: false, error: 'Missing required fields' })
       return
     }
@@ -5563,115 +5572,62 @@ app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), async (req, res
       return
     }
 
-    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
-    if (!supabaseUrl || !supabaseKey) {
-      res.status(503).json({ success: false, error: 'Database not configured' })
-      return
-    }
-
-    // Get current user
-    const userResponse = await fetch(
-      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}&select=*`,
-      {
-        headers: getSupabaseAdminHeaders(supabaseKey),
-      }
+    const profiles = await adminRest(
+      `user_profiles?select=id,username,roblox_id&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
     )
-
-    if (!userResponse.ok) {
+    const profile = Array.isArray(profiles) ? profiles[0] || null : profiles
+    if (!profile) {
       res.status(404).json({ success: false, error: 'User not found' })
       return
     }
 
-    const users = await userResponse.json()
-    if (!Array.isArray(users) || users.length === 0) {
-      res.status(404).json({ success: false, error: 'User not found' })
-      return
-    }
+    const result = await callRainRpc('finalize_ps99_withdrawals', {
+      p_profile_id: String(profile.id),
+      p_withdrawal_uuids: ids,
+      p_claim_token: withdrawalClaimToken,
+      p_external_trade_id: externalTradeId,
+      p_bot_roblox_id: botRobloxId,
+    })
 
-    const user = users[0]
-    const currentInventory = user.inventory || []
+    await emitWalletRefreshes([profile.id])
 
-    // Remove withdrawn pets and gems from inventory (both as items)
-    const updatedInventory = [...currentInventory]
-    
-    // Remove pets
-    if (Array.isArray(pets)) {
-      for (const pet of pets) {
-        const petName = typeof pet === 'string' ? pet : pet.name
-        const index = updatedInventory.findIndex(item => {
-          const itemName = typeof item === 'string' ? item : item.name
-          return itemName === petName
-        })
-        if (index !== -1) {
-          updatedInventory.splice(index, 1)
-        }
-      }
-    }
-    
-    // Remove gems
-    if (Array.isArray(gems)) {
-      for (const gem of gems) {
-        const gemName = typeof gem === 'string' ? gem : gem.name
-        const index = updatedInventory.findIndex(item => {
-          const itemName = typeof item === 'string' ? item : item.name
-          return itemName === gemName
-        })
-        if (index !== -1) {
-          updatedInventory.splice(index, 1)
-        }
-      }
-    }
-
-    // Update user
-    const updateResponse = await fetch(
-      `${supabaseUrl}/rest/v1/user_profiles?id=eq.${encodeURIComponent(userId)}`,
-      {
-        method: 'PATCH',
-        headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          inventory: updatedInventory
-        })
-      }
-    )
-
-    if (!updateResponse.ok) {
-      res.status(500).json({ success: false, error: 'Failed to update user' })
-      return
-    }
-
-    // Record withdrawal in withdraws table for all items
-    const allItems = []
-    if (Array.isArray(pets)) {
-      allItems.push(...pets)
-    }
-    if (Array.isArray(gems)) {
-      allItems.push(...gems)
-    }
-    
-    if (allItems.length > 0) {
-      for (const item of allItems) {
-        const itemName = typeof item === 'string' ? item : item.name
-        await fetch(`${supabaseUrl}/rest/v1/withdraws`, {
-          method: 'POST',
-          headers: getSupabaseAdminHeaders(supabaseKey, { 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            user_id: userId,
-            user_name: user.username || 'Unknown',
-            item_name: itemName,
-            value: 0, // PS99 items don't have values in this system
-            withdrawed_at: new Date().toISOString(),
-            canceled: false
-          })
-        })
-      }
-    }
-
-    await emitWalletRefreshes([userId])
-
-    res.json({ success: true, message: 'Withdraw successful' })
+    res.json({ success: true, duplicate: Boolean(result?.duplicate), message: 'Withdrawal finalized' })
   } catch (error) {
     console.error('[PS99] Withdraw failed:', error)
-    res.status(500).json({ success: false, error: 'Withdraw failed' })
+    const message = String(error?.message || 'Withdrawal finalization failed')
+    const conflict = /withdrawal|claim|belong|available|duplicate/i.test(message)
+    res.status(conflict ? 409 : 500).json({ success: false, error: message })
+  }
+})
+
+app.post('/withdraw/release', express.json({ limit: '8kb' }), requirePs99Bot, async (req, res) => {
+  try {
+    const robloxId = String(req.body?.userId || '').trim()
+    const botRobloxId = String(req.body?.botUserId || '').trim()
+    const withdrawalClaimToken = String(req.body?.claimToken || '').trim()
+    if (req.body?.game !== 'PS99' || !/^\d+$/.test(robloxId) || !/^\d+$/.test(botRobloxId) || !withdrawalClaimToken || withdrawalClaimToken.length > 128) {
+      res.status(400).json({ success: false, error: 'Invalid release request' })
+      return
+    }
+
+    const profiles = await adminRest(
+      `user_profiles?select=id&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
+    )
+    const profile = Array.isArray(profiles) ? profiles[0] || null : profiles
+    if (!profile) {
+      res.status(404).json({ success: false, error: 'User not found' })
+      return
+    }
+
+    const result = await callRainRpc('release_ps99_withdrawal_claim', {
+      p_profile_id: String(profile.id),
+      p_claim_token: withdrawalClaimToken,
+      p_bot_roblox_id: botRobloxId,
+    })
+    res.json({ success: true, released: Number(result?.released_count) || 0 })
+  } catch (error) {
+    console.error('[PS99] Withdrawal claim release failed:', error)
+    res.status(500).json({ success: false, error: 'Unable to release withdrawal claim' })
   }
 })
 
