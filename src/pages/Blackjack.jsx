@@ -449,14 +449,12 @@ export default function Blackjack() {
                       disabled={busy}
                       onChange={(event) => updateBet(event.target.value)}
                       onBlur={() => setBet((current) => clampBet(current))}
-                      aria-describedby="blackjack-bet-range"
                     />
                     <div className="blackjackQuickBets">
                       <button type="button" disabled={busy} onClick={() => setBet((current) => clampBet(Number(current) / 2))}>1/2</button>
                       <button type="button" disabled={busy} onClick={() => setBet((current) => clampBet(Number(current) * 2))}>2X</button>
                     </div>
                   </div>
-                  <span id="blackjack-bet-range" className="blackjackBetRange">Min 5,000 · Max 10,000,000</span>
                 </div>
               ) : null}
 
@@ -575,7 +573,6 @@ const BLACKJACK_STYLES = `
   .blackjackBetInput input { min-width:0; flex:1; height:100%; padding:0; border:0; outline:0; background:transparent; color:#ffffffeb; font-family:Poppins,sans-serif; font-size:14px; font-weight:600; }
   .blackjackBetInput input:focus,.blackjackBetInput input:focus-visible { border:0; outline:0; box-shadow:none; background:transparent; }
   .blackjackBetInput input:disabled { color:#ffffff80; cursor:not-allowed; }
-  .blackjackBetRange { display:block; margin-top:-3px; color:#ffffff4d; font-size:9.5px; font-weight:500; line-height:1.35; }
   .blackjackQuickBets { display:inline-flex; gap:6px; }
   .blackjackQuickBets button { border:0; border-radius:8px; background:#2a2e44; color:var(--text-primary); font-family:Poppins,sans-serif; font-weight:600; box-shadow:none; cursor:pointer; transform-origin:center; transition:opacity .2s ease,transform .1s ease,background .25s ease; }
   .blackjackQuickBets button { height:30px; min-width:0; padding:0 10px; font-size:12px; }
@@ -703,7 +700,6 @@ const BLACKJACK_STYLES = `
     .blackjackBetInput input { width:0; min-width:0; flex:1 1 auto; font-size:16px; line-height:1; }
     .blackjackQuickBets { flex:0 0 auto; gap:4px; }
     .blackjackQuickBets button { height:34px; min-width:40px; padding:0 8px; font-size:11px; touch-action:manipulation; }
-    .blackjackBetRange { margin-top:-2px; font-size:9px; }
     .blackjackActions button { min-height:44px; font-size:13px; touch-action:manipulation; }
     .blackjackDeal { height:46px!important; }
     .blackjackHand { gap:5px; }
