@@ -1776,6 +1776,11 @@ function normalizeJackpotGame(game) {
     status: game.status,
     entrants,
     potValue: Number(game.pot_value || 0),
+    taxRateBps: Number(game.tax_rate_bps || 0),
+    taxValue: Number(game.tax_value || 0),
+    taxStockValue: Number(game.tax_stock_value || 0),
+    taxChangeValue: Number(game.tax_change_value || 0),
+    netPayoutValue: Number(game.net_payout_value || 0),
     endsAt,
     remainingMs: endsAt ? Math.max(0, endsAt - serverNow) : 0,
     serverNow,
@@ -4418,6 +4423,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       client_seed: clientSeed,
       nonce: 0,
       canceled: false,
+      tax_rate_bps: 1250,
     }]
 
     const response = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
