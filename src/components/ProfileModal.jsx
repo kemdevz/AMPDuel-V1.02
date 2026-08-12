@@ -502,7 +502,7 @@ function StatusBadge({ status }) {
     LOST: 'bg-[rgba(239,68,68,.15)] text-[#f87171]',
     CANCELLED: 'bg-[rgba(156,163,175,.15)] text-[#9ca3af]',
     PUSH: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
-    TIE: 'bg-[rgba(96,165,250,.15)] text-[#93c5fd]',
+    TIE: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
   }
 
   return (
