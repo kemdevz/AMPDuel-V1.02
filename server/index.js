@@ -2560,6 +2560,136 @@ app.get('/api/profile', requireAuthenticatedUser, async (req, res) => {
   res.json({ ok: true, profile })
 })
 
+function historyItemValue(items) {
+  return (Array.isArray(items) ? items : []).reduce((sum, item) => (
+    sum + Math.max(0, Number(item?.value) || 0)
+  ), 0)
+}
+
+function historyParticipantValue(participants, profileId, idKey = 'profile_id') {
+  const participant = (Array.isArray(participants) ? participants : [])
+    .find((entry) => String(entry?.[idKey] || '') === profileId)
+  return Math.max(0, Number(participant?.value) || historyItemValue(participant?.items))
+}
+
+function historyPayoutValue(payouts, profileId) {
+  const payout = (Array.isArray(payouts) ? payouts : [])
+    .find((entry) => String(entry?.profile_id || '') === profileId)
+  return Math.max(0, Number(payout?.amount) || 0)
+}
+
+app.get('/api/profile/game-history', requireAuthenticatedUser, async (req, res) => {
+  const profileId = String(req.identity.profileId)
+  const encodedProfileId = encodeURIComponent(profileId)
+  const encodedBattleParticipant = encodeURIComponent(JSON.stringify([{ profile_id: profileId }]))
+  const encodedJackpotEntrant = encodeURIComponent(JSON.stringify([{ profileId }]))
+
+  try {
+    const [caseRows, battleRows, coinflipRows, upgraderRows, minesRows, rollRows, blackjackRows, jackpotRows] = await Promise.all([
+      adminRest(`case_openings?select=id,case_name,case_price,coin_payout,purchased_at,resolved_at&user_id=eq.${encodedProfileId}&order=resolved_at.desc&limit=100`),
+      adminRest(`case_battle_games?select=*&players=cs.${encodedBattleParticipant}&status=in.(resolved,cancelled)&order=created_at.desc&limit=100`),
+      adminRest(`coinflip_games?select=*&or=(creator_uuid.eq.${encodedProfileId},opponent_uuid.eq.${encodedProfileId})&order=created_at.desc&limit=100`),
+      adminRest(`upgrader_games?select=id,wager_value,payout_value,won,created_at,resolved_at&profile_id=eq.${encodedProfileId}&order=resolved_at.desc&limit=100`),
+      adminRest(`mines_games?select=id,wager_value,current_value,game_state,created_at,cashed_out_at&profile_id=eq.${encodedProfileId}&game_state=neq.active&order=created_at.desc&limit=100`),
+      adminRest(`roll_bets?select=id,wager_amount,payout_amount,outcome,placed_at,settled_at&profile_id=eq.${encodedProfileId}&outcome=not.is.null&order=placed_at.desc&limit=100`),
+      adminRest(`blackjack_games?select=id,wager_value,payout_value,outcome,created_at,resolved_at&profile_id=eq.${encodedProfileId}&game_state=eq.finished&order=resolved_at.desc&limit=100`),
+      adminRest(`jackpot_games?select=*&entrants=cs.${encodedJackpotEntrant}&status=in.(resolved,cancelled)&order=created_at.desc&limit=100`),
+    ])
+
+    const rows = []
+    const addRow = (row) => {
+      const amount = Math.max(0, Math.round(Number(row.amount) || 0))
+      const profit = Math.round(Number(row.profit) || 0)
+      rows.push({ ...row, amount, profit, date: row.date || null })
+    }
+
+    for (const game of Array.isArray(caseRows) ? caseRows : []) {
+      const wager = Number(game.case_price) || 0
+      const payout = Number(game.coin_payout) || 0
+      addRow({ id: `case:${game.id}`, game: 'Cases', filter: 'cases',
+        status: payout > wager ? 'WON' : 'LOST', amount: wager, profit: payout - wager,
+        date: game.resolved_at || game.purchased_at })
+    }
+
+    for (const game of Array.isArray(battleRows) ? battleRows : []) {
+      const players = Array.isArray(game.players) ? game.players : []
+      if (!players.some((player) => String(player?.profile_id || '') === profileId)) continue
+      const wager = Number(game.cost_per_player) || 0
+      const payout = historyPayoutValue(game.payouts, profileId)
+      const cancelled = game.status === 'cancelled'
+      addRow({ id: `battle:${game.id}`, game: 'Battles', filter: 'battles',
+        status: cancelled ? 'CANCELLED' : payout > 0 ? 'WON' : 'LOST', amount: wager,
+        profit: cancelled ? 0 : payout - wager,
+        date: game.resolved_at || game.cancelled_at || game.created_at })
+    }
+
+    for (const game of Array.isArray(coinflipRows) ? coinflipRows : []) {
+      if (!game.result && !game.canceled) continue
+      const creator = String(game.creator_uuid || '') === profileId
+      const wager = historyItemValue(creator ? game.creator_items : game.opponent_items)
+      const won = String(game.winner_uuid || '') === profileId
+      const grossPot = historyItemValue(game.creator_items) + historyItemValue(game.opponent_items)
+      const payout = won ? Math.max(0, Number(game.net_payout_value) || grossPot) : 0
+      addRow({ id: `coinflip:${game.id}`, game: 'Coinflip', filter: 'coinflip',
+        status: game.canceled ? 'CANCELLED' : won ? 'WON' : 'LOST', amount: wager,
+        profit: game.canceled ? 0 : payout - wager, date: game.resolved_at || game.created_at })
+    }
+
+    for (const game of Array.isArray(upgraderRows) ? upgraderRows : []) {
+      const wager = Number(game.wager_value) || 0
+      const payout = Number(game.payout_value) || 0
+      addRow({ id: `upgrader:${game.id}`, game: 'Upgrader', filter: 'upgrader',
+        status: game.won ? 'WON' : 'LOST', amount: wager, profit: payout - wager,
+        date: game.resolved_at || game.created_at })
+    }
+
+    for (const game of Array.isArray(minesRows) ? minesRows : []) {
+      const wager = Number(game.wager_value) || 0
+      const payout = game.game_state === 'cashed_out' ? Number(game.current_value) || 0 : 0
+      addRow({ id: `mines:${game.id}`, game: 'Mines', filter: 'mines',
+        status: payout > 0 ? 'WON' : 'LOST', amount: wager, profit: payout - wager,
+        date: game.cashed_out_at || game.created_at })
+    }
+
+    for (const game of Array.isArray(rollRows) ? rollRows : []) {
+      const wager = Number(game.wager_amount) || 0
+      const payout = Number(game.payout_amount) || 0
+      const cancelled = game.outcome === 'cancelled'
+      addRow({ id: `roll:${game.id}`, game: 'Roll', filter: 'roll',
+        status: cancelled ? 'CANCELLED' : game.outcome === 'won' ? 'WON' : 'LOST', amount: wager,
+        profit: cancelled ? 0 : payout - wager, date: game.settled_at || game.placed_at })
+    }
+
+    for (const game of Array.isArray(blackjackRows) ? blackjackRows : []) {
+      const wager = Number(game.wager_value) || 0
+      const payout = Number(game.payout_value) || 0
+      const won = game.outcome === 'player' || game.outcome === 'player_blackjack'
+      addRow({ id: `blackjack:${game.id}`, game: 'Blackjack', filter: 'blackjack',
+        status: game.outcome === 'push' ? 'PUSH' : won ? 'WON' : 'LOST', amount: wager,
+        profit: payout - wager, date: game.resolved_at || game.created_at })
+    }
+
+    for (const game of Array.isArray(jackpotRows) ? jackpotRows : []) {
+      const entrants = Array.isArray(game.entrants) ? game.entrants : []
+      if (!entrants.some((entrant) => String(entrant?.profileId || '') === profileId)) continue
+      const wager = historyParticipantValue(entrants, profileId, 'profileId')
+      const won = String(game.winner_profile_id || '') === profileId
+      const payout = won ? Math.max(0, Number(game.net_payout_value) || Number(game.pot_value) || 0) : 0
+      const cancelled = game.status === 'cancelled'
+      addRow({ id: `jackpot:${game.id}`, game: 'Jackpot', filter: 'jackpot',
+        status: cancelled ? 'CANCELLED' : won ? 'WON' : 'LOST', amount: wager,
+        profit: cancelled ? 0 : payout - wager, date: game.resolved_at || game.created_at })
+    }
+
+    rows.sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime())
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({ ok: true, history: rows.slice(0, 250) })
+  } catch (error) {
+    console.error('[profile/game-history] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load game history.' })
+  }
+})
+
 app.patch('/api/profile/ignored-users', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
   const ignoredUsers = Array.isArray(req.body?.ignored_users)
     ? [...new Set(req.body.ignored_users.map((value) => String(value).trim()).filter(isUuidLike))].slice(0, 500)

@@ -73,49 +73,6 @@ const gameFilters = [
   { id: 'jackpot', label: 'Jackpot', Icon: JackpotIcon },
 ]
 
-const sampleGameHistory = [
-  {
-    id: 'sample-won',
-    game: 'Coinflip',
-    filter: 'coinflip',
-    Icon: CoinflipIcon,
-    status: 'WON',
-    amount: 280000,
-    profit: 315000,
-    date: '28 Jul 2026 at 00:26',
-  },
-  {
-    id: 'sample-lost',
-    game: 'Cases',
-    filter: 'cases',
-    Icon: CasesIcon,
-    status: 'LOST',
-    amount: 410000,
-    profit: -410000,
-    date: '28 Jul 2026 at 00:14',
-  },
-  {
-    id: 'sample-cancelled',
-    game: 'Battles',
-    filter: 'battles',
-    Icon: BattlesIcon,
-    status: 'CANCELLED',
-    amount: 150000,
-    profit: 0,
-    date: '27 Jul 2026 at 23:58',
-  },
-  {
-    id: 'sample-draw',
-    game: 'Jackpot',
-    filter: 'jackpot',
-    Icon: JackpotIcon,
-    status: 'DRAW',
-    amount: 225000,
-    profit: 0,
-    date: '27 Jul 2026 at 23:41',
-  },
-]
-
 const transactionFilters = [
   { id: 'all', label: 'All' },
   { id: 'rain-payout', label: 'Rain Payout' },
@@ -544,7 +501,7 @@ function StatusBadge({ status }) {
     WON: 'bg-[rgba(34,197,94,.15)] text-[#34d399]',
     LOST: 'bg-[rgba(239,68,68,.15)] text-[#f87171]',
     CANCELLED: 'bg-[rgba(156,163,175,.15)] text-[#9ca3af]',
-    DRAW: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
+    PUSH: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
   }
 
   return (
@@ -562,10 +519,19 @@ function handleHistoryFilterWheel(event) {
   event.currentTarget.scrollLeft += delta
 }
 
-function GameHistory({ filter, onFilterChange }) {
+function formatGameHistoryDate(value) {
+  const date = new Date(value || 0)
+  if (Number.isNaN(date.getTime())) return 'Unknown date'
+  return date.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).replace(',', ' at')
+}
+
+function GameHistory({ filter, onFilterChange, history, loading, error }) {
   const rows = filter === 'all'
-    ? sampleGameHistory
-    : sampleGameHistory.filter((entry) => entry.filter === filter)
+    ? history
+    : history.filter((entry) => entry.filter === filter)
 
   return (
     <>
@@ -602,8 +568,12 @@ function GameHistory({ filter, onFilterChange }) {
           <span />
         </div>
 
-        {rows.length ? rows.map((entry) => {
-          const EntryIcon = entry.Icon
+        {loading ? (
+          <div className="p-5 text-center text-[13px] text-white/30">Loading game history...</div>
+        ) : error ? (
+          <div className="p-5 text-center text-[13px] text-[#f87171]">{error}</div>
+        ) : rows.length ? rows.map((entry) => {
+          const EntryIcon = gameFilters.find((item) => item.id === entry.filter)?.Icon || AllGamesIcon
           const profitColor = entry.profit > 0
             ? 'text-[#34d399]'
             : entry.profit < 0
@@ -625,14 +595,14 @@ function GameHistory({ filter, onFilterChange }) {
               <span><StatusBadge status={entry.status} /></span>
               <span className="inline-flex items-center gap-[3px] text-[10px] sm:text-xs">
                 <img src={COIN_ICON} alt="" className="h-[11px] w-[11px]" />
-                {entry.amount.toLocaleString()}
+                {Number(entry.amount || 0).toLocaleString()}
               </span>
               <span className={`hidden items-center gap-[3px] text-xs sm:inline-flex ${profitColor}`}>
                 <img src={COIN_ICON} alt="" className="h-[11px] w-[11px]" />
-                {profitPrefix}{entry.profit.toLocaleString()}
+                {profitPrefix}{Number(entry.profit || 0).toLocaleString()}
               </span>
               <span className="hidden overflow-hidden text-ellipsis whitespace-nowrap text-[10px] opacity-50 sm:block">
-                {entry.date}
+                {formatGameHistoryDate(entry.date)}
               </span>
               <button
                 type="button"
@@ -831,6 +801,9 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const [activeTab, setActiveTab] = useState('profile')
   const [sessions, setSessions] = useState([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [gameHistory, setGameHistory] = useState([])
+  const [gameHistoryLoading, setGameHistoryLoading] = useState(false)
+  const [gameHistoryError, setGameHistoryError] = useState('')
   const [gameFilter, setGameFilter] = useState('all')
   const [transactionFilter, setTransactionFilter] = useState('all')
   const [adminSection, setAdminSection] = useState('general')
@@ -871,6 +844,9 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           : 'profile',
       )
       setGameFilter('all')
+      setGameHistory([])
+      setGameHistoryError('')
+      setGameHistoryLoading(false)
       setTransactionFilter('all')
       setClosing(false)
       setMobileMenuOpen(false)
@@ -892,6 +868,23 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
         if (active) setProfile(result?.profile || null)
       } catch (error) {
         console.warn('[ProfileModal] failed to load profile', error)
+      }
+    }
+
+    const loadGameHistory = async () => {
+      setGameHistoryLoading(true)
+      setGameHistoryError('')
+      try {
+        const result = await apiRequest('/api/profile/game-history', { cache: 'no-store' })
+        if (active) setGameHistory(Array.isArray(result?.history) ? result.history : [])
+      } catch (error) {
+        console.warn('[ProfileModal] failed to load game history', error)
+        if (active) {
+          setGameHistory([])
+          setGameHistoryError(error?.message || 'Unable to load game history.')
+        }
+      } finally {
+        if (active) setGameHistoryLoading(false)
       }
     }
 
@@ -974,6 +967,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
 
     void loadProfile()
     void loadSessions()
+    void loadGameHistory()
 
     return () => {
       active = false
@@ -1634,7 +1628,13 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                 </div>
               </>
             ) : activeTab === 'games' ? (
-              <GameHistory filter={gameFilter} onFilterChange={setGameFilter} />
+              <GameHistory
+                filter={gameFilter}
+                onFilterChange={setGameFilter}
+                history={gameHistory}
+                loading={gameHistoryLoading}
+                error={gameHistoryError}
+              />
             ) : activeTab === 'transactions' ? (
               <TransactionHistory
                 filter={transactionFilter}
