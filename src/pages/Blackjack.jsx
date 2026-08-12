@@ -8,6 +8,19 @@ const SUIT_LABELS = { S: '♠', H: '♥', D: '♦', C: '♣' }
 const MIN_BET = 5_000
 const MAX_BET = 10_000_000
 
+function normalizeBetInput(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits === '' ? '' : Number(digits)
+}
+
+function formatBet(value) {
+  return value === '' ? '' : Math.max(0, Number(value) || 0).toLocaleString('en-US')
+}
+
+function clampBet(value) {
+  return Math.min(MAX_BET, Math.max(MIN_BET, Math.floor(Number(value) || MIN_BET)))
+}
+
 function handValue(cards) {
   let total = 0
   let aces = 0
@@ -210,7 +223,7 @@ export default function Blackjack() {
     return () => { cancelled = true }
   }, [revealedSeed])
 
-  const updateBet = (value) => setBet(Math.min(MAX_BET, Math.max(MIN_BET, Math.floor(Number(value) || MIN_BET))))
+  const updateBet = (value) => setBet(normalizeBetInput(value))
 
   const updateWallet = (nextBalance) => {
     if (Number.isFinite(Number(nextBalance))) setBalance(Number(nextBalance))
@@ -425,12 +438,25 @@ export default function Blackjack() {
                   <label htmlFor="blackjack-bet">Amount</label>
                   <div className="blackjackBetInput">
                     <img src="/bobux.png" alt="" />
-                    <input id="blackjack-bet" inputMode="numeric" value={bet.toLocaleString('en-US')} disabled={busy} onChange={(event) => updateBet(event.target.value.replace(/\D/g, ''))} />
+                    <input
+                      id="blackjack-bet"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      enterKeyHint="done"
+                      autoComplete="off"
+                      value={formatBet(bet)}
+                      disabled={busy}
+                      onChange={(event) => updateBet(event.target.value)}
+                      onBlur={() => setBet((current) => clampBet(current))}
+                      aria-describedby="blackjack-bet-range"
+                    />
                     <div className="blackjackQuickBets">
-                      <button type="button" disabled={busy} onClick={() => updateBet(bet / 2)}>1/2</button>
-                      <button type="button" disabled={busy} onClick={() => updateBet(bet * 2)}>2X</button>
+                      <button type="button" disabled={busy} onClick={() => setBet((current) => clampBet(Number(current) / 2))}>1/2</button>
+                      <button type="button" disabled={busy} onClick={() => setBet((current) => clampBet(Number(current) * 2))}>2X</button>
                     </div>
                   </div>
+                  <span id="blackjack-bet-range" className="blackjackBetRange">Min 5,000 · Max 10,000,000</span>
                 </div>
               ) : null}
 
@@ -549,6 +575,7 @@ const BLACKJACK_STYLES = `
   .blackjackBetInput input { min-width:0; flex:1; height:100%; padding:0; border:0; outline:0; background:transparent; color:#ffffffeb; font-family:Poppins,sans-serif; font-size:14px; font-weight:600; }
   .blackjackBetInput input:focus,.blackjackBetInput input:focus-visible { border:0; outline:0; box-shadow:none; background:transparent; }
   .blackjackBetInput input:disabled { color:#ffffff80; cursor:not-allowed; }
+  .blackjackBetRange { display:block; margin-top:-3px; color:#ffffff4d; font-size:9.5px; font-weight:500; line-height:1.35; }
   .blackjackQuickBets { display:inline-flex; gap:6px; }
   .blackjackQuickBets button { border:0; border-radius:8px; background:#2a2e44; color:var(--text-primary); font-family:Poppins,sans-serif; font-weight:600; box-shadow:none; cursor:pointer; transform-origin:center; transition:opacity .2s ease,transform .1s ease,background .25s ease; }
   .blackjackQuickBets button { height:30px; min-width:0; padding:0 10px; font-size:12px; }
@@ -657,21 +684,36 @@ const BLACKJACK_STYLES = `
     .blackjackEmptyCards { min-height:91px; padding:0 8px; }
   }
   @media (max-width:520px) {
-    .blackjackPageWrap { padding:2px 6px calc(72px + env(safe-area-inset-bottom,10px)); }
-    .blackjackShell { min-height:0; grid-template-columns:1fr; }
-    .blackjackBetPanel { order:2; width:100%; box-sizing:border-box; padding:10px 10px 8px; border-top:1px solid rgba(255,255,255,.06); border-right:0; }
+    .blackjackPage { min-height:auto; overflow-x:hidden; }
+    .blackjackPageWrap { min-height:0; padding:4px 6px calc(76px + env(safe-area-inset-bottom,10px)); align-items:flex-start; }
+    .blackjackShell { min-height:0; grid-template-columns:1fr; border-radius:7px; }
+    .blackjackBetPanel { order:2; width:100%; box-sizing:border-box; padding:10px 10px 9px; border-top:1px solid rgba(255,255,255,.06); border-right:0; }
+    .blackjackPanelHeader { padding-bottom:8px; }
     .blackjackTitleIcon { width:18px; height:18px; } .blackjackTitle h1 { font-size:16px; }
     .blackjackFairnessButton { height:30px; font-size:11px; }
-    .blackjackTable { order:1; min-height:480px; padding:10px 8px 8px; }
+    .blackjackBottomButtons { margin-top:4px; }
+    .blackjackTable { order:1; min-height:clamp(350px,52dvh,450px); padding:8px 8px 6px; }
     .blackjackConsole { gap:8px; }
     .blackjackRule { font-size:10px; }
     .blackjackRuleDivider { display:none; }
-    .blackjackBetBody { grid-template-columns:1fr; }
-    .blackjackBetInput { height:38px; padding:0 8px; gap:8px; }
-    .blackjackQuickBets { gap:4px; } .blackjackQuickBets button { height:26px; padding:0 8px; font-size:11px; }
-    .blackjackActions button { font-size:13px; }
+    .blackjackBetBody { padding:8px 0 4px; grid-template-columns:1fr; gap:10px; }
+    .blackjackInputGroup { min-width:0; gap:7px; }
+    .blackjackBetInput { width:100%; height:46px; min-width:0; padding:0 8px; gap:7px; }
+    .blackjackBetInput img { width:17px; height:17px; }
+    .blackjackBetInput input { width:0; min-width:0; flex:1 1 auto; font-size:16px; line-height:1; }
+    .blackjackQuickBets { flex:0 0 auto; gap:4px; }
+    .blackjackQuickBets button { height:34px; min-width:40px; padding:0 8px; font-size:11px; touch-action:manipulation; }
+    .blackjackBetRange { margin-top:-2px; font-size:9px; }
+    .blackjackActions button { min-height:44px; font-size:13px; touch-action:manipulation; }
+    .blackjackDeal { height:46px!important; }
     .blackjackHand { gap:5px; }
     .blackjackModalBackdrop { padding:8px; } .blackjackModal { width:100%; max-height:calc(100dvh - 16px); padding:1.25rem; } .blackjackModal h2 { font-size:20px; } .blackjackSeedRow { flex-direction:column; } .blackjackSeedRow button { width:100%; }
+  }
+  @media (max-width:360px) {
+    .blackjackPageWrap { padding-inline:3px; }
+    .blackjackBetPanel { padding-inline:8px; }
+    .blackjackQuickBets button { min-width:36px; padding-inline:6px; }
+    .blackjackRule { padding-inline:8px; font-size:9px; }
   }
   @media (prefers-reduced-motion:reduce) { .blackjackCard,.blackjackModal,.blackjackModalBackdrop { animation:none; } .blackjackCardInner,.blackjackCards,.blackjackScore span,.blackjackScore strong,.blackjackHand { transition:none; } }
 `

@@ -19,11 +19,11 @@ const MINES_SOUND_URLS = {
 }
 
 function normalizeAmount(value) {
-  const digits = String(value || '').replace(/\D/g, '')
-  return Math.max(0, Number(digits || 0))
+  const digits = String(value ?? '').replace(/\D/g, '')
+  return digits === '' ? '' : Math.max(0, Number(digits))
 }
 function formatAmount(value) {
-  return Math.max(0, Number(value || 0)).toLocaleString('en-US')
+  return value === '' ? '' : Math.max(0, Number(value || 0)).toLocaleString('en-US')
 }
 
 function clampBet(value) {
@@ -709,6 +709,10 @@ export default function Mines() {
         ._coinIcon_lhu08_217,._smallBombIcon_lhu08_250{width:14px;height:14px}
         ._betInput_lhu08_208,._minesNumberInput_lhu08_251{font-size:12px}
         ._betQuickBtn_lhu08_230._betQuickBtn_lhu08_230{height:24px;padding:0 7px;font-size:10px}
+        .mines-bet-input-wrap{width:100%;height:44px;min-width:0;box-sizing:border-box}
+        .mines-bet-input-wrap ._betInput_lhu08_208{width:0;min-width:0;flex:1 1 auto;font-size:16px;line-height:1}
+        .mines-bet-input-wrap ._betButtons_lhu08_229{flex:0 0 auto}
+        .mines-bet-input-wrap ._betQuickBtn_lhu08_230._betQuickBtn_lhu08_230{height:32px;min-width:36px;padding:0 6px;font-size:10px;touch-action:manipulation}
         ._minesInputWrapper_lhu08_240{gap:7px}
         ._tabSelector_lhu08_312{gap:5px}
         ._tab_lhu08_312._tab_lhu08_312{height:28px;font-size:11px}
@@ -770,6 +774,9 @@ export default function Mines() {
                         id="mines-amount"
                         type="text"
                         inputMode="numeric"
+                        pattern="[0-9]*"
+                        enterKeyHint="done"
+                        autoComplete="off"
                         value={formatAmount(amount)}
                         onChange={(event) => setAmount(normalizeAmount(event.target.value))}
                         onBlur={() => setAmount((current) => clampBet(current))}
