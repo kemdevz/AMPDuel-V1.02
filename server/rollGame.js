@@ -10,6 +10,7 @@ const MIN_ROLL_WAGER = 5_000
 const MAX_ROLL_WAGER = 10_000_000
 const MIN_ROLL_MULTIPLIER = 1.01
 const MAX_ROLL_MULTIPLIER = 100
+const ROLL_RETURN = 0.95
 const ITEM_CATALOG_CACHE_MS = 10 * 60 * 1000
 const ITEM_GROUP_TARGETS = Object.freeze({ huge: 57, titanic: 2, gargantuan: 1 })
 
@@ -141,7 +142,7 @@ function rollMultiplier(serverSeed, clientSeed, nonce, index) {
     .digest()
   const random52Bits = digest.readUIntBE(0, 6) * 16 + (digest[6] >> 4)
   const unit = random52Bits / 0x10000000000000
-  const multiplier = Math.floor((0.97 / Math.max(1 - unit, Number.EPSILON)) * 100) / 100
+  const multiplier = Math.floor((ROLL_RETURN / Math.max(1 - unit, Number.EPSILON)) * 100) / 100
   return Math.max(1, Math.min(100, multiplier))
 }
 

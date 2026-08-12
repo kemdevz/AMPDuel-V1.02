@@ -3257,6 +3257,8 @@ function resolveCaseBattleOutcome(battle, serverSeed) {
   const modes = Array.isArray(battle.modes) ? battle.modes : ['normal']
   const wild = modes.includes('wild')
   const terminal = modes.includes('terminal')
+  // Case prices already include the house edge. Do not rake the resulting pot
+  // again or Case Battles would charge the edge twice.
   const totalPot = totals.reduce((sum, value) => sum + value, 0)
   let winnerIndexes = []
 
@@ -3706,6 +3708,7 @@ const COMMUNITY_CASE_MIN_PLAYED = 5_000_000
 const COMMUNITY_CASE_MIN_ITEM_CHANCE = 0.1
 const COMMUNITY_CASE_MAX_PER_USER = 5
 const CASE_ROLL_TICKETS = 100_000
+const COMMUNITY_CASE_HOUSE_EDGE_BPS = 500
 
 function getCommunityCaseSlug(name) {
   return String(name || '')
@@ -3759,7 +3762,8 @@ function calculateCommunityCasePrice(catalogItems, submittedItems, commissionBps
   })
 
   if (nextRoll !== CASE_ROLL_TICKETS) throw new Error('Item chances must add up to exactly 100%.')
-  const denominator = BigInt(CASE_ROLL_TICKETS) * BigInt(10_000 - commissionBps)
+  const playerReturnBps = 10_000 - COMMUNITY_CASE_HOUSE_EDGE_BPS - commissionBps
+  const denominator = BigInt(CASE_ROLL_TICKETS) * BigInt(playerReturnBps)
   const price = (weightedValue * 10_000n + denominator - 1n) / denominator
   if (price <= 0n || price > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The calculated case price is invalid.')
   if (price > BigInt(COMMUNITY_CASE_MAX_PRICE)) throw new Error('The maximum community case price is 1,000,000 Coins.')
@@ -4669,8 +4673,8 @@ function getMinesMultiplier(revealedCount, totalPositions, minesCount) {
     multiplier *= remainingTotal / remainingSafe
   }
   
-  // Apply house edge (3%)
-  multiplier *= 0.97
+  // Apply the 5% house edge to the fair cash-out multiplier.
+  multiplier *= 0.95
   
   return Math.round(multiplier * 100) / 100
 }

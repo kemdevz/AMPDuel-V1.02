@@ -464,12 +464,12 @@ export default function Blackjack() {
                     <div className="blackjackStatsRow">
                       <div className="blackjackStatBox">
                         <span className="blackjackStatLabel">Multiplier</span>
-                        <span className="blackjackStatValueAccent">x2.00</span>
+                        <span className="blackjackStatValueAccent">x1.90</span>
                       </div>
                     </div>
                     <div className="blackjackStatBox blackjackStatBoxWide">
                       <span className="blackjackStatLabel">Potential Cashout</span>
-                      <span className="blackjackStatValue blackjackPayoutValue"><img src="/bobux.png" alt="" />{(Number(game?.wager_value || bet) * 2).toLocaleString('en-US')}</span>
+                      <span className="blackjackStatValue blackjackPayoutValue"><img src="/bobux.png" alt="" />{Math.floor(Number(game?.wager_value || bet) * 1.9).toLocaleString('en-US')}</span>
                     </div>
                     <div className="blackjackActionRow">
                       <button type="button" className="blackjackSecondary" disabled={busy} onClick={() => playAction('hit')}>Hit</button>
@@ -496,7 +496,7 @@ export default function Blackjack() {
               {dealer.length ? <div className="blackjackCards">{dealer.map((card, index) => <PlayingCard key={`dealer-${index}`} card={card} revealed={index < visibleDealerCards} index={index} />)}</div> : <EmptyHand />}
             </section>
             <div className="blackjackConsole" aria-label="Blackjack table rules">
-              <span className="blackjackRule">BLACKJACK PAYS 3:2</span>
+              <span className="blackjackRule">BLACKJACK PAYS 2.375X</span>
               <span className="blackjackRuleDivider" aria-hidden="true" />
               <span className="blackjackRule">DEALER STANDS ON 17</span>
             </div>

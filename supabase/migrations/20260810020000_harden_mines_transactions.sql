@@ -192,7 +192,7 @@ BEGIN
         * (total_positions - index_value)::numeric
         / (safe_positions - index_value)::numeric;
     END LOOP;
-    next_multiplier := round(next_multiplier * 0.97, 2);
+    next_multiplier := round(next_multiplier * 0.95, 2);
 
     UPDATE public.mines_games
     SET revealed_positions = selected_game.revealed_positions,

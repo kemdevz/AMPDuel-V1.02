@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS public.upgrader_games (
   chance_bps integer NOT NULL
     CHECK (chance_bps BETWEEN 100 AND 7500),
 
-  -- 1000 basis points = a 10% house edge / 90% RTP.
-  house_edge_bps integer NOT NULL DEFAULT 1000
+  -- 500 basis points = a 5% house edge / 95% RTP.
+  house_edge_bps integer NOT NULL DEFAULT 500
     CHECK (house_edge_bps BETWEEN 0 AND 10000),
 
   server_seed_hash text NOT NULL
@@ -338,7 +338,7 @@ BEGIN
   IF v_available_count <> v_target_count THEN RAISE EXCEPTION 'One or more target items are no longer available.'; END IF;
   IF v_wager_value <= 0 OR v_target_value <= 0 THEN RAISE EXCEPTION 'The wager or target value is invalid.'; END IF;
 
-  v_chance_bps := round((v_wager_value::numeric * 9000) / v_target_value)::integer;
+  v_chance_bps := round((v_wager_value::numeric * 9500) / v_target_value)::integer;
   IF v_chance_bps < 100 OR v_chance_bps > 7500 THEN RAISE EXCEPTION 'Upgrade chance must be between 1%% and 75%%.'; END IF;
 
   v_balance_before := COALESCE(v_profile.balance, 0);

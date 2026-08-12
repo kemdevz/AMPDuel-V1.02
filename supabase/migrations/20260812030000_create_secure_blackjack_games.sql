@@ -193,7 +193,7 @@ BEGIN
   IF p_initial_outcome IS NOT NULL THEN
     next_state := 'finished';
     payout := CASE p_initial_outcome
-      WHEN 'player_blackjack' THEN floor(p_wager_value * 2.5)::bigint
+      WHEN 'player_blackjack' THEN floor(p_wager_value * 2.375)::bigint
       WHEN 'push' THEN p_wager_value
       ELSE 0
     END;
@@ -282,7 +282,7 @@ BEGIN
 
   selected_game.wager_value := selected_game.wager_value + extra_wager;
   IF p_outcome IS NOT NULL THEN
-    payout := CASE p_outcome WHEN 'player' THEN selected_game.wager_value * 2
+    payout := CASE p_outcome WHEN 'player' THEN floor(selected_game.wager_value * 1.9)::bigint
       WHEN 'push' THEN selected_game.wager_value ELSE 0 END;
     UPDATE public.user_profiles
     SET balance = balance + payout,

@@ -561,7 +561,7 @@ function CaseCreateView({ onBack, onCreated, ownedCaseCount = 0 }) {
   const expectedValue = totalTickets === 100000
     ? selectedItems.reduce((sum, item) => sum + item.price * Math.round((Number(item.chance) || 0) * 1000), 0) / 100000
     : 0;
-  const casePrice = expectedValue > 0 ? Math.ceil(expectedValue / (1 - commissionBps / 10000)) : 0;
+  const casePrice = expectedValue > 0 ? Math.ceil(expectedValue / ((9500 - commissionBps) / 10000)) : 0;
   const commissionPerOpen = Math.floor(casePrice * commissionBps / 10000);
   const meetsPlayedRequirement = Number(user?.played || 0) >= MIN_COMMUNITY_CASE_CREATOR_PLAYED;
   const hasReachedCaseLimit = ownedCaseCount >= MAX_COMMUNITY_CASES_PER_USER;
