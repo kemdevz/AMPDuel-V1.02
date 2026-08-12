@@ -2617,8 +2617,15 @@ app.get('/api/profile/game-history', requireAuthenticatedUser, async (req, res) 
       const wager = Number(game.cost_per_player) || 0
       const payout = historyPayoutValue(game.payouts, profileId)
       const cancelled = game.status === 'cancelled'
+      const winnerIds = Array.isArray(game.winner_profile_ids) ? game.winner_profile_ids : []
+      const modes = Array.isArray(game.modes) ? game.modes : []
+      const playerOption = String(game.player_option || '')
+      const cooperative = playerOption.startsWith('group-') || modes.includes('group')
+      const teamCount = playerOption.startsWith('team-') ? getCaseBattleTeamCount(playerOption) : 0
+      const winningSideSize = teamCount > 0 ? players.length / teamCount : 1
+      const tied = !cooperative && winnerIds.length > winningSideSize
       addRow({ id: `battle:${game.id}`, game: 'Battles', filter: 'battles',
-        status: cancelled ? 'CANCELLED' : payout > 0 ? 'WON' : 'LOST', amount: wager,
+        status: cancelled ? 'CANCELLED' : tied ? 'TIE' : payout > 0 ? 'WON' : 'LOST', amount: wager,
         profit: cancelled ? 0 : payout - wager,
         date: game.resolved_at || game.cancelled_at || game.created_at })
     }

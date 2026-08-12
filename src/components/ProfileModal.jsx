@@ -502,6 +502,7 @@ function StatusBadge({ status }) {
     LOST: 'bg-[rgba(239,68,68,.15)] text-[#f87171]',
     CANCELLED: 'bg-[rgba(156,163,175,.15)] text-[#9ca3af]',
     PUSH: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
+    TIE: 'bg-[rgba(96,165,250,.15)] text-[#93c5fd]',
   }
 
   return (
@@ -559,7 +560,7 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
       </div>
 
       <div className={`flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto ${scrollClasses}`}>
-        <div className="hidden h-auto min-h-0 grid-cols-[1.1fr_.85fr_.85fr_.95fr_1fr_24px] items-center gap-2 bg-transparent px-2 py-0.5 text-[10px] font-bold uppercase tracking-[.06em] text-[rgba(225,228,242,.35)] sm:grid">
+        <div className="hidden min-h-7 shrink-0 grid-cols-[1.1fr_.85fr_.85fr_.95fr_1fr_24px] items-end gap-2 bg-transparent px-2 pb-1 pt-2 text-[10px] font-bold uppercase leading-none tracking-[.06em] text-[rgba(225,228,242,.35)] sm:grid">
           <span>Game</span>
           <span>Status</span>
           <span>Amount</span>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Settings, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { connectSocket } from '../lib/socket'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike, supabase } from '../lib/supabaseClient'
@@ -646,12 +646,10 @@ export default function Coinflip() {
         .coinflip-top-primary:hover { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
         .coinflip-top-secondary { background: #2a2e44; box-shadow: none; color: #e1e4f2; }
         .coinflip-top-secondary:hover { background: #32385a; }
-        .coinflip-top-icon-button { width: 42px; min-width: 42px; padding: 0; }
         .coinflip-top-counter,
         .coinflip-sort-trigger { height: 42px; border-radius: 8px; }
         @media (max-width: 640px) {
           .coinflip-top-button { height: 38px; min-width: 0; padding-inline: 12px; }
-          .coinflip-top-icon-button { width: 38px; min-width: 38px; padding: 0; }
           .coinflip-top-counter,
           .coinflip-sort-trigger { height: 38px; }
         }
@@ -686,7 +684,7 @@ export default function Coinflip() {
 
         {/* Mobile Controls */}
         <div className="flex flex-col gap-2 sm:hidden mb-4">
-          <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
             type="button"
             onClick={() => setCreateOpen(true)}
@@ -696,9 +694,6 @@ export default function Coinflip() {
             </button>
             <button type="button" className="coinflip-top-button coinflip-top-secondary w-full">
               Recent
-            </button>
-            <button type="button" className="coinflip-top-button coinflip-top-secondary coinflip-top-icon-button">
-              <Settings size={18} />
             </button>
           </div>
           <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
@@ -726,9 +721,6 @@ export default function Coinflip() {
             </button>
             <button type="button" className="coinflip-top-button coinflip-top-secondary">
               Recent
-            </button>
-            <button type="button" className="coinflip-top-button coinflip-top-secondary coinflip-top-icon-button">
-              <Settings size={18} />
             </button>
           </div>
           <div className="ml-auto flex items-center gap-3">
