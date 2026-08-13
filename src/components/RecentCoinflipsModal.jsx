@@ -252,8 +252,8 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
           .recentFlipsList::-webkit-scrollbar { width: 4px; background-color: transparent; }
           .recentFlipsList::-webkit-scrollbar-thumb { border-radius: 50px; background-color: #999ea7; }
           .recentFlipsList::-webkit-scrollbar-track { border-radius: 10px; background-color: transparent; }
-          .recentFlipRow { position: relative; display: grid; width: 100%; height: auto; grid-template-columns: 132px minmax(148px,2fr) minmax(104px,1fr) 100px; align-items: center; justify-content: flex-start; gap: 1rem; border: 1px solid #252839; border-radius: 8px 8px 11px; background: #1c1f2e; padding: 1.02rem; }
-          .recentFlipPlayers { display: flex; align-items: center; justify-content: flex-start; gap: 1.5rem; flex-wrap: wrap; }
+          .recentFlipRow { position: relative; isolation: isolate; display: grid; width: 100%; height: auto; grid-template-columns: 132px minmax(148px,2fr) minmax(104px,1fr) 100px; align-items: center; justify-content: flex-start; gap: 1rem; border: 1px solid #252839; border-radius: 8px 8px 11px; background: #1c1f2e; padding: 1.02rem; }
+          .recentFlipPlayers { position: relative; z-index: 3; display: flex; width: 132px; min-width: 132px; align-items: center; justify-content: flex-start; gap: 1.5rem; flex-wrap: nowrap; }
           .recentFlipPlayer { position: relative; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; padding: 0; }
           .recentFlipPlayerCoin { position: absolute; top: -5px; right: -5px; z-index: 2; border-radius: 50%; padding: 2px; }
           .recentFlipCoinIndicator { width: 1.7rem; height: 1.7rem; border-radius: 50%; }
@@ -261,8 +261,8 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
           .recentFlipAvatar:hover, .recentFlipPlayer--winner .recentFlipAvatar { border-color: #6c63ff; }
           .recentFlipPlayer--loser .recentFlipAvatar, .recentFlipPlayer--loser .recentFlipCoinIndicator { opacity: .4; }
           .recentFlipWinnerCoin { position: absolute; top: 50%; left: 53%; display: flex; width: 3.6rem; height: 3.7rem; align-items: center; justify-content: center; transform: translate(-50%,-50%); }
-          .recentFlipItemColumn { display: flex; min-width: 0; width: 100%; align-items: center; justify-content: center; padding: 2px 10px; }
-          .recentFlipItemStack { display: flex; min-width: 0; width: 100%; min-height: 3.6rem; align-items: center; justify-content: center; padding-inline: 1.3rem; }
+          .recentFlipItemColumn { position: relative; z-index: 1; display: flex; min-width: 0; width: 100%; align-items: center; justify-content: center; overflow: hidden; border-radius: 5px; padding: 2px 10px; contain: layout paint; }
+          .recentFlipItemStack { display: flex; min-width: 0; width: min(100%,148px); min-height: 3.6rem; align-items: center; justify-content: center; overflow: hidden; padding-inline: 1.3rem; }
           .recentFlipItemWrapper { position: relative; z-index: 1; display: flex; width: 3.6rem; height: 3.6rem; flex: 0 0 3.6rem; align-items: center; justify-content: center; overflow: hidden; border: 2.8px solid #252839; border-radius: 5px; background-color: #20222f; transition: border-color .15s ease; }
           .recentFlipItemWrapper + .recentFlipItemWrapper { margin-left: -2.6rem; }
           .recentFlipItemWrapper:nth-child(2) { z-index: 2; }
@@ -285,11 +285,11 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
             .recentFlipsClose { top: 25px; right: 15px; }
             .recentFlipsTitle { margin-top: 15px; margin-bottom: 1rem; }
             .recentFlipRow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; }
-            .recentFlipPlayers { flex-direction: row; justify-content: center; }
+            .recentFlipPlayers { width: auto; min-width: 0; flex-direction: row; justify-content: center; }
             .recentFlipPlayer { flex-direction: column; }
             .recentFlipAvatar { width: 3.5rem; height: 3.5rem; }
             .recentFlipItemColumn { width: 100%; margin: 0; padding: 0; }
-            .recentFlipItemStack { width: 100%; justify-content: center; padding-inline: 1.3rem; }
+            .recentFlipItemStack { width: min(100%,148px); justify-content: center; padding-inline: 1.3rem; }
             .recentFlipValue { align-items: center; margin: .5rem 0; font-size: 1.2rem; text-align: center; }
             .recentFlipValue p, .recentFlipWinnerCoin { display: none; }
             .recentFlipButtons { flex-direction: row; justify-content: flex-end; }
