@@ -879,7 +879,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
                 setRulesOpen(false);
                 setEmojiPickerOpen((current) => !current);
               }}
-              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white focus:outline-none focus:ring-0"
+              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd] focus:outline-none focus:ring-0"
             >
               <EmojiIcon />
             </button>
@@ -889,7 +889,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
               type="button"
               onClick={submit}
               disabled={!user}
-              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd] focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <SendIcon />
             </button>
