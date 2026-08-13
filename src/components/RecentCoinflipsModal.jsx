@@ -14,9 +14,14 @@ function compactValue(value) {
   return number.toLocaleString('en-US')
 }
 
+function itemQuantity(item) {
+  const quantity = Number(item?.quantity ?? item?.qty ?? item?.count ?? 1)
+  return Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1
+}
+
 function gameValue(game) {
   const allItems = [...(game?.creator_items || []), ...(game?.opponent_items || [])]
-  const itemTotal = allItems.reduce((total, item) => total + (Number(item?.value) || 0), 0)
+  const itemTotal = allItems.reduce((total, item) => total + ((Number(item?.value) || 0) * itemQuantity(item)), 0)
   return itemTotal || Number(game?.total_value ?? game?.numericValue ?? game?.value ?? 0) || 0
 }
 
@@ -27,6 +32,7 @@ function normalizeItem(item) {
     id: item?.item_uuid || item?.id || item?.uuid || item?.image_url || item?.image,
     image: item?.image_url || item?.image || '',
     name: item?.name || 'Item',
+    quantity: itemQuantity(item),
   }
 }
 
@@ -80,9 +86,13 @@ function HistoryRow({ game, onView, onProfileOpen }) {
     : result === opponentSide
   const items = [...(game?.creator_items || []), ...(game?.opponent_items || [])].map(normalizeItem)
   const visibleItems = items.slice(0, 3)
-  const hiddenCount = Math.max(0, items.length - visibleItems.length)
+  const totalItemQuantity = items.reduce((total, item) => total + item.quantity, 0)
+  const hiddenCount = Math.max(0, totalItemQuantity - visibleItems.length)
   const total = gameValue(game)
-  const creatorValue = (game?.creator_items || []).reduce((sum, item) => sum + (Number(item?.value) || 0), 0)
+  const creatorValue = (game?.creator_items || []).reduce(
+    (sum, item) => sum + ((Number(item?.value) || 0) * itemQuantity(item)),
+    0,
+  )
   const low = creatorValue || total / 2
   const high = total - low || low
 
@@ -122,17 +132,15 @@ function HistoryRow({ game, onView, onProfileOpen }) {
 
       <img src={result === 'tails' ? '/tails.png' : '/heads.png'} alt="Winner Coin" className="recentFlipWinnerCoin" />
 
-      <div className="recentFlipItemHolder">
-        <div className="recentFlipItems">
-          <div className="recentFlipItemHolder">
-            {visibleItems.map((item, index) => (
-              <HistoryItem
-                key={item.id || index}
-                item={item}
-                overlay={index === visibleItems.length - 1 ? hiddenCount : 0}
-              />
-            ))}
-          </div>
+      <div className="recentFlipItemColumn">
+        <div className="recentFlipItemStack">
+          {visibleItems.map((item, index) => (
+            <HistoryItem
+              key={`${item.id || 'item'}-${index}`}
+              item={item}
+              overlay={index === visibleItems.length - 1 ? hiddenCount : 0}
+            />
+          ))}
         </div>
       </div>
 
@@ -244,7 +252,7 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
           .recentFlipsList::-webkit-scrollbar { width: 4px; background-color: transparent; }
           .recentFlipsList::-webkit-scrollbar-thumb { border-radius: 50px; background-color: #999ea7; }
           .recentFlipsList::-webkit-scrollbar-track { border-radius: 10px; background-color: transparent; }
-          .recentFlipRow { position: relative; display: grid; width: 100%; height: auto; grid-template-columns: auto 2fr 1fr auto; align-items: center; justify-content: flex-start; gap: 1rem; border: 1px solid #252839; border-radius: 8px 8px 11px; background: #1c1f2e; padding: 1.02rem; }
+          .recentFlipRow { position: relative; display: grid; width: 100%; height: auto; grid-template-columns: 132px minmax(148px,2fr) minmax(104px,1fr) 100px; align-items: center; justify-content: flex-start; gap: 1rem; border: 1px solid #252839; border-radius: 8px 8px 11px; background: #1c1f2e; padding: 1.02rem; }
           .recentFlipPlayers { display: flex; align-items: center; justify-content: flex-start; gap: 1.5rem; flex-wrap: wrap; }
           .recentFlipPlayer { position: relative; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; padding: 0; }
           .recentFlipPlayerCoin { position: absolute; top: -5px; right: -5px; z-index: 2; border-radius: 50%; padding: 2px; }
@@ -253,10 +261,12 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
           .recentFlipAvatar:hover, .recentFlipPlayer--winner .recentFlipAvatar { border-color: #6c63ff; }
           .recentFlipPlayer--loser .recentFlipAvatar, .recentFlipPlayer--loser .recentFlipCoinIndicator { opacity: .4; }
           .recentFlipWinnerCoin { position: absolute; top: 50%; left: 53%; display: flex; width: 3.6rem; height: 3.7rem; align-items: center; justify-content: center; transform: translate(-50%,-50%); }
-          .recentFlipItemHolder { position: relative; display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 2px 10px; }
-          .recentFlipItemHolder > * { margin-left: -2.6rem; }
-          .recentFlipItems { display: flex; }
-          .recentFlipItemWrapper { position: relative; display: flex; width: 3.6rem; height: 3.6rem; align-items: center; justify-content: center; overflow: hidden; border: 2.8px solid #252839; border-radius: 5px; background-color: #20222f; margin-right: .6rem; transition: border-color .15s ease; }
+          .recentFlipItemColumn { display: flex; min-width: 0; width: 100%; align-items: center; justify-content: center; padding: 2px 10px; }
+          .recentFlipItemStack { display: flex; min-width: 0; width: 100%; min-height: 3.6rem; align-items: center; justify-content: center; padding-inline: 1.3rem; }
+          .recentFlipItemWrapper { position: relative; z-index: 1; display: flex; width: 3.6rem; height: 3.6rem; flex: 0 0 3.6rem; align-items: center; justify-content: center; overflow: hidden; border: 2.8px solid #252839; border-radius: 5px; background-color: #20222f; transition: border-color .15s ease; }
+          .recentFlipItemWrapper + .recentFlipItemWrapper { margin-left: -2.6rem; }
+          .recentFlipItemWrapper:nth-child(2) { z-index: 2; }
+          .recentFlipItemWrapper:nth-child(3) { z-index: 3; }
           .recentFlipItemWrapper:hover { border-color: #6c63ff; }
           .recentFlipBackgroundImage { position: absolute; top: 50%; left: 50%; width: 3.7rem; height: 3.7rem; border-radius: 5px; object-fit: cover; filter: blur(6px); opacity: .6; transform: translate(-50%,-50%); }
           .recentFlipItem { position: absolute; top: 50%; left: 50%; width: 3.6rem; height: 3.6rem; border-radius: 5px; object-fit: cover; cursor: pointer; transform: translate(-50%,-50%); }
@@ -278,8 +288,8 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
             .recentFlipPlayers { flex-direction: row; justify-content: center; }
             .recentFlipPlayer { flex-direction: column; }
             .recentFlipAvatar { width: 3.5rem; height: 3.5rem; }
-            .recentFlipItems { display: flex; flex-direction: row; align-items: center; justify-content: center; margin: 0 !important; }
-            .recentFlipItemHolder { margin-right: 0; margin-left: 1.6rem; }
+            .recentFlipItemColumn { width: 100%; margin: 0; padding: 0; }
+            .recentFlipItemStack { width: 100%; justify-content: center; padding-inline: 1.3rem; }
             .recentFlipValue { align-items: center; margin: .5rem 0; font-size: 1.2rem; text-align: center; }
             .recentFlipValue p, .recentFlipWinnerCoin { display: none; }
             .recentFlipButtons { flex-direction: row; justify-content: flex-end; }
