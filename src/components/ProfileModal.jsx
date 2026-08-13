@@ -76,98 +76,12 @@ const gameFilters = [
 const transactionFilters = [
   { id: 'all', label: 'All' },
   { id: 'rain-payout', label: 'Rain Payout' },
-  { id: 'event-case-prize', label: 'Event Case Prize' },
   { id: 'item-exchange', label: 'Item Exchange' },
   { id: 'deposit', label: 'Deposit' },
   { id: 'cancelled-withdrawal', label: 'Cancelled Withdrawal' },
   { id: 'withdrawal', label: 'Withdrawal' },
-  { id: 'coin-stock-payout', label: 'Coin Stock Payout' },
-  { id: 'cancelled-withdrawals', label: 'Cancelled Withdrawals' },
   { id: 'coin-exchange', label: 'Coin Exchange' },
   { id: 'commission-claim', label: 'Commission Claim' },
-]
-
-const sampleTransactions = [
-  {
-    id: 'transaction-rain',
-    filter: 'rain-payout',
-    type: 'Rain Payout',
-    date: '28 Jul 2026 at 00:02',
-    balance: 'Coins',
-    amount: 21511,
-  },
-  {
-    id: 'transaction-event',
-    filter: 'event-case-prize',
-    type: 'Event Case Prize',
-    date: '27 Jul 2026 at 23:34',
-    balance: 'Coins',
-    amount: 470,
-  },
-  {
-    id: 'transaction-exchange-credit',
-    filter: 'item-exchange',
-    type: 'Item Exchange',
-    date: '27 Jul 2026 at 22:18',
-    balance: 'Coins',
-    amount: 617500,
-  },
-  {
-    id: 'transaction-exchange-debit',
-    filter: 'item-exchange',
-    type: 'Item Exchange',
-    date: '27 Jul 2026 at 22:18',
-    balance: 'Items',
-    amount: -650000,
-  },
-  {
-    id: 'transaction-deposit',
-    filter: 'deposit',
-    type: 'Deposit',
-    date: '27 Jul 2026 at 20:38',
-    balance: 'Items',
-    amount: 650000,
-  },
-  {
-    id: 'transaction-withdrawal',
-    filter: 'withdrawal',
-    type: 'Withdrawal',
-    date: '27 Jul 2026 at 19:45',
-    balance: 'Items',
-    amount: -125000,
-  },
-  {
-    id: 'transaction-cancelled',
-    filter: 'cancelled-withdrawal',
-    type: 'Cancelled Withdrawal',
-    date: '27 Jul 2026 at 19:42',
-    balance: 'Items',
-    amount: 125000,
-  },
-  {
-    id: 'transaction-stock',
-    filter: 'coin-stock-payout',
-    type: 'Coin Stock Payout',
-    date: '27 Jul 2026 at 18:27',
-    balance: 'Coins',
-    amount: 9600,
-  },
-  {
-    id: 'transaction-coin-exchange',
-    filter: 'coin-exchange',
-    type: 'Coin Exchange',
-    date: '27 Jul 2026 at 17:12',
-    balance: 'Coins',
-    amount: -40000,
-  },
-  {
-    id: 'transaction-commission',
-    filter: 'commission-claim',
-    type: 'Commission Claim',
-    date: '27 Jul 2026 at 16:04',
-    balance: 'Coins',
-    amount: 3200,
-  },
 ]
 
 const dangerGradient =
@@ -642,10 +556,10 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
   )
 }
 
-function TransactionHistory({ filter, onFilterChange }) {
+function TransactionHistory({ filter, onFilterChange, history, loading, error }) {
   const rows = filter === 'all'
-    ? sampleTransactions
-    : sampleTransactions.filter((entry) => entry.filter === filter)
+    ? history
+    : history.filter((entry) => entry.filter === filter)
 
   return (
     <>
@@ -670,7 +584,7 @@ function TransactionHistory({ filter, onFilterChange }) {
       </div>
 
       <div className={`flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto ${scrollClasses}`}>
-        <div className="hidden h-auto min-h-0 grid-cols-[1.5fr_1.4fr_.6fr_1.1fr_24px] items-center gap-2 bg-transparent px-2 py-0.5 text-[10px] font-bold uppercase tracking-[.06em] text-[rgba(225,228,242,.35)] sm:grid">
+        <div className="hidden min-h-7 shrink-0 grid-cols-[1.5fr_1.4fr_.6fr_1.1fr_24px] items-end gap-2 bg-transparent px-2 pb-1 pt-2 text-[10px] font-bold uppercase leading-none tracking-[.06em] text-[rgba(225,228,242,.35)] sm:grid">
           <span>Type</span>
           <span>Date</span>
           <span>Balance</span>
@@ -678,7 +592,11 @@ function TransactionHistory({ filter, onFilterChange }) {
           <span />
         </div>
 
-        {rows.length ? rows.map((entry) => {
+        {loading ? (
+          <div className="p-5 text-center text-[13px] text-white/30">Loading transaction history...</div>
+        ) : error ? (
+          <div className="p-5 text-center text-[13px] text-[#f87171]">{error}</div>
+        ) : rows.length ? rows.map((entry) => {
           const isPositive = entry.amount >= 0
           return (
             <div
@@ -689,7 +607,7 @@ function TransactionHistory({ filter, onFilterChange }) {
                 {entry.type}
               </span>
               <span className="hidden overflow-hidden text-ellipsis whitespace-nowrap text-[10px] opacity-55 sm:block">
-                {entry.date}
+                {formatGameHistoryDate(entry.date)}
               </span>
               <span className="hidden text-[10px] opacity-55 sm:block">
                 {entry.balance}
@@ -806,6 +724,9 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const [gameHistoryLoading, setGameHistoryLoading] = useState(false)
   const [gameHistoryError, setGameHistoryError] = useState('')
   const [gameFilter, setGameFilter] = useState('all')
+  const [transactionHistory, setTransactionHistory] = useState([])
+  const [transactionHistoryLoading, setTransactionHistoryLoading] = useState(false)
+  const [transactionHistoryError, setTransactionHistoryError] = useState('')
   const [transactionFilter, setTransactionFilter] = useState('all')
   const [adminSection, setAdminSection] = useState('general')
   const [ignoredUsers, setIgnoredUsers] = useState([])
@@ -848,6 +769,9 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
       setGameHistory([])
       setGameHistoryError('')
       setGameHistoryLoading(false)
+      setTransactionHistory([])
+      setTransactionHistoryError('')
+      setTransactionHistoryLoading(false)
       setTransactionFilter('all')
       setClosing(false)
       setMobileMenuOpen(false)
@@ -886,6 +810,23 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
         }
       } finally {
         if (active) setGameHistoryLoading(false)
+      }
+    }
+
+    const loadTransactionHistory = async () => {
+      setTransactionHistoryLoading(true)
+      setTransactionHistoryError('')
+      try {
+        const result = await apiRequest('/api/profile/transaction-history', { cache: 'no-store' })
+        if (active) setTransactionHistory(Array.isArray(result?.history) ? result.history : [])
+      } catch (error) {
+        console.warn('[ProfileModal] failed to load transaction history', error)
+        if (active) {
+          setTransactionHistory([])
+          setTransactionHistoryError(error?.message || 'Unable to load transaction history.')
+        }
+      } finally {
+        if (active) setTransactionHistoryLoading(false)
       }
     }
 
@@ -969,6 +910,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
     void loadProfile()
     void loadSessions()
     void loadGameHistory()
+    void loadTransactionHistory()
 
     return () => {
       active = false
@@ -1640,6 +1582,9 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
               <TransactionHistory
                 filter={transactionFilter}
                 onFilterChange={setTransactionFilter}
+                history={transactionHistory}
+                loading={transactionHistoryLoading}
+                error={transactionHistoryError}
               />
             ) : activeTab === 'admin' && hasAdminPanelAccess ? (
               <AdminPanel

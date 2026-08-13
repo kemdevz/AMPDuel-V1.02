@@ -2697,6 +2697,119 @@ app.get('/api/profile/game-history', requireAuthenticatedUser, async (req, res) 
   }
 })
 
+app.get('/api/profile/transaction-history', requireAuthenticatedUser, async (req, res) => {
+  const profileId = String(req.identity.profileId)
+  const encodedProfileId = encodeURIComponent(profileId)
+
+  try {
+    const [rainRows, itemSaleRows, itemPurchaseRows, depositRows, withdrawalRows, commissionRows] = await Promise.all([
+      adminRest(`rain_events?select=id,amount,created_at&profile_id=eq.${encodedProfileId}&event_type=eq.rain_payout&order=created_at.desc&limit=100`),
+      adminRest(`items_to_coins_exchanges?select=uuid,value,coin_amount,exchanged_at&user_id=eq.${encodedProfileId}&order=exchanged_at.desc&limit=100`),
+      adminRest(`coins_to_items_exchanges?select=uuid,value,coin_amount,purchased_at&user_id=eq.${encodedProfileId}&order=purchased_at.desc&limit=100`),
+      adminRest(`deposits?select=id,total_value,deposited_at&profile_id=eq.${encodedProfileId}&order=deposited_at.desc&limit=100`),
+      adminRest(`withdraws?select=id,value,canceled,withdrawed_at,completed_at&user_id=eq.${encodedProfileId}&order=withdrawed_at.desc&limit=100`),
+      adminRest(`case_commission_claims?select=id,amount,claimed_at&owner_user_id=eq.${encodedProfileId}&order=claimed_at.desc&limit=100`),
+    ])
+
+    const history = []
+    const addTransaction = ({ id, filter, type, balance, amount, date }) => {
+      const numericAmount = Math.round(Number(amount) || 0)
+      if (!id || !numericAmount) return
+      history.push({ id, filter, type, balance, amount: numericAmount, date: date || null })
+    }
+
+    for (const row of Array.isArray(rainRows) ? rainRows : []) {
+      addTransaction({
+        id: `rain:${row.id}`,
+        filter: 'rain-payout',
+        type: 'Rain Payout',
+        balance: 'Coins',
+        amount: Math.abs(Number(row.amount) || 0),
+        date: row.created_at,
+      })
+    }
+
+    for (const row of Array.isArray(itemSaleRows) ? itemSaleRows : []) {
+      addTransaction({
+        id: `item-sale-coins:${row.uuid}`,
+        filter: 'item-exchange',
+        type: 'Item Exchange',
+        balance: 'Coins',
+        amount: Math.abs(Number(row.coin_amount) || 0),
+        date: row.exchanged_at,
+      })
+      addTransaction({
+        id: `item-sale-items:${row.uuid}`,
+        filter: 'item-exchange',
+        type: 'Item Exchange',
+        balance: 'Items',
+        amount: -Math.abs(Number(row.value) || 0),
+        date: row.exchanged_at,
+      })
+    }
+
+    for (const row of Array.isArray(itemPurchaseRows) ? itemPurchaseRows : []) {
+      addTransaction({
+        id: `item-purchase-coins:${row.uuid}`,
+        filter: 'coin-exchange',
+        type: 'Coin Exchange',
+        balance: 'Coins',
+        amount: -Math.abs(Number(row.coin_amount) || 0),
+        date: row.purchased_at,
+      })
+      addTransaction({
+        id: `item-purchase-items:${row.uuid}`,
+        filter: 'coin-exchange',
+        type: 'Coin Exchange',
+        balance: 'Items',
+        amount: Math.abs(Number(row.value) || 0),
+        date: row.purchased_at,
+      })
+    }
+
+    for (const row of Array.isArray(depositRows) ? depositRows : []) {
+      addTransaction({
+        id: `deposit:${row.id}`,
+        filter: 'deposit',
+        type: 'Deposit',
+        balance: 'Items',
+        amount: Math.abs(Number(row.total_value) || 0),
+        date: row.deposited_at,
+      })
+    }
+
+    for (const row of Array.isArray(withdrawalRows) ? withdrawalRows : []) {
+      const cancelled = Boolean(row.canceled)
+      addTransaction({
+        id: `withdrawal:${row.id}`,
+        filter: cancelled ? 'cancelled-withdrawal' : 'withdrawal',
+        type: cancelled ? 'Cancelled Withdrawal' : 'Withdrawal',
+        balance: 'Items',
+        amount: (cancelled ? 1 : -1) * Math.abs(Number(row.value) || 0),
+        date: row.completed_at || row.withdrawed_at,
+      })
+    }
+
+    for (const row of Array.isArray(commissionRows) ? commissionRows : []) {
+      addTransaction({
+        id: `commission:${row.id}`,
+        filter: 'commission-claim',
+        type: 'Commission Claim',
+        balance: 'Coins',
+        amount: Math.abs(Number(row.amount) || 0),
+        date: row.claimed_at,
+      })
+    }
+
+    history.sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime())
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({ ok: true, history: history.slice(0, 250) })
+  } catch (error) {
+    console.error('[profile/transaction-history] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load transaction history.' })
+  }
+})
+
 app.patch('/api/profile/ignored-users', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
   const ignoredUsers = Array.isArray(req.body?.ignored_users)
     ? [...new Set(req.body.ignored_users.map((value) => String(value).trim()).filter(isUuidLike))].slice(0, 500)
