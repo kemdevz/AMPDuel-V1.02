@@ -3467,8 +3467,7 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
 
 const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
 const CASE_BATTLE_ROUND_MS = 6_250
-const CASE_BATTLE_FAST_ROUND_MS = 2_090
-const CASE_BATTLE_START_BUFFER_MS = 1_000
+const CASE_BATTLE_FAST_ROUND_MS = 2_490
 const caseBattleSettlementTimers = new Map()
 
 function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
@@ -3607,11 +3606,9 @@ async function startCaseBattle(battle) {
   const secret = Array.isArray(secretRows) ? secretRows[0] : secretRows
   const serverSeed = decryptCaseBattleServerSeed(secret?.server_seed_encrypted)
   const outcome = resolveCaseBattleOutcome(battle, serverSeed)
-  // Give the active-row update and realtime delivery time to reach every
-  // viewer before the shared countdown begins. This is especially important
-  // for fast-spin battles where one remote database round trip can otherwise
-  // consume most of the first round.
-  const startedAt = new Date(Date.now() + CASE_BATTLE_START_BUFFER_MS)
+  // Start the shared three-second countdown immediately. A future start
+  // boundary held the first number for an extra second before 3 changed to 2.
+  const startedAt = new Date()
   const roundDuration = battle.gold_spin ? CASE_BATTLE_FAST_ROUND_MS : CASE_BATTLE_ROUND_MS
   const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(battle.case_count) * roundDuration)
   const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}&status=in.(waiting,ready)`, {

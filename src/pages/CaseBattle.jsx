@@ -9,6 +9,7 @@ import {
   Zap,
 } from "lucide-react";
 import { getInventoryItemAccent } from "../components/InventoryItemCard";
+import { BattlesIcon } from "../components/icons";
 import MiniProfileModal, { preloadMiniProfile } from "../components/MiniProfileModal";
 import { notifications } from "../components/Notifications";
 import SortDirectionIcon from "../components/SortDirectionIcon";
@@ -33,14 +34,14 @@ const REEL_MAIN_DURATION = 4800;
 const REEL_SETTLE_PAUSE = 100;
 const REEL_SETTLE_DURATION = 250;
 const REEL_DURATION = REEL_START_DELAY + REEL_MAIN_DURATION + REEL_SETTLE_PAUSE + REEL_SETTLE_DURATION;
-const FAST_REEL_START_DELAY = 40;
-const FAST_REEL_MAIN_DURATION = 1500;
-const FAST_REEL_SETTLE_PAUSE = 40;
-const FAST_REEL_SETTLE_DURATION = 160;
+const FAST_REEL_START_DELAY = 60;
+const FAST_REEL_MAIN_DURATION = 1800;
+const FAST_REEL_SETTLE_PAUSE = 50;
+const FAST_REEL_SETTLE_DURATION = 180;
 const FAST_REEL_DURATION = FAST_REEL_START_DELAY + FAST_REEL_MAIN_DURATION + FAST_REEL_SETTLE_PAUSE + FAST_REEL_SETTLE_DURATION;
 const BATTLE_COUNTDOWN_DURATION = 3000;
 const BATTLE_ROUND_DELAY = 850;
-const FAST_BATTLE_ROUND_DELAY = 350;
+const FAST_BATTLE_ROUND_DELAY = 400;
 const BATTLE_ROUND_CYCLE = REEL_DURATION + BATTLE_ROUND_DELAY;
 const FAST_BATTLE_ROUND_CYCLE = FAST_REEL_DURATION + FAST_BATTLE_ROUND_DELAY;
 const RESOLVED_BATTLE_LIFETIME_MS = 40_000;
@@ -549,8 +550,9 @@ const BATTLE_STYLES = String.raw`
   .bb-row-players-six { width: 330px; min-width: 330px; gap: 7px; }
   .bb-row-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
   .bb-row-avatar-loading { display: block; width: 100%; height: 100%; }
-  .bb-vs { position: absolute; top: 50%; left: 50%; padding: 5px; color: rgba(225,228,242,.78); font-size: 11px; font-weight: 900; letter-spacing: .9px; transform: translate(-50%,-50%); }
-  .bb-vs-inline { position: static; flex: 0 0 auto; padding: 2px 0; transform: none; }
+  .bb-row-battle-icon { display: inline-flex; width: 20px; height: 20px; flex: 0 0 20px; align-items: center; justify-content: center; color: #6c7399; transition: color .2s ease; }
+  .bb-row-battle-icon svg { display: block; width: 20px; height: 20px; }
+  .bb-row:hover .bb-row-battle-icon { color: #6c63ff; }
   .bb-row-player-before-vs { margin-right: 15px; }
   .bb-row-player-after-vs { margin-left: 15px; }
   .bb-row-mode { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
@@ -2226,7 +2228,11 @@ function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen 
             <div className={`bb-row-players${battle.players.length === 6 ? " bb-row-players-six" : ""}`}>
               {battle.players.map((player, index) => (
                 <Fragment key={player?.id || `open-${index}`}>
-                  {battle.versus && index > 0 && index % teamSize === 0 && <span className="bb-vs bb-vs-inline">VS</span>}
+                  {battle.versus && index > 0 && index % teamSize === 0 && (
+                    <span className="bb-row-battle-icon" aria-hidden="true">
+                      <BattlesIcon />
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="bb-row-avatar"
