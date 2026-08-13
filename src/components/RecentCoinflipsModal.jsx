@@ -257,12 +257,13 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
           .recentFlipPlayer { position: relative; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; padding: 0; }
           .recentFlipPlayerCoin { position: absolute; top: -5px; right: -5px; z-index: 2; border-radius: 50%; padding: 2px; }
           .recentFlipCoinIndicator { width: 1.7rem; height: 1.7rem; border-radius: 50%; }
-          .recentFlipAvatar { width: 3.3rem; height: 3.3rem; border: 2.5px solid transparent; border-radius: 50%; object-fit: cover; cursor: pointer; transition: border .3s; }
+          .recentFlipAvatar { width: 3.3rem; height: 3.3rem; border: 2.5px solid #2F3347; border-radius: 50%; object-fit: cover; cursor: pointer; transition: border-color .3s, filter .3s; }
           .recentFlipAvatar:hover, .recentFlipPlayer--winner .recentFlipAvatar { border-color: #6c63ff; }
-          .recentFlipPlayer--loser .recentFlipAvatar, .recentFlipPlayer--loser .recentFlipCoinIndicator { opacity: .4; }
+          .recentFlipPlayer--loser .recentFlipAvatar { filter: brightness(.7); }
+          .recentFlipPlayer--loser .recentFlipCoinIndicator { opacity: .4; }
           .recentFlipWinnerCoin { position: absolute; top: 50%; left: 53%; display: flex; width: 3.6rem; height: 3.7rem; align-items: center; justify-content: center; transform: translate(-50%,-50%); }
           .recentFlipItemColumn { position: relative; z-index: 1; display: flex; min-width: 0; width: 100%; align-items: center; justify-content: center; overflow: hidden; border-radius: 5px; padding: 2px 10px; contain: layout paint; }
-          .recentFlipItemStack { display: flex; min-width: 0; width: min(100%,148px); min-height: 3.6rem; align-items: center; justify-content: center; overflow: hidden; padding-inline: 1.3rem; }
+          .recentFlipItemStack { display: flex; min-width: 0; width: min(100%,148px); min-height: 3.6rem; align-items: center; justify-content: center; overflow: hidden; padding-inline: 1.3rem; transform: translateX(-42px); }
           .recentFlipItemWrapper { position: relative; z-index: 1; display: flex; width: 3.6rem; height: 3.6rem; flex: 0 0 3.6rem; align-items: center; justify-content: center; overflow: hidden; border: 2.8px solid #252839; border-radius: 5px; background-color: #20222f; transition: border-color .15s ease; }
           .recentFlipItemWrapper + .recentFlipItemWrapper { margin-left: -2.6rem; }
           .recentFlipItemWrapper:nth-child(2) { z-index: 2; }
@@ -289,7 +290,7 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
             .recentFlipPlayer { flex-direction: column; }
             .recentFlipAvatar { width: 3.5rem; height: 3.5rem; }
             .recentFlipItemColumn { width: 100%; margin: 0; padding: 0; }
-            .recentFlipItemStack { width: min(100%,148px); justify-content: center; padding-inline: 1.3rem; }
+            .recentFlipItemStack { width: min(100%,148px); justify-content: center; padding-inline: 1.3rem; transform: none; }
             .recentFlipValue { align-items: center; margin: .5rem 0; font-size: 1.2rem; text-align: center; }
             .recentFlipValue p, .recentFlipWinnerCoin { display: none; }
             .recentFlipButtons { flex-direction: row; justify-content: flex-end; }
