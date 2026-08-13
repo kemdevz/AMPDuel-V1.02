@@ -1510,7 +1510,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
   return (
     <>
-      <aside className={`fixed bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-[5.25rem] md:top-24 lg:relative lg:right-auto lg:top-auto lg:z-auto lg:h-full lg:max-h-full lg:w-[min(22rem,calc(15rem+10vw))] lg:bg-transparent lg:pb-0 ${
+      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 lg:relative lg:right-auto lg:top-auto lg:z-auto lg:h-full lg:max-h-full lg:w-[min(22rem,calc(15rem+10vw))] lg:bg-transparent lg:pb-0 ${
         mobileChatOpen ? "right-0" : "-right-full"
       } ${className}`}>
       <style>{`

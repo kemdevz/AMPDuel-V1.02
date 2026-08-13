@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink } from "../lib/router";
+import { NavLink } from "../lib/router";
 import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
 import InventoryModal from "./InventoryModal";
@@ -14,8 +14,6 @@ import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
 
 const COIN_ICON = "/bobux.png";
-const DESKTOP_LOGO = "/logo.png";
-const MOBILE_LOGO = "/flame.png";
 const SUMMER_EVENT_ENABLED = false;
 const AVATAR =
   "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter";
@@ -32,7 +30,7 @@ function ChevronDownIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="lucide lucide-chevron-down h-[18px] w-[18px] shrink-0 text-[#9ca9d6]"
+      className="lucide lucide-chevron-down h-4 w-4 shrink-0 text-[#9ca9d6]"
       aria-hidden="true"
       style={{
         transform: "rotate(0deg)",
@@ -47,7 +45,7 @@ function ChevronDownIcon() {
 
 function WalletIcon() {
   return (
-    <svg viewBox="0 0 512 512" className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" aria-hidden="true">
+    <svg viewBox="0 0 512 512" className="h-[18px] w-[18px]" aria-hidden="true">
       <path
         fill="currentColor"
         d="M64 32C28.7 32 0 60.7 0 96L0 384c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-192c0-35.3-28.7-64-64-64L72 128c-13.3 0-24-10.7-24-24S58.7 80 72 80l384 0c13.3 0 24-10.7 24-24s-10.7-24-24-24L64 32zM416 256a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"
@@ -58,7 +56,7 @@ function WalletIcon() {
 
 function BellIcon() {
   return (
-    <svg viewBox="0 0 22 23" fill="none" className="h-5 w-5 md:h-6 md:w-6 text-[#6c63ff]" aria-hidden="true">
+    <svg viewBox="0 0 22 23" fill="none" className="h-[18px] w-[18px] text-[#6c63ff]" aria-hidden="true">
       <path
         d="M9.22322 19.287C9.16077 19.0417 9.37186 18.8333 9.62499 18.8333H12.375C12.6281 18.8333 12.8392 19.0417 12.7767 19.287C12.5748 20.0801 11.8559 20.6667 11 20.6667C10.1441 20.6667 9.42513 20.0801 9.22322 19.287Z"
         fill="currentColor"
@@ -87,7 +85,7 @@ function VolumeIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="lucide lucide-volume2 h-5 w-5 md:h-6 md:w-6 text-[#6c63ff]"
+      className="lucide lucide-volume2 h-[18px] w-[18px] text-[#6c63ff]"
       aria-hidden="true"
     >
       <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
@@ -499,8 +497,8 @@ export default function Header({ onOpenProfileModal }) {
 
   return (
     <header 
-      className="box-border flex h-[calc(4.5rem+env(safe-area-inset-top))] w-full shrink-0 items-center justify-center px-2 pt-[env(safe-area-inset-top)] sm:mt-3 sm:h-[4.5rem] sm:px-3 sm:pt-0 md:h-[5.25rem] md:px-5 lg:px-6"
-      style={{ backgroundColor: 'rgb(23, 25, 37)', paddingBottom: '0.75rem' }}
+      className="box-border flex h-[calc(5rem+env(safe-area-inset-top))] w-full shrink-0 items-center justify-center px-2 pt-[env(safe-area-inset-top)] sm:h-20 sm:px-3 sm:pt-0 md:px-5 lg:px-6"
+      style={{ backgroundColor: 'rgb(23, 25, 37)' }}
     >
       <style>{`
         @keyframes summerShimmer {
@@ -526,26 +524,11 @@ export default function Header({ onOpenProfileModal }) {
       `}</style>
 
       <div className="flex min-w-0 flex-1 shrink items-center gap-1.5 sm:gap-2">
-        <Link to="/">
-          <img
-            alt="BloxyPot Logo"
-            src={MOBILE_LOGO}
-            className="block aspect-auto h-auto w-9 sm:w-[2.5rem] md:hidden"
-            draggable={false}
-          />
-          <img
-            alt="BloxyPot Logo"
-            src={DESKTOP_LOGO}
-            className="hidden aspect-auto h-auto w-[clamp(7rem,calc(3.5rem+12vw),14rem)] md:block"
-            draggable={false}
-          />
-        </Link>
-
         {SUMMER_EVENT_ENABLED ? <SummerEventLink /> : null}
       </div>
 
       {user ? (
-        <div className="flex shrink-0 justify-center lg:fixed lg:inset-x-0 lg:top-6 lg:z-[60] lg:mx-auto lg:w-fit">
+        <div className="flex shrink-0 justify-center lg:fixed lg:inset-x-0 lg:top-5 lg:z-[60] lg:mx-auto lg:w-fit">
           <InventoryModal
             isOpen={inventoryOpen}
             onClose={() => setInventoryOpen(false)}
@@ -555,11 +538,11 @@ export default function Header({ onOpenProfileModal }) {
           <ExchangeModal isOpen={exchangeOpen} onClose={() => setExchangeOpen(false)} />
           <div
             ref={walletButtonRef}
-            className="mx-0.5 inline-flex max-w-full overflow-hidden rounded-[6px] text-[11px] font-semibold text-white sm:mx-0 sm:text-[15px]"
+            className="mx-0.5 inline-flex h-10 max-w-full overflow-hidden rounded-[6px] text-[11px] font-semibold text-white sm:mx-0 sm:text-sm"
           >
             <button
               type="button"
-              className="relative inline-flex min-w-0 cursor-pointer items-center gap-1 overflow-hidden border-0 bg-[#20222f] px-2 py-2 text-white transition-none hover:opacity-90 sm:gap-2.5 sm:px-4 sm:py-2.5"
+              className="relative inline-flex h-10 min-w-0 cursor-pointer items-center gap-1 overflow-hidden border-0 bg-[#20222f] px-2 text-white transition-none hover:opacity-90 sm:gap-2 sm:px-3"
               title="Choose balance type"
               aria-label="Choose balance type"
               aria-haspopup="menu"
@@ -570,7 +553,7 @@ export default function Header({ onOpenProfileModal }) {
                 src={COIN_ICON}
                 alt="bobux"
                 draggable={false}
-                style={{ width: "18px", height: "18px", objectFit: "contain" }}
+                style={{ width: "16px", height: "16px", objectFit: "contain" }}
               />
 
               <span className="inline-flex min-w-0 items-center gap-1 tabular-nums whitespace-nowrap leading-none sm:gap-1.5">
@@ -588,8 +571,8 @@ export default function Header({ onOpenProfileModal }) {
             <button
               type="button"
               className={walletSelection === "coins"
-                ? "inline-flex min-h-[2.5rem] min-w-[2.5rem] cursor-pointer items-center justify-center gap-1 border-0 border-l border-solid border-white/10 bg-[linear-gradient(135deg,#22C55E_0%,#16A34A_100%)] px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:opacity-90 sm:min-h-[3rem] sm:min-w-[3rem] sm:px-6 sm:py-3 sm:text-[15px]"
-                : "inline-flex min-h-[2.5rem] min-w-[2.5rem] cursor-pointer items-center gap-1 border-0 border-l border-solid border-white/10 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:opacity-90 sm:min-h-[3rem] sm:min-w-[3rem] sm:px-6 sm:py-3 sm:text-[15px]"
+                ? "inline-flex h-10 w-10 min-w-10 cursor-pointer items-center justify-center gap-1 border-0 border-l border-solid border-white/10 bg-[linear-gradient(135deg,#22C55E_0%,#16A34A_100%)] p-0 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:opacity-90"
+                : "inline-flex h-10 w-10 min-w-10 cursor-pointer items-center justify-center gap-1 border-0 border-l border-solid border-white/10 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] p-0 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:opacity-90"
               }
               aria-label={walletSelection === "coins" ? "Exchange" : "Wallet"}
               onClick={() => {
@@ -605,7 +588,7 @@ export default function Header({ onOpenProfileModal }) {
               }}
             >
               {walletSelection === "coins" ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[18px] w-[18px]" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M7 7h12l-2.25-2.25M19 7l-2.25 2.25" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"></path>
                   <path d="M17 17H5l2.25 2.25M5 17l2.25-2.25" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"></path>
                 </svg>
@@ -721,7 +704,7 @@ export default function Header({ onOpenProfileModal }) {
             ref={notificationsButtonRef}
             type="button"
             aria-label="Notifications"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100 md:h-12 md:w-12"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
             aria-haspopup="menu"
             aria-expanded={notificationsOpen}
             data-state={notificationsOpen ? "open" : "closed"}
@@ -801,7 +784,7 @@ export default function Header({ onOpenProfileModal }) {
         <div className="relative hidden min-[440px]:block">
           <button
             ref={volumeButtonRef}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100 md:h-12 md:w-12"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
             aria-label="Volume"
             type="button"
             aria-haspopup="menu"

@@ -21,7 +21,7 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
           className={`${itemClass} text-[#aeb4dd] hover:text-[#cbd3f2]`}
           title={isCollapsed ? name : ''}
         >
-          <Icon className={`${iconClass} text-[#8f96c8] group-hover:text-[#6c63ff]`} />
+          <Icon className={`${iconClass} text-[#8f96c8]`} />
           {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
         </button>
       </li>
@@ -52,7 +52,7 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
         >
           <Icon
             className={`${iconClass} ${
-              disabled ? 'text-[#626982]' : 'text-[#8f96c8] group-hover:text-[#6c63ff]'
+              disabled ? 'text-[#626982]' : 'text-[#8f96c8]'
             }`}
           />
           {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
@@ -75,13 +75,9 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
         }
         title={isCollapsed ? name : ''}
       >
-        {({ isActive }) => (
+        {() => (
           <>
-            <Icon
-              className={`${iconClass} ${
-                isActive ? 'text-[#6c63ff]' : 'text-[#8f96c8] group-hover:text-[#6c63ff]'
-              }`}
-            />
+            <Icon className={`${iconClass} text-[#8f96c8]`} />
             {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
           </>
         )}
@@ -112,7 +108,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
     <>
       <aside
         aria-label="Primary navigation"
-        className={`fixed bottom-0 left-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-[5.25rem] md:top-24 lg:relative lg:inset-auto lg:z-auto lg:h-full lg:w-[var(--sidebar-width)] lg:translate-x-0 lg:pb-0 ${
+        className={`fixed bottom-0 left-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-20 lg:relative lg:inset-auto lg:z-auto lg:h-full lg:w-[var(--sidebar-width)] lg:translate-x-0 lg:pb-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-[105%]'
         }`}
         style={{
@@ -121,7 +117,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
       >
       <div className="relative flex h-full flex-col overflow-hidden transition-[width,transform,opacity] duration-500 ease-out">
 
-        <div className="hidden min-h-24 w-full items-center px-3 lg:flex">
+        <div className="hidden h-20 w-full shrink-0 items-center px-3 lg:flex">
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
