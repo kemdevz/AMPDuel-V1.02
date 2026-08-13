@@ -902,7 +902,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
           <button
             type="button"
             aria-label="X"
-            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white"
+            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd]"
           >
             <XIcon size={16} className="transition-colors duration-200" />
           </button>
@@ -912,7 +912,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Discord"
-            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white"
+            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd]"
           >
             <DiscordIcon size={17} className="transition-colors duration-200" />
           </a>
@@ -920,7 +920,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
           <button
             type="button"
             aria-label="Twitch"
-            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white"
+            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd]"
           >
             <TwitchIcon className="h-4 w-4 transition-colors duration-200" />
           </button>
