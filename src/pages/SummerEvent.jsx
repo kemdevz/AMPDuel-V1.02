@@ -765,7 +765,7 @@ export default function SummerEvent() {
       className="relative h-full min-h-0 w-full overflow-auto bg-cover bg-center bg-no-repeat text-white/90 [font-family:Poppins,sans-serif]"
       style={{
         background:
-          "linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url('https://i.ibb.co/v4wP9pPK/summer-bg.png') center / cover",
+          "linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url('/site-background.png') center / cover",
       }}
     >
       <style>{`

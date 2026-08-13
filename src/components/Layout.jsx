@@ -101,7 +101,7 @@ export default function Layout({ children }) {
             className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:rounded-t-[0.5rem] lg:pb-0"
             style={{
               background:
-                'linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url("https://i.ibb.co/v4wP9pPK/summer-bg.png") center center / cover',
+                'linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url("/site-background.png") center center / cover',
             }}
           >
             {children}
