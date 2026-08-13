@@ -8,6 +8,7 @@ import { useAuth } from '../store/auth'
 import CoinflipCreateModal from '../components/CoinflipCreateModal'
 import CoinflipJoinModal from '../components/CoinflipJoinModal'
 import CoinflipViewModal from '../components/CoinflipViewModal'
+import RecentCoinflipsModal from '../components/RecentCoinflipsModal'
 import { getInventoryItemCardStyle } from '../components/InventoryItemCard'
 import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileModal'
 import TipUserModal from '../components/TipUserModal'
@@ -45,6 +46,7 @@ function mergeRecentCoinflipResults(current, incoming) {
     }
 
     byId.set(id, {
+      ...normalizeRoom(game),
       id,
       result,
       resolved_at: game.resolved_at || game.updated_at || game.created_at || new Date().toISOString(),
@@ -161,6 +163,7 @@ export default function Coinflip() {
   const [createOpen, setCreateOpen] = useState(false)
   const [joinRoom, setJoinRoom] = useState(null)
   const [viewRoom, setViewRoom] = useState(null)
+  const [recentOpen, setRecentOpen] = useState(false)
   const [selectedProfile, setSelectedProfile] = useState(null)
   const [tipRecipient, setTipRecipient] = useState(null)
   const [isUserTipSubmitting, setIsUserTipSubmitting] = useState(false)
@@ -168,6 +171,7 @@ export default function Coinflip() {
   const [showUserCoinTipInChat, setShowUserCoinTipInChat] = useState(false)
   const [rooms, setRooms] = useState([])
   const [recentResults, setRecentResults] = useState([])
+  const [recentPlayerResults, setRecentPlayerResults] = useState([])
   const socketRef = useRef(null)
   const viewOpenTimerRef = useRef(null)
   const handledResolvedRoomIdsRef = useRef(new Set())
@@ -242,7 +246,16 @@ export default function Coinflip() {
       }
     }
 
+    const isActiveParticipant = Boolean(
+      activeProfileId && (
+        activeProfileId === String(normalized.creator_uuid || '') ||
+        activeProfileId === String(normalized.opponent_uuid || '')
+      )
+    )
     setRecentResults((current) => mergeRecentCoinflipResults(current, [normalized]))
+    if (isActiveParticipant || normalized.canceled) {
+      setRecentPlayerResults((current) => mergeRecentCoinflipResults(current, [normalized]))
+    }
     setRooms((current) => {
       if (normalized.canceled) {
         return current.filter((existing) => String(existing.id) !== roomId)
@@ -335,11 +348,12 @@ export default function Coinflip() {
 
   useEffect(() => {
     let isMounted = true
+    const activeProfileId = String(user?.profile_id || user?.id || '').trim()
 
     const loadRecentResults = async () => {
       const { data, error } = await supabase
         .from('coinflip_games')
-        .select('id,result,resolved_at,created_at,canceled')
+        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled')
         .eq('canceled', false)
         .not('result', 'is', null)
         .order('resolved_at', { ascending: false })
@@ -352,6 +366,27 @@ export default function Coinflip() {
       }
 
       setRecentResults((current) => mergeRecentCoinflipResults(current, Array.isArray(data) ? data : []))
+
+      if (!activeProfileId) {
+        setRecentPlayerResults([])
+        return
+      }
+
+      const { data: playerData, error: playerError } = await supabase
+        .from('coinflip_games')
+        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled')
+        .eq('canceled', false)
+        .not('result', 'is', null)
+        .or(`creator_uuid.eq.${activeProfileId},opponent_uuid.eq.${activeProfileId}`)
+        .order('resolved_at', { ascending: false })
+        .limit(RECENT_RESULT_LIMIT)
+
+      if (!isMounted) return
+      if (playerError) {
+        console.warn('[coinflip] failed to load player flip history', playerError)
+        return
+      }
+      setRecentPlayerResults(mergeRecentCoinflipResults([], Array.isArray(playerData) ? playerData : []))
     }
 
     void loadRecentResults()
@@ -369,7 +404,7 @@ export default function Coinflip() {
       isMounted = false
       supabase.removeChannel(channel)
     }
-  }, [applyRoomUpdate])
+  }, [applyRoomUpdate, user?.id, user?.profile_id])
 
   // Derived stats for the stat cards
   const activeRoomsCount = rooms.filter((r) => !r.canceled && !r.result).length
@@ -691,7 +726,7 @@ export default function Coinflip() {
           >
               Create
             </button>
-            <button type="button" className="coinflip-top-button coinflip-top-secondary w-full">
+            <button type="button" onClick={() => setRecentOpen(true)} className="coinflip-top-button coinflip-top-secondary w-full">
               Recent
             </button>
           </div>
@@ -718,7 +753,7 @@ export default function Coinflip() {
             >
               Create
             </button>
-            <button type="button" className="coinflip-top-button coinflip-top-secondary">
+            <button type="button" onClick={() => setRecentOpen(true)} className="coinflip-top-button coinflip-top-secondary">
               Recent
             </button>
           </div>
@@ -808,6 +843,21 @@ export default function Coinflip() {
           }}
         />
       )}
+      <RecentCoinflipsModal
+        isOpen={recentOpen}
+        games={recentPlayerResults}
+        isAuthenticated={Boolean(user?.profile_id || user?.id)}
+        onClose={() => setRecentOpen(false)}
+        onView={(game) => {
+          setRecentOpen(false)
+          openViewRoom(game, 180)
+        }}
+        onProfileOpen={(player) => {
+          void preloadMiniProfile(player).then((loadedProfile) => {
+            setSelectedProfile({ ...player, ...(loadedProfile || {}) })
+          })
+        }}
+      />
       {viewRoom && (
         <CoinflipViewModal
           room={viewRoom}
