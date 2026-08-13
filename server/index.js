@@ -2067,7 +2067,7 @@ io.on('connection', (socket) => {
         chatMessageReceipts.delete(chatMessageReceipts.keys().next().value)
       }
     }
-    const messageText = String(message.text || message.message || message.content || '').trim().slice(0, 500)
+    const messageText = String(message.text || message.message || message.content || '').trim().slice(0, 100)
     if (!messageText) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Message cannot be empty.' })
       return

@@ -17,6 +17,7 @@ const COIN_ICON = "/bobux.png";
 const LEGACY_CHAT_MESSAGES_STORAGE_KEY = "bloxy_chat_messages_v1";
 const CHAT_SESSION_STORAGE_KEY = "bloxy_chat_session_v2";
 const MAX_STORED_CHAT_MESSAGES = 20;
+const MAX_CHAT_MESSAGE_LENGTH = 100;
 function RainCaptchaOverlay({ isOpen, isSubmitting, error, onClose, onVerify }) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
@@ -796,8 +797,11 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
     const after = value.slice(replacementEnd);
     const leadingSpace = !trigger && before && !/\s$/.test(before) ? " " : "";
     const trailingSpace = after && /^\s/.test(after) ? "" : " ";
-    const nextValue = `${before}${leadingSpace}${token}${trailingSpace}${after}`;
-    const nextCursor = before.length + leadingSpace.length + token.length + trailingSpace.length;
+    const nextValue = `${before}${leadingSpace}${token}${trailingSpace}${after}`.slice(0, MAX_CHAT_MESSAGE_LENGTH);
+    const nextCursor = Math.min(
+      before.length + leadingSpace.length + token.length + trailingSpace.length,
+      nextValue.length,
+    );
 
     pendingCursorRef.current = nextCursor;
     valueRef.current = nextValue;
@@ -843,13 +847,15 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
             type="text"
             placeholder={user ? "Say something..." : "Login to chat"}
             value={value}
+            maxLength={MAX_CHAT_MESSAGE_LENGTH}
             ref={inputRef}
             readOnly={!user}
             aria-disabled={!user}
             onChange={(event) => {
-              valueRef.current = event.target.value;
-              setValue(event.target.value);
-              setCursorIndex(event.target.selectionStart ?? event.target.value.length);
+              const nextValue = event.target.value.slice(0, MAX_CHAT_MESSAGE_LENGTH);
+              valueRef.current = nextValue;
+              setValue(nextValue);
+              setCursorIndex(Math.min(event.target.selectionStart ?? nextValue.length, nextValue.length));
               setEmojiPickerOpen(false);
             }}
             onClick={syncCursor}
@@ -1397,7 +1403,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   }
 
   function sendMessage(text) {
-    const normalized = text.trim();
+    const normalized = String(text || "").slice(0, MAX_CHAT_MESSAGE_LENGTH).trim();
     if (!normalized) return;
 
     if (normalized.toLowerCase() === "!tip") {

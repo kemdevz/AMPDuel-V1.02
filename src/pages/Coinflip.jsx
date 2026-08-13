@@ -730,7 +730,7 @@ export default function Coinflip() {
               Recent
             </button>
           </div>
-          <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#2a2e44] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
+          <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
             <span className="flex items-center gap-1">
               <img src="/heads.png" alt="heads" className="h-4 w-4" />
               {recentHeadsCount}
@@ -758,7 +758,7 @@ export default function Coinflip() {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <div className="coinflip-top-counter flex items-center gap-3 bg-[#2a2e44] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
+            <div className="coinflip-top-counter flex items-center gap-3 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
               <span className="flex items-center gap-1">
                 <img src="/heads.png" alt="heads" className="h-4 w-4" />
                 {recentHeadsCount}
@@ -976,7 +976,7 @@ function SortDropdown({ value, onChange, className = '' }) {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="coinflip-sort-trigger flex w-full items-center justify-between bg-[#2a2e44] px-3 text-sm text-[#E1E4F2] shadow-none transition-colors duration-150 hover:bg-[#32385a] focus:border-0 focus:outline-none"
+        className="coinflip-sort-trigger flex w-full items-center justify-between bg-[#20222f] px-3 text-sm text-[#E1E4F2] shadow-none transition-none hover:bg-[#20222f] focus:border-0 focus:outline-none"
       >
         <span>{value}</span>
         <ChevronDown size={16} className={`text-[#E1E4F2] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
