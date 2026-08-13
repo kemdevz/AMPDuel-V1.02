@@ -247,7 +247,14 @@ export default function LoginModal({ isOpen, onClose }) {
 
                 <p className="max-w-md text-sm leading-relaxed text-white/50">
                   By logging in, you confirm that you are at least 18 years old, your items are not stolen, and you agree to our{" "}
-                  <a href="/terms" className="text-[#8b85ff] hover:underline">
+                  <a
+                    href="/tos"
+                    className="text-[#8b85ff] hover:underline"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      window.dispatchEvent(new CustomEvent('terms:open'))
+                    }}
+                  >
                     Terms of Service
                   </a>
                   .
@@ -297,7 +304,15 @@ export default function LoginModal({ isOpen, onClose }) {
                       </button>
                       <span className="text-sm text-white/70">
                         I agree to the{" "}
-                        <a href="/terms" className="text-[#8b85ff] hover:underline" onClick={(event) => event.stopPropagation()}>
+                        <a
+                          href="/tos"
+                          className="text-[#8b85ff] hover:underline"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            window.dispatchEvent(new CustomEvent('terms:open'))
+                          }}
+                        >
                           terms of service
                         </a>
                       </span>

@@ -672,7 +672,6 @@ export default function Coinflip() {
             icon="/bobux.png"
             value={String(totalValueSum.toLocaleString('en-US'))}
             label="Total Value"
-            gradientRgb="255,216,77"
           />
           <StatCard
             icon="/assets/items-icon.png"
@@ -696,7 +695,7 @@ export default function Coinflip() {
               Recent
             </button>
           </div>
-          <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
+          <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#2a2e44] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
             <span className="flex items-center gap-1">
               <img src="/heads.png" alt="heads" className="h-4 w-4" />
               {recentHeadsCount}
@@ -724,7 +723,7 @@ export default function Coinflip() {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <div className="coinflip-top-counter flex items-center gap-3 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
+            <div className="coinflip-top-counter flex items-center gap-3 bg-[#2a2e44] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
               <span className="flex items-center gap-1">
                 <img src="/heads.png" alt="heads" className="h-4 w-4" />
                 {recentHeadsCount}
@@ -863,14 +862,9 @@ export default function Coinflip() {
   )
 }
 
-function StatCard({ icon, value, label, gradientRgb = '108,99,255', showIcon = true }) {
+function StatCard({ icon, value, label, showIcon = true }) {
   return (
-    <div
-      className="flex min-h-[72px] items-center justify-start gap-3 rounded-lg p-3"
-      style={{
-        background: `radial-gradient(circle at 100% 100%,rgba(${gradientRgb},.22) 0%,rgba(${gradientRgb},.16) 24%,rgba(${gradientRgb},.09) 52%,rgba(${gradientRgb},.04) 68%,transparent 82%),#1b1f2e`,
-      }}
-    >
+    <div className="flex min-h-[72px] items-center justify-start gap-3 rounded-lg bg-[#1b1f2e] p-3">
       <div className="flex w-full flex-col items-start justify-center text-left">
         <span className="flex items-center justify-start gap-2 text-left text-xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
@@ -932,7 +926,7 @@ function SortDropdown({ value, onChange, className = '' }) {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="coinflip-sort-trigger flex w-full items-center justify-between bg-[#20222f] px-3 text-sm text-[#E1E4F2] shadow-none transition-none hover:bg-[#20222f] focus:border-0 focus:outline-none"
+        className="coinflip-sort-trigger flex w-full items-center justify-between bg-[#2a2e44] px-3 text-sm text-[#E1E4F2] shadow-none transition-colors duration-150 hover:bg-[#32385a] focus:border-0 focus:outline-none"
       >
         <span>{value}</span>
         <ChevronDown size={16} className={`text-[#E1E4F2] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />

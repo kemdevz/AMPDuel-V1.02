@@ -467,11 +467,20 @@ const BATTLE_STYLES = String.raw`
     overflow: hidden;
     padding: 12px;
     border-radius: 8px;
-    background: radial-gradient(circle at 100% 100%,rgba(108,99,255,.22) 0%,rgba(108,99,255,.16) 24%,rgba(108,99,255,.09) 52%,rgba(108,99,255,.04) 68%,transparent 82%),#1b1f2e;
+    background: #1b1f2e;
   }
 
   .bb-stat-gold {
-    background: radial-gradient(circle at 100% 100%,rgba(255,216,77,.22) 0%,rgba(255,216,77,.16) 24%,rgba(255,216,77,.09) 52%,rgba(255,216,77,.04) 68%,transparent 82%),#1b1f2e;
+    background: #1b1f2e;
+  }
+
+  .bb-stat > div {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: left;
   }
 
   .bb-stat-value {
@@ -484,9 +493,9 @@ const BATTLE_STYLES = String.raw`
     line-height: 1.25;
   }
 
-  .bb-stat-value img { width: 20px; height: 20px; object-fit: contain; opacity: .95; }
-  .bb-stat-label { color: #fff; font-size: 14px; line-height: 1.25; }
-  .bb-list-actions { display: flex; align-items: center; margin-top: 12px; }
+  .bb-stat-value img { width: 20px; height: 20px; object-fit: contain; }
+  .bb-stat-label { display: block; color: #fff; font-size: 14px; line-height: 1.25; text-align: left; }
+  .bb-list-actions { display: flex; align-items: center; margin-top: 16px; }
   .bb-create-battle-btn { white-space: nowrap; }
   .bb-battle-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
   .bb-battle-section { display: flex; min-width: 0; flex-direction: column; gap: 12px; }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink } from '../lib/router'
 import { navSections } from '../data'
 
-function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal, onOpenLeaderboardModal }) {
+function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
   const requiresLogin = path === 'sessions' || path === 'profile'
   const itemClass = `group relative flex w-full items-center gap-3 rounded-[7px] px-1 py-2.5 text-sm font-medium leading-[18px] transition-colors duration-100 before:absolute before:-left-3 before:top-0 before:h-full before:w-[2px] before:bg-[#6c63ff] before:opacity-0 before:transition-opacity before:duration-100 hover:before:opacity-100 ${
     isCollapsed ? 'justify-center' : ''
@@ -16,6 +16,25 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
           type="button"
           onClick={() => {
             onOpenLeaderboardModal?.()
+            onNavigate?.()
+          }}
+          className={`${itemClass} text-[#aeb4dd] hover:text-[#cbd3f2]`}
+          title={isCollapsed ? name : ''}
+        >
+          <Icon className={`${iconClass} text-[#8f96c8]`} />
+          {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
+        </button>
+      </li>
+    )
+  }
+
+  if (path === 'tos') {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenTermsModal?.()
             onNavigate?.()
           }}
           className={`${itemClass} text-[#aeb4dd] hover:text-[#cbd3f2]`}
@@ -101,7 +120,7 @@ function SectionLabel({ children, isCollapsed }) {
   )
 }
 
-export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose, onOpenProfileModal, onOpenLeaderboardModal }) {
+export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose, onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
@@ -152,6 +171,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
                   onNavigate={onMobileClose}
                   onOpenProfileModal={onOpenProfileModal}
                   onOpenLeaderboardModal={onOpenLeaderboardModal}
+                  onOpenTermsModal={onOpenTermsModal}
                 />
               ))}
             </ul>

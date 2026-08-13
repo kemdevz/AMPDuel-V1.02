@@ -11,6 +11,7 @@ import { Menu, MessageSquare } from 'lucide-react'
 import { NavLink } from '../lib/router'
 import { CoinflipIcon } from './icons'
 import ProfileTipManager from './ProfileTipManager'
+import TermsModal from './TermsModal'
 
 export default function Layout({ children }) {
   const user = useAuth((s) => s.user)
@@ -20,6 +21,7 @@ export default function Layout({ children }) {
   const [leaderboardModalOpen, setLeaderboardModalOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
+  const [termsModalOpen, setTermsModalOpen] = useState(false)
 
   useEffect(() => {
     const handleOpenProfileModal = () => {
@@ -30,6 +32,13 @@ export default function Layout({ children }) {
     return () => {
       window.removeEventListener('profile:open', handleOpenProfileModal)
     }
+  }, [])
+
+  useEffect(() => {
+    const handleOpenTermsModal = () => setTermsModalOpen(true)
+
+    window.addEventListener('terms:open', handleOpenTermsModal)
+    return () => window.removeEventListener('terms:open', handleOpenTermsModal)
   }, [])
 
   useEffect(() => {
@@ -88,6 +97,7 @@ export default function Layout({ children }) {
         onMobileClose={() => setMobileNavOpen(false)}
         onOpenProfileModal={() => setProfileModalOpen(true)}
         onOpenLeaderboardModal={() => setLeaderboardModalOpen(true)}
+        onOpenTermsModal={() => setTermsModalOpen(true)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -101,7 +111,7 @@ export default function Layout({ children }) {
             className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:rounded-t-[0.5rem] lg:pb-0"
             style={{
               background:
-                'linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url("/site-background.png") center center / cover',
+                'linear-gradient(rgba(29, 32, 47, 0.82), rgba(29, 32, 47, 0.94)), url("/site-background.png") center center / cover',
             }}
           >
             {children}
@@ -164,6 +174,11 @@ export default function Layout({ children }) {
       <LeaderboardModal
         isOpen={leaderboardModalOpen}
         onClose={() => setLeaderboardModalOpen(false)}
+      />
+
+      <TermsModal
+        isOpen={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
       />
 
       <ProfileTipManager />

@@ -153,7 +153,7 @@ export default function Jackpot() {
       <div
         className="relative z-10 flex min-h-full items-center justify-center lg:min-h-[calc(100dvh-5rem)]"
         style={{
-          background: "linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url('/site-background.png') center center / cover",
+          background: "linear-gradient(rgba(29, 32, 47, 0.82), rgba(29, 32, 47, 0.94)), url('/site-background.png') center center / cover",
         }}
       >
         <div className="box-border flex h-full w-full flex-wrap items-center justify-center gap-8 p-4">
