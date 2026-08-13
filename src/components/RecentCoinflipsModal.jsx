@@ -258,7 +258,7 @@ export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticat
           .recentFlipPlayerCoin { position: absolute; top: -5px; right: -5px; z-index: 2; border-radius: 50%; padding: 2px; }
           .recentFlipCoinIndicator { width: 1.7rem; height: 1.7rem; border-radius: 50%; }
           .recentFlipAvatar { width: 3.3rem; height: 3.3rem; border: 2.5px solid #2F3347; border-radius: 50%; object-fit: cover; cursor: pointer; transition: border-color .3s, filter .3s; }
-          .recentFlipAvatar:hover, .recentFlipPlayer--winner .recentFlipAvatar { border-color: #6c63ff; }
+          .recentFlipPlayer:not(.recentFlipPlayer--loser) .recentFlipAvatar:hover, .recentFlipPlayer--winner .recentFlipAvatar { border-color: #6c63ff; }
           .recentFlipPlayer--loser .recentFlipAvatar { filter: brightness(.7); }
           .recentFlipPlayer--loser .recentFlipCoinIndicator { opacity: .4; }
           .recentFlipWinnerCoin { position: absolute; top: 50%; left: 53%; display: flex; width: 3.6rem; height: 3.7rem; align-items: center; justify-content: center; transform: translate(-50%,-50%); }
