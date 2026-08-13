@@ -1479,7 +1479,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   <img
                     src={avatarUrl}
                     alt=""
-                    className="h-11 w-11 shrink-0 rounded-full border-2 border-solid border-[#252839] object-cover sm:h-[58px] sm:w-[58px] sm:border-[3px]"
+                    className="h-11 w-11 shrink-0 rounded-full border border-solid border-[#22283F] object-cover sm:h-[58px] sm:w-[58px]"
                     draggable={false}
                     referrerPolicy="no-referrer"
                   />

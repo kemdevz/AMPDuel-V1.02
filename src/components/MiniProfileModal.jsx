@@ -361,7 +361,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
           width: 90px;
           height: 90px;
           flex-shrink: 0;
-          border: 5px solid #22283f;
+          border: 3px solid #22283f;
           border-radius: 50%;
           background-color: #1c1f2e;
           object-fit: cover;

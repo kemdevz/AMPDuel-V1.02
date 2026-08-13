@@ -9,6 +9,7 @@ import MiniProfileModal from "./MiniProfileModal";
 import TipUserModal from "./TipUserModal";
 import CoinTipModal from "./CoinTipModal";
 import { notifications } from "./Notifications";
+import { DiscordIcon, XIcon } from "./icons";
 import { getRoleStyle } from "../lib/roleStyles";
 import { loadRecaptcha, RECAPTCHA_TEST_SITE_KEY } from "../lib/recaptcha";
 
@@ -321,6 +322,14 @@ function SendIcon() {
   );
 }
 
+function TwitchIcon({ className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      <path d="M391.17,103.47H352.54v109.7h38.63ZM285,103H246.37V212.75H285ZM120.83,0,24.31,91.42V420.58H140.14V512l96.53-91.42h77.25L487.69,256V0ZM449.07,237.75l-77.22,73.12H294.61l-67.6,64v-64H140.14V36.58H449.07Z" />
+    </svg>
+  );
+}
+
 function TipIcon() {
   return (
     <svg width="21" height="21" xmlns="http://www.w3.org/2000/svg" viewBox="0.08 0.5 19.83 17" aria-hidden="true" className="text-white">
@@ -431,8 +440,8 @@ function ChatMessage({ message, onReply, onProfileOpen }) {
   return (
     <div className="msg-wrap">
       <div
-        className="chat-message-row group relative flex animate-[msgIn_.22s_ease-out_both] gap-3 px-[14px] py-[9px]"
-        style={{ backgroundColor: "rgb(28, 31, 46)", borderRadius: "9px" }}
+        className="chat-message-row group relative flex animate-[msgIn_.22s_ease-out_both] gap-2.5 px-3 py-2"
+        style={{ backgroundColor: "rgb(28, 31, 46)", borderRadius: "8px" }}
       >
         <div className="relative">
           <div
@@ -448,7 +457,7 @@ function ChatMessage({ message, onReply, onProfileOpen }) {
               }
             }}
           >
-            <div className="relative box-border grid aspect-square h-full w-full cursor-pointer place-content-center overflow-hidden rounded-full border-4 border-solid border-[#22283F] bg-[#1C1F2E] [&>div]:h-full [&>div]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
+            <div className="relative box-border grid aspect-square h-full w-full cursor-pointer place-content-center overflow-hidden rounded-full border-2 border-solid border-[#22283F] bg-[#1C1F2E] [&>div]:h-full [&>div]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
               {message.avatar ? (
                 <img
                   src={message.avatar}
@@ -475,7 +484,7 @@ function ChatMessage({ message, onReply, onProfileOpen }) {
 
         <div className="relative flex-1 min-w-0">
           <div className="mb-[2px] flex flex-wrap items-center">
-            <span className="inline-flex items-center gap-[9px] min-w-0">
+            <span className="inline-flex items-center gap-2 min-w-0">
               <span className="inline-flex min-w-0 items-center">
                 <span
                   className="w-max text-[0.75rem] select-none truncate"
@@ -517,7 +526,7 @@ function ChatMessage({ message, onReply, onProfileOpen }) {
             <button
               type="button"
               data-reply-btn="true"
-              className="ml-[9px] items-center gap-1 border-none bg-transparent text-[#555b82] transition-colors hover:text-[#A6B2D3]"
+              className="ml-2 items-center gap-1 border-none bg-transparent text-[#555b82] transition-colors hover:text-[#A6B2D3]"
               aria-label="Reply"
               style={{ display: "inline-flex", opacity: 0, transition: "opacity 150ms" }}
               onClick={() => onReply(message)}
@@ -525,12 +534,12 @@ function ChatMessage({ message, onReply, onProfileOpen }) {
               <ReplyIcon />
             </button>
 
-            <span className="ml-auto text-[0.69rem] font-medium text-[#555b82] select-none">{message.time}</span>
+            <span className="ml-auto text-[0.6rem] font-medium text-[#555b82] select-none">{message.time}</span>
           </div>
 
           <ReplyPreview reply={message.reply} />
 
-          <p className="text-[0.92rem] font-medium [overflow-wrap:anywhere] leading-snug" style={{ color: "rgb(151, 147, 186)" }}>
+          <p className="text-[0.8rem] font-medium [overflow-wrap:anywhere] leading-snug" style={{ color: "rgb(151, 147, 186)" }}>
             <span>{renderEmojiText(message.text)}</span>
           </p>
         </div>
@@ -799,7 +808,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   }
 
   return (
-    <div className="relative shrink-0 px-[--px] pt-[18px]">
+    <div className="relative shrink-0 px-[--px] pt-[7px]">
       {replyTo && (
         <div className="mb-[9px] flex items-start gap-[9px] rounded-[9px] bg-[#1c1f2e] px-[14px] py-[9px]">
           <div className="min-w-0 flex-1">
@@ -829,7 +838,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
           />
         )}
 
-        <div className="relative flex items-center rounded-[11px] border border-[#2a2f45] bg-[#181b28] px-[14px] py-[12px] pr-[110px]">
+        <div className="relative">
           <input
             type="text"
             placeholder={user ? "Say something..." : "Login to chat"}
@@ -858,10 +867,10 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
                 submit();
               }
             }}
-            className="w-full bg-transparent text-[0.92rem] font-medium text-[#f2f4ff] outline-none placeholder:text-[#6d7396]"
+            className="box-border w-full appearance-none rounded-[0.5rem] border-0 bg-[#1C1F2E] py-3.5 pl-4 pr-20 text-xs font-bold text-[#A6B2D3] shadow-none outline-none ring-0 placeholder:text-[#68749C] focus:border-0 focus:ring-0"
           />
 
-          <div className="absolute right-[9px] top-1/2 flex -translate-y-1/2 items-center gap-[7px]">
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
             <button
               aria-label="Emoji Picker"
               type="button"
@@ -870,7 +879,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
                 setRulesOpen(false);
                 setEmojiPickerOpen((current) => !current);
               }}
-              className="grid h-8 w-8 cursor-pointer place-content-center rounded-[9px] border-none bg-[#161a28] text-[1.15rem] text-[#a6b2d3] transition-colors hover:bg-[#1f2335] hover:text-[#6c63ff]"
+              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white focus:outline-none focus:ring-0"
             >
               <EmojiIcon />
             </button>
@@ -880,7 +889,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
               type="button"
               onClick={submit}
               disabled={!user}
-              className="grid h-8 w-8 cursor-pointer place-content-center rounded-[9px] border-none bg-[#161a28] text-[1.15rem] text-[#a6b2d3] transition-colors hover:bg-[#1f2335] hover:text-[#6c63ff] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <SendIcon />
             </button>
@@ -888,24 +897,57 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
         </div>
       </div>
 
-      <div className="mt-[9px] flex items-center gap-[9px]">
-        <div className="flex items-center gap-[9px] select-none">
-          <span className="block aspect-square w-3 rounded-full bg-current text-[#3AFF4E] shadow-[0_0_5.5px_currentColor]" />
-          <span className="text-base font-medium text-white">{onlineCount ?? 0}</span>
+      <div className="z-[30] flex items-center justify-between gap-2 pt-3">
+        <div className="flex gap-1">
+          <button
+            type="button"
+            aria-label="X"
+            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white"
+          >
+            <XIcon size={16} className="transition-colors duration-200" />
+          </button>
+
+          <a
+            href="https://discord.gg/bloxypot"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Discord"
+            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white"
+          >
+            <DiscordIcon size={17} className="transition-colors duration-200" />
+          </a>
+
+          <button
+            type="button"
+            aria-label="Twitch"
+            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#6c63ff] hover:text-white"
+          >
+            <TwitchIcon className="h-4 w-4 transition-colors duration-200" />
+          </button>
         </div>
 
-        <button
-          className="group ml-auto border-none bg-transparent text-[#292F45] transition-colors hover:text-[#606D9B] [&>svg]:w-[18px]"
-          aria-label="Chat Rules"
-          type="button"
-          aria-expanded={rulesOpen}
-          onClick={() => {
-            setRulesOpen(true);
-            setEmojiPickerOpen(false);
-          }}
-        >
-          <RulesIcon />
-        </button>
+        <div className="flex items-center justify-center gap-0.5">
+          <div className="flex h-8 select-none items-center gap-2 rounded-l-[7px] bg-[#1c1f2e] px-3">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3AFF4E] opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#3AFF4E]" />
+            </span>
+            <span className="text-xs font-[500] text-[#aeb4dd]">{onlineCount ?? 0}</span>
+          </div>
+
+          <button
+            className="group flex h-8 w-8 items-center justify-center rounded-r-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors hover:bg-[#23283a] hover:text-white [&>svg]:w-[18px]"
+            aria-label="Chat Rules"
+            type="button"
+            aria-expanded={rulesOpen}
+            onClick={() => {
+              setRulesOpen(true);
+              setEmojiPickerOpen(false);
+            }}
+          >
+            <RulesIcon />
+          </button>
+        </div>
       </div>
 
       {rulesOpen && <ChatRulesModal onClose={() => setRulesOpen(false)} />}
@@ -1468,7 +1510,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
   return (
     <>
-      <aside className={`fixed bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-[5.25rem] md:top-24 lg:relative lg:right-auto lg:top-auto lg:z-auto lg:h-full lg:max-h-full lg:w-[min(25.3rem,calc(17.25rem+11.5vw))] lg:bg-transparent lg:pb-0 ${
+      <aside className={`fixed bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-[5.25rem] md:top-24 lg:relative lg:right-auto lg:top-auto lg:z-auto lg:h-full lg:max-h-full lg:w-[min(22rem,calc(15rem+10vw))] lg:bg-transparent lg:pb-0 ${
         mobileChatOpen ? "right-0" : "-right-full"
       } ${className}`}>
       <style>{`
@@ -2166,8 +2208,8 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
             </div>
           </div>
 
-          <div className="chat-scroll min-h-0 flex-1 overflow-y-auto py-[14px]">
-            <div className="relative flex flex-col gap-4 px-[--px]">
+          <div className="chat-scroll min-h-0 flex-1 overflow-y-auto pb-[7px] pt-[14px]">
+            <div className="relative flex flex-col gap-3 px-[--px]">
               {giveaways.length ? (
                 <div className="space-y-[10px]">
                   {giveaways.map((giveaway) => (

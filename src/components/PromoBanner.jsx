@@ -127,7 +127,7 @@ export default function PromoBanner() {
 
         .heroAvatarWrap {
           border-radius: 9999px;
-          border: 3px solid rgba(108,99,255,.35);
+          border: 1px solid #22283f;
           padding: 3px;
         }
 

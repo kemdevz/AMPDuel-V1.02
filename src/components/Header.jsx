@@ -545,7 +545,7 @@ export default function Header({ onOpenProfileModal }) {
       </div>
 
       {user ? (
-        <div className="flex shrink-0 justify-center">
+        <div className="flex shrink-0 justify-center lg:fixed lg:inset-x-0 lg:top-6 lg:z-[60] lg:mx-auto lg:w-fit">
           <InventoryModal
             isOpen={inventoryOpen}
             onClose={() => setInventoryOpen(false)}
@@ -897,7 +897,7 @@ export default function Header({ onOpenProfileModal }) {
                   className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full md:h-[60px] md:w-[60px]"
                   style={{ backgroundColor: 'rgb(32, 34, 47)' }}
                 >
-                  <div className="relative box-border grid h-full w-full aspect-square cursor-pointer place-content-center overflow-hidden rounded-full border-4 border-solid border-[#22283F] bg-[#1C1F2E] [&>div]:h-full [&>div]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
+                  <div className="relative box-border grid h-full w-full aspect-square cursor-pointer place-content-center overflow-hidden rounded-full border-2 border-solid border-[#22283F] bg-[#1C1F2E] [&>div]:h-full [&>div]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
                     <img
                       src={user.avatar_headshot_url || user.avatar_url || AVATAR}
                       alt=""

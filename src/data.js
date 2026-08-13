@@ -11,7 +11,6 @@ import {
   ProfileIcon,
   LeaderboardIcon,
   TermsIcon,
-  FairnessIcon,
 } from './components/icons'
 
 // ----- Sidebar navigation -----------------------------------------------------
@@ -36,7 +35,6 @@ export const navSections = [
       { name: 'Profile', icon: ProfileIcon, path: 'profile' },
       { name: 'Leaderboard', icon: LeaderboardIcon, path: 'leaderboard' },
       { name: 'Terms of Service', icon: TermsIcon, path: 'tos' },
-      { name: 'Fairness', icon: FairnessIcon, path: 'fairness' },
     ],
   },
 ]

@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Menu } from 'lucide-react'
 import { NavLink } from '../lib/router'
 import { navSections } from '../data'
-import { XIcon, DiscordIcon } from './icons'
 
 function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal, onOpenLeaderboardModal }) {
   const requiresLogin = path === 'sessions' || path === 'profile'
+  const itemClass = `group relative flex w-full items-center gap-3 rounded-[7px] px-1 py-2.5 text-sm font-medium leading-[18px] transition-colors duration-100 before:absolute before:-left-3 before:top-0 before:h-full before:w-[2px] before:bg-[#6c63ff] before:opacity-0 before:transition-opacity before:duration-100 hover:before:opacity-100 ${
+    isCollapsed ? 'justify-center' : ''
+  }`
+  const iconClass = 'h-[18px] w-[18px] shrink-0 transition-colors duration-100'
 
   if (path === 'leaderboard') {
     return (
@@ -16,10 +18,10 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
             onOpenLeaderboardModal?.()
             onNavigate?.()
           }}
-          className={`group flex w-full items-center gap-4 rounded-lg px-4 py-[10px] text-[15.5px] font-medium text-[#aeb4dd] transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-white ${isCollapsed ? 'justify-center' : ''}`}
+          className={`${itemClass} text-[#aeb4dd] hover:text-[#cbd3f2]`}
           title={isCollapsed ? name : ''}
         >
-          <Icon className="h-[22px] w-[22px] shrink-0 text-[#8f96c8] transition-colors duration-300 group-hover:text-white" />
+          <Icon className={`${iconClass} text-[#8f96c8] group-hover:text-[#6c63ff]`} />
           {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
         </button>
       </li>
@@ -41,16 +43,16 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
             }
             onNavigate?.()
           }}
-          className={`group flex w-full items-center gap-4 rounded-lg px-4 py-[10px] text-[15.5px] font-medium transition-all duration-300 ease-out ${
+          className={`${itemClass} ${
             disabled
               ? 'cursor-not-allowed text-[#626982] opacity-60'
-              : 'text-[#aeb4dd] hover:bg-white/[0.05] hover:text-white'
-          } ${isCollapsed ? 'justify-center' : ''}`}
+              : 'text-[#aeb4dd] hover:text-[#cbd3f2]'
+          }`}
           title={isCollapsed ? (disabled ? `Login to access ${name.toLowerCase()}` : name) : ''}
         >
           <Icon
-            className={`h-[22px] w-[22px] shrink-0 transition-colors duration-300 ${
-              disabled ? 'text-[#626982]' : 'text-[#8f96c8] group-hover:text-white'
+            className={`${iconClass} ${
+              disabled ? 'text-[#626982]' : 'text-[#8f96c8] group-hover:text-[#6c63ff]'
             }`}
           />
           {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
@@ -65,19 +67,19 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
         to={`/${path}`}
         onClick={onNavigate}
         className={({ isActive }) =>
-          `group flex items-center gap-4 rounded-lg px-4 py-[10px] text-[15.5px] font-medium transition-all duration-300 ease-out ${
+          `${itemClass} ${
             isActive
-              ? 'bg-white/[0.06] text-white'
-              : 'text-[#aeb4dd] hover:bg-white/[0.05] hover:text-white'
-          } ${isCollapsed ? 'justify-center' : ''}`
+              ? 'text-[#E1E4F2] before:opacity-100'
+              : 'text-[#aeb4dd] hover:text-[#cbd3f2]'
+          }`
         }
         title={isCollapsed ? name : ''}
       >
         {({ isActive }) => (
           <>
             <Icon
-              className={`h-[22px] w-[22px] shrink-0 transition-colors duration-300 ${
-                isActive ? 'text-white' : 'text-[#8f96c8] group-hover:text-white'
+              className={`${iconClass} ${
+                isActive ? 'text-[#6c63ff]' : 'text-[#8f96c8] group-hover:text-[#6c63ff]'
               }`}
             />
             {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
@@ -91,13 +93,13 @@ function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, 
 function SectionLabel({ children, isCollapsed }) {
   if (isCollapsed) {
     return (
-      <div className="flex justify-center px-2 py-2.5">
-        <div className="h-[3px] w-10 rounded-full bg-[#6c63ff] opacity-90"></div>
+      <div className="flex min-h-5 justify-center py-1">
+        <div className="h-1 w-5 rounded-full bg-[#6c63ff] opacity-90"></div>
       </div>
     )
   }
   return (
-    <p className="px-4 pb-1.5 pt-2.5 text-[12.5px] font-semibold uppercase tracking-normal text-slate-500">
+    <p className="flex min-h-5 items-center font-[Poppins] text-[14px] font-[500] uppercase leading-5 tracking-normal text-[#aeb4dd]">
       {children}
     </p>
   )
@@ -110,36 +112,39 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
     <>
       <aside
         aria-label="Primary navigation"
-        className={`fixed bottom-0 left-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-[5.25rem] md:top-24 lg:relative lg:inset-auto lg:z-auto lg:mx-3 lg:w-[var(--sidebar-width)] lg:translate-x-0 lg:rounded-b-none lg:rounded-t-[8px] lg:pb-0 lg:duration-500 ${
+        className={`fixed bottom-0 left-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-[5.25rem] md:top-24 lg:relative lg:inset-auto lg:z-auto lg:h-full lg:w-[var(--sidebar-width)] lg:translate-x-0 lg:pb-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-[105%]'
         }`}
         style={{
-          '--sidebar-width': isCollapsed ? '82px' : '286px',
-          background:
-            'linear-gradient(180deg, rgb(27, 31, 46) 0px, rgb(25, 28, 42) 360px, rgb(23, 25, 37) 760px, rgb(23, 25, 37) 100%)',
+          '--sidebar-width': isCollapsed ? '64px' : '220px',
         }}
       >
       <div className="relative flex h-full flex-col overflow-hidden transition-[width,transform,opacity] duration-500 ease-out">
 
-        <div className={`w-full ${isCollapsed ? 'px-2 pt-0' : 'px-3 pt-0'}`}>
+        <div className="hidden min-h-24 w-full items-center px-3 lg:flex">
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`hidden h-12 w-full items-center gap-4 rounded-lg px-4 text-[15.5px] font-medium text-slate-400 transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-slate-200 lg:flex ${
-            isCollapsed ? 'justify-center' : ''
-          }`}
+          className="hidden h-8 w-[35px] shrink-0 items-center justify-center rounded-[7px] bg-[#1b1f2e] text-[#aeb4dd] transition-colors duration-200 hover:bg-[#353a52] hover:text-white lg:flex"
           title={isCollapsed ? 'Expand' : 'Collapse'}
         >
-          <Menu className="-ml-1 h-[22px] w-[22px] shrink-0" />
-          {!isCollapsed && <span>Menu</span>}
+          <svg
+            aria-hidden="true"
+            className="h-7 w-7 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M5 17H13M5 12H19M11 7H19" stroke="currentColor" strokeWidth="2" />
+          </svg>
         </button>
       </div>
 
-      <nav className="scroll-cool no-scrollbar min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 transition-all duration-300 ease-out sm:px-8 lg:px-3 lg:py-3">
+      <nav className="scroll-cool no-scrollbar flex min-h-0 w-full flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto px-3 pb-3 transition-all duration-300 ease-out sm:px-8 lg:px-3">
         {navSections.map((section) => (
-          <div key={section.label} className="mb-3">
+          <div key={section.label} className={`flex flex-col rounded-md bg-[#1b1f2e] px-3 py-2 ${isCollapsed ? 'gap-1 !px-2' : 'gap-2'}`}>
             <SectionLabel isCollapsed={isCollapsed}>{section.label}</SectionLabel>
-            <ul className="space-y-0.5">
+            <ul>
               {section.items.filter((item) => item.enabled !== false).map((item) => (
                 <NavItem
                   key={item.name}
@@ -157,37 +162,6 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
           </div>
         ))}
 
-        <div className="mb-2">
-          <SectionLabel isCollapsed={isCollapsed}>Socials</SectionLabel>
-          <ul className="space-y-0.5">
-            <li>
-              <a
-                href="#"
-                onClick={onMobileClose}
-                className={`group flex items-center gap-4 rounded-lg px-4 py-[10px] text-[15.5px] font-medium text-[#aeb4dd] transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-white ${
-                  isCollapsed ? 'justify-center' : ''
-                }`}
-                title={isCollapsed ? 'X' : ''}
-              >
-                <XIcon size={19} className="ml-[1px] text-[#8f96c8] transition-colors duration-300 group-hover:text-white" />
-                {!isCollapsed && <span className="whitespace-nowrap">X</span>}
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                onClick={onMobileClose}
-                className={`group flex items-center gap-4 rounded-lg px-4 py-[10px] text-[15.5px] font-medium text-[#aeb4dd] transition-all duration-300 ease-out hover:bg-white/[0.05] hover:text-white ${
-                  isCollapsed ? 'justify-center' : ''
-                }`}
-                title={isCollapsed ? 'Discord' : ''}
-              >
-                <DiscordIcon size={22} className="text-[#8f96c8] transition-colors duration-300 group-hover:text-[#5865F2]" />
-                {!isCollapsed && <span className="whitespace-nowrap">Discord</span>}
-              </a>
-            </li>
-          </ul>
-        </div>
       </nav>
     </div>
       </aside>

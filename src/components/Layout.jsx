@@ -81,31 +81,34 @@ export default function Layout({ children }) {
   }, [mobileNavOpen])
 
   return (
-    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#171925]">
-      <Header
+    <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[#171925]">
+      <Sidebar
+        isLoggedIn={isLoggedIn}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
         onOpenProfileModal={() => setProfileModalOpen(true)}
+        onOpenLeaderboardModal={() => setLeaderboardModalOpen(true)}
       />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar
-          isLoggedIn={isLoggedIn}
-          mobileOpen={mobileNavOpen}
-          onMobileClose={() => setMobileNavOpen(false)}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Header
           onOpenProfileModal={() => setProfileModalOpen(true)}
-          onOpenLeaderboardModal={() => setLeaderboardModalOpen(true)}
         />
 
-        <main
-          className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:rounded-t-[0.5rem] lg:pb-0"
-          style={{
-            background:
-              'linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url("https://i.ibb.co/v4wP9pPK/summer-bg.png") center center / cover',
-          }}
-        >
-          {children}
-        </main>
+        <div className="flex min-h-0 flex-1 overflow-hidden">
 
-        <ChatPanel mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
+          <main
+            className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:rounded-t-[0.5rem] lg:pb-0"
+            style={{
+              background:
+                'linear-gradient(rgba(29, 32, 47, 0.88), rgb(29, 32, 47)), url("https://i.ibb.co/v4wP9pPK/summer-bg.png") center center / cover',
+            }}
+          >
+            {children}
+          </main>
+
+          <ChatPanel mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
+        </div>
       </div>
 
       <nav
