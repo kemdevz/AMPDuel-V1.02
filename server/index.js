@@ -4691,7 +4691,10 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       nonce: 0,
       canceled: false,
       tax_rate_bps: 1250,
-      game_mode,
+      // Keep ordinary coinflips compatible while the optional game-mode
+      // migration rolls out. PostgREST rejects even a null property when the
+      // backing column is not present in its schema cache.
+      ...(game_mode ? { game_mode } : {}),
     }]
 
     const response = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
