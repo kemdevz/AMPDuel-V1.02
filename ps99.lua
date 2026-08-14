@@ -606,10 +606,19 @@ local function setupTradeTimeout(localId, maxTimeout, withdrawalContext)
 				-- The message/window listeners own completion and claim cleanup.
 				break
 			elseif (tick() - startTime) > maxTimeout then
-				print("[Trade Timeout] Trade took too long, resetting... LocalID:", localId)
+				print("[Trade Timeout] Trade took too long, declining... LocalID:", localId)
 				sendMessage("Trade timed out - Please try again")
-				releaseWithdrawalClaim(withdrawalContext)
-				goNext = true
+				local declineOk, declineResult = pcall(declineTrade)
+				if declineOk then
+					-- Do not release the database claim here. The trade cancellation
+					-- message listener releases it only after Roblox confirms that the
+					-- trade was canceled. Releasing while the trade may still be open
+					-- would let the user cancel on the website and then accept the old
+					-- Roblox offer.
+					print("[Trade Timeout] Decline requested; waiting for Roblox cancellation confirmation:", declineResult)
+				else
+					warn("[Trade Timeout] Failed to decline trade; keeping withdrawal claim locked:", declineResult)
+				end
 				break
 			end
 		end
@@ -842,8 +851,12 @@ local function connectTradeWindow(localId, withdrawalContext)
 			if withdrawalContext then
 				task.delay(3, function()
 					if not withdrawalContext.finished then
-						releaseWithdrawalClaim(withdrawalContext)
-						goNext = true
+						-- A closed trade window alone does not prove whether the trade was
+						-- canceled or completed. Keep the claim locked until an explicit
+						-- success/cancellation message settles it, preventing a canceled
+						-- website withdrawal from receiving an already-staged Roblox trade.
+						warn("[Trade Window] Outcome is unknown; keeping withdrawal claim locked for manual recovery. LocalID:", localId)
+						goNext = false
 					end
 				end)
 			else
