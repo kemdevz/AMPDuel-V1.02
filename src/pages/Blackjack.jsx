@@ -681,15 +681,15 @@ const BLACKJACK_STYLES = `
     .blackjackEmptyCards { min-height:91px; padding:0 8px; }
   }
   @media (max-width:520px) {
-    .blackjackPage { min-height:auto; overflow-x:hidden; }
-    .blackjackPageWrap { min-height:0; padding:4px 6px calc(76px + env(safe-area-inset-bottom,10px)); align-items:flex-start; }
-    .blackjackShell { min-height:0; grid-template-columns:1fr; border-radius:7px; }
+    .blackjackPage { height:auto; min-height:100%; overflow:visible; touch-action:pan-y; }
+    .blackjackPageWrap { min-height:0; padding:4px 6px calc(5.5rem + env(safe-area-inset-bottom,10px)); align-items:flex-start; overflow:visible; }
+    .blackjackShell { min-height:0; grid-template-columns:1fr; border-radius:7px; overflow:visible; }
     .blackjackBetPanel { order:2; width:100%; box-sizing:border-box; padding:10px 10px 9px; border-top:1px solid rgba(255,255,255,.06); border-right:0; }
     .blackjackPanelHeader { padding-bottom:8px; }
     .blackjackTitleIcon { width:18px; height:18px; } .blackjackTitle h1 { font-size:16px; }
     .blackjackFairnessButton { height:30px; font-size:11px; }
     .blackjackBottomButtons { margin-top:4px; }
-    .blackjackTable { order:1; min-height:clamp(350px,52dvh,450px); padding:8px 8px 6px; }
+    .blackjackTable { order:1; min-height:clamp(330px,52dvh,430px); padding:8px 8px 6px; overflow:hidden; }
     .blackjackConsole { gap:8px; }
     .blackjackRule { font-size:10px; }
     .blackjackRuleDivider { display:none; }
@@ -700,7 +700,8 @@ const BLACKJACK_STYLES = `
     .blackjackBetInput input { width:0; min-width:0; flex:1 1 auto; font-size:16px; line-height:1; }
     .blackjackQuickBets { flex:0 0 auto; gap:4px; }
     .blackjackQuickBets button { height:34px; min-width:40px; padding:0 8px; font-size:11px; touch-action:manipulation; }
-    .blackjackActions button { min-height:44px; font-size:13px; touch-action:manipulation; }
+    .blackjackQuickBets,.blackjackActions,.blackjackBottomButtons { position:relative; z-index:2; }
+    .blackjackActions button,.blackjackFairnessButton,.blackjackQuickBets button { min-height:44px; font-size:13px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
     .blackjackDeal { height:46px!important; }
     .blackjackHand { gap:5px; }
     .blackjackModalBackdrop { padding:8px; } .blackjackModal { width:100%; max-height:calc(100dvh - 16px); padding:1.25rem; } .blackjackModal h2 { font-size:20px; } .blackjackSeedRow { flex-direction:column; } .blackjackSeedRow button { width:100%; }

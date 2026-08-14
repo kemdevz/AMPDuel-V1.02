@@ -186,9 +186,18 @@ BEGIN
     RAISE EXCEPTION 'The Coinflip pot is invalid';
   END IF;
 
-  NEW.tax_rate_bps := 1250;
-  NEW.tax_value := floor(gross_pot_value::numeric * NEW.tax_rate_bps / 10000)::bigint;
-  tax_item_ids := public.select_pvp_tax_item_ids(all_pot_items, NEW.tax_value);
+  -- A 12.5% whole-item tax requires at least eight items before a complete
+  -- item can represent one eighth of the pot. Smaller pots remain untaxed so
+  -- settlement never retains too much of a low-item-count wager.
+  IF expected_pot_items < 8 THEN
+    NEW.tax_rate_bps := 0;
+    NEW.tax_value := 0;
+    tax_item_ids := '{}'::uuid[];
+  ELSE
+    NEW.tax_rate_bps := 1250;
+    NEW.tax_value := floor(gross_pot_value::numeric * NEW.tax_rate_bps / 10000)::bigint;
+    tax_item_ids := public.select_pvp_tax_item_ids(all_pot_items, NEW.tax_value);
+  END IF;
 
   SELECT
     COALESCE(sum((item->>'value')::bigint), 0),

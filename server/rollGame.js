@@ -12,7 +12,24 @@ const MIN_ROLL_MULTIPLIER = 1.01
 const MAX_ROLL_MULTIPLIER = 100
 const ROLL_RETURN = 0.95
 const ITEM_CATALOG_CACHE_MS = 10 * 60 * 1000
+const MAX_ROLL_ITEM_VALUE = 2_000_000_000
 const ITEM_GROUP_TARGETS = Object.freeze({ huge: 57, titanic: 2, gargantuan: 1 })
+
+function normalizedRollItemValue(item) {
+  const value = Number(item?.value)
+  return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0
+}
+
+function isEligibleRollItem(item) {
+  const value = normalizedRollItemValue(item)
+  return Boolean(
+    item?.id
+    && item?.name
+    && item?.image_url
+    && value > 0
+    && value < MAX_ROLL_ITEM_VALUE,
+  )
+}
 
 function itemGroup(item) {
   const name = String(item?.name || '')
@@ -51,9 +68,7 @@ function shuffle(items) {
 }
 
 function buildReelItems(catalog) {
-  const eligible = catalog.filter((item) =>
-    item?.id && item?.name && item?.image_url && Number.isFinite(Number(item.value)) && Number(item.value) > 0,
-  )
+  const eligible = catalog.filter(isEligibleRollItem)
   const grouped = { huge: [], titanic: [], gargantuan: [], other: [] }
   eligible.forEach((item) => grouped[itemGroup(item)].push(item))
 
@@ -83,18 +98,22 @@ function buildReelItems(catalog) {
   return shuffle(selected).map((item) => ({
     id: item.id,
     name: item.name,
-    value: Number(item.value),
+    value: normalizedRollItemValue(item),
     image_url: item.image_url,
     type: item.type || null,
   }))
 }
 
 function rotateReelItems(previousItems, catalog) {
-  if (!Array.isArray(previousItems) || previousItems.length !== REEL_ITEM_COUNT) {
+  if (
+    !Array.isArray(previousItems)
+    || previousItems.length !== REEL_ITEM_COUNT
+    || previousItems.some((item) => !isEligibleRollItem(item))
+  ) {
     return buildReelItems(catalog)
   }
 
-  const nextItems = previousItems.map((item) => ({ ...item, value: Number(item.value) }))
+  const nextItems = previousItems.map((item) => ({ ...item, value: normalizedRollItemValue(item) }))
   const previousIds = new Set(nextItems.map((item) => String(item.id)))
   const selectedIds = new Set(nextItems.map((item) => String(item.id)))
   const indices = shuffle(Array.from({ length: REEL_ITEM_COUNT }, (_, index) => index))
@@ -105,15 +124,13 @@ function rotateReelItems(previousItems, catalog) {
     const sameGroupAndTier = catalog.filter((candidate) =>
       itemGroup(candidate) === itemGroup(currentItem) &&
       itemValueTier(candidate) === itemValueTier(currentItem) &&
-      candidate?.image_url &&
-      Number(candidate?.value) > 0 &&
+      isEligibleRollItem(candidate) &&
       !previousIds.has(String(candidate.id)) &&
       !selectedIds.has(String(candidate.id)),
     )
     const sameGroup = catalog.filter((candidate) =>
       itemGroup(candidate) === itemGroup(currentItem) &&
-      candidate?.image_url &&
-      Number(candidate?.value) > 0 &&
+      isEligibleRollItem(candidate) &&
       !previousIds.has(String(candidate.id)) &&
       !selectedIds.has(String(candidate.id)),
     )
@@ -126,7 +143,7 @@ function rotateReelItems(previousItems, catalog) {
     nextItems[index] = {
       id: replacement.id,
       name: replacement.name,
-      value: Number(replacement.value),
+      value: normalizedRollItemValue(replacement),
       image_url: replacement.image_url,
       type: replacement.type || null,
     }
@@ -323,10 +340,10 @@ export function registerRollGame({
     const pageSize = 1000
     for (let offset = 0; ; offset += pageSize) {
       const page = await adminRest(
-        `items?select=id,name,value,image_url,type&value=gt.0&image_url=not.is.null&order=value.asc,id.asc&limit=${pageSize}&offset=${offset}`,
+        `items?select=id,name,value,image_url,type&value=gt.0&value=lt.${MAX_ROLL_ITEM_VALUE}&image_url=not.is.null&order=value.asc,id.asc&limit=${pageSize}&offset=${offset}`,
       )
       const rows = Array.isArray(page) ? page : []
-      catalog.push(...rows)
+      catalog.push(...rows.filter(isEligibleRollItem))
       if (rows.length < pageSize) break
     }
     state.catalog = catalog
@@ -356,7 +373,11 @@ export function registerRollGame({
       'roll_rounds?select=id,result_multiplier,settled_at,reel_items&status=eq.settled&result_multiplier=not.is.null&order=settled_at.desc&limit=10',
     )
     const latestReel = Array.isArray(rows) ? rows[0]?.reel_items : null
-    if (Array.isArray(latestReel) && latestReel.length === REEL_ITEM_COUNT) {
+    if (
+      Array.isArray(latestReel)
+      && latestReel.length === REEL_ITEM_COUNT
+      && latestReel.every(isEligibleRollItem)
+    ) {
       state.previousReelItems = latestReel
     }
     state.history = (Array.isArray(rows) ? rows : []).map((row) => ({
@@ -570,13 +591,17 @@ export function registerRollGame({
     const round = state.currentRound
     if (!round || round.status !== 'rolling') return
     const winningItem = round.items[round.resultIndex]
+    // Older active rounds may contain a now-blacklisted catalogue item. The
+    // multiplier and winner remain committed and settle normally, but omit the
+    // invalid display metadata so the round cannot remain stuck on that item.
+    const winningItemEligible = isEligibleRollItem(winningItem)
     const result = await callRpc('settle_roll_round', {
       p_round_id: round.id,
       p_result_multiplier: round.resultMultiplier,
       p_result_index: round.resultIndex,
-      p_winning_item_id: winningItem?.id || null,
-      p_winning_item_name: winningItem?.name || null,
-      p_winning_item_value: Number(winningItem?.value || 0),
+      p_winning_item_id: winningItemEligible ? winningItem.id : null,
+      p_winning_item_name: winningItemEligible ? winningItem.name : null,
+      p_winning_item_value: winningItemEligible ? normalizedRollItemValue(winningItem) : null,
       p_revealed_server_seed: round.serverSeed,
     })
 

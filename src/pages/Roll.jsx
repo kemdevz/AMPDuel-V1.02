@@ -8,7 +8,7 @@ import { getInventoryItemCardStyle } from '../components/InventoryItemCard'
 const ROUND_COUNTDOWN_MS = 13_000
 const ROLL_DURATION_MS = 5_000
 const DEFAULT_RESULT_INDEX = 40
-const ROLL_REEL_COPIES = 3
+const ROLL_REEL_COPIES = 2
 const ROLL_ANIMATION_CARD_DISTANCE = 35
 const DEFAULT_AMOUNT = 5_000
 const MAX_ROLL_WAGER = 10_000_000
@@ -790,7 +790,9 @@ const ROLL_STYLES = `
     .rollMultBetRow { flex-wrap: wrap; }
   }
   @media (max-width: 640px) {
-    .rollPage { padding: 16px 14px 60px; }
+    .rollPage { min-height:100%; padding:16px 14px calc(5.5rem + env(safe-area-inset-bottom)); overflow:visible; touch-action:pan-y; }
+    .rollSpinnerWrap,.rollBottomLayout,.rollBottomLeft,.rollBottomBox,.rollPanel { width:100%; max-width:100%; min-width:0; }
+    .rollSpinnerInner { touch-action:pan-y; }
     .rollSpinner { height: 155px; }
     .rollCard { width: 120px; margin-right: 5px; padding: 6px; }
     .rollImageWrapper { height: 68px; margin-top: 6px; }
@@ -802,7 +804,11 @@ const ROLL_STYLES = `
     .rollInputWithIcon { max-width: 100%; flex: 1 1 auto; }
     .rollQuickButtons { flex-wrap: nowrap; width: 100%; }
     .rollQuickBtn { flex: 1 1 0; min-width: 0; height: 32px; padding: 0 2px; font-size: 10px; }
-    .rollPlaceBetBtn { width: 100%; min-width: 0; }
+    .rollInput { font-size:16px; }
+    .rollPlaceBetBtn { width: 100%; min-width: 0; min-height:44px; touch-action:manipulation; }
+    .rollQuickBtn,.rollFairnessBtn,.rollHistoryChip,.rollBetAvatarBtn { touch-action:manipulation; }
+    .rollPanel { overflow:visible; }
+    .rollBetList { max-height:none; overflow:visible; }
     .rollBetRow { gap: 6px; font-size: 12px; }
     .rollBetUsername { font-size: 11px; max-width: 90px; }
     .rollHistoryChip { font-size: 11px; padding: 6px 3px; }
@@ -811,7 +817,7 @@ const ROLL_STYLES = `
     .rollFairnessHeader { font-size: 20px; }
   }
   @media (max-width: 420px) {
-    .rollPage { padding: 12px 10px 60px; }
+    .rollPage { padding:12px 10px calc(5.5rem + env(safe-area-inset-bottom)); }
     .rollCard { width: 104px; margin-right: 4px; padding: 5px; }
     .rollImageWrapper { height: 58px; margin-top: 4px; }
     .rollSpinner { height: 145px; }
