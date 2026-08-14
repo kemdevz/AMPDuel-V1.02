@@ -359,9 +359,15 @@ end
 
 -- Gets name of pet through asset id
 local function getName(assetIds, assetId)
+	if type(assetIds) ~= "table" then
+		return "???"
+	end
+
 	for index, petData in next, assetIds do
-		if table.find(petData.assetIds, assetId) then
-			return petData.name
+		if type(petData) == "table"
+			and type(petData.assetIds) == "table"
+			and table.find(petData.assetIds, assetId) then
+			return type(petData.name) == "string" and petData.name or "???"
 		end
 	end
 	
@@ -369,8 +375,9 @@ local function getName(assetIds, assetId)
 end
 
 -- Gets the display name of an item slot, falling back to the icon's asset ID name if available.
-local function getItemDisplayName(itemSlot)
-    local name = getName(nameAssetIds, itemSlot.Icon.Image)
+local function getItemDisplayName(itemSlot, petNameAssetIds)
+	local icon = itemSlot and itemSlot:FindFirstChild("Icon")
+	local name = getName(petNameAssetIds, icon and icon.Image or "")
     if name == "???" then
         -- Try to find a TextLabel child that contains the actual name
         local label = itemSlot:FindFirstChild("Name") or
@@ -402,18 +409,20 @@ local function checkItems(assetIds, goldAssetids, nameAssetIds)
 
     for _, item in next, tradingWindow.Frame.PlayerItems.Items:GetChildren() do
         if item.Name == "ItemSlot" then
-            local name = getItemDisplayName(item)
+			local icon = item:FindFirstChild("Icon")
+			local iconImage = icon and icon.Image or ""
+            local name = getItemDisplayName(item, nameAssetIds)
             if name == "???" then name = "Unknown" end
 
-            local rarity = (item.Icon:FindFirstChild("RainbowGradient") and "Rainbow") or
-                           (table.find(goldAssetids, item.Icon.Image) and "Golden") or "Normal"
+			local rarity = (icon and icon:FindFirstChild("RainbowGradient") and "Rainbow") or
+						   (type(goldAssetids) == "table" and table.find(goldAssetids, iconImage) and "Golden") or "Normal"
             local shiny = (item:FindFirstChild("ShinePulse") and true) or false
             local petstring = (shiny and "Shiny " or "") ..
                               ((rarity == "Golden" and "Golden ") or (rarity == "Rainbow" and "Rainbow ") or "") ..
                               name
 
             -- Check if it's a huge/titanic pet
-            if not table.find(assetIds, item.Icon.Image) then
+			if type(assetIds) ~= "table" or not table.find(assetIds, iconImage) then
                 onlyHugesTitanics = false
                 break
             end
