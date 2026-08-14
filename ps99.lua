@@ -886,7 +886,7 @@ spawn(function()
 				for attempt = 1, maxRetries do
 					print("[User Check] Attempt", attempt, "of", maxRetries, "for user:", username)
 					
-					local responseRequest = request({
+					local methodRequest = request({
 						Url = website .. "/withdraw/method",
 						Method = "POST",
 						Body = httpService:JSONEncode({
@@ -899,13 +899,29 @@ spawn(function()
 							["Content-Type"] = "application/json",
 							["Authorization"] = auth
 						}
-					}).Body
+					})
+					local responseRequest = methodRequest and methodRequest.Body or ""
 
 					print(responseRequest)
-					response = httpService:JSONDecode(responseRequest)
+					local decodeSuccess, decodedResponse = pcall(function()
+						return httpService:JSONDecode(responseRequest)
+					end)
+					local statusCode = tonumber(methodRequest and methodRequest.StatusCode) or 0
+					if not decodeSuccess or statusCode < 200 or statusCode >= 300 then
+						response = {
+							["method"] = "ERROR",
+							["error"] = (decodeSuccess and decodedResponse and decodedResponse.error) or ("HTTP " .. tostring(statusCode))
+						}
+					else
+						response = decodedResponse
+					end
 					
-					-- If user is found, break out of retry loop
-					if response["method"] ~= "USERNOTFOUND" then
+					-- Stop immediately on a backend failure; never treat an error body
+					-- as permission to accept a trade.
+					if response["method"] == "ERROR" or not table.find({"USERNOTFOUND", "BUSY", "Deposit", "Withdraw"}, response["method"]) then
+						print("[User Check] Backend unavailable:", response["error"] or "Invalid method response")
+						break
+					elseif response["method"] ~= "USERNOTFOUND" then
 						print("[User Check] User found on attempt", attempt)
 						break
 					end
@@ -917,7 +933,14 @@ spawn(function()
 					end
 				end
 				
-				if response["method"] == "USERNOTFOUND" then
+				if response["method"] == "ERROR" or not table.find({"USERNOTFOUND", "BUSY", "Deposit", "Withdraw"}, response["method"]) then
+					sendMessage("Deposit service unavailable. Your trade was not accepted.")
+					warn("[User Check] Backend error:", response["error"] or "Invalid method response")
+					pcall(function()
+						rejectTradeRequest(trade)
+					end)
+					goNext = true
+				elseif response["method"] == "USERNOTFOUND" then
 					sendMessage("Please register on the website before trading, " .. username)
 					pcall(function()
 						rejectTradeRequest(trade)

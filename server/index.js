@@ -6001,6 +6001,43 @@ function normalizePs99Deposit(pets, gems) {
   }
 }
 
+async function loadPs99ProfileByRobloxId(robloxId) {
+  const normalizedRobloxId = String(robloxId || '').trim()
+  if (!/^\d+$/.test(normalizedRobloxId)) return null
+
+  try {
+    const rows = await adminRest(
+      `user_profiles?select=id,username,roblox_id&roblox_id=eq.${encodeURIComponent(normalizedRobloxId)}&limit=1`,
+    )
+    if (Array.isArray(rows) && rows[0]) return rows[0]
+  } catch (error) {
+    if (!isMissingDatabaseColumn(error, 'roblox_id')) throw error
+  }
+
+  // Profiles created before roblox_id was added use the deterministic UUID of
+  // the `roblox:<id>` subject. This keeps those existing accounts compatible.
+  const legacyProfileId = resolveStorageProfileId(`roblox:${normalizedRobloxId}`)
+  const legacyRows = await adminRest(
+    `user_profiles?select=id,username&id=eq.${encodeURIComponent(legacyProfileId)}&limit=1`,
+  )
+  const legacyProfile = Array.isArray(legacyRows) ? legacyRows[0] || null : null
+  if (!legacyProfile) return null
+
+  // Backfill the canonical column when the migration is installed. If it is
+  // not installed yet, the virtual value still lets callers report the right
+  // account while the secured RPC remains unavailable.
+  try {
+    await adminRest(`user_profiles?id=eq.${encodeURIComponent(legacyProfile.id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: { roblox_id: normalizedRobloxId, updated_at: new Date().toISOString() },
+    })
+  } catch (error) {
+    if (!isMissingDatabaseColumn(error, 'roblox_id')) throw error
+  }
+  return { ...legacyProfile, roblox_id: normalizedRobloxId }
+}
+
 app.get('/items/all', async (req, res) => {
   try {
     const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
@@ -6053,10 +6090,7 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, asy
       return
     }
 
-    const profiles = await adminRest(
-      `user_profiles?select=id,username,roblox_id&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
-    )
-    const user = Array.isArray(profiles) ? profiles[0] || null : profiles
+    const user = await loadPs99ProfileByRobloxId(robloxId)
     if (!user) {
       res.json({ method: 'USERNOTFOUND' })
       return
@@ -6135,10 +6169,7 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, as
       return
     }
 
-    const profiles = await adminRest(
-      `user_profiles?select=id,roblox_id,username&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
-    )
-    const profile = Array.isArray(profiles) ? profiles[0] || null : profiles
+    const profile = await loadPs99ProfileByRobloxId(robloxId)
     if (!profile) {
       res.status(404).json({ success: false, error: 'User not found' })
       return
@@ -6216,10 +6247,7 @@ app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), requirePs99Bot,
       return
     }
 
-    const profiles = await adminRest(
-      `user_profiles?select=id,username,roblox_id&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
-    )
-    const profile = Array.isArray(profiles) ? profiles[0] || null : profiles
+    const profile = await loadPs99ProfileByRobloxId(robloxId)
     if (!profile) {
       res.status(404).json({ success: false, error: 'User not found' })
       return
@@ -6254,10 +6282,7 @@ app.post('/withdraw/release', express.json({ limit: '8kb' }), requirePs99Bot, as
       return
     }
 
-    const profiles = await adminRest(
-      `user_profiles?select=id&roblox_id=eq.${encodeURIComponent(robloxId)}&limit=1`,
-    )
-    const profile = Array.isArray(profiles) ? profiles[0] || null : profiles
+    const profile = await loadPs99ProfileByRobloxId(robloxId)
     if (!profile) {
       res.status(404).json({ success: false, error: 'User not found' })
       return
