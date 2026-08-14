@@ -287,6 +287,10 @@ function FairnessModal({ gameId, serverSeedHash, randomSeed, resolved, onClose }
             </div>
           </div>
         ))}
+
+        {!resolved && (
+          <p className="fairness-modal__pending">The server seed remains hidden until this coinflip is resolved.</p>
+        )}
       </div>
     </div>
   )
@@ -321,8 +325,11 @@ export default function CoinflipViewModal({
   )
 
   const state = useMemo(() => {
-    const creatorItems = (Array.isArray(room?.creator_items) ? room.creator_items : []).map(normalizeItem)
-    const opponentItems = (Array.isArray(room?.opponent_items) ? room.opponent_items : []).map(normalizeItem)
+    const sortItemsHighToLow = (items) => items
+      .map(normalizeItem)
+      .sort((left, right) => right.numericValue - left.numericValue)
+    const creatorItems = sortItemsHighToLow(Array.isArray(room?.creator_items) ? room.creator_items : [])
+    const opponentItems = sortItemsHighToLow(Array.isArray(room?.opponent_items) ? room.opponent_items : [])
     const creatorTotal = creatorItems.reduce((sum, item) => sum + item.numericValue, 0)
     const opponentTotal = opponentItems.reduce((sum, item) => sum + item.numericValue, 0)
     const potTotal = creatorTotal + opponentTotal
@@ -1103,6 +1110,15 @@ const VIEW_MODAL_STYLES = `
 
   .fairness-modal__copy:hover {
     color: rgba(255, 255, 255, .72);
+  }
+
+  .fairness-modal__pending {
+    margin: 12px 0 0;
+    color: #6c7399;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.55;
+    text-align: center;
   }
 
   @media (max-width: 768px) {

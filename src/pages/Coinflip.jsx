@@ -1147,7 +1147,6 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const gameMode = String(room.game_mode || '').trim().toLowerCase()
   const gameModeIcon = gameMode === 'gems_only' ? '💎' : gameMode === 'titanics_only' ? '🌴' : null
   const gameModeLabel = gameMode === 'gems_only' ? 'Gems Only' : gameMode === 'titanics_only' ? 'Titanics Only' : ''
-  const gameModeGradientId = `coinflip-mode-${String(room.id || 'room').replace(/[^a-zA-Z0-9_-]/g, '')}`
   const [rowResultVisible, setRowResultVisible] = useState(
     () => isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS,
   )
@@ -1328,17 +1327,11 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             title={gameModeLabel}
           >
             <svg className="h-full w-full" viewBox="-50 -50 100 100" fill="none" aria-hidden="true">
-              <defs>
-                <linearGradient id={gameModeGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#06b6d4" />
-                  <stop offset="100%" stopColor="#22c55e" />
-                </linearGradient>
-              </defs>
               <circle
                 r="49"
                 fill="#171925"
                 strokeWidth="2"
-                stroke={`url(#${gameModeGradientId})`}
+                stroke="#6c63ff"
                 pathLength="100"
                 strokeDasharray="100"
                 transform="rotate(-90)"
