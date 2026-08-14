@@ -1338,7 +1338,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
               />
             </svg>
             <span
-              className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg leading-none"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl leading-none"
               aria-hidden="true"
             >
               {gameModeIcon}
