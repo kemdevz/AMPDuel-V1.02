@@ -6046,27 +6046,31 @@ app.get('/items/all', async (req, res) => {
       return
     }
 
-    // Fetch PS99 items from existing items table
-    const response = await fetch(`${supabaseUrl}/rest/v1/items?select=name&type=eq.PS99&value=gt.0&order=name`, {
-      headers: getSupabaseAdminHeaders(supabaseKey),
-    })
+    // PostgREST projects commonly cap a response at 1,000 rows. Page through
+    // the complete PS99 catalog so valid pets beyond the first page are not
+    // rejected by the trade bot as unsupported.
+    const pageSize = 1000
+    const itemNames = []
+    for (let offset = 0; offset < 50000; offset += pageSize) {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/items?select=name&type=eq.PS99&value=gt.0&order=name&limit=${pageSize}&offset=${offset}`,
+        { headers: getSupabaseAdminHeaders(supabaseKey) },
+      )
+      if (!response.ok) {
+        throw new Error(`Unable to fetch PS99 item catalog (${response.status})`)
+      }
 
-    if (response.ok) {
-      const items = await response.json()
-      const itemNames = items.map(item => item.name).filter(Boolean)
-      
-      // Add gem items to the list
-      const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems']
-      const allItems = [...new Set([...itemNames, ...gemItems])]
-      
-      res.json({ success: 'OK', items: allItems })
-      return
+      const page = await response.json()
+      const rows = Array.isArray(page) ? page : []
+      itemNames.push(...rows.map((item) => String(item?.name || '').trim()).filter(Boolean))
+      if (rows.length < pageSize) break
     }
 
-    // Fallback: Return only gem items if table doesn't exist
-    console.warn('[PS99] Items table not found, returning gem items only')
+    // Add gem items to the list
     const gemItems = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems']
-    res.json({ success: 'OK', items: gemItems })
+    const allItems = [...new Set([...itemNames, ...gemItems])]
+
+    res.json({ success: 'OK', items: allItems })
   } catch (error) {
     console.error('[PS99] Failed to fetch items:', error)
     res.status(500).json({ success: 'ERROR', items: [] })

@@ -392,13 +392,37 @@ end
 
 -- Gets the diamond amount offered by the player from the trade window
 local function getDiamondAmount()
-    local playerDiamonds = localPlayer.PlayerGui.TradeWindow.Frame.PlayerDiamonds
+	local tradeFrame = tradingWindow and tradingWindow:FindFirstChild("Frame")
+	local playerDiamonds = tradeFrame and tradeFrame:FindFirstChild("PlayerDiamonds")
     if not playerDiamonds then return 0 end
     local label = playerDiamonds:FindFirstChild("TextLabel")
     if not label then return 0 end
     local text = label.Text or "0"
     local clean = text:gsub(",", "")  -- remove commas
-    return tonumber(clean) or 0
+	return tonumber(clean) or parseGemString(clean)
+end
+
+local function getPlayerOfferedItemCount()
+	local tradeFrame = tradingWindow and tradingWindow:FindFirstChild("Frame")
+	local playerItems = tradeFrame and tradeFrame:FindFirstChild("PlayerItems")
+	local itemsContainer = playerItems and playerItems:FindFirstChild("Items")
+	if not itemsContainer then return 0 end
+
+	local count = 0
+	for _, item in ipairs(itemsContainer:GetChildren()) do
+		if item.Name == "ItemSlot" then
+			count = count + 1
+		end
+	end
+	return count
+end
+
+local function getPlayerWithdrawalOffer()
+	return getPlayerOfferedItemCount(), getDiamondAmount()
+end
+
+local function normalizeSupportedItemName(value)
+	return string.lower((tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")))
 end
 
 -- Check for pets only – gem detection removed
@@ -428,7 +452,7 @@ local function checkItems(assetIds, goldAssetids, nameAssetIds)
             end
 
             -- Check if pet is supported by backend
-            if not supportedPets[petstring] then
+			if not supportedPets[normalizeSupportedItemName(petstring)] then
                 table.insert(unsupportedPets, name)
             end
 
@@ -519,7 +543,7 @@ local fetchSuccess, fetchResult = pcall(function()
 		local data = httpService:JSONDecode(response.Body)
 		if data.success == "OK" and data.items then
 			for _, petName in ipairs(data.items) do
-				supportedPets[petName] = true
+				supportedPets[normalizeSupportedItemName(petName)] = true
 			end
 			print("[PS99 Trade Bot] Loaded " .. #data.items .. " supported pets from backend")
 			return true
@@ -798,6 +822,20 @@ local function connectConfirm(localId, method, tradingItemsFunc)
 		task.wait(2) -- Wait 2 seconds after ready
 		
 		if tradeId == localId and not hasConfirmed then
+			if method == "withdraw" then
+				local offeredItemCount, offeredGems = getPlayerWithdrawalOffer()
+				if offeredItemCount > 0 or offeredGems > 0 then
+					hasConfirmed = true
+					warn("[Withdraw Validation] User added assets before confirmation; declining trade:", offeredItemCount, offeredGems)
+					sendMessage("Do not offer pets or gems while withdrawing. Please start a new trade.")
+					local declineOk, declineResult = pcall(declineTrade)
+					if not declineOk then
+						warn("[Withdraw Validation] Failed to decline invalid trade; keeping claim locked:", declineResult)
+					end
+					return
+				end
+			end
+
 			hasConfirmed = true
 			print("[Auto Confirm] Attempting to confirm trade...")
 			
@@ -877,6 +915,63 @@ local function connectTradeWindow(localId, withdrawalContext)
 	end)
 end
 
+-- Reject any pet or gem the user adds to a withdrawal trade. This guard stays
+-- active after the bot readies and confirms, closing the timing window between
+-- point-in-time validation and Roblox settlement.
+local function connectWithdrawalOfferGuard(localId, withdrawalContext)
+	local connections = {}
+	local tripped = false
+
+	local function disconnectAll()
+		for _, connection in ipairs(connections) do
+			pcall(function()
+				connection:Disconnect()
+			end)
+		end
+		connections = {}
+	end
+
+	local function validateEmptyOffer()
+		if tripped then return end
+		if tradeId ~= localId or (withdrawalContext and (withdrawalContext.finished or withdrawalContext.released)) then
+			disconnectAll()
+			return
+		end
+
+		local offeredItemCount, offeredGems = getPlayerWithdrawalOffer()
+		if offeredItemCount > 0 or offeredGems > 0 then
+			tripped = true
+			warn("[Withdraw Guard] User added assets; declining trade:", offeredItemCount, offeredGems)
+			sendMessage("Do not offer pets or gems while withdrawing. Please start a new trade.")
+			local declineOk, declineResult = pcall(declineTrade)
+			if not declineOk then
+				warn("[Withdraw Guard] Failed to decline invalid trade; keeping claim locked:", declineResult)
+			end
+			disconnectAll()
+		end
+	end
+
+	local tradeFrame = tradingWindow and tradingWindow:FindFirstChild("Frame")
+	local playerItems = tradeFrame and tradeFrame:FindFirstChild("PlayerItems")
+	local itemsContainer = playerItems and playerItems:FindFirstChild("Items")
+	local playerDiamonds = tradeFrame and tradeFrame:FindFirstChild("PlayerDiamonds")
+	local diamondLabel = playerDiamonds and playerDiamonds:FindFirstChild("TextLabel")
+
+	if itemsContainer then
+		table.insert(connections, itemsContainer.ChildAdded:Connect(validateEmptyOffer))
+	end
+	if diamondLabel then
+		table.insert(connections, diamondLabel:GetPropertyChangedSignal("Text"):Connect(validateEmptyOffer))
+	end
+	table.insert(connections, tradingWindow:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if not tradingWindow.Enabled then
+			disconnectAll()
+		end
+	end))
+
+	validateEmptyOffer()
+end
+
 -- Detect when user accepts, make various checks, and accepts the trade
 local function connectStatus(localId, method, tradingItemsFunc, withdrawalContext)
 	local statusConnection
@@ -935,16 +1030,29 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
                         end
                     end
                 else
-                    -- WITHDRAW branch: we already added the items; no need to check local side.
-                    print("[connectStatus] Withdraw method detected - skipping item check on local side")
-                    -- We trust that the items were added correctly. Proceed to ready.
+					-- Withdrawal trades are strictly one-way. If the user offers any
+					-- assets, decline instead of silently accepting a mixed trade.
+					local offeredItemCount, offeredGems = getPlayerWithdrawalOffer()
+					if offeredItemCount > 0 or offeredGems > 0 then
+						warn("[Withdraw Validation] User offered assets; declining trade:", offeredItemCount, offeredGems)
+						sendMessage("Do not offer pets or gems while withdrawing. Please start a new trade.")
+						connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
+						statusConnection:Disconnect()
+						local declineOk, declineResult = pcall(declineTrade)
+						if not declineOk then
+							warn("[Withdraw Validation] Failed to decline invalid trade; keeping claim locked:", declineResult)
+						end
+						return
+					end
+
+					print("[connectStatus] Withdraw method detected - user offer is empty")
                     if tradingStatus.Visible then
                         print("[connectStatus] Withdraw - readying trade...")
+						connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
+						connectWithdrawalOfferGuard(localId, withdrawalContext)
                         local readyResult = readyTrade()
                         print("[connectStatus] readyTrade() returned:", readyResult)
                         connectConfirm(localId, method, tradingItemsFunc)
-                        task.wait(0.5)
-                        connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
                         statusConnection:Disconnect()
                     end
                 end
