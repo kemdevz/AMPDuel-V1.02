@@ -5926,26 +5926,79 @@ function requirePs99Bot(req, res, next) {
   next()
 }
 
-function normalizePs99DepositNames(pets, gems) {
-  const petNames = Array.isArray(pets) ? pets : []
-  const gemNames = Array.isArray(gems) ? gems : []
-  const names = petNames.map((item) => typeof item === 'string' ? item : item?.name)
+const PS99_GEM_PACKAGES = [
+  ['100M gems', 100_000_000],
+  ['50M gems', 50_000_000],
+  ['25M gems', 25_000_000],
+  ['10M gems', 10_000_000],
+  ['5M gems', 5_000_000],
+  ['1M gems', 1_000_000],
+  ['500K gems', 500_000],
+  ['100K gems', 100_000],
+]
+const PS99_GEM_PACKAGE_VALUES = new Map(PS99_GEM_PACKAGES.map(([name, value]) => [name.toLowerCase(), value]))
+
+function normalizePs99Deposit(pets, gems) {
+  const sourcePets = Array.isArray(pets) ? pets : []
+  const sourceGems = Array.isArray(gems) ? gems : []
+  const petNames = sourcePets
+    .map((item) => String(typeof item === 'string' ? item : item?.name || '').trim())
+    .filter(Boolean)
+  const names = [...petNames]
   const petNameCounts = new Map()
   for (const name of names) {
     const normalized = String(name || '').trim()
     if (normalized) petNameCounts.set(normalized, (petNameCounts.get(normalized) || 0) + 1)
   }
+
+  let gemAmount = 0
+  const normalizedGemNames = []
+  for (const item of sourceGems) {
+    const rawValue = typeof item === 'object' && item !== null
+      ? item.amount ?? item.name
+      : item
+    const normalized = String(rawValue ?? '').trim()
+    if (!normalized) continue
+
+    const knownPackageValue = PS99_GEM_PACKAGE_VALUES.get(normalized.toLowerCase())
+    if (knownPackageValue) {
+      normalizedGemNames.push(PS99_GEM_PACKAGES.find(([name]) => name.toLowerCase() === normalized.toLowerCase())[0])
+      gemAmount += knownPackageValue
+      continue
+    }
+
+    const numericText = normalized.replace(/,/g, '')
+    if (!/^\d+$/.test(numericText)) throw new Error('Every PS99 gem deposit must be a valid diamond amount.')
+    let remaining = Number(numericText)
+    if (!Number.isSafeInteger(remaining) || remaining < 100_000 || remaining > 5_000_000_000) {
+      throw new Error('PS99 gem deposits must be between 100,000 and 5,000,000,000 diamonds.')
+    }
+    gemAmount += remaining
+    for (const [packageName, packageValue] of PS99_GEM_PACKAGES) {
+      while (remaining >= packageValue) {
+        normalizedGemNames.push(packageName)
+        remaining -= packageValue
+      }
+    }
+    if (remaining !== 0) throw new Error('PS99 gem deposits must be in increments of 100,000 diamonds.')
+  }
+
   // Preserve duplicate pets while avoiding double-credit if an older bot
   // mirrors a gem package in both arrays.
   const mirroredCounts = new Map()
-  for (const item of gemNames) {
-    const normalized = String(typeof item === 'string' ? item : item?.name || '').trim()
-    if (!normalized) continue
+  for (const normalized of normalizedGemNames) {
     const seen = (mirroredCounts.get(normalized) || 0) + 1
     mirroredCounts.set(normalized, seen)
     if (seen > (petNameCounts.get(normalized) || 0)) names.push(normalized)
   }
-  return names.map((name) => String(name || '').trim()).filter(Boolean)
+
+  return {
+    itemNames: names.map((name) => String(name || '').trim()).filter(Boolean),
+    petCount: petNames.filter((name) => !PS99_GEM_PACKAGE_VALUES.has(name.toLowerCase())).length,
+    gemAmount,
+    sourcePets: petNames,
+    sourceGems: sourceGems.map((item) => String(typeof item === 'object' && item !== null ? item.amount ?? item.name ?? '' : item).trim()).filter(Boolean),
+  }
 }
 
 app.get('/items/all', async (req, res) => {
@@ -6052,11 +6105,20 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, asy
 
 app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, async (req, res) => {
   try {
-    const { userId, pets, gems, game, tradeId, botUserId } = req.body
+    const {
+      userId, pets, gems, game, tradeId, botUserId,
+      schemaVersion, botUsername, serverJobId, robloxTradeId, placeId,
+    } = req.body
     const robloxId = String(userId || '').trim()
     const externalTradeId = String(tradeId || '').trim()
     const botRobloxId = String(botUserId || '').trim()
-    const itemNames = normalizePs99DepositNames(pets, gems)
+    const deposit = normalizePs99Deposit(pets, gems)
+    const itemNames = deposit.itemNames
+    const payloadVersion = Math.max(1, Math.min(32767, Math.trunc(Number(schemaVersion) || 1)))
+    const normalizedBotUsername = String(botUsername || '').trim().slice(0, 100)
+    const normalizedServerJobId = String(serverJobId || '').trim().slice(0, 128)
+    const normalizedRobloxTradeId = String(robloxTradeId || '').trim().slice(0, 128)
+    const normalizedPlaceId = /^\d+$/.test(String(placeId || '')) ? String(placeId) : null
 
     if (!/^\d+$/.test(robloxId) || !externalTradeId || externalTradeId.length > 128 || !/^\d+$/.test(botRobloxId)) {
       res.status(400).json({ success: false, error: 'Missing required fields' })
@@ -6082,13 +6144,40 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, as
       return
     }
 
-    const result = await callRainRpc('record_ps99_deposit', {
+    const rpcPayload = {
       p_profile_id: String(profile.id),
       p_roblox_id: robloxId,
       p_external_trade_id: externalTradeId,
       p_bot_roblox_id: botRobloxId,
       p_item_names: itemNames,
-    })
+      p_metadata: {
+        payload_version: payloadVersion,
+        bot_username: normalizedBotUsername || null,
+        server_job_id: normalizedServerJobId || null,
+        roblox_trade_id: normalizedRobloxTradeId || null,
+        place_id: normalizedPlaceId,
+        pet_count: deposit.petCount,
+        gem_amount: deposit.gemAmount,
+        source_pets: deposit.sourcePets,
+        source_gems: deposit.sourceGems,
+      },
+    }
+    let result
+    try {
+      result = await callRainRpc('record_ps99_deposit_v2', rpcPayload)
+    } catch (rpcError) {
+      const rpcMessage = String(rpcError?.message || '')
+      const v2Unavailable = /record_ps99_deposit_v2|PGRST202|schema cache/i.test(rpcMessage)
+      if (!v2Unavailable) throw rpcError
+      console.warn('[PS99] Deposit v2 migration is not available yet; using the legacy deposit RPC.')
+      result = await callRainRpc('record_ps99_deposit', {
+        p_profile_id: rpcPayload.p_profile_id,
+        p_roblox_id: rpcPayload.p_roblox_id,
+        p_external_trade_id: rpcPayload.p_external_trade_id,
+        p_bot_roblox_id: rpcPayload.p_bot_roblox_id,
+        p_item_names: rpcPayload.p_item_names,
+      })
+    }
 
     await emitWalletRefreshes([profile.id])
 
@@ -6101,7 +6190,7 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, as
   } catch (error) {
     console.error('[PS99] Deposit failed:', error)
     const message = error?.message || 'Deposit failed'
-    const expected = /deposit|item|profile|trade|catalog/i.test(message)
+    const expected = /deposit|item|profile|trade|catalog|gem|diamond/i.test(message)
     res.status(expected ? 400 : 500).json({ success: false, error: message })
   }
 })

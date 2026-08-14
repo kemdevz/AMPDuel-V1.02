@@ -296,59 +296,75 @@ local function getName(assetIds, assetId)
 	return "???"
 end
 
--- Check for huges / titanics
-local function checkItems(assetIds, goldAssetids, nameAssetIds)
-	local items              = {}
-	local itemTotal          = 0
-	local onlyHugesTitanics  = true
-	local unsupportedPets    = {}
-	local gemItemNames       = {"100K gems", "500K gems", "1M gems", "5M gems", "10M gems", "25M gems", "50M gems", "100M gems"}
-	
-	print("[Pet Check] Starting checkItems...")
-	
-	for index, item in next, tradingWindow.Frame.PlayerItems.Items:GetChildren() do
-		if item.Name == "ItemSlot" then
-			itemTotal = itemTotal + 1
-			
-			local name    = getName(nameAssetIds, item.Icon.Image)
-			local rarity  = (item.Icon:FindFirstChild("RainbowGradient") and "Rainbow") or (table.find(goldAssetids, item.Icon.Image) and "Golden") or "Normal"
-			local shiny   = (item:FindFirstChild("ShinePulse") and true) or false
+-- NEW: Gets the display name of an item slot, falling back to the icon's asset ID name if available.
+local function getItemDisplayName(itemSlot)
+    local name = getName(nameAssetIds, itemSlot.Icon.Image)
+    if name == "???" then
+        -- Try to find a TextLabel child that contains the actual name
+        local label = itemSlot:FindFirstChild("Name") or
+                      itemSlot:FindFirstChild("ItemName") or
+                      itemSlot:FindFirstChildOfClass("TextLabel")
+        if label and label:IsA("TextLabel") then
+            name = label.Text
+        end
+    end
+    return name
+end
 
-            local petstring = (shiny and "Shiny " or "")..((rarity == "Golden" and "Golden ") or (rarity == "Rainbow" and "Rainbow ") or "")..name
-			
-			print("[Pet Check] Checking item:", petstring)
-			
-			-- Check if it's a gem item (always allowed)
-			if table.find(gemItemNames, petstring) then
-				print("[Pet Check] GEM ITEM ALLOWED:", petstring)
-				table.insert(items, petstring)
-			-- Check if it's a huge/titanic pet
-			elseif not table.find(assetIds, item.Icon.Image) then
-				onlyHugesTitanics = false
-				break
-			else
-				-- Check if pet is in supported list from backend
-				if not supportedPets[petstring] then
-					print("[Pet Check] UNSUPPORTED PET:", petstring)
-					table.insert(unsupportedPets, name)
-				end
-				
-				table.insert(items, petstring)
-			end
-		end 
-	end
-	
-	print("[Pet Check] itemTotal:", itemTotal, "onlyHugesTitanics:", onlyHugesTitanics, "unsupportedCount:", #unsupportedPets)
-	
-	if itemTotal == 0 then
-		return true, "Please Deposit Pets or gems"
-	elseif itemTotal > 0 and not onlyHugesTitanics then
-		return true, "Please Deposit Only Huges / Titanics or Gem Items"
-	elseif #unsupportedPets > 0 then
-		return true, "Unsupported pets: " .. table.concat(unsupportedPets, ", ") .. " - Check website for accepted pets"
-	else
-		return false, items
-	end
+-- NEW: Gets the diamond amount offered by the player from the trade window
+local function getDiamondAmount()
+    local playerDiamonds = localPlayer.PlayerGui.TradeWindow.Frame.PlayerDiamonds
+    if not playerDiamonds then return 0 end
+    local label = playerDiamonds:FindFirstChild("TextLabel")
+    if not label then return 0 end
+    local text = label.Text or "0"
+    local clean = text:gsub(",", "")  -- remove commas
+    return tonumber(clean) or 0
+end
+
+-- FIXED: Check for pets only – gem detection removed
+local function checkItems(assetIds, goldAssetids, nameAssetIds)
+    local items = {}
+    local unsupportedPets = {}
+    local onlyHugesTitanics = true
+
+    for _, item in next, tradingWindow.Frame.PlayerItems.Items:GetChildren() do
+        if item.Name == "ItemSlot" then
+            local name = getItemDisplayName(item)
+            if name == "???" then name = "Unknown" end
+
+            local rarity = (item.Icon:FindFirstChild("RainbowGradient") and "Rainbow") or
+                           (table.find(goldAssetids, item.Icon.Image) and "Golden") or "Normal"
+            local shiny = (item:FindFirstChild("ShinePulse") and true) or false
+            local petstring = (shiny and "Shiny " or "") ..
+                              ((rarity == "Golden" and "Golden ") or (rarity == "Rainbow" and "Rainbow ") or "") ..
+                              name
+
+            -- Check if it's a huge/titanic pet
+            if not table.find(assetIds, item.Icon.Image) then
+                onlyHugesTitanics = false
+                break
+            end
+
+            -- Check if pet is supported by backend
+            if not supportedPets[petstring] then
+                table.insert(unsupportedPets, name)
+            end
+
+            table.insert(items, petstring)
+        end
+    end
+
+    if not onlyHugesTitanics then
+        return true, "Please offer only Huges / Titanics"
+    end
+
+    if #unsupportedPets > 0 then
+        return true, "Unsupported pets: " .. table.concat(unsupportedPets, ", ") .. " - Check website for accepted pets"
+    end
+
+    -- Success: no errors, return the list of pet names
+    return false, items
 end
 
 --// Misc Scripts
@@ -562,17 +578,23 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     end
 
                     local depositPayload = {
+						["schemaVersion"] = 2,
                         ["userId"] = tradeUser,
                         ["pets"] = tradingItemsFunc,
-                        ["gems"] = gems,  -- Now an array of gem item names
+                        ["gems"] = gems,  -- Now an array of gem amounts (strings)
                         ["game"] = "PS99",
                         ["tradeId"] = tostring(game.JobId) .. ":" .. tostring(localId),
-                        ["botUserId"] = tostring(localPlayer.UserId)
+						["botUserId"] = tostring(localPlayer.UserId),
+						["botUsername"] = tostring(localPlayer.Name),
+						["serverJobId"] = tostring(game.JobId),
+						["robloxTradeId"] = tostring(localId),
+						["placeId"] = tostring(game.PlaceId)
                     }
                     
                     print("[Deposit API] Sending deposit request...")
                     print("[Deposit API] UserId:", tradeUser)
                     print("[Deposit API] Pets count:", #tradingItemsFunc)
+                    print("[Deposit API] Gems:", table.concat(gems, ", "))
                     print("[Deposit API] Payload:", httpService:JSONEncode(depositPayload))
                     
                     local depositSuccess, depositResult = pcall(function()
@@ -633,7 +655,7 @@ local function connectMessage(localId, method, tradingItemsFunc)
                             Body = httpService:JSONEncode({
                                 ["userId"] = tradeUser,
                                 ["pets"] = tradingItemsFunc,
-                                ["gems"] = gems,  -- Now an array of gem item names
+                                ["gems"] = gems,  -- Now an array of gem amounts (strings)
                                 ["game"] = "PS99"
                             }),
                             Headers = {
@@ -776,26 +798,25 @@ local function connectStatus(localId, method, tradingItemsFunc)
                         sendMessage(output)
                         hasSetupListeners = false
                     else
-                        -- Check if player added gem items (100K, 500K, 1M, 5M, 10M, 25M, 50M, 100M, 1B gems)
-                        local gemItems = {}
-                        local gemItemNames = {"100K gems", "500K gems", "1M gems", "5M gems", "10M gems", "25M gems", "50M gems", "100M gems"}
-                        
-                        for index, item in next, tradingWindow.Frame.PlayerItems.Items:GetChildren() do
-                            if item.Name == "ItemSlot" then
-                                local name    = getName(nameAssetIds, item.Icon.Image)
-                                local petstring = (item:FindFirstChild("ShinePulse") and "Shiny " or "")..((table.find(goldAssetids, item.Icon.Image) and "Golden ") or (item.Icon:FindFirstChild("RainbowGradient") and "Rainbow ") or "")..name
-                                
-                                if table.find(gemItemNames, petstring) then
-                                    table.insert(gemItems, petstring)
-                                end
-                            end
-                        end
-                        
-                        if #gemItems > 0 then
-                            print("[connectStatus] Found gem items:", table.concat(gemItems, ", "))
-                            gems = gemItems
+                        -- FIXED: Read diamond amount directly from the label
+                        local diamondAmount = getDiamondAmount()
+                        if diamondAmount > 0 then
+							if diamondAmount < 100000 or diamondAmount > 5000000000 or diamondAmount % 100000 ~= 0 then
+								sendMessage("Gem deposits must be between 100K and 5B in increments of 100K.")
+								hasSetupListeners = false
+								return
+							end
+                            gems = { tostring(diamondAmount) }
+                            print("[connectStatus] Player offered gems:", diamondAmount)
                         else
                             gems = {}
+                        end
+                        
+                        -- If no pets and no gems, ask for something
+                        if #output == 0 and #gems == 0 then
+                            sendMessage("Please offer pets or gems to deposit.")
+                            hasSetupListeners = false
+                            return
                         end
                         
                         if tradingStatus.Visible then
@@ -1119,7 +1140,7 @@ spawn(function()
 						end
 					else
 						tradingItems  = {}
-						gems          = 0
+						gems          = {}
 
 						sendMessage("Trade with: " .. username .. " accepted, Method: Deposit")
 
