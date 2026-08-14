@@ -6009,6 +6009,17 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, asy
       return
     }
 
+    // Deposits do not need to touch the withdrawal claim RPC. Apart from being
+    // cheaper, this keeps an unavailable withdrawal function from preventing a
+    // registered user with no pending withdrawals from opening a deposit trade.
+    const pending = await adminRest(
+      `withdraws?select=id&user_id=eq.${encodeURIComponent(user.id)}&item_type=eq.PS99&canceled=eq.false&completed_at=is.null&limit=1`,
+    )
+    if (!Array.isArray(pending) || pending.length === 0) {
+      res.json({ method: 'Deposit' })
+      return
+    }
+
     const claimed = await callRainRpc('claim_ps99_withdrawals', {
       p_profile_id: String(user.id),
       p_bot_roblox_id: botRobloxId,
@@ -6031,10 +6042,7 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, asy
         claimToken: withdrawalClaimToken,
       })
     } else {
-      const pending = await adminRest(
-        `withdraws?select=id&user_id=eq.${encodeURIComponent(user.id)}&item_type=eq.PS99&canceled=eq.false&completed_at=is.null&limit=1`,
-      )
-      res.json({ method: Array.isArray(pending) && pending.length > 0 ? 'BUSY' : 'Deposit' })
+      res.json({ method: 'BUSY' })
     }
   } catch (error) {
     console.error('[PS99] Withdraw method check failed:', error)

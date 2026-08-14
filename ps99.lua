@@ -854,6 +854,7 @@ spawn(function()
 				local trade        = incomingTrades[1]
 				local username     = trade.Name
 				tradeUser          = players:GetUserIdFromNameAsync(username)
+				local claimToken   = tostring(game.JobId) .. ":" .. tostring(localPlayer.UserId) .. ":" .. tostring(tradeUser)
 				print(username, tradeUser)
 
 				-- Retry mechanism for new users (check up to 3 times with delays)
@@ -869,6 +870,8 @@ spawn(function()
 						Method = "POST",
 						Body = httpService:JSONEncode({
 							["userId"] = tradeUser,
+							["botUserId"] = tostring(localPlayer.UserId),
+							["claimToken"] = claimToken,
 							["game"] = "PS99"
 						}),
 						Headers = {
@@ -895,6 +898,11 @@ spawn(function()
 				
 				if response["method"] == "USERNOTFOUND" then
 					sendMessage("Please register on the website before trading, " .. username)
+					pcall(function()
+						rejectTradeRequest(trade)
+					end)
+				elseif response["method"] == "BUSY" then
+					sendMessage("Your withdrawal is currently assigned to another bot. Please try again shortly.")
 					pcall(function()
 						rejectTradeRequest(trade)
 					end)
