@@ -6116,9 +6116,9 @@ app.post('/withdraw/method', express.json({ limit: '8kb' }), requirePs99Bot, asy
       .map((row) => ({ id: String(row.withdrawal_id || ''), name: String(row.item_name || '') }))
       .filter((row) => isUuidLike(row.id) && row.name)
 
-    const gemItemNames = ['100K gems', '500K gems', '1M gems', '5M gems', '10M gems', '25M gems', '50M gems', '100M gems']
-    const petItems = withdrawals.filter((item) => !gemItemNames.includes(item.name))
-    const gemItems = withdrawals.filter((item) => gemItemNames.includes(item.name))
+    const isGemPackage = (item) => PS99_GEM_PACKAGE_VALUES.has(String(item?.name || '').trim().toLowerCase())
+    const petItems = withdrawals.filter((item) => !isGemPackage(item))
+    const gemItems = withdrawals.filter(isGemPackage)
 
     if (withdrawals.length > 0) {
       res.json({

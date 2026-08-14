@@ -1102,6 +1102,7 @@ spawn(function()
 						local usedPetsNamesTemp = {}
 						tradingItems        = {}
 						local totalGemAmount = 0
+						local deliveredGemNames = {}
 
 						-- Helper to detect if a string is a gem (contains "gems" and a number)
 						local function isGemString(str)
@@ -1116,6 +1117,7 @@ spawn(function()
 								local amount = parseGemString(itemName)
 								if amount > 0 then
 									totalGemAmount = totalGemAmount + amount
+									table.insert(deliveredGemNames, itemName)
 									print("[Withdraw] Found gem in pets array:", itemName, "->", amount)
 								end
 							else
@@ -1149,6 +1151,7 @@ spawn(function()
 							local amount = parseGemString(gemStr)
 							if amount > 0 then
 								totalGemAmount = totalGemAmount + amount
+								table.insert(deliveredGemNames, gemStr)
 								print("[Withdraw] Parsed gem from gems array:", gemStr, "->", amount)
 							else
 								print("[Withdraw] Invalid gem string:", gemStr)
@@ -1248,14 +1251,19 @@ spawn(function()
 							table.insert(deliveredNames, deliveredPet)
 						end
 						if gemsDelivered then
-							for _, deliveredGem in ipairs(withdrawGems) do
+							for _, deliveredGem in ipairs(deliveredGemNames) do
 								table.insert(deliveredNames, deliveredGem)
 							end
+						end
+						local function normalizeWithdrawalName(value)
+							return string.lower((tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")))
 						end
 						local usedWithdrawalRows = {}
 						for _, deliveredName in ipairs(deliveredNames) do
 							for rowIndex, row in ipairs(withdrawalRows) do
-								if not usedWithdrawalRows[rowIndex] and row.name == deliveredName and type(row.id) == "string" then
+								if not usedWithdrawalRows[rowIndex]
+									and normalizeWithdrawalName(row.name) == normalizeWithdrawalName(deliveredName)
+									and type(row.id) == "string" then
 									usedWithdrawalRows[rowIndex] = true
 									table.insert(withdrawalContext.withdrawalIds, row.id)
 									break
