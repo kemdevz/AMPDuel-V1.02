@@ -172,17 +172,23 @@ local function postBotApi(path, payload, maxAttempts)
 end
 
 local function releaseWithdrawalClaim(withdrawalContext)
-	if not withdrawalContext or withdrawalContext.finished or withdrawalContext.released then return end
-	withdrawalContext.released = true
+	if not withdrawalContext or withdrawalContext.finished then return false end
+	if withdrawalContext.released then return true end
+	if withdrawalContext.releasing then return false end
+	withdrawalContext.releasing = true
 	local released, releaseResult = postBotApi("/withdraw/release", {
 		["userId"] = withdrawalContext.userId,
 		["botUserId"] = withdrawalContext.botUserId,
 		["claimToken"] = withdrawalContext.claimToken,
 		["game"] = "PS99"
 	}, 3)
-	if not released then
-		warn("[Withdraw Release] Failed; the claim will expire automatically:", releaseResult)
+	withdrawalContext.releasing = false
+	if released then
+		withdrawalContext.released = true
+		return true
 	end
+	warn("[Withdraw Release] Failed; keeping the claim locked for safety:", releaseResult)
+	return false
 end
 
 --// Functions
@@ -347,11 +353,11 @@ end
 -- Chat message (In Chat / PS99 Chat)
 local function sendMessage(message)
 	pcall(function()
-		textChatService.TextChannels.RBXGeneral:SendAsync("RbxRoyale | "..message)
+		textChatService.TextChannels.RBXGeneral:SendAsync("BloxDice | "..message)
 	end)
 	pcall(function()
         task.wait(0.1)
-		tradingCommands.Message("RbxRoyale | "..message)
+		tradingCommands.Message("BloxDice | "..message)
 	end)
 	
 	return true
@@ -461,11 +467,11 @@ local function checkItems(assetIds, goldAssetids, nameAssetIds)
     end
 
     if not onlyHugesTitanics then
-        return true, "Please offer only Huges / Titanics"
+        return true, "Only Huge and Titanic pets can be deposited."
     end
 
     if #unsupportedPets > 0 then
-        return true, "Unsupported pets: " .. table.concat(unsupportedPets, ", ") .. " - Check website for accepted pets"
+        return true, "One or more pets are not supported for deposits."
     end
 
     -- Success: no errors, return the list of pet names
@@ -640,7 +646,7 @@ local function setupTradeTimeout(localId, maxTimeout, withdrawalContext)
 				break
 			elseif (tick() - startTime) > maxTimeout then
 				print("[Trade Timeout] Trade took too long, declining... LocalID:", localId)
-				sendMessage("Trade timed out - Please try again")
+				sendMessage("Trade timed out. Please try again.")
 				local declineOk, declineResult = pcall(declineTrade)
 				if declineOk then
 					-- Do not release the database claim here. The trade cancellation
@@ -682,7 +688,7 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
 			-- Check for both possible success messages
 			if (text == "✅ Trade successfully completed!" or string.find(text, "Trade success")) and not tradeCompleted then
 				tradeCompleted = true
-				sendMessage("Trade Completed!")
+				sendMessage("Trade complete.")
                 print(method)
                 if method == "deposit" and not depositSent then
 					depositSent = true
@@ -727,14 +733,14 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
                     
                     if not depositSuccess then
                         warn("[Deposit API] Request failed:", depositResult)
-                        sendMessage("Deposit failed - contact admin!")
+                        sendMessage("Deposit could not be completed.")
                     else
                         print("[Deposit API] Response Status:", depositResult.StatusCode)
                         print("[Deposit API] Response Body:", depositResult.Body)
                         
                         if depositResult.StatusCode ~= 200 then
                             warn("[Deposit API] Non-200 status code!")
-                            sendMessage("Deposit failed - Server error: " .. tostring(depositResult.StatusCode))
+                            sendMessage("Deposit could not be completed.")
                         else
                             local decodeSuccess, responseData = pcall(function()
                                 return httpService:JSONDecode(depositResult.Body)
@@ -742,7 +748,7 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
                             
                             if decodeSuccess and responseData then
                                 print("[Deposit API] Deposit successful!")
-                                sendMessage("Deposit successful! Check your balance on the website.")
+                                sendMessage("Deposit complete. Your BloxDice balance will update soon.")
                             else
                                 warn("[Deposit API] Failed to parse response")
                             end
@@ -751,9 +757,9 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
 
                     messageConnection:Disconnect()
                     print("MESSAGE DISCONNECTION - Trade Completed", localId, tradeId, tradeUser, 5)
-                    task.wait(1)
-                    tradingMessage.Enabled = false
-                    goNext = true
+					task.wait(1)
+					tradingMessage.Enabled = false
+					goNext = true
                 else
 					local withdrawalConfirmed = false
 					if not withdrawalContext or #withdrawalContext.withdrawalIds == 0 then
@@ -773,10 +779,10 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
 						if confirmed then
 							withdrawalConfirmed = true
 							print("[Withdraw Confirm] Finalized:", httpService:JSONEncode(confirmResult))
-							sendMessage("Withdrawal confirmed!")
+							sendMessage("Withdrawal complete.")
 						else
 							warn("[Withdraw Confirm] CRITICAL: items were delivered but confirmation failed:", confirmResult)
-							sendMessage("Withdrawal delivered; confirmation is retrying. Contact an admin if it remains pending.")
+							sendMessage("Items sent. Please wait while the withdrawal updates.")
 						end
 					end
 					
@@ -790,24 +796,30 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
                 end
 			elseif (string.find(text, " cancelled the trade!")) and not tradeCompleted then
 				tradeCompleted = true
-				releaseWithdrawalClaim(withdrawalContext)
-				sendMessage("Trade Declined")
+				local claimReleased = releaseWithdrawalClaim(withdrawalContext)
+				sendMessage("Trade canceled. Please send a new trade request.")
                 print("MESSAGE DISCONNECTION - Trade Cancelled", localId, tradeId, tradeUser, 3)
 				messageConnection:Disconnect()
 				
 				task.wait(1)
 				tradingMessage.Enabled = false
-                goNext = true
+				goNext = withdrawalContext == nil or claimReleased
+				if withdrawalContext and not claimReleased then
+					warn("[Withdraw Release] Trade canceled but claim release failed; bot remains locked.")
+				end
             elseif string.find(text, "left the game") and not tradeCompleted then
 				tradeCompleted = true
-				releaseWithdrawalClaim(withdrawalContext)
-                sendMessage("Trade Declined")
+				local claimReleased = releaseWithdrawalClaim(withdrawalContext)
+                sendMessage("Trade canceled.")
                 print("MESSAGE DISCONNECTION - User Left", localId, tradeId, tradeUser, 2)
                 messageConnection:Disconnect()
 				
 				task.wait(1)
 				tradingMessage.Enabled = false
-                goNext = true
+				goNext = withdrawalContext == nil or claimReleased
+				if withdrawalContext and not claimReleased then
+					warn("[Withdraw Release] User left but claim release failed; bot remains locked.")
+				end
 			end
 		end
 	end)
@@ -827,7 +839,7 @@ local function connectConfirm(localId, method, tradingItemsFunc)
 				if offeredItemCount > 0 or offeredGems > 0 then
 					hasConfirmed = true
 					warn("[Withdraw Validation] User added assets before confirmation; declining trade:", offeredItemCount, offeredGems)
-					sendMessage("Do not offer pets or gems while withdrawing. Please start a new trade.")
+					sendMessage("Leave your side empty for withdrawals. Please trade again.")
 					local declineOk, declineResult = pcall(declineTrade)
 					if not declineOk then
 						warn("[Withdraw Validation] Failed to decline invalid trade; keeping claim locked:", declineResult)
@@ -897,7 +909,7 @@ local function connectTradeWindow(localId, withdrawalContext)
 			-- cancellation message. Give that message time to settle the context.
 			if withdrawalContext then
 				task.delay(3, function()
-					if not withdrawalContext.finished then
+					if not withdrawalContext.finished and not withdrawalContext.released and not withdrawalContext.releasing then
 						-- A closed trade window alone does not prove whether the trade was
 						-- canceled or completed. Keep the claim locked until an explicit
 						-- success/cancellation message settles it, preventing a canceled
@@ -942,7 +954,7 @@ local function connectWithdrawalOfferGuard(localId, withdrawalContext)
 		if offeredItemCount > 0 or offeredGems > 0 then
 			tripped = true
 			warn("[Withdraw Guard] User added assets; declining trade:", offeredItemCount, offeredGems)
-			sendMessage("Do not offer pets or gems while withdrawing. Please start a new trade.")
+			sendMessage("Leave your side empty for withdrawals. Please trade again.")
 			local declineOk, declineResult = pcall(declineTrade)
 			if not declineOk then
 				warn("[Withdraw Guard] Failed to decline invalid trade; keeping claim locked:", declineResult)
@@ -1000,7 +1012,7 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
                         local diamondAmount = getDiamondAmount()
                         if diamondAmount > 0 then
 							if diamondAmount < 100000 or diamondAmount > 5000000000 or diamondAmount % 100000 ~= 0 then
-								sendMessage("Gem deposits must be between 100K and 5B in increments of 100K.")
+								sendMessage("Please use a valid gem deposit amount.")
 								hasSetupListeners = false
 								return
 							end
@@ -1011,7 +1023,7 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
                         end
                         
                         if #output == 0 and #gems == 0 then
-                            sendMessage("Please offer pets or gems to deposit.")
+                            sendMessage("Add pets or gems for a deposit.")
                             hasSetupListeners = false
                             return
                         end
@@ -1035,7 +1047,7 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
 					local offeredItemCount, offeredGems = getPlayerWithdrawalOffer()
 					if offeredItemCount > 0 or offeredGems > 0 then
 						warn("[Withdraw Validation] User offered assets; declining trade:", offeredItemCount, offeredGems)
-						sendMessage("Do not offer pets or gems while withdrawing. Please start a new trade.")
+						sendMessage("Leave your side empty for withdrawals. Please trade again.")
 						connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
 						statusConnection:Disconnect()
 						local declineOk, declineResult = pcall(declineTrade)
@@ -1147,20 +1159,20 @@ spawn(function()
 				end
 				
 				if response["method"] == "ERROR" or not table.find({"USERNOTFOUND", "BUSY", "Deposit", "Withdraw"}, response["method"]) then
-					sendMessage("Deposit service unavailable. Your trade was not accepted.")
+					sendMessage("Trade service is unavailable. Please try again.")
 					warn("[User Check] Backend error:", response["error"] or "Invalid method response")
 					pcall(function()
 						rejectTradeRequest(trade)
 					end)
 					goNext = true
 				elseif response["method"] == "USERNOTFOUND" then
-					sendMessage("Please register on the website before trading, " .. username)
+					sendMessage("A BloxDice account is needed before trading.")
 					pcall(function()
 						rejectTradeRequest(trade)
 					end)
 					goNext = true
 				elseif response["method"] == "BUSY" then
-					sendMessage("Your withdrawal is currently assigned to another bot. Please try again shortly.")
+					sendMessage("Your withdrawal is busy. Please try again soon.")
 					pcall(function()
 						rejectTradeRequest(trade)
 					end)
@@ -1369,7 +1381,7 @@ spawn(function()
 							gemsDelivered = success == true
 							if not success then
 								print("[Withdraw] Failed to add gems total:", totalGemAmount)
-								sendMessage("Failed to add gems. Please contact admin.")
+								sendMessage("The gem withdrawal could not be prepared.")
 							end
 						end
 
@@ -1403,12 +1415,12 @@ spawn(function()
 
 						-- Decide what to do next
 						if #withdrawalContext.withdrawalIds == 0 then
-							sendMessage("This bot could not supply your withdrawal. Please try another bot.")
+							sendMessage("This bot does not have every requested item. Please try another bot.")
 							pcall(declineTrade)
 							releaseWithdrawalClaim(withdrawalContext)
 							goNext = true
 						else
-							sendMessage("Please accept to receive your items!")
+							sendMessage("Please accept the trade to receive your items.")
 							connectStatus(localId, "withdraw", tradingItems, withdrawalContext)
 							goNext = false
 						end
@@ -1416,7 +1428,7 @@ spawn(function()
 						-- Deposit branch
 						tradingItems  = {}
 						gems          = {}
-						sendMessage("Trade with: " .. username .. " accepted, Method: Deposit")
+						sendMessage("Deposit trade accepted.")
 						connectStatus(localId, "deposit", {})
 						goNext = false
 					end
