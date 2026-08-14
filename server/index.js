@@ -2912,11 +2912,23 @@ app.post('/api/withdrawals/cancel', express.json({ limit: '16kb' }), requireAuth
     res.status(400).json({ ok: false, error: 'Select at least one withdrawal to cancel.' })
     return
   }
-  const result = await callRainRpc('cancel_item_withdrawals', {
-    p_profile_id: req.identity.profileId,
-    p_withdrawal_uuids: withdrawalIds,
-  })
-  res.json({ ok: true, data: result })
+  try {
+    const result = await callRainRpc('cancel_item_withdrawals', {
+      p_profile_id: req.identity.profileId,
+      p_withdrawal_uuids: withdrawalIds,
+    })
+    res.json({ ok: true, data: result })
+  } catch (error) {
+    const message = String(error?.message || '')
+    if (/actively claimed by a bot|completed, actively claimed|claimed by a bot/i.test(message)) {
+      res.status(409).json({
+        ok: false,
+        error: 'This withdrawal is still locked by the trade bot. Close the Roblox trade before canceling it.',
+      })
+      return
+    }
+    throw error
+  }
 })
 
 app.post('/api/tips/coins', express.json({ limit: '16kb' }), requireAuthenticatedUser, async (req, res) => {
