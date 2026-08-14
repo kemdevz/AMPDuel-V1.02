@@ -6226,7 +6226,7 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, as
   }
 })
 
-app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), requirePs99Bot, async (req, res) => {
+async function confirmPs99Withdrawal(req, res) {
   try {
     const { userId, withdrawalIds, claimToken, tradeId, botUserId, game } = req.body
     const robloxId = String(userId || '').trim()
@@ -6263,14 +6263,24 @@ app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), requirePs99Bot,
 
     await emitWalletRefreshes([profile.id])
 
-    res.json({ success: true, duplicate: Boolean(result?.duplicate), message: 'Withdrawal finalized' })
+    res.json({
+      success: true,
+      duplicate: Boolean(result?.duplicate),
+      completedCount: Number(result?.completed_count) || ids.length,
+      message: result?.duplicate ? 'Withdrawal was already confirmed' : 'Withdrawal confirmed',
+    })
   } catch (error) {
-    console.error('[PS99] Withdraw failed:', error)
+    console.error('[PS99] Withdrawal confirmation failed:', error)
     const message = String(error?.message || 'Withdrawal finalization failed')
     const conflict = /withdrawal|claim|belong|available|duplicate/i.test(message)
     res.status(conflict ? 409 : 500).json({ success: false, error: message })
   }
-})
+}
+
+// `confirmed` is the canonical bot callback. Keep `withdrawn` as a compatible
+// alias for bots deployed during the secure-withdrawal migration.
+app.post('/withdraw/confirmed', express.json({ limit: '64kb' }), requirePs99Bot, confirmPs99Withdrawal)
+app.post('/withdraw/withdrawn', express.json({ limit: '64kb' }), requirePs99Bot, confirmPs99Withdrawal)
 
 app.post('/withdraw/release', express.json({ limit: '8kb' }), requirePs99Bot, async (req, res) => {
   try {

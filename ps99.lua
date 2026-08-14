@@ -1,4 +1,3 @@
---// Configuration
 local website = "https://bloxdice.com"
 -- Must match PS99_BOT_API_SECRET in the website server environment.
 local auth = "ODOQWIJDOQLDQDJQJDIQIJDQIDIJq"
@@ -121,7 +120,7 @@ local startTick          = tick()
 local tradeUser          = nil
 local goNext             = true
 local supportedPets      = {}
-local gems               = 0
+local gems               = {}   -- will hold array of gem strings for API
 
 --// Initializing
 print("[PS99 Trade Bot] initializing variables...")
@@ -133,8 +132,81 @@ if not request then
     return
 end
 
+local function postBotApi(path, payload, maxAttempts)
+	maxAttempts = maxAttempts or 1
+	local lastError = "Request failed"
+	for attempt = 1, maxAttempts do
+		local requestOk, response = pcall(function()
+			return request({
+				Url = website .. path,
+				Method = "POST",
+				Body = httpService:JSONEncode(payload),
+				Headers = {
+					["Content-Type"] = "application/json",
+					["Authorization"] = auth
+				}
+			})
+		end)
+
+		if requestOk and response then
+			local statusCode = tonumber(response.StatusCode) or 0
+			local decodeOk, decoded = pcall(function()
+				return httpService:JSONDecode(response.Body or "{}")
+			end)
+			if statusCode >= 200 and statusCode < 300 and decodeOk and decoded.success ~= false then
+				return true, decoded
+			end
+			lastError = "HTTP " .. tostring(statusCode) .. ": " .. tostring(response.Body)
+			if statusCode >= 400 and statusCode < 500 and statusCode ~= 408 and statusCode ~= 429 then
+				break
+			end
+		else
+			lastError = tostring(response)
+		end
+
+		if attempt < maxAttempts then
+			task.wait(math.min(2 ^ (attempt - 1), 8))
+		end
+	end
+	return false, lastError
+end
+
+local function releaseWithdrawalClaim(withdrawalContext)
+	if not withdrawalContext or withdrawalContext.finished or withdrawalContext.released then return end
+	withdrawalContext.released = true
+	local released, releaseResult = postBotApi("/withdraw/release", {
+		["userId"] = withdrawalContext.userId,
+		["botUserId"] = withdrawalContext.botUserId,
+		["claimToken"] = withdrawalContext.claimToken,
+		["game"] = "PS99"
+	}, 3)
+	if not released then
+		warn("[Withdraw Release] Failed; the claim will expire automatically:", releaseResult)
+	end
+end
+
 --// Functions
 print("[PS99 Trade Bot] initializing functions...")
+
+-- Parse a gem string like "10M gems" or "5M gems" into a numeric amount.
+local function parseGemString(gemStr)
+    if not gemStr or gemStr == "" then return 0 end
+    -- Remove "gems" and spaces, trim
+    local clean = gemStr:gsub("[Gg][Ee][Mm][Ss]", ""):gsub("%s+", "")
+    -- Extract number part and multiplier
+    local num, mult = clean:match("^(%d+%.?%d*)([KkMmBb]?)$")
+    if not num then return 0 end
+    local value = tonumber(num) or 0
+    local multiplier = 1
+    if mult then
+        local lower = mult:lower()
+        if lower == "k" then multiplier = 1000
+        elseif lower == "m" then multiplier = 1000000
+        elseif lower == "b" then multiplier = 1000000000
+        end
+    end
+    return value * multiplier
+end
 
 -- Gets the user's pets in their inventory with retry mechanism
 local function getHugesTitanics(hugesTitanicsIds, retryCount)
@@ -296,7 +368,7 @@ local function getName(assetIds, assetId)
 	return "???"
 end
 
--- NEW: Gets the display name of an item slot, falling back to the icon's asset ID name if available.
+-- Gets the display name of an item slot, falling back to the icon's asset ID name if available.
 local function getItemDisplayName(itemSlot)
     local name = getName(nameAssetIds, itemSlot.Icon.Image)
     if name == "???" then
@@ -311,7 +383,7 @@ local function getItemDisplayName(itemSlot)
     return name
 end
 
--- NEW: Gets the diamond amount offered by the player from the trade window
+-- Gets the diamond amount offered by the player from the trade window
 local function getDiamondAmount()
     local playerDiamonds = localPlayer.PlayerGui.TradeWindow.Frame.PlayerDiamonds
     if not playerDiamonds then return 0 end
@@ -322,7 +394,7 @@ local function getDiamondAmount()
     return tonumber(clean) or 0
 end
 
--- FIXED: Check for pets only – gem detection removed
+-- Check for pets only – gem detection removed
 local function checkItems(assetIds, goldAssetids, nameAssetIds)
     local items = {}
     local unsupportedPets = {}
@@ -526,16 +598,17 @@ end)
 print("[PS99 Trade Bot] initializing connects...")
 
 -- Timeout function to reset trade state if it gets stuck
-local function setupTradeTimeout(localId, maxTimeout)
+local function setupTradeTimeout(localId, maxTimeout, withdrawalContext)
 	spawn(function()
 		local startTime = tick()
 		while task.wait(1) do
-			-- If trade ID changed or max timeout reached, reset
-			if tradeId ~= localId or (tick() - startTime) > maxTimeout then
-				if (tick() - startTime) > maxTimeout then
-					print("[Trade Timeout] Trade took too long, resetting... LocalID:", localId)
-					sendMessage("Trade timed out - Please try again")
-				end
+			if tradeId ~= localId then
+				-- The message/window listeners own completion and claim cleanup.
+				break
+			elseif (tick() - startTime) > maxTimeout then
+				print("[Trade Timeout] Trade took too long, resetting... LocalID:", localId)
+				sendMessage("Trade timed out - Please try again")
+				releaseWithdrawalClaim(withdrawalContext)
 				goNext = true
 				break
 			end
@@ -544,7 +617,7 @@ local function setupTradeTimeout(localId, maxTimeout)
 end
 
 -- Detect accept / declining of the trade
-local function connectMessage(localId, method, tradingItemsFunc)
+local function connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
 	local messageConnection
 	local tradeCompleted = false
 	local depositSent = false
@@ -640,45 +713,42 @@ local function connectMessage(localId, method, tradingItemsFunc)
                     tradingMessage.Enabled = false
                     goNext = true
                 else
-                    print("withdraw :)")
-                    print(tradeUser)
-                    print("CONFIRM PARTIAL WITHDRAW")
-                    print(tradeUser)
-                    for i,v in next, tradingItemsFunc do
-                        print(i,v)
-                    end
-
-                    local withdrawSuccess, withdrawError = pcall(function()
-                        local response = request({
-                            Url = website .."/withdraw/withdrawed",
-                            Method = "POST",
-                            Body = httpService:JSONEncode({
-                                ["userId"] = tradeUser,
-                                ["pets"] = tradingItemsFunc,
-                                ["gems"] = gems,  -- Now an array of gem amounts (strings)
-                                ["game"] = "PS99"
-                            }),
-                            Headers = {
-                                ["Content-Type"] = "application/json",
-                                ["Authorization"] = auth
-                            }
-                        })
-                        print("[Withdraw Complete] API Response:", response.StatusCode, response.Body)
-                        return response
-                    end)
-                    
-                    if not withdrawSuccess then
-                        warn("[Withdraw Complete] API call failed:", withdrawError)
-                    end
+					local withdrawalConfirmed = false
+					if not withdrawalContext or #withdrawalContext.withdrawalIds == 0 then
+						warn("[Withdraw Confirm] Missing the claimed withdrawal IDs; refusing to mark the delivery complete.")
+					else
+						withdrawalContext.finished = true
+						local withdrawPayload = {
+							["userId"] = withdrawalContext.userId,
+							["withdrawalIds"] = withdrawalContext.withdrawalIds,
+							["claimToken"] = withdrawalContext.claimToken,
+							["tradeId"] = tostring(game.JobId) .. ":" .. tostring(localId),
+							["botUserId"] = withdrawalContext.botUserId,
+							["game"] = "PS99"
+						}
+						print("[Withdraw Confirm] Payload:", httpService:JSONEncode(withdrawPayload))
+						local confirmed, confirmResult = postBotApi("/withdraw/confirmed", withdrawPayload, 8)
+						if confirmed then
+							withdrawalConfirmed = true
+							print("[Withdraw Confirm] Finalized:", httpService:JSONEncode(confirmResult))
+							sendMessage("Withdrawal confirmed!")
+						else
+							warn("[Withdraw Confirm] CRITICAL: items were delivered but confirmation failed:", confirmResult)
+							sendMessage("Withdrawal delivered; confirmation is retrying. Contact an admin if it remains pending.")
+						end
+					end
 					
 					messageConnection:Disconnect()
 					print("MESSAGE DISCONNECTION - Withdraw Completed", localId, tradeId, tradeUser, 4)
 					task.wait(1)
 					tradingMessage.Enabled = false
-					goNext = true
+					-- Fail closed: never serve another withdrawal from this bot after
+					-- assets were delivered unless the database confirmed settlement.
+					goNext = withdrawalConfirmed
                 end
 			elseif (string.find(text, " cancelled the trade!")) and not tradeCompleted then
 				tradeCompleted = true
+				releaseWithdrawalClaim(withdrawalContext)
 				sendMessage("Trade Declined")
                 print("MESSAGE DISCONNECTION - Trade Cancelled", localId, tradeId, tradeUser, 3)
 				messageConnection:Disconnect()
@@ -688,6 +758,7 @@ local function connectMessage(localId, method, tradingItemsFunc)
                 goNext = true
             elseif string.find(text, "left the game") and not tradeCompleted then
 				tradeCompleted = true
+				releaseWithdrawalClaim(withdrawalContext)
                 sendMessage("Trade Declined")
                 print("MESSAGE DISCONNECTION - User Left", localId, tradeId, tradeUser, 2)
                 messageConnection:Disconnect()
@@ -759,14 +830,25 @@ local function connectConfirm(localId, method, tradingItemsFunc)
 end
 
 -- Monitor trade window to detect if it closes unexpectedly
-local function connectTradeWindow(localId)
+local function connectTradeWindow(localId, withdrawalContext)
 	local windowConnection
 	
 	windowConnection = tradingWindow:GetPropertyChangedSignal("Enabled"):Connect(function()
 		if not tradingWindow.Enabled and tradeId == localId then
 			print("[Trade Window] Trade window closed unexpectedly for LocalID:", localId)
-			goNext = true
 			windowConnection:Disconnect()
+			-- Roblox closes the window just before showing either the success or
+			-- cancellation message. Give that message time to settle the context.
+			if withdrawalContext then
+				task.delay(3, function()
+					if not withdrawalContext.finished then
+						releaseWithdrawalClaim(withdrawalContext)
+						goNext = true
+					end
+				end)
+			else
+				goNext = true
+			end
 		elseif tradeId ~= localId then
 			windowConnection:Disconnect()
 		end
@@ -774,15 +856,15 @@ local function connectTradeWindow(localId)
 end
 
 -- Detect when user accepts, make various checks, and accepts the trade
-local function connectStatus(localId, method, tradingItemsFunc)
+local function connectStatus(localId, method, tradingItemsFunc, withdrawalContext)
 	local statusConnection
 	local hasSetupListeners = false
 	
 	-- Set up timeout (180 seconds max)
-	setupTradeTimeout(localId, 180)
+	setupTradeTimeout(localId, 180, withdrawalContext)
 	
 	-- Monitor trade window closure
-	connectTradeWindow(localId)
+	connectTradeWindow(localId, withdrawalContext)
 	
 	statusConnection = tradingStatus:GetPropertyChangedSignal("Visible"):Connect(function()
 		if tradeId == localId then
@@ -798,7 +880,6 @@ local function connectStatus(localId, method, tradingItemsFunc)
                         sendMessage(output)
                         hasSetupListeners = false
                     else
-                        -- FIXED: Read diamond amount directly from the label
                         local diamondAmount = getDiamondAmount()
                         if diamondAmount > 0 then
 							if diamondAmount < 100000 or diamondAmount > 5000000000 or diamondAmount % 100000 ~= 0 then
@@ -812,7 +893,6 @@ local function connectStatus(localId, method, tradingItemsFunc)
                             gems = {}
                         end
                         
-                        -- If no pets and no gems, ask for something
                         if #output == 0 and #gems == 0 then
                             sendMessage("Please offer pets or gems to deposit.")
                             hasSetupListeners = false
@@ -826,33 +906,23 @@ local function connectStatus(localId, method, tradingItemsFunc)
                             local readyResult = readyTrade()
                             print("[connectStatus] readyTrade() returned:", readyResult)
                             tradingItems = output
-                            -- Set up confirm listener to auto-confirm when both ready
                             connectConfirm(localId, method, output)
-                            -- Set up message listener AFTER ready to avoid premature disconnection
                             task.wait(0.5)
-                            connectMessage(localId, method, output)
+                            connectMessage(localId, method, output, withdrawalContext)
                             statusConnection:Disconnect()
                         end
                     end
                 else
-                    print("[connectStatus] Withdraw method detected")
-                    -- Check for pets
-                    local error, output = checkItems(assetIds, goldAssetids, nameAssetIds)
-                    print("[connectStatus] checkItems returned - error:", error, "output:", output)
-                    
-                    if not error then
-                        print("[connectStatus] User added pets during withdraw - declining")
-                        sendMessage("Please don't add pets while withdrawing!")
-                        hasSetupListeners = false
-                    else
-                        print("[connectStatus] About to call readyTrade() for withdraw...")
+                    -- WITHDRAW branch: we already added the items; no need to check local side.
+                    print("[connectStatus] Withdraw method detected - skipping item check on local side")
+                    -- We trust that the items were added correctly. Proceed to ready.
+                    if tradingStatus.Visible then
+                        print("[connectStatus] Withdraw - readying trade...")
                         local readyResult = readyTrade()
                         print("[connectStatus] readyTrade() returned:", readyResult)
-                        -- Set up confirm listener to auto-confirm when both ready
                         connectConfirm(localId, method, tradingItemsFunc)
-                        -- Set up message listener AFTER ready to avoid premature disconnection
                         task.wait(0.5)
-                        connectMessage(localId, method, tradingItemsFunc)
+                        connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
                         statusConnection:Disconnect()
                     end
                 end
@@ -868,10 +938,13 @@ print("[PS99 Trade Bot] initializing main script...")
 
 spawn(function()
 	while task.wait(1) do
-		pcall(function()
+		local loopOk, loopError = pcall(function()
 			local incomingTrades = getTrades()
 			
 			if #incomingTrades > 0 and goNext then
+				-- Lock before yielding to the API so one incoming request cannot be
+				-- claimed or delivered by overlapping loop iterations.
+				goNext = false
 				local trade        = incomingTrades[1]
 				local username     = trade.Name
 				tradeUser          = players:GetUserIdFromNameAsync(username)
@@ -932,6 +1005,16 @@ spawn(function()
 						task.wait(retryDelay)
 					end
 				end
+
+				if response["method"] == "Withdraw" then
+					local claimedRows = response["withdrawals"]
+					if type(claimedRows) ~= "table" or #claimedRows == 0 or type(response["claimToken"]) ~= "string" or response["claimToken"] == "" then
+						response = {
+							["method"] = "ERROR",
+							["error"] = "The backend returned a withdrawal without claim identifiers."
+						}
+					end
+				end
 				
 				if response["method"] == "ERROR" or not table.find({"USERNOTFOUND", "BUSY", "Deposit", "Withdraw"}, response["method"]) then
 					sendMessage("Deposit service unavailable. Your trade was not accepted.")
@@ -945,16 +1028,25 @@ spawn(function()
 					pcall(function()
 						rejectTradeRequest(trade)
 					end)
+					goNext = true
 				elseif response["method"] == "BUSY" then
 					sendMessage("Your withdrawal is currently assigned to another bot. Please try again shortly.")
 					pcall(function()
 						rejectTradeRequest(trade)
 					end)
+					goNext = true
 				else
 					local accepted = acceptTradeRequest(trade)
 						
 					if not accepted then
 						print("[Trade Accept] Failed to accept trade with:", username)
+						if response["method"] == "Withdraw" then
+							releaseWithdrawalClaim({
+								["userId"] = tostring(tradeUser),
+								["botUserId"] = tostring(localPlayer.UserId),
+								["claimToken"] = response["claimToken"]
+							})
+						end
 						pcall(function()
 							rejectTradeRequest(trade)
 						end)
@@ -968,212 +1060,237 @@ spawn(function()
 					-- Double check we got a valid trade ID
 					if localId == 0 then
 						print("[Trade Accept] Trade ID is 0, something went wrong")
+						if response["method"] == "Withdraw" then
+							releaseWithdrawalClaim({
+								["userId"] = tostring(tradeUser),
+								["botUserId"] = tostring(localPlayer.UserId),
+								["claimToken"] = response["claimToken"]
+							})
+						end
 						goNext = true
 						return
 					end
 
 					if response["method"] == "Withdraw" then
-						local withdrawData  = response["pets"] or {}
-						local withdrawGems  = response["gems"] or {}
-						local newWithdrawData = {}
-						
-						-- Combine pets and gems into single data array
-						local allWithdrawItems = {}
-						for _, pet in ipairs(withdrawData) do
-							table.insert(allWithdrawItems, pet)
-						end
-						for _, gem in ipairs(withdrawGems) do
-							table.insert(allWithdrawItems, gem)
-						end
-						
-						-- First inventory check for pets only
-						local petInventory  = getHugesTitanics(hugesTitanicsIds)
+						local withdrawData  = response["pets"] or {}      -- array of item names (some may be gems)
+						local withdrawGems  = response["gems"] or {}      -- array of gem strings
+						local withdrawalRows = response["withdrawals"] or {}
+						local withdrawalContext = {
+							["userId"] = tostring(tradeUser),
+							["botUserId"] = tostring(localPlayer.UserId),
+							["claimToken"] = response["claimToken"],
+							["withdrawalIds"] = {},
+							["finished"] = false,
+							["released"] = false
+						}
+
+						-- Store gem strings for API later (original array)
+						gems = withdrawGems
+
+						-- Get inventory of pets
+						local petInventory = getHugesTitanics(hugesTitanicsIds)
 						print("[Withdraw] First inventory check found", #petInventory, "pets")
-						
-						-- Double-check: Refresh inventory if it seems empty or insufficient
 						if #petInventory < 10 then
 							print("[Withdraw] Inventory seems low, doing double-check...")
 							task.wait(0.5)
 							petInventory = getHugesTitanics(hugesTitanicsIds)
 							print("[Withdraw] Double-check found", #petInventory, "pets")
 						end
-						
+
 						local usedPets      = {}
 						local usedPetsNames = {}
 						local usedPetsNamesTemp = {}
 						tradingItems        = {}
+						local totalGemAmount = 0
 
-						sendMessage("Trade with: " .. username .. " accepted, Method: Withdraw")
+						-- Helper to detect if a string is a gem (contains "gems" and a number)
+						local function isGemString(str)
+							local lower = str:lower()
+							return string.find(lower, "gems") and tonumber(str:match("%d+")) ~= nil
+						end
 
-
-						local function countPets(tbl, id, type, shiny)
-							local c = 0
-							for i,v in next, tbl do
-								if (v.id == id) and (v.type == type) and (v.shiny == shiny) then
-									c = c + 1
+						-- First, process all items from withdrawData (pets array) – separate pets from gems
+						local petWithdrawData = {}
+						for _, itemName in ipairs(withdrawData) do
+							if isGemString(itemName) then
+								local amount = parseGemString(itemName)
+								if amount > 0 then
+									totalGemAmount = totalGemAmount + amount
+									print("[Withdraw] Found gem in pets array:", itemName, "->", amount)
 								end
-							end
-
-							return c
-						end
-
-					for i, v in pairs(allWithdrawItems) do
-						local newname = v
-						
-						-- Gem items are treated as regular items now
-						local data = {
-							["game_name"] = newname,
-							["id"] = newname,
-							["type"] = "Normal",
-							["shiny"] = false
-						}
-
-						if string.find(newname, "Shiny") then
-							newname = string.gsub(newname, "Shiny ", "")
-							data["shiny"] = true
-						end
-
-						if string.find(newname, "Golden") then
-							newname = string.gsub(newname, "Golden ", "")
-							data["type"] = "Golden"
-						elseif string.find(newname, "Rainbow") then
-							newname = string.gsub(newname, "Rainbow ", "")
-							data["type"] = "Rainbow"
-						end
-						
-						data["game_name"] = newname
-						data["id"] = newname
-						
-						table.insert(newWithdrawData, data)
-					end
-					
-					for index, pet in next, newWithdrawData do
-						usedPetsNames[(tostring(pet.shiny) .. pet.type .. pet.id)] = countPets(newWithdrawData, pet.id, pet.type, pet.shiny)
-					end
-					
-					for index, pet in next, newWithdrawData do
-						print("[Pet Matching] Looking for:", pet.id, "Type:", pet.type, "Shiny:", pet.shiny)
-						local foundMatch = false
-						
-						for index, petData in next, petInventory do
-							if not table.find(usedPets, petData.uuid) and (pet.id == petData.id) and (pet.shiny == petData.shiny) and (pet.type == petData.type) and not (usedPetsNames[(tostring(pet.shiny) .. pet.type .. pet.id)] == usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)]) then
-								if not usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] then
-									usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] = 1
-								elseif usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] ~= usedPetsNames[(tostring(pet.shiny) .. pet.type .. pet.id)] then
-									usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] = usedPetsNamesTemp[(tostring(pet.shiny) .. pet.type .. pet.id)] + 1
+							else
+								-- It's a pet
+								local data = {
+									game_name = itemName,
+									id = itemName,
+									type = "Normal",
+									shiny = false
+								}
+								local name = itemName
+								if string.find(name, "Shiny") then
+									name = string.gsub(name, "Shiny ", "")
+									data.shiny = true
 								end
-								
-								table.insert(usedPets, petData.uuid)
-
-								local petstring = (petData.shiny and "Shiny " or "")..((petData.type == "Golden" and "Golden ") or (petData.type == "Rainbow" and "Rainbow ") or "")..petData.id
-								table.insert(tradingItems, petstring)
-								print("[Pet Matching] ✓ Found match:", petstring)
-
-								addPet(petData.uuid)
-								foundMatch = true
-								break
+								if string.find(name, "Golden") then
+									name = string.gsub(name, "Golden ", "")
+									data.type = "Golden"
+								elseif string.find(name, "Rainbow") then
+									name = string.gsub(name, "Rainbow ", "")
+									data.type = "Rainbow"
+								end
+								data.game_name = name
+								data.id = name
+								table.insert(petWithdrawData, data)
 							end
 						end
-						
-						if not foundMatch then
-							print("[Pet Matching] ✗ No match found for:", pet.id, pet.type, pet.shiny)
+
+						-- Second, process the explicit gems array (withdrawGems)
+						for _, gemStr in ipairs(withdrawGems) do
+							local amount = parseGemString(gemStr)
+							if amount > 0 then
+								totalGemAmount = totalGemAmount + amount
+								print("[Withdraw] Parsed gem from gems array:", gemStr, "->", amount)
+							else
+								print("[Withdraw] Invalid gem string:", gemStr)
+							end
 						end
-					end
-						
-						-- If we're missing pets, try one more time with a fresh inventory
-						if #tradingItems ~= #newWithdrawData and #tradingItems < #newWithdrawData then
+
+						-- Now handle pets: match against inventory and add
+						-- Count required pets
+						for _, pet in ipairs(petWithdrawData) do
+							local key = tostring(pet.shiny) .. pet.type .. pet.id
+							usedPetsNames[key] = (usedPetsNames[key] or 0) + 1
+						end
+
+						for _, requiredPet in ipairs(petWithdrawData) do
+							print("[Pet Matching] Looking for:", requiredPet.id, "Type:", requiredPet.type, "Shiny:", requiredPet.shiny)
+							local foundMatch = false
+							for _, invPet in ipairs(petInventory) do
+								local key = tostring(invPet.shiny) .. invPet.type .. invPet.id
+								if not table.find(usedPets, invPet.uuid) and
+								   requiredPet.id == invPet.id and
+								   requiredPet.shiny == invPet.shiny and
+								   requiredPet.type == invPet.type and
+								   (usedPetsNamesTemp[key] or 0) < (usedPetsNames[key] or 0) then
+
+									usedPetsNamesTemp[key] = (usedPetsNamesTemp[key] or 0) + 1
+									table.insert(usedPets, invPet.uuid)
+
+									local petstring = (invPet.shiny and "Shiny " or "") ..
+									                  ((invPet.type == "Golden" and "Golden ") or (invPet.type == "Rainbow" and "Rainbow ") or "") ..
+									                  invPet.id
+									table.insert(tradingItems, petstring)
+									print("[Pet Matching] ✓ Found match:", petstring)
+
+									addPet(invPet.uuid)
+									foundMatch = true
+									break
+								end
+							end
+							if not foundMatch then
+								print("[Pet Matching] ✗ No match found for:", requiredPet.id, requiredPet.type, requiredPet.shiny)
+							end
+						end
+
+						-- Retry missing pets once
+						if #tradingItems < #petWithdrawData then
 							print("[Withdraw] Missing pets detected, attempting final inventory refresh...")
 							task.wait(1)
-							
-							-- Get fresh inventory
 							local freshInventory = getHugesTitanics(hugesTitanicsIds)
 							print("[Withdraw] Fresh inventory check found", #freshInventory, "pets")
-							
-							-- Try to find missing pets
-							for index, pet in next, newWithdrawData do
+
+							for _, requiredPet in ipairs(petWithdrawData) do
 								local alreadyAdded = false
-								for _, addedPet in next, tradingItems do
-									local checkString = (pet.shiny and "Shiny " or "")..((pet.type == "Golden" and "Golden ") or (pet.type == "Rainbow" and "Rainbow ") or "")..pet.id
-									if addedPet == checkString then
+								for _, addedPet in ipairs(tradingItems) do
+									if addedPet == requiredPet.id then -- simplified
 										alreadyAdded = true
 										break
 									end
 								end
-								
 								if not alreadyAdded then
-									print("[Retry] Looking for missing pet:", pet.id, pet.type, pet.shiny)
-									for _, petData in next, freshInventory do
-										if not table.find(usedPets, petData.uuid) and (pet.id == petData.id) and (pet.shiny == petData.shiny) and (pet.type == petData.type) then
-											table.insert(usedPets, petData.uuid)
-											local petstring = (petData.shiny and "Shiny " or "")..((petData.type == "Golden" and "Golden ") or (petData.type == "Rainbow" and "Rainbow ") or "")..petData.id
+									print("[Retry] Looking for missing pet:", requiredPet.id, requiredPet.type, requiredPet.shiny)
+									for _, invPet in ipairs(freshInventory) do
+										if not table.find(usedPets, invPet.uuid) and
+										   requiredPet.id == invPet.id and
+										   requiredPet.shiny == invPet.shiny and
+										   requiredPet.type == invPet.type then
+											table.insert(usedPets, invPet.uuid)
+											local petstring = (invPet.shiny and "Shiny " or "") ..
+											                  ((invPet.type == "Golden" and "Golden ") or (invPet.type == "Rainbow" and "Rainbow ") or "") ..
+											                  invPet.id
 											table.insert(tradingItems, petstring)
 											print("[Retry] ✓ Found missing pet:", petstring)
-											addPet(petData.uuid)
+											addPet(invPet.uuid)
 											break
 										end
 									end
 								end
 							end
 						end
-						
-						-- Handle gem items from withdraw
-						task.wait(0.3)
-						print("[Withdraw] GEMS from API:", response["gems"])
-						if response["gems"] and type(response["gems"]) == "table" and #response["gems"] >= 1 then
-							gems = response["gems"]
-							print("[Withdraw] Adding gem items to trade:", table.concat(gems, ", "))
-							-- Gem items are treated as regular items, not added via addGems
-							-- They should be added as pets with their gem item names
-							for _, gemItem in ipairs(gems) do
-								print("[Withdraw] Adding gem item:", gemItem)
-								-- Gem items are already in the trading items list from the API
+
+						-- Add total gems (sum from both sources) to the trade
+						local gemsDelivered = totalGemAmount == 0
+						if totalGemAmount > 0 then
+							print("[Withdraw] Adding total gems:", totalGemAmount)
+							local success = addGems(totalGemAmount)
+							gemsDelivered = success == true
+							if not success then
+								print("[Withdraw] Failed to add gems total:", totalGemAmount)
+								sendMessage("Failed to add gems. Please contact admin.")
 							end
 						end
-						
-						if #tradingItems == 0 and (not response["gems"] or #response["gems"] == 0) then
-							sendMessage("Out of stock! Switching to deposit mode - Please deposit your pets!")
-							tradingItems = {}
-							connectStatus(localId, "deposit", {}, 0)
-							goNext = false
-						elseif #tradingItems ~= #newWithdrawData then
-							local missingPets = {}
-							for _, withdrawPet in ipairs(allWithdrawItems) do
-								local found = false
-								for _, tradingPet in ipairs(tradingItems) do
-									if withdrawPet == tradingPet then
-										found = true
-										break
-									end
-								end
-								if not found then
-									table.insert(missingPets, withdrawPet)
+
+						-- Confirm only the claimed rows whose assets were actually placed
+						-- into this Roblox trade. Any unmatched claimed rows are released
+						-- by the backend when the delivered subset is finalized.
+						local deliveredNames = {}
+						for _, deliveredPet in ipairs(tradingItems) do
+							table.insert(deliveredNames, deliveredPet)
+						end
+						if gemsDelivered then
+							for _, deliveredGem in ipairs(withdrawGems) do
+								table.insert(deliveredNames, deliveredGem)
+							end
+						end
+						local usedWithdrawalRows = {}
+						for _, deliveredName in ipairs(deliveredNames) do
+							for rowIndex, row in ipairs(withdrawalRows) do
+								if not usedWithdrawalRows[rowIndex] and row.name == deliveredName and type(row.id) == "string" then
+									usedWithdrawalRows[rowIndex] = true
+									table.insert(withdrawalContext.withdrawalIds, row.id)
+									break
 								end
 							end
-							
-							if #missingPets > 0 then
-								print("[Withdraw] Missing pets:", table.concat(missingPets, ", "))
-								sendMessage("Missing stock, join another bot to receive your pets!")
-							end
-							connectStatus(localId, "withdraw", tradingItems)
-							goNext = false
-						elseif #tradingItems == #newWithdrawData then
+						end
+
+						-- Decide what to do next
+						if #withdrawalContext.withdrawalIds == 0 then
+							sendMessage("This bot could not supply your withdrawal. Please try another bot.")
+							pcall(declineTrade)
+							releaseWithdrawalClaim(withdrawalContext)
+							goNext = true
+						else
 							sendMessage("Please accept to receive your items!")
-							connectStatus(localId, "withdraw", tradingItems)
+							connectStatus(localId, "withdraw", tradingItems, withdrawalContext)
 							goNext = false
 						end
 					else
+						-- Deposit branch
 						tradingItems  = {}
 						gems          = {}
-
 						sendMessage("Trade with: " .. username .. " accepted, Method: Deposit")
-
-
-						connectStatus(localId, "deposit", {}, 0)
+						connectStatus(localId, "deposit", {})
 						goNext = false
 					end
 				end
 			end
 		end)
+		if not loopOk then
+			warn("[PS99 Trade Bot] Main loop stopped safely after an unexpected error:", loopError)
+			-- Stay locked. Automatically continuing after an unknown delivery error
+			-- could allow the same pending withdrawal to be served twice.
+			goNext = false
+		end
 	end
 end)
 
