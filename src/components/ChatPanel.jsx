@@ -1155,6 +1155,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     socket.on("rain:countdown", handleRainCountdown);
     socket.on("chat:message", handleIncomingChatMessage);
     socket.on("chat:session", handleChatSession);
+    socket.emit("online:count:get", handleOnlineCount);
     socket.emit("chat:session:get", handleChatSession);
     return () => {
       window.removeEventListener('giveaway:created', handleGiveawayCreated)

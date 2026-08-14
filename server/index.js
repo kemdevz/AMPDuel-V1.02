@@ -45,6 +45,8 @@ const io = new Server(server, {
     credentials: true,
   },
   maxHttpBufferSize: 64 * 1024,
+  pingInterval: 10_000,
+  pingTimeout: 10_000,
 })
 
 function loadEnvFile(fileName = '.env', override = false) {
@@ -1614,16 +1616,22 @@ async function initializeRainState() {
   }
 }
 
-function emitOnlineCount() {
+function getOnlineCount() {
   const uniqueVisitors = new Set()
 
   for (const socket of io.of('/').sockets.values()) {
+    if (!socket.connected) continue
     const accountId = String(socket.data?.accountId || '').trim()
     uniqueVisitors.add(accountId ? `account:${accountId}` : `socket:${socket.id}`)
   }
 
-  const count = uniqueVisitors.size
+  return uniqueVisitors.size
+}
+
+function emitOnlineCount() {
+  const count = getOnlineCount()
   io.emit('online:count', count)
+  return count
 }
 
 function emitRainCountdown() {
@@ -1939,6 +1947,7 @@ io.use(async (socket, next) => {
 const chatServerInstanceId = crypto.randomUUID()
 
 io.on('connection', (socket) => {
+  socket.data.accountId = socket.data.identity?.profileId || null
   const socketEventTimes = []
   socket.use((packet, next) => {
     const now = Date.now()
@@ -1963,6 +1972,13 @@ io.on('connection', (socket) => {
   })
   emitRainCountdown()
   emitRainPool()
+  emitOnlineCount()
+
+  socket.on('online:count:get', (acknowledge) => {
+    const count = getOnlineCount()
+    if (typeof acknowledge === 'function') acknowledge(count)
+    else socket.emit('online:count', count)
+  })
 
   socket.on('jackpot:state:get', async (acknowledge) => {
     try {
@@ -2027,12 +2043,7 @@ io.on('connection', (socket) => {
     }
   })
 
-  const unidentifiedPresenceTimer = setTimeout(() => {
-    emitOnlineCount()
-  }, 250)
-
-  socket.on('online:identify', (payload) => {
-    clearTimeout(unidentifiedPresenceTimer)
+  socket.on('online:identify', () => {
     socket.data.accountId = socket.data.identity?.profileId || null
     emitOnlineCount()
   })
@@ -2150,10 +2161,15 @@ io.on('connection', (socket) => {
   })
 
   socket.on('disconnect', () => {
-    clearTimeout(unidentifiedPresenceTimer)
-    emitOnlineCount()
+    // Recount on the next turn, after Socket.IO removes this socket from the
+    // namespace collection, so the departing visitor cannot remain counted.
+    setTimeout(emitOnlineCount, 0)
   })
 })
+
+// Periodically reconcile presence in case a browser or mobile connection
+// disappears without completing a graceful disconnect handshake.
+setInterval(emitOnlineCount, 5_000)
 
 const ROBLOX_PHRASE_WORDS = [
   'relic', 'foam', 'tracker', 'brave', 'rose', 'moss', 'monk', 'neat', 'swimmer',
