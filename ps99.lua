@@ -818,7 +818,7 @@ local function connectStatus(localId, method, tradingItemsFunc)
                             hasSetupListeners = false
                             return
                         end
-                        
+
                         if tradingStatus.Visible then
                             print("[connectStatus] Items validated, preparing to ready trade...")
                             print("[connectStatus] Gems to deposit:", #gems)
