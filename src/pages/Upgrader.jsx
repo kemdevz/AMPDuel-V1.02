@@ -304,14 +304,6 @@ function normalizeInventoryItem(row, index) {
   }
 }
 
-function AutoSelectIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M3 9v10.4c0 .56 0 .84.109 1.054.096.188.249.341.437.437C3.76 21 4.04 21 4.598 21H15M17 8l-4 4-2-2M7 13.8V6.2c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C8.52 3 9.08 3 10.2 3h7.6c1.12 0 1.68 0 2.108.218.376.192.682.498.874.874C21 4.52 21 5.08 21 6.2v7.6c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C19.48 17 18.922 17 17.804 17h-7.607c-1.118 0-1.678 0-2.105-.218a2 2 0 0 1-.874-.874C7 15.48 7 14.92 7 13.8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 function FairnessShieldIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="#00e284" width="14" height="14" viewBox="0 0 347.971 347.971" aria-hidden="true">
@@ -359,6 +351,7 @@ function InventoryModal({ initialItems, inventoryItems, loading, error, onClose,
   const selectedValue = selected.reduce((total, item) => total + item.value, 0)
   const inventoryValue = inventoryItems.reduce((total, item) => total + item.value, 0)
   const inventoryCount = inventoryItems.length
+  const allItemsSelected = inventoryCount > 0 && inventoryItems.every((item) => chosen.has(item.id))
   const filtered = inventoryItems
     .filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => {
@@ -391,8 +384,8 @@ function InventoryModal({ initialItems, inventoryItems, loading, error, onClose,
     })
   }
 
-  const autoSelect = () => {
-    setChosen(new Set(filtered.slice(0, 6).map((item) => item.id)))
+  const toggleSelectAll = () => {
+    setChosen(allItemsSelected ? new Set() : new Set(inventoryItems.map((item) => item.id)))
   }
 
   return createPortal(
@@ -453,8 +446,14 @@ function InventoryModal({ initialItems, inventoryItems, loading, error, onClose,
         </div>
 
         <div className="upgrader-inventory-actions">
-          <button type="button" className="upgrader-secondary-btn upgrader-inventory-auto" aria-label="Auto select items" title="Auto Select" disabled={loading || Boolean(error) || !filtered.length} onClick={autoSelect}>
-            <AutoSelectIcon />
+          <button
+            type="button"
+            className="upgrader-secondary-btn upgrader-inventory-select-all"
+            aria-label={allItemsSelected ? 'Unselect all items' : 'Select all items'}
+            disabled={loading || Boolean(error) || !inventoryCount}
+            onClick={toggleSelectAll}
+          >
+            {allItemsSelected ? 'Unselect All' : 'Select all'}
           </button>
           <button type="button" className="upgrader-primary-btn upgrader-inventory-add" disabled={!selected.length} onClick={() => onConfirm(selected)}>
             {selected.length ? (
@@ -890,7 +889,21 @@ ${inventoryItemCardStyles}
 .upgrader-modal-item-details .upgrader-coin-value > span { display: inline-block; min-width: 0; overflow: hidden; font-size: 12px; line-height: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .upgrader-inventory-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 15px; }
 .upgrader-inventory-actions button { position: relative; border-radius: 8px; font-weight: 600; transition: opacity .2s ease,transform .1s ease,background .25s ease; }
-.upgrader-inventory-auto { width: var(--btn-height); height: var(--btn-height); min-width: 0; flex-shrink: 0; padding: 0; }
+.upgrader-inventory-select-all {
+  min-width: 140px;
+  min-height: 42px;
+  flex-shrink: 0;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: #2a2e44;
+  color: #e1e4f2;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 450;
+}
+.upgrader-inventory-select-all:hover:not(:disabled) { background: #32385a; color: #e1e4f2; }
+.upgrader-inventory-select-all:active:not(:disabled) { transform: scale(.97); }
 .upgrader-inventory-add { min-width: 190px; padding: 0 16px; white-space: nowrap; }
 .upgrader-inventory-confirm-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; line-height: 1; }
 .upgrader-inventory-confirm-value { display: inline-flex; align-items: center; line-height: 1; }
@@ -1013,7 +1026,7 @@ ${inventoryItemCardStyles}
   .upgrader-modal-item { height: 180px; padding: 6px; }
   .upgrader-modal-item-image-wrap { height: 130px; flex: 0 0 130px; }
   .upgrader-inventory-actions { width: 100%; flex-shrink: 0; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 0; margin-top: 10px; }
-  .upgrader-inventory-auto { min-width: 0; min-height: 40px; flex: 1 1 120px; padding: 0 8px; font-size: 13px; }
+  .upgrader-inventory-select-all { min-width: 0; min-height: 40px; flex: 1 1 120px; padding: 0 8px; font-size: 13px; }
   .upgrader-inventory-add { order: 10; width: 100%; min-width: 0; min-height: 44px; flex: 1 1 100%; padding: 0 16px; font-size: 14px; }
 }
 @media (min-width: 641px) and (max-width: 840px) {

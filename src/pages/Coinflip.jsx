@@ -353,7 +353,7 @@ export default function Coinflip() {
     const loadRecentResults = async () => {
       const { data, error } = await supabase
         .from('coinflip_games')
-        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled')
+        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled,game_mode')
         .eq('canceled', false)
         .not('result', 'is', null)
         .order('resolved_at', { ascending: false })
@@ -374,7 +374,7 @@ export default function Coinflip() {
 
       const { data: playerData, error: playerError } = await supabase
         .from('coinflip_games')
-        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled')
+        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled,game_mode')
         .eq('canceled', false)
         .not('result', 'is', null)
         .or(`creator_uuid.eq.${activeProfileId},opponent_uuid.eq.${activeProfileId}`)
@@ -1144,6 +1144,10 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const joinDisabled = !canJoin || isCreator
   const isCompleted = Boolean(room.opponent_uuid && room.result)
   const winner = isCompleted ? room.result || room.winner || null : null
+  const gameMode = String(room.game_mode || '').trim().toLowerCase()
+  const gameModeIcon = gameMode === 'gems_only' ? '💎' : gameMode === 'titanics_only' ? '🌴' : null
+  const gameModeLabel = gameMode === 'gems_only' ? 'Gems Only' : gameMode === 'titanics_only' ? 'Titanics Only' : ''
+  const gameModeGradientId = `coinflip-mode-${String(room.id || 'room').replace(/[^a-zA-Z0-9_-]/g, '')}`
   const [rowResultVisible, setRowResultVisible] = useState(
     () => isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS,
   )
@@ -1316,6 +1320,37 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             side={winner}
             onReveal={() => setRowResultVisible(true)}
           />
+        ) : gameModeIcon ? (
+          <div
+            className="relative h-full w-full"
+            role="img"
+            aria-label={`${gameModeLabel} game mode`}
+            title={gameModeLabel}
+          >
+            <svg className="h-full w-full" viewBox="-50 -50 100 100" fill="none" aria-hidden="true">
+              <defs>
+                <linearGradient id={gameModeGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#06b6d4" />
+                  <stop offset="100%" stopColor="#22c55e" />
+                </linearGradient>
+              </defs>
+              <circle
+                r="49"
+                fill="#171925"
+                strokeWidth="2"
+                stroke={`url(#${gameModeGradientId})`}
+                pathLength="100"
+                strokeDasharray="100"
+                transform="rotate(-90)"
+              />
+            </svg>
+            <span
+              className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg leading-none"
+              aria-hidden="true"
+            >
+              {gameModeIcon}
+            </span>
+          </div>
         ) : null}
       </div>
 

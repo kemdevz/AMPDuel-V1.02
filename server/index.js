@@ -4589,6 +4589,18 @@ function getCoinflipWagerValue(items) {
   }, 0)
 }
 
+function normalizeCoinflipGameMode(value) {
+  const mode = String(value || '').trim().toLowerCase()
+  return mode === 'gems_only' || mode === 'titanics_only' ? mode : null
+}
+
+function coinflipItemsMatchGameMode(items, gameMode) {
+  if (!gameMode) return true
+  if (!Array.isArray(items) || items.length === 0) return false
+  const pattern = gameMode === 'gems_only' ? /\bgems?\b/i : /\btitanic\b/i
+  return items.every((item) => pattern.test(String(item?.name || '')))
+}
+
 function serializeCoinflipGame(game) {
   if (!game || typeof game !== 'object') return game
   const { server_seed_encrypted, ...publicGame } = game
@@ -4604,6 +4616,10 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
   }
 
   const payload = req.body || {}
+  const game_mode = normalizeCoinflipGameMode(payload.game_mode)
+  if (payload.game_mode && !game_mode) {
+    return res.status(400).json({ ok: false, error: 'Invalid coinflip game mode.' })
+  }
   const creator_uuid = String(req.identity.profileId)
   const creator_side = String(payload.creator_side || '').trim().toLowerCase() === 'tails'
     ? 'tails'
@@ -4652,6 +4668,10 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
     if (getCoinflipWagerValue(verifiedCreatorItems) <= 0) {
       return res.status(400).json({ ok: false, error: 'Coinflip items must have a positive value.' })
     }
+    if (!coinflipItemsMatchGameMode(verifiedCreatorItems, game_mode)) {
+      const label = game_mode === 'gems_only' ? 'Gems' : 'Titanic pets'
+      return res.status(400).json({ ok: false, error: `Select only ${label} to use this lock.` })
+    }
 
     const insertPayload = [{
       id: gameId,
@@ -4671,6 +4691,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       nonce: 0,
       canceled: false,
       tax_rate_bps: 1250,
+      game_mode,
     }]
 
     const response = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
@@ -4832,6 +4853,11 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
     const opponentWagerValue = getCoinflipWagerValue(verifiedOpponentItems)
     if (creatorWagerValue <= 0 || opponentWagerValue <= 0) {
       return res.status(409).json({ ok: false, error: 'Both coinflip wagers must have a positive value.' })
+    }
+    const gameMode = normalizeCoinflipGameMode(roomObj.game_mode)
+    if (!coinflipItemsMatchGameMode(verifiedOpponentItems, gameMode)) {
+      const label = gameMode === 'gems_only' ? 'Gems' : 'Titanic pets'
+      return res.status(400).json({ ok: false, error: `This flip only accepts ${label}.` })
     }
     if (opponentWagerValue * 10 < creatorWagerValue * 9 || opponentWagerValue * 10 > creatorWagerValue * 11) {
       return res.status(400).json({ ok: false, error: 'Your wager must be within 10% of the creator wager.' })

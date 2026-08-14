@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
@@ -50,16 +50,19 @@ function SortStackIcon({ ascending = false }) {
 
 function AutoSelectIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }} aria-hidden="true">
-      <path
-        d="M3 9V19.4C3 19.9601 3 20.2399 3.10899 20.4538C3.20487 20.642 3.35774 20.7952 3.5459 20.8911C3.7596 21 4.0395 21 4.59846 21H15.0001M17 8L13 12L11 10M7 13.8002V6.2002C7 5.08009 7 4.51962 7.21799 4.0918C7.40973 3.71547 7.71547 3.40973 8.0918 3.21799C8.51962 3 9.08009 3 10.2002 3H17.8002C18.9203 3 19.4801 3 19.9079 3.21799C20.2842 3.40973 20.5905 3.71547 20.7822 4.0918C21.0002 4.51962 21.0002 5.07969 21.0002 6.19978L21.0002 13.7998C21.0002 14.9199 21.0002 15.48 20.7822 15.9078C20.5905 16.2841 20.2842 16.5905 19.9079 16.7822C19.4805 17 18.9215 17 17.8036 17H10.1969C9.07899 17 8.5192 17 8.0918 16.7822C7.71547 16.5905 7.40973 16.2842 7.21799 15.9079C7 15.4801 7 14.9203 7 13.8002Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }} aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   )
+}
+
+function isGemItem(item) {
+  return /\bgems?\b/i.test(String(item?.name || ''))
+}
+
+function isTitanicItem(item) {
+  return /\btitanic\b/i.test(String(item?.name || ''))
 }
 
 export default function CoinflipCreateModal({ onClose, onCreate }) {
@@ -72,15 +75,37 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState(null)
   const [depositOpen, setDepositOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [gameModes, setGameModes] = useState({
+    gemsOnly: false,
+    titanicsOnly: false,
+  })
+  const settingsRef = useRef(null)
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && !depositOpen) onClose()
+      if (event.key !== 'Escape') return
+      if (settingsOpen) {
+        setSettingsOpen(false)
+        return
+      }
+      if (!depositOpen) onClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [depositOpen, onClose])
+  }, [depositOpen, onClose, settingsOpen])
+
+  useEffect(() => {
+    if (!settingsOpen) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!settingsRef.current?.contains(event.target)) setSettingsOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [settingsOpen])
 
   useEffect(() => {
     let isMounted = true
@@ -171,6 +196,21 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const selectedValue = inventoryRows
     .filter((item) => selectedItems.includes(item.displayKey))
     .reduce((sum, item) => sum + Number(item.value ?? 0), 0)
+  const selectedInventoryRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
+  const gemsOnlyEligible = selectedInventoryRows.length > 0 && selectedInventoryRows.every(isGemItem)
+  const titanicsOnlyEligible = selectedInventoryRows.length > 0 && selectedInventoryRows.every(isTitanicItem)
+
+  useEffect(() => {
+    setGameModes((current) => {
+      const next = {
+        gemsOnly: current.gemsOnly && gemsOnlyEligible,
+        titanicsOnly: current.titanicsOnly && titanicsOnlyEligible,
+      }
+      return next.gemsOnly === current.gemsOnly && next.titanicsOnly === current.titanicsOnly
+        ? current
+        : next
+    })
+  }, [gemsOnlyEligible, titanicsOnlyEligible])
 
   const allInventoryKeys = inventoryRows.map((item) => item.displayKey)
   const onToggleSelectAll = () => {
@@ -179,6 +219,22 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
       return
     }
     setSelectedItems(allInventoryKeys)
+  }
+
+  const toggleGameMode = (mode) => {
+    if (mode === 'gemsOnly' && !gemsOnlyEligible) {
+      notifications.error('Select only Gems to enable the Gems Only lock.')
+      return
+    }
+    if (mode === 'titanicsOnly' && !titanicsOnlyEligible) {
+      notifications.error('Select only Titanic pets to enable the Titanics Only lock.')
+      return
+    }
+
+    setGameModes((current) => ({
+      gemsOnly: mode === 'gemsOnly' ? !current.gemsOnly : false,
+      titanicsOnly: mode === 'titanicsOnly' ? !current.titanicsOnly : false,
+    }))
   }
 
   if (typeof document === 'undefined') {
@@ -219,6 +275,9 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     const selectedRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
     const creator_uuid = String(user?.profile_id || user?.id || '')
     const creatorAvatarUrl = user?.avatar_headshot_url || user?.avatar_url || null
+    const gameMode = gameModes.gemsOnly
+      ? 'gems_only'
+      : gameModes.titanicsOnly ? 'titanics_only' : null
     const payload = {
       creator_uuid,
       creator_username: user?.username || user?.email || 'user',
@@ -227,6 +286,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
       creator_avatar_url: creatorAvatarUrl,
       creator_avatar: creatorAvatarUrl,
       item_ids: selectedRows.map((it) => it.id),
+      game_mode: gameMode,
     }
 
     try {
@@ -246,6 +306,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
         opponent_username: returned?.opponent_username || null,
         opponent_side: returned?.opponent_side || null,
         opponent_items: returned?.opponent_items || null,
+        game_mode: returned?.game_mode || payload.game_mode,
         created_at: returned?.created_at || new Date().toISOString(),
       }
 
@@ -389,14 +450,56 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                 <img src={TAILS_ICON} alt="tails" />
               </button>
             </div>
-            <button
-              className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298 _autoSelectBtn_2jqwz_320"
-              disabled
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-              type="button"
-            >
-              <AutoSelectIcon />
-            </button>
+            <div className="_settingsWrap_2jqwz_526" ref={settingsRef}>
+              <button
+                className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298 _autoSelectBtn_2jqwz_320"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                type="button"
+                aria-label="Game settings"
+                aria-expanded={settingsOpen}
+                title="Game Settings"
+                onClick={() => setSettingsOpen((open) => !open)}
+              >
+                <AutoSelectIcon />
+              </button>
+              {settingsOpen ? (
+                <div className="_settingsDropdown_2jqwz_552">
+                  <p className="_settingsTitle_2jqwz_568">Game Modes</p>
+                  <button
+                    type="button"
+                    className="_settingsItem_2jqwz_578"
+                    aria-pressed={gameModes.gemsOnly}
+                    title="Gems Only"
+                    onClick={() => toggleGameMode('gemsOnly')}
+                  >
+                    <span className="_settingsEmoji_2jqwz_593" aria-hidden="true">💎</span>
+                    <span className="_settingsItemText_2jqwz_599">
+                      <span className="_settingsItemName_2jqwz_606">Gems Only</span>
+                      <span className="_settingsItemDesc_2jqwz_612">Only Gems can be used</span>
+                    </span>
+                    <span className={`_settingsToggle_2jqwz_619 ${gameModes.gemsOnly ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
+                      <span className="_settingsToggleThumb_2jqwz_629" />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="_settingsItem_2jqwz_578"
+                    aria-pressed={gameModes.titanicsOnly}
+                    title="Titanics Only"
+                    onClick={() => toggleGameMode('titanicsOnly')}
+                  >
+                    <span className="_settingsEmoji_2jqwz_593" aria-hidden="true">🌴</span>
+                    <span className="_settingsItemText_2jqwz_599">
+                      <span className="_settingsItemName_2jqwz_606">Titanics Only</span>
+                      <span className="_settingsItemDesc_2jqwz_612">Only Titanic pets can be used</span>
+                    </span>
+                    <span className={`_settingsToggle_2jqwz_619 ${gameModes.titanicsOnly ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
+                      <span className="_settingsToggleThumb_2jqwz_629" />
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <button
               className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298"
               disabled={inventoryRows.length === 0}
@@ -1043,6 +1146,27 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   padding: 0 !important;
 }
 
+._buttonWrapper_2jqwz_268 ._autoSelectBtn_2jqwz_320:disabled {
+  background: #2a2e44 !important;
+  color: #e1e4f2 !important;
+  opacity: 1 !important;
+}
+
+._autoSelectBtn_2jqwz_320 svg {
+  color: #e1e4f2;
+  stroke: currentColor;
+}
+
+._autoSelectBtn_2jqwz_320:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+._autoSelectBtn_2jqwz_320:focus-visible {
+  outline: 2px solid #6c63ff;
+  outline-offset: 2px;
+}
+
 ._valueWrapper_2jqwz_321 {
   display: flex;
   justify-content: flex-start;
@@ -1107,7 +1231,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
-  width: 260px;
+  width: 388px;
   background: #131520;
   border: 1px solid #1e2235;
   border-radius: 10px;
@@ -1117,6 +1241,21 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 8px 32px #0006;
+  transform-origin: left bottom;
+  animation: _settingsDropdownOpen_2jqwz_1 .16s cubic-bezier(.22, 1, .36, 1);
+  will-change: transform, opacity;
+}
+
+@media (min-width: 641px) and (max-width: 840px) {
+  ._settingsDropdown_2jqwz_552 {
+    width: 338px;
+  }
+}
+
+@media (max-width: 640px) {
+  ._settingsDropdown_2jqwz_552 {
+    width: min(260px, calc(100vw - 32px));
+  }
 }
 
 ._settingsTitle_2jqwz_568 {
@@ -1400,6 +1539,17 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 
 @keyframes _spin_2jqwz_1 {
   to { transform: rotate(360deg); }
+}
+
+@keyframes _settingsDropdownOpen_2jqwz_1 {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes _shrinkOut_2jqwz_316 {
