@@ -2923,7 +2923,7 @@ app.post('/api/withdrawals/cancel', express.json({ limit: '16kb' }), requireAuth
     if (/actively claimed by a bot|completed, actively claimed|claimed by a bot/i.test(message)) {
       res.status(409).json({
         ok: false,
-        error: 'This withdrawal is still locked by the trade bot. Close the Roblox trade before canceling it.',
+        error: 'Withdrawal cancellation is waiting for the trade bot to finish reconciling the closed trade.',
       })
       return
     }

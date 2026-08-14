@@ -271,7 +271,7 @@ end
 local function client_currencies_gems()
 	local gems_value = localPlayer.PlayerGui.MainLeft.Left.Currency.Diamonds.Diamonds.Amount.Text
 	local cleanText = gems_value:gsub(",", "")
-	local gemNumber = tonumber(cleanText)
+	local gemNumber = tonumber(cleanText) or parseGemString(cleanText)
 	return gemNumber
 end
 
@@ -350,17 +350,58 @@ local function addGems(amount)
 	return false
 end
 
--- Chat message (In Chat / PS99 Chat)
+-- Trade-window messages stay private to the active trade. Public Roblox chat
+-- is reserved for the single cancellation prompt below.
 local function sendMessage(message)
-	pcall(function()
-		textChatService.TextChannels.RBXGeneral:SendAsync("BloxDice | "..message)
-	end)
 	pcall(function()
         task.wait(0.1)
 		tradingCommands.Message("BloxDice | "..message)
 	end)
 	
 	return true
+end
+
+local lastPublicCancellationTradeId = nil
+local function sendCancellationMessage(tradeMessage)
+	-- A bot-initiated decline may later produce Roblox's cancellation event.
+	-- Deduplicate both paths so public chat receives this prompt only once.
+	if lastPublicCancellationTradeId ~= tradeId then
+		lastPublicCancellationTradeId = tradeId
+		pcall(function()
+			textChatService.TextChannels.RBXGeneral:SendAsync("BloxDice cancelled, Please send a new trade request!")
+		end)
+	end
+	return sendMessage(tradeMessage or "Trade canceled. Please send a new trade request.")
+end
+
+local function finalizeWithdrawalClaim(withdrawalContext, localId, source)
+	if not withdrawalContext or #withdrawalContext.withdrawalIds == 0 then
+		warn("[Withdraw Confirm] Missing the claimed withdrawal IDs; refusing to mark the delivery complete.")
+		return false
+	end
+	if withdrawalContext.finished then return true end
+	if withdrawalContext.released or withdrawalContext.finalizing then return false end
+
+	withdrawalContext.finalizing = true
+	local withdrawPayload = {
+		["userId"] = withdrawalContext.userId,
+		["withdrawalIds"] = withdrawalContext.withdrawalIds,
+		["claimToken"] = withdrawalContext.claimToken,
+		["tradeId"] = tostring(game.JobId) .. ":" .. tostring(localId),
+		["botUserId"] = withdrawalContext.botUserId,
+		["game"] = "PS99"
+	}
+	print("[Withdraw Confirm] Payload (" .. tostring(source or "trade message") .. "):", httpService:JSONEncode(withdrawPayload))
+	local confirmed, confirmResult = postBotApi("/withdraw/confirmed", withdrawPayload, 8)
+	withdrawalContext.finalizing = false
+	if confirmed then
+		withdrawalContext.finished = true
+		print("[Withdraw Confirm] Finalized:", httpService:JSONEncode(confirmResult))
+		return true
+	end
+
+	warn("[Withdraw Confirm] CRITICAL: assets appear delivered but confirmation failed:", confirmResult)
+	return false
 end
 
 -- Gets name of pet through asset id
@@ -646,18 +687,24 @@ local function setupTradeTimeout(localId, maxTimeout, withdrawalContext)
 				break
 			elseif (tick() - startTime) > maxTimeout then
 				print("[Trade Timeout] Trade took too long, declining... LocalID:", localId)
-				sendMessage("Trade timed out. Please try again.")
+				if withdrawalContext then
+					withdrawalContext.cancelRequested = true
+					withdrawalContext.cancelReason = "timeout"
+				end
 				local declineOk, declineResult = pcall(declineTrade)
-				if declineOk then
+				local declineAccepted = declineOk and declineResult ~= false
+				if withdrawalContext then
+					withdrawalContext.cancelAccepted = declineAccepted
+				end
+				if declineAccepted then
 					-- Do not release the database claim here. The trade cancellation
-					-- message listener releases it only after Roblox confirms that the
-					-- trade was canceled. Releasing while the trade may still be open
-					-- would let the user cancel on the website and then accept the old
-					-- Roblox offer.
-					print("[Trade Timeout] Decline requested; waiting for Roblox cancellation confirmation:", declineResult)
+					-- message or the window-close listener releases it after Roblox
+					-- confirms that this bot-requested cancellation closed the trade.
+					print("[Trade Timeout] Decline accepted; waiting for Roblox cancellation confirmation:", declineResult)
 				else
 					warn("[Trade Timeout] Failed to decline trade; keeping withdrawal claim locked:", declineResult)
 				end
+				sendCancellationMessage("Trade timed out. Please try again.")
 				break
 			end
 		end
@@ -761,29 +808,11 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
 					tradingMessage.Enabled = false
 					goNext = true
                 else
-					local withdrawalConfirmed = false
-					if not withdrawalContext or #withdrawalContext.withdrawalIds == 0 then
-						warn("[Withdraw Confirm] Missing the claimed withdrawal IDs; refusing to mark the delivery complete.")
+					local withdrawalConfirmed = finalizeWithdrawalClaim(withdrawalContext, localId, "Roblox completion message")
+					if withdrawalConfirmed then
+						sendMessage("Withdrawal complete.")
 					else
-						withdrawalContext.finished = true
-						local withdrawPayload = {
-							["userId"] = withdrawalContext.userId,
-							["withdrawalIds"] = withdrawalContext.withdrawalIds,
-							["claimToken"] = withdrawalContext.claimToken,
-							["tradeId"] = tostring(game.JobId) .. ":" .. tostring(localId),
-							["botUserId"] = withdrawalContext.botUserId,
-							["game"] = "PS99"
-						}
-						print("[Withdraw Confirm] Payload:", httpService:JSONEncode(withdrawPayload))
-						local confirmed, confirmResult = postBotApi("/withdraw/confirmed", withdrawPayload, 8)
-						if confirmed then
-							withdrawalConfirmed = true
-							print("[Withdraw Confirm] Finalized:", httpService:JSONEncode(confirmResult))
-							sendMessage("Withdrawal complete.")
-						else
-							warn("[Withdraw Confirm] CRITICAL: items were delivered but confirmation failed:", confirmResult)
-							sendMessage("Items sent. Please wait while the withdrawal updates.")
-						end
+						sendMessage("Items sent. Please wait while the withdrawal updates.")
 					end
 					
 					messageConnection:Disconnect()
@@ -797,7 +826,7 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
 			elseif (string.find(text, " cancelled the trade!")) and not tradeCompleted then
 				tradeCompleted = true
 				local claimReleased = releaseWithdrawalClaim(withdrawalContext)
-				sendMessage("Trade canceled. Please send a new trade request.")
+				sendCancellationMessage("Trade canceled. Please send a new trade request.")
                 print("MESSAGE DISCONNECTION - Trade Cancelled", localId, tradeId, tradeUser, 3)
 				messageConnection:Disconnect()
 				
@@ -826,24 +855,36 @@ local function connectMessage(localId, method, tradingItemsFunc, withdrawalConte
 end
 
 -- Detect when both players confirm and auto-accept
-local function connectConfirm(localId, method, tradingItemsFunc)
+local function connectConfirm(localId, method, tradingItemsFunc, withdrawalContext)
 	local hasConfirmed = false
 	
 	-- Simple approach: wait a bit after we're ready, then auto-confirm
 	spawn(function()
 		task.wait(2) -- Wait 2 seconds after ready
 		
-		if tradeId == localId and not hasConfirmed then
+		if tradeId == localId and tradingWindow.Enabled and not hasConfirmed then
 			if method == "withdraw" then
+				if withdrawalContext and withdrawalContext.cancelRequested then
+					hasConfirmed = true
+					return
+				end
 				local offeredItemCount, offeredGems = getPlayerWithdrawalOffer()
 				if offeredItemCount > 0 or offeredGems > 0 then
 					hasConfirmed = true
 					warn("[Withdraw Validation] User added assets before confirmation; declining trade:", offeredItemCount, offeredGems)
-					sendMessage("Leave your side empty for withdrawals. Please trade again.")
+					if withdrawalContext then
+						withdrawalContext.cancelRequested = true
+						withdrawalContext.cancelReason = "user_offer"
+					end
 					local declineOk, declineResult = pcall(declineTrade)
-					if not declineOk then
+					local declineAccepted = declineOk and declineResult ~= false
+					if withdrawalContext then
+						withdrawalContext.cancelAccepted = declineAccepted
+					end
+					if not declineAccepted then
 						warn("[Withdraw Validation] Failed to decline invalid trade; keeping claim locked:", declineResult)
 					end
+					sendCancellationMessage("Leave your side empty for withdrawals. Please trade again.")
 					return
 				end
 			end
@@ -897,12 +938,80 @@ local function connectConfirm(localId, method, tradingItemsFunc)
 	end)
 end
 
+-- Roblox occasionally closes the trade UI without showing its completion or
+-- cancellation message. Reconcile against the exact staged pet UUIDs and gem
+-- balance so the database claim can be settled automatically without opening
+-- a cancel/delivery race.
+local function reconcileClosedWithdrawal(withdrawalContext, localId)
+	local expectedPetUuids = withdrawalContext.petUuids or {}
+	local expectedGemAmount = tonumber(withdrawalContext.gemAmount) or 0
+	local gemBalanceBefore = tonumber(withdrawalContext.gemBalanceBefore)
+	local retainedChecks = 0
+
+	for attempt = 1, 15 do
+		if withdrawalContext.finished then return "delivered" end
+		if withdrawalContext.released then return "canceled" end
+		task.wait(1)
+
+		local saveOk, currentSave = pcall(function()
+			return saveModule.Get()
+		end)
+		local petInventory = saveOk and currentSave and currentSave.Inventory and currentSave.Inventory.Pet
+		local presentPets = 0
+		if type(petInventory) == "table" then
+			for _, petUuid in ipairs(expectedPetUuids) do
+				if petInventory[petUuid] ~= nil then
+					presentPets = presentPets + 1
+				end
+			end
+		end
+
+		local gemsKnown, currentGemBalance = pcall(client_currencies_gems)
+		currentGemBalance = gemsKnown and tonumber(currentGemBalance) or nil
+		local petsDelivered = #expectedPetUuids == 0 or (type(petInventory) == "table" and presentPets == 0)
+		local petsRetained = #expectedPetUuids == 0 or (type(petInventory) == "table" and presentPets == #expectedPetUuids)
+		local gemsDelivered = expectedGemAmount == 0 or (
+			gemBalanceBefore ~= nil and currentGemBalance ~= nil and currentGemBalance <= gemBalanceBefore - expectedGemAmount
+		)
+		local gemsRetained = expectedGemAmount == 0 or (
+			gemBalanceBefore ~= nil and currentGemBalance ~= nil and currentGemBalance >= gemBalanceBefore
+		)
+
+		if petsDelivered and gemsDelivered then
+			print("[Trade Reconcile] Exact staged assets left inventory; finalizing withdrawal. Attempt:", attempt)
+			if finalizeWithdrawalClaim(withdrawalContext, localId, "post-close inventory reconciliation") then
+				return "delivered"
+			end
+			return "retry"
+		end
+
+		if petsRetained and gemsRetained then
+			retainedChecks = retainedChecks + 1
+		else
+			retainedChecks = 0
+		end
+
+		-- Require several consecutive retained snapshots so a delayed Save update
+		-- cannot turn a completed trade into a cancelable withdrawal.
+		if attempt >= 8 and retainedChecks >= 5 then
+			print("[Trade Reconcile] Exact staged assets remain in inventory; releasing canceled withdrawal. Attempt:", attempt)
+			if releaseWithdrawalClaim(withdrawalContext) then
+				return "canceled"
+			end
+			return "retry"
+		end
+	end
+
+	warn("[Trade Reconcile] Asset state stayed ambiguous; continuing automatic reconciliation.")
+	return "retry"
+end
+
 -- Monitor trade window to detect if it closes unexpectedly
 local function connectTradeWindow(localId, withdrawalContext)
 	local windowConnection
 	
 	windowConnection = tradingWindow:GetPropertyChangedSignal("Enabled"):Connect(function()
-		if not tradingWindow.Enabled and tradeId == localId then
+		if not tradingWindow.Enabled and (tradeId == localId or (withdrawalContext and withdrawalContext.cancelRequested)) then
 			print("[Trade Window] Trade window closed unexpectedly for LocalID:", localId)
 			windowConnection:Disconnect()
 			-- Roblox closes the window just before showing either the success or
@@ -910,12 +1019,29 @@ local function connectTradeWindow(localId, withdrawalContext)
 			if withdrawalContext then
 				task.delay(3, function()
 					if not withdrawalContext.finished and not withdrawalContext.released and not withdrawalContext.releasing then
-						-- A closed trade window alone does not prove whether the trade was
-						-- canceled or completed. Keep the claim locked until an explicit
-						-- success/cancellation message settles it, preventing a canceled
-						-- website withdrawal from receiving an already-staged Roblox trade.
-						warn("[Trade Window] Outcome is unknown; keeping withdrawal claim locked for manual recovery. LocalID:", localId)
-						goNext = false
+						if withdrawalContext.cancelRequested and withdrawalContext.cancelAccepted then
+							-- Roblox accepted our decline and then closed the window. Some
+							-- clients do not display a cancellation message in this path, so
+							-- the close is the final confirmation needed to release the claim.
+							local claimReleased = releaseWithdrawalClaim(withdrawalContext)
+							goNext = claimReleased
+							if claimReleased then
+								print("[Trade Window] Bot-requested cancellation confirmed; withdrawal claim released. LocalID:", localId)
+							else
+								warn("[Withdraw Release] Cancellation confirmed but claim release failed; bot remains locked.")
+							end
+						else
+							local outcome = "retry"
+							while outcome == "retry" and not withdrawalContext.finished and not withdrawalContext.released do
+								outcome = reconcileClosedWithdrawal(withdrawalContext, localId)
+							end
+							goNext = outcome == "delivered" or outcome == "canceled"
+							if outcome == "delivered" then
+								print("[Trade Window] Withdrawal automatically finalized after the UI closed. LocalID:", localId)
+							elseif outcome == "canceled" then
+								print("[Trade Window] Canceled withdrawal automatically unlocked after the UI closed. LocalID:", localId)
+							end
+						end
 					end
 				end)
 			else
@@ -933,8 +1059,10 @@ end
 local function connectWithdrawalOfferGuard(localId, withdrawalContext)
 	local connections = {}
 	local tripped = false
+	local active = true
 
 	local function disconnectAll()
+		active = false
 		for _, connection in ipairs(connections) do
 			pcall(function()
 				connection:Disconnect()
@@ -954,11 +1082,19 @@ local function connectWithdrawalOfferGuard(localId, withdrawalContext)
 		if offeredItemCount > 0 or offeredGems > 0 then
 			tripped = true
 			warn("[Withdraw Guard] User added assets; declining trade:", offeredItemCount, offeredGems)
-			sendMessage("Leave your side empty for withdrawals. Please trade again.")
+			if withdrawalContext then
+				withdrawalContext.cancelRequested = true
+				withdrawalContext.cancelReason = "user_offer"
+			end
 			local declineOk, declineResult = pcall(declineTrade)
-			if not declineOk then
+			local declineAccepted = declineOk and declineResult ~= false
+			if withdrawalContext then
+				withdrawalContext.cancelAccepted = declineAccepted
+			end
+			if not declineAccepted then
 				warn("[Withdraw Guard] Failed to decline invalid trade; keeping claim locked:", declineResult)
 			end
+			sendCancellationMessage("Leave your side empty for withdrawals. Please trade again.")
 			disconnectAll()
 		end
 	end
@@ -971,6 +1107,7 @@ local function connectWithdrawalOfferGuard(localId, withdrawalContext)
 
 	if itemsContainer then
 		table.insert(connections, itemsContainer.ChildAdded:Connect(validateEmptyOffer))
+		table.insert(connections, itemsContainer.DescendantAdded:Connect(validateEmptyOffer))
 	end
 	if diamondLabel then
 		table.insert(connections, diamondLabel:GetPropertyChangedSignal("Text"):Connect(validateEmptyOffer))
@@ -982,6 +1119,15 @@ local function connectWithdrawalOfferGuard(localId, withdrawalContext)
 	end))
 
 	validateEmptyOffer()
+	-- Some PS99 client versions reuse an existing ItemSlot instead of adding a
+	-- new child, so UI signals alone can miss an offer change. Poll while this
+	-- withdrawal is open to keep the guard reliable across those layouts.
+	spawn(function()
+		while active do
+			task.wait(0.25)
+			validateEmptyOffer()
+		end
+	end)
 end
 
 -- Detect when user accepts, make various checks, and accepts the trade
@@ -989,8 +1135,8 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
 	local statusConnection
 	local hasSetupListeners = false
 	
-	-- Set up timeout (180 seconds max)
-	setupTradeTimeout(localId, 180, withdrawalContext)
+	-- Set up timeout (60 seconds max)
+	setupTradeTimeout(localId, 60, withdrawalContext)
 	
 	-- Monitor trade window closure
 	connectTradeWindow(localId, withdrawalContext)
@@ -1047,13 +1193,17 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
 					local offeredItemCount, offeredGems = getPlayerWithdrawalOffer()
 					if offeredItemCount > 0 or offeredGems > 0 then
 						warn("[Withdraw Validation] User offered assets; declining trade:", offeredItemCount, offeredGems)
-						sendMessage("Leave your side empty for withdrawals. Please trade again.")
 						connectMessage(localId, method, tradingItemsFunc, withdrawalContext)
 						statusConnection:Disconnect()
+						withdrawalContext.cancelRequested = true
+						withdrawalContext.cancelReason = "user_offer"
 						local declineOk, declineResult = pcall(declineTrade)
-						if not declineOk then
+						local declineAccepted = declineOk and declineResult ~= false
+						withdrawalContext.cancelAccepted = declineAccepted
+						if not declineAccepted then
 							warn("[Withdraw Validation] Failed to decline invalid trade; keeping claim locked:", declineResult)
 						end
+						sendCancellationMessage("Leave your side empty for withdrawals. Please trade again.")
 						return
 					end
 
@@ -1064,7 +1214,7 @@ local function connectStatus(localId, method, tradingItemsFunc, withdrawalContex
 						connectWithdrawalOfferGuard(localId, withdrawalContext)
                         local readyResult = readyTrade()
                         print("[connectStatus] readyTrade() returned:", readyResult)
-                        connectConfirm(localId, method, tradingItemsFunc)
+						connectConfirm(localId, method, tradingItemsFunc, withdrawalContext)
                         statusConnection:Disconnect()
                     end
                 end
@@ -1222,8 +1372,14 @@ spawn(function()
 							["botUserId"] = tostring(localPlayer.UserId),
 							["claimToken"] = response["claimToken"],
 							["withdrawalIds"] = {},
+							["petUuids"] = {},
+							["gemAmount"] = 0,
+							["gemBalanceBefore"] = nil,
 							["finished"] = false,
-							["released"] = false
+							["finalizing"] = false,
+							["released"] = false,
+							["cancelRequested"] = false,
+							["cancelAccepted"] = false
 						}
 
 						-- Store gem strings for API later (original array)
@@ -1370,6 +1526,19 @@ spawn(function()
 										end
 									end
 								end
+							end
+						end
+
+						-- Preserve the exact staged assets for automatic post-close
+						-- reconciliation if Roblox omits its result message.
+						for _, petUuid in ipairs(usedPets) do
+							table.insert(withdrawalContext.petUuids, petUuid)
+						end
+						withdrawalContext.gemAmount = totalGemAmount
+						if totalGemAmount > 0 then
+							local balanceOk, startingGemBalance = pcall(client_currencies_gems)
+							if balanceOk then
+								withdrawalContext.gemBalanceBefore = tonumber(startingGemBalance)
 							end
 						end
 

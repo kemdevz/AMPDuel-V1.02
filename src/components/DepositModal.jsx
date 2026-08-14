@@ -174,10 +174,23 @@ export default function DepositModal({ isOpen, onClose }) {
     setWithdrawsError(null)
 
     try {
-      await apiRequest('/api/withdrawals/cancel', {
-        method: 'POST',
-        body: JSON.stringify({ withdrawal_ids: rows.map((row) => row.id) }),
-      })
+      const withdrawalIds = rows.map((row) => row.id)
+      let lastLockError = null
+      for (let attempt = 0; attempt < 45; attempt += 1) {
+        try {
+          await apiRequest('/api/withdrawals/cancel', {
+            method: 'POST',
+            body: JSON.stringify({ withdrawal_ids: withdrawalIds }),
+          })
+          lastLockError = null
+          break
+        } catch (err) {
+          if (err?.status !== 409) throw err
+          lastLockError = err
+          await new Promise((resolve) => window.setTimeout(resolve, 2_000))
+        }
+      }
+      if (lastLockError) throw lastLockError
 
       setActiveWithdraws((prev) => prev.filter((row) => !rows.some((canceledRow) => canceledRow.id === row.id)))
       window.dispatchEvent(new CustomEvent('wallet:updated'))
