@@ -699,9 +699,10 @@ const BLACKJACK_STYLES = `
     .blackjackBetInput img { width:17px; height:17px; }
     .blackjackBetInput input { width:0; min-width:0; flex:1 1 auto; font-size:16px; line-height:1; }
     .blackjackQuickBets { flex:0 0 auto; gap:4px; }
-    .blackjackQuickBets button { height:34px; min-width:40px; padding:0 8px; font-size:11px; touch-action:manipulation; }
+    .blackjackQuickBets button { height:34px; min-height:34px; min-width:40px; padding:0 8px; font-size:11px; touch-action:manipulation; }
     .blackjackQuickBets,.blackjackActions,.blackjackBottomButtons { position:relative; z-index:2; }
-    .blackjackActions button,.blackjackFairnessButton,.blackjackQuickBets button { min-height:44px; font-size:13px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    .blackjackActions button,.blackjackFairnessButton { min-height:44px; font-size:13px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    .blackjackQuickBets button { -webkit-tap-highlight-color:transparent; }
     .blackjackDeal { height:46px!important; }
     .blackjackHand { gap:5px; }
     .blackjackModalBackdrop { padding:8px; } .blackjackModal { width:100%; max-height:calc(100dvh - 16px); padding:1.25rem; } .blackjackModal h2 { font-size:20px; } .blackjackSeedRow { flex-direction:column; } .blackjackSeedRow button { width:100%; }
