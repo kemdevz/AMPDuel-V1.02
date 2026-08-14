@@ -1135,7 +1135,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const combinedItems = [
     ...(player1.items || []),
     ...(player2.items || []),
-  ]
+  ].sort((left, right) => Number(right?.value || 0) - Number(left?.value || 0))
   const displayItems = combinedItems.slice(0, 5)
   const hiddenItemCount = Math.max(combinedItems.length - displayItems.length, 0)
   const canJoin = !room.opponent_uuid && !room.canceled
