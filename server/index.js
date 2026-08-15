@@ -2588,9 +2588,11 @@ async function requireAdminProfile(req, res) {
 
 function isAdminInventoryCatalogItemAllowed(item) {
   const name = String(item?.name || '')
+  const isEligiblePet = /\b(?:huge|titanic|gargantuan)\b/i.test(name)
+  const isGemPackage = /\bgems?\b/i.test(name)
   return Number(item?.value) > 0
-    && /\b(?:huge|titanic|gargantuan)\b/i.test(name)
-    && !/\b(?:booth|enchant|hoverboard|egg|gems?)\s*$/i.test(name)
+    && (isEligiblePet || isGemPackage)
+    && !/\b(?:booth|enchant|hoverboard|egg)\s*$/i.test(name)
 }
 
 app.get('/api/admin/items', requireAuthenticatedUser, async (req, res) => {
