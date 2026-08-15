@@ -20,6 +20,13 @@ import AnimatedStatNumber from './AnimatedStatNumber'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
 import SortDirectionIcon from './SortDirectionIcon'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
+import {
+  AdminGeneral,
+  AdminPlayers,
+  AdminPrivateServers,
+  AdminRewards,
+  AdminStock,
+} from './AdminSections'
 
 const COIN_ICON = '/bobux.png'
 const DISCORD_ICON = 'https://i.ibb.co/mVNMLkPG/dc.png'
@@ -596,7 +603,12 @@ function AdminPanel({ section, onSectionChange }) {
         )
         })}
       </div>
+      {section.id === 'general' ? <AdminGeneral /> : null}
+      {section.id === 'players' ? <AdminPlayers /> : null}
+      {section.id === 'private-servers' ? <AdminPrivateServers /> : null}
+      {section.id === 'stock' ? <AdminStock /> : null}
       {section.id === 'items' ? <AdminItemsDatabase /> : null}
+      {section.id === 'rewards' ? <AdminRewards /> : null}
     </div>
   )
 }
