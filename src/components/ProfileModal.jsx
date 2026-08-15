@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import { apiRequest } from '../lib/apiClient'
@@ -17,6 +17,9 @@ import {
 } from './icons'
 import { notifications } from './Notifications'
 import AnimatedStatNumber from './AnimatedStatNumber'
+import { getInventoryItemCardStyle } from './InventoryItemCard'
+import SortDirectionIcon from './SortDirectionIcon'
+import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 const COIN_ICON = '/bobux.png'
 const DISCORD_ICON = 'https://i.ibb.co/mVNMLkPG/dc.png'
@@ -312,6 +315,230 @@ function AdminRewardsIcon({ className = '' }) {
   )
 }
 
+function isAdminInventoryCatalogItemAllowed(item) {
+  const name = String(item?.name || '')
+  return Number(item?.value) > 0
+    && /\b(?:huge|titanic|gargantuan)\b/i.test(name)
+    && !/\b(?:booth|enchant|hoverboard|egg|gems?)\s*$/i.test(name)
+}
+
+function AdminItemsDatabase() {
+  const [items, setItems] = useState([])
+  const [search, setSearch] = useState('')
+  const [descending, setDescending] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(120)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [selectedQuantities, setSelectedQuantities] = useState({})
+  const [addingSelected, setAddingSelected] = useState(false)
+  const deferredSearch = useDeferredValue(search)
+  const selectedItemIds = useMemo(
+    () => Object.keys(selectedQuantities).filter((itemId) => Number(selectedQuantities[itemId]) > 0),
+    [selectedQuantities],
+  )
+  const selectedItemCount = useMemo(
+    () => selectedItemIds.reduce((total, itemId) => total + Number(selectedQuantities[itemId] || 0), 0),
+    [selectedItemIds, selectedQuantities],
+  )
+
+  const loadItems = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const payload = await apiRequest('/api/admin/items')
+      setItems(Array.isArray(payload?.items) ? payload.items.filter(isAdminInventoryCatalogItemAllowed) : [])
+    } catch (loadError) {
+      setItems([])
+      setError(loadError?.message || 'Unable to load the item database.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadItems()
+  }, [])
+
+  const filteredItems = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase()
+    return items
+      .filter((item) => !query || String(item?.name || '').toLowerCase().includes(query))
+      .slice()
+      .sort((a, b) => {
+        const selectedDifference = Number(selectedItemIds.includes(String(b?.id))) - Number(selectedItemIds.includes(String(a?.id)))
+        if (selectedDifference) return selectedDifference
+        return descending
+          ? Number(b?.value || 0) - Number(a?.value || 0) || String(a?.name || '').localeCompare(String(b?.name || ''))
+          : Number(a?.value || 0) - Number(b?.value || 0) || String(a?.name || '').localeCompare(String(b?.name || ''))
+      })
+  }, [deferredSearch, descending, items, selectedItemIds])
+
+  const visibleItems = useMemo(
+    () => filteredItems.slice(0, visibleCount),
+    [filteredItems, visibleCount],
+  )
+
+  useEffect(() => {
+    setVisibleCount(120)
+  }, [deferredSearch, descending])
+
+  const toggleItem = (itemId) => {
+    const normalizedId = String(itemId)
+    setSelectedQuantities((current) => {
+      if (Number(current[normalizedId]) > 0) {
+        const next = { ...current }
+        delete next[normalizedId]
+        return next
+      }
+      return { ...current, [normalizedId]: 1 }
+    })
+  }
+
+  const setItemQuantity = (itemId, nextQuantity) => {
+    const normalizedId = String(itemId)
+    const quantity = Math.max(0, Math.min(100, Math.trunc(Number(nextQuantity) || 0)))
+    setSelectedQuantities((current) => {
+      if (quantity === 0) {
+        const next = { ...current }
+        delete next[normalizedId]
+        return next
+      }
+      return { ...current, [normalizedId]: quantity }
+    })
+  }
+
+  const addSelectedItems = async () => {
+    if (!selectedItemCount || addingSelected) return
+    setAddingSelected(true)
+    setError('')
+    try {
+      const payload = await apiRequest('/api/admin/items/add-to-inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          items: selectedItemIds.map((itemId) => ({
+            item_id: itemId,
+            quantity: Number(selectedQuantities[itemId]) || 0,
+          })),
+        }),
+      })
+      const addedCount = Number(payload?.added_count || selectedItemCount)
+      setSelectedQuantities({})
+      window.dispatchEvent(new CustomEvent('wallet:updated'))
+      notifications.success(`${addedCount.toLocaleString()} ${addedCount === 1 ? 'item' : 'items'} added to your inventory!`)
+    } catch (addError) {
+      setError(addError?.message || 'Unable to add the selected items to your inventory.')
+    } finally {
+      setAddingSelected(false)
+    }
+  }
+
+  return (
+    <div className="adminItemsDatabase flex min-h-0 flex-1 flex-col gap-2.5">
+      <div className="relative flex shrink-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <label className="relative block min-w-0 flex-1 sm:max-w-[260px]">
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search for an item..."
+              className="h-8 w-full rounded-[5px] border border-[#323240] bg-[#1c1f2e] py-1.5 pl-8 pr-2.5 text-[11px] text-white opacity-90 shadow-[0_6px_7px_rgba(0,0,0,.12)] outline-none placeholder:text-[#cbd5e1] focus:border-[#45455a]"
+            />
+            <svg className="pointer-events-none absolute left-2.5 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#cbd5e1]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4" />
+              <path d="m16.2 16.2 4.1 4.1" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+          </label>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#20222f] text-[#e1e4f2] transition-colors hover:bg-[#2a2e44] active:bg-[#32364d] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]"
+            title={`Price ${descending ? 'Descending' : 'Ascending'}`}
+            aria-label={`Sort by price ${descending ? 'descending' : 'ascending'}`}
+            onClick={() => setDescending((value) => !value)}
+          >
+            <SortDirectionIcon ascending={!descending} />
+          </button>
+        </div>
+        <button
+          type="button"
+          className="inline-flex h-8 min-w-[68px] shrink-0 items-center justify-center rounded-md border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-3 text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] transition-[transform,background,opacity] duration-[140ms] hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)] hover:opacity-95 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100"
+          disabled={!selectedItemCount || addingSelected}
+          title={selectedItemCount ? `Add ${selectedItemCount} selected ${selectedItemCount === 1 ? 'item' : 'items'} to your inventory` : 'Select catalog items first'}
+          onClick={() => { void addSelectedItems() }}
+        >
+          {addingSelected ? 'Adding...' : 'Add'}
+        </button>
+      </div>
+
+      {error ? <div className="shrink-0 rounded-md bg-[rgba(255,77,77,.1)] px-3 py-2 text-xs text-[#ff7b87]">{error}</div> : null}
+
+      <div
+        className={`min-h-[260px] flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-[#1c1f2e] p-2.5 ${scrollClasses}`}
+        onScroll={(event) => {
+          const element = event.currentTarget
+          if (element.scrollHeight - element.scrollTop - element.clientHeight < 320 && visibleCount < filteredItems.length) {
+            setVisibleCount((current) => Math.min(current + 120, filteredItems.length))
+          }
+        }}
+      >
+        {loading ? (
+          <div className="flex h-full min-h-[240px] items-center justify-center text-xs text-white/45">Loading items...</div>
+        ) : filteredItems.length ? (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {visibleItems.map((item) => {
+              const quantity = Number(selectedQuantities[String(item.id)] || 0)
+              const selected = quantity > 0
+              return (
+              <div
+                key={item.id}
+                className={`adminItemCard relative flex h-[154px] min-w-0 flex-col overflow-hidden rounded-md border-none p-1.5 transition-[transform,box-shadow] duration-200 hover:scale-[1.03] ${selected ? 'adminItemCardSelected scale-[1.03]' : ''}`}
+                style={getInventoryItemCardStyle(item, selected)}
+                title={item.name}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                onClick={() => toggleItem(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    toggleItem(item.id)
+                  }
+                }}
+              >
+                <span className={`absolute right-2.5 top-2.5 z-[3] h-2.5 w-2.5 rounded-[30%] bg-[var(--inventory-indicator-color)] transition-[opacity,transform] duration-200 ${selected ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
+                <div className="relative min-h-0 flex-1 overflow-hidden rounded-md">
+                  {item.image_url ? <img src={item.image_url} alt={item.name} className="absolute inset-0 z-[1] h-full w-full object-contain" loading="lazy" decoding="async" /> : null}
+                </div>
+                <div className="relative z-[2] flex h-[34px] shrink-0 flex-col items-center justify-center overflow-hidden text-center">
+                  {selected ? (
+                    <span className="adminItemQuantity flex items-center justify-center gap-2" onClick={(event) => event.stopPropagation()}>
+                      <button type="button" className="flex h-7 w-7 items-center justify-center rounded border-none bg-[#ef4444] text-white disabled:cursor-not-allowed disabled:opacity-55" aria-label={`Decrease ${item.name} quantity`} onClick={() => setItemQuantity(item.id, quantity - 1)} disabled={quantity <= 0}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                      </button>
+                      <input type="number" min="0" max="100" value={quantity} aria-label={`${item.name} quantity`} className="adminItemQuantityInput h-7 w-[50px] rounded border-none bg-[#1c1f2e] px-1 text-center text-[.85rem] text-white outline-none" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => setItemQuantity(item.id, event.target.value)} />
+                      <button type="button" className="flex h-7 w-7 items-center justify-center rounded border-none bg-[#10b981] text-white disabled:cursor-not-allowed disabled:opacity-55" aria-label={`Increase ${item.name} quantity`} onClick={() => setItemQuantity(item.id, quantity + 1)} disabled={quantity >= 100}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                      </button>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="w-full truncate text-[10px] font-semibold leading-3 text-[#ccd9fa] sm:text-[11px]">{item.name}</span>
+                      <span className="inline-flex items-center justify-center text-[11px] font-semibold leading-[14px] text-white sm:text-xs"><img src={COIN_ICON} alt="" className="mr-1 h-3.5 w-3.5 shrink-0" />{formatPriceValue(item.value, { compactNumbers: false })}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="flex h-full min-h-[240px] items-center justify-center text-xs text-white/45">No items found.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function AdminPanel({ section, onSectionChange }) {
   const handleWheel = (event) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
@@ -319,11 +546,12 @@ function AdminPanel({ section, onSectionChange }) {
   }
 
   return (
-    <div
-      className="historyFilterRow flex shrink-0 flex-nowrap gap-1.5 overflow-x-auto pb-0.5"
-      onWheel={handleWheel}
-    >
-      {adminSections.map(({
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div
+        className="historyFilterRow flex shrink-0 flex-nowrap gap-1.5 overflow-x-auto pb-0.5"
+        onWheel={handleWheel}
+      >
+        {adminSections.map(({
         id,
         label,
         Icon,
@@ -366,7 +594,9 @@ function AdminPanel({ section, onSectionChange }) {
             <span>{label}</span>
           </button>
         )
-      })}
+        })}
+      </div>
+      {section.id === 'items' ? <AdminItemsDatabase /> : null}
     </div>
   )
 }
@@ -1064,7 +1294,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
     setAdminSection(sectionId)
   }
 
-  const contentClasses = activeTab === 'games' || activeTab === 'transactions'
+  const contentClasses = activeTab === 'games' || activeTab === 'transactions' || activeTab === 'admin'
     ? 'overflow-hidden'
     : `overflow-y-auto ${scrollClasses}`
 
@@ -1226,6 +1456,40 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           width: 100%;
           min-width: 0;
           min-height: 0;
+        }
+
+        .adminItemCard::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          padding: 2px;
+          border-radius: 6px;
+          background: linear-gradient(to bottom, transparent 0%, var(--inventory-border-side) 55%, var(--inventory-border-bottom) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+
+        .adminItemQuantity {
+          animation: adminItemQuantityIn .22s ease both;
+        }
+
+        @keyframes adminItemQuantityIn {
+          from { opacity: 0; transform: translateY(4px) scale(.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .adminItemQuantityInput::-webkit-outer-spin-button,
+        .adminItemQuantityInput::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+
+        .adminItemQuantityInput[type=number] {
+          -moz-appearance: textfield;
         }
 
         .historyFilterRow {

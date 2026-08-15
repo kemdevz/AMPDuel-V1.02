@@ -2576,6 +2576,109 @@ app.get('/api/profile', requireAuthenticatedUser, async (req, res) => {
   res.json({ ok: true, profile })
 })
 
+async function requireAdminProfile(req, res) {
+  const profile = await loadProfileById(req.identity.profileId)
+  const role = String(profile?.role || '').trim().toLowerCase()
+  if (!profile || !['admin', 'owner'].includes(role)) {
+    res.status(403).json({ ok: false, error: 'Admin access is required.' })
+    return null
+  }
+  return profile
+}
+
+function isAdminInventoryCatalogItemAllowed(item) {
+  const name = String(item?.name || '')
+  return Number(item?.value) > 0
+    && /\b(?:huge|titanic|gargantuan)\b/i.test(name)
+    && !/\b(?:booth|enchant|hoverboard|egg|gems?)\s*$/i.test(name)
+}
+
+app.get('/api/admin/items', requireAuthenticatedUser, async (req, res) => {
+  try {
+    if (!await requireAdminProfile(req, res)) return
+
+    const pageSize = 1000
+    const items = []
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await adminRest(
+        `items?select=id,name,value,image_url,type&order=value.desc,id.asc&limit=${pageSize}&offset=${offset}`,
+      )
+      const rows = Array.isArray(page) ? page : []
+      items.push(...rows)
+      if (rows.length < pageSize) break
+    }
+
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({ ok: true, items: items.filter(isAdminInventoryCatalogItemAllowed) })
+  } catch (error) {
+    console.error('[admin/items] failed to load items', error)
+    res.status(error?.status || 500).json({ ok: false, error: error?.message || 'Unable to load the item database.' })
+  }
+})
+
+app.post('/api/admin/items/add-to-inventory', express.json({ limit: '16kb' }), requireAuthenticatedUser, async (req, res) => {
+  try {
+    const profile = await requireAdminProfile(req, res)
+    if (!profile) return
+
+    const selections = Array.isArray(req.body?.items) ? req.body.items.map((selection) => ({
+      itemId: String(selection?.item_id || '').trim(),
+      quantity: Number(selection?.quantity),
+    })) : []
+    const itemIds = selections.map((selection) => selection.itemId)
+    const totalQuantity = selections.reduce((total, selection) => total + selection.quantity, 0)
+    if (
+      !selections.length
+      || selections.length > 100
+      || new Set(itemIds).size !== itemIds.length
+      || selections.some((selection) => !isUuidLike(selection.itemId) || !Number.isInteger(selection.quantity) || selection.quantity < 1 || selection.quantity > 100)
+      || totalQuantity > 500
+    ) {
+      res.status(400).json({ ok: false, error: 'Select valid quantities of up to 100 per item and 500 items per add.' })
+      return
+    }
+
+    const catalogItems = await adminRest(
+      `items?select=id,name,value,image_url,type&id=in.(${itemIds.join(',')})`,
+    )
+    if (!Array.isArray(catalogItems) || catalogItems.length !== itemIds.length) {
+      res.status(409).json({ ok: false, error: 'One or more selected catalog items are no longer available.' })
+      return
+    }
+    if (catalogItems.some((item) => !isAdminInventoryCatalogItemAllowed(item))) {
+      res.status(400).json({ ok: false, error: 'One or more selected items are not eligible inventory pets.' })
+      return
+    }
+
+    const itemsById = new Map(catalogItems.map((item) => [String(item.id), item]))
+    const inventoryRows = selections.flatMap(({ itemId, quantity }) => {
+      const item = itemsById.get(itemId)
+      return Array.from({ length: quantity }, () => ({
+          item_id: item.id,
+          user_id: String(profile.id),
+          name: String(item.name || 'Unknown item'),
+          value: Math.max(0, Number(item.value) || 0),
+          image_url: item.image_url || null,
+          type: item.type || null,
+        }))
+    })
+
+    await adminRest('inventory_items', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: inventoryRows,
+    })
+    void emitWalletRefreshes([profile.id])
+    res.status(201).json({
+      ok: true,
+      added_count: inventoryRows.length,
+    })
+  } catch (error) {
+    console.error('[admin/items/add-to-inventory] failed', error)
+    res.status(error?.status || 500).json({ ok: false, error: error?.message || 'Unable to add the selected items to your inventory.' })
+  }
+})
+
 function historyItemValue(items) {
   return (Array.isArray(items) ? items : []).reduce((sum, item) => (
     sum + Math.max(0, Number(item?.value) || 0)

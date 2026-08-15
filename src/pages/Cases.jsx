@@ -1395,7 +1395,6 @@ export default function CasesPage({ caseSlug = null }) {
 
                   {activeTab !== "Your Cases" && <div className="ml-auto flex shrink-0 items-center gap-2 max-[840px]:ml-0 max-[840px]:w-full max-[840px]:flex-nowrap max-[840px]:justify-center">
                     <div className="cases-search-wrap max-[840px]:flex-1">
-                      <SearchIcon />
                       <input
                         type="text"
                         placeholder="Search for a case..."
@@ -1403,6 +1402,7 @@ export default function CasesPage({ caseSlug = null }) {
                         onChange={(event) => setSearch(event.target.value)}
                         className="cases-search-input"
                       />
+                      <SearchIcon />
                     </div>
 
               <button
