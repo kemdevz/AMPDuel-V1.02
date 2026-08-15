@@ -361,6 +361,8 @@ export function AdminGeneral() {
 }
 
 export function AdminPlayers() {
+  return <div className="min-h-0 flex-1" />
+
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState(people[0].id)
   const [coinAmount, setCoinAmount] = useState('')
@@ -403,6 +405,8 @@ export function AdminPlayers() {
 }
 
 export function AdminPrivateServers() {
+  return <div className="min-h-0 flex-1" />
+
   const [selectedId, setSelectedId] = useState(bots[0].id)
   const [page, setPage] = useState(0)
   const selected = bots.find((bot) => bot.id === selectedId) || bots[0]
@@ -422,6 +426,8 @@ export function AdminPrivateServers() {
 }
 
 export function AdminStock() {
+  return <div className="min-h-0 flex-1" />
+
   const [active, setActive] = useState('exchange')
   const [stocks, setStocks] = useState(initialStocks)
   const [query, setQuery] = useState('')
@@ -455,6 +461,8 @@ export function AdminStock() {
 }
 
 export function AdminRewards() {
+  return <div className="min-h-0 flex-1" />
+
   const [codes, setCodes] = useState(initialCodes)
   const [editingId, setEditingId] = useState(null)
   const [name, setName] = useState('')
