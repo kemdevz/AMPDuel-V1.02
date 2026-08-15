@@ -1998,6 +1998,10 @@ io.on('connection', (socket) => {
     const respond = (response) => {
       if (typeof acknowledge === 'function') acknowledge(response)
     }
+    if (!await isSiteServiceEnabled('jackpot')) {
+      respond({ ok: false, error: 'Jackpot is currently paused.' })
+      return
+    }
     if (!socket.data.identity?.profileId) {
       respond({ ok: false, error: 'Please sign in to join the Jackpot.' })
       return
@@ -2048,7 +2052,11 @@ io.on('connection', (socket) => {
     emitOnlineCount()
   })
 
-  socket.on('chat:message', (message, acknowledge) => {
+  socket.on('chat:message', async (message, acknowledge) => {
+    if (!await isSiteServiceEnabled('chat')) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Chat is currently paused.' })
+      return
+    }
     if (!message || typeof message !== 'object') {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Invalid chat message.' })
       return
@@ -2141,6 +2149,10 @@ io.on('connection', (socket) => {
   })
 
   socket.on('rain:tip', async (payload, acknowledge) => {
+    if (!await isSiteServiceEnabled('rain')) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'The Rain Pool is currently paused.' })
+      return
+    }
     if (!payload || typeof payload !== 'object') return
     if (!socket.data.identity?.profileId) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: 'Please sign in to tip the rain.' })
@@ -2585,6 +2597,233 @@ async function requireAdminProfile(req, res) {
   }
   return profile
 }
+
+const SITE_SERVICE_KEYS = [
+  'case_battles', 'cases', 'coinflip', 'upgrader', 'mines',
+  'roll', 'blackjack', 'jackpot', 'chat', 'rain',
+]
+const DEFAULT_SITE_SERVICES = Object.fromEntries(SITE_SERVICE_KEYS.map((key) => [key, true]))
+let siteServiceSettingsCache = { ...DEFAULT_SITE_SERVICES }
+let siteServiceSettingsExpiresAt = 0
+let siteServiceSettingsWarningShown = false
+let adminGeneralSnapshotCache = null
+let adminGeneralSnapshotExpiresAt = 0
+
+function invalidateAdminGeneralSnapshot(changeType = 'activity') {
+  adminGeneralSnapshotCache = null
+  adminGeneralSnapshotExpiresAt = 0
+  io.emit('admin:general:changed', { type: changeType, changed_at: new Date().toISOString() })
+}
+
+async function loadSiteServiceSettings({ force = false, tolerateMissing = true } = {}) {
+  if (!force && siteServiceSettingsExpiresAt > Date.now()) return siteServiceSettingsCache
+
+  try {
+    const rows = await adminRest('site_service_settings?select=service_key,enabled')
+    const next = { ...DEFAULT_SITE_SERVICES }
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const key = String(row?.service_key || '')
+      if (SITE_SERVICE_KEYS.includes(key)) next[key] = Boolean(row.enabled)
+    }
+    siteServiceSettingsCache = next
+    siteServiceSettingsExpiresAt = Date.now() + 5_000
+    siteServiceSettingsWarningShown = false
+    return next
+  } catch (error) {
+    const missingTable = error?.code === '42P01' || /site_service_settings.*does not exist/i.test(error?.message || '')
+    if (!tolerateMissing || !missingTable) throw error
+    if (!siteServiceSettingsWarningShown) {
+      console.warn('[services] settings table is missing; all services remain enabled until its migration is applied.')
+      siteServiceSettingsWarningShown = true
+    }
+    return { ...DEFAULT_SITE_SERVICES }
+  }
+}
+
+async function isSiteServiceEnabled(serviceKey) {
+  const settings = await loadSiteServiceSettings()
+  return settings[serviceKey] !== false
+}
+
+async function loadAllAdminRows(pathname, pageSize = 1000) {
+  const rows = []
+  const separator = pathname.includes('?') ? '&' : '?'
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await adminRest(`${pathname}${separator}limit=${pageSize}&offset=${offset}`)
+    const pageRows = Array.isArray(page) ? page : []
+    rows.push(...pageRows)
+    if (pageRows.length < pageSize) return rows
+  }
+}
+
+function normalizeAdminActivityItem(item = {}) {
+  return {
+    id: item.id || item.item_uuid || item.item_id || crypto.randomUUID(),
+    item_id: item.item_id || null,
+    name: String(item.name || item.item_name || 'Unknown item'),
+    value: Math.max(0, Number(item.value) || 0),
+    image_url: item.image_url || item.image || null,
+    type: item.type || item.item_type || null,
+  }
+}
+
+app.get('/api/admin/general', requireAuthenticatedUser, async (req, res) => {
+  try {
+    if (!await requireAdminProfile(req, res)) return
+    if (adminGeneralSnapshotCache && adminGeneralSnapshotExpiresAt > Date.now()) {
+      res.setHeader('Cache-Control', 'private, no-cache')
+      res.json(adminGeneralSnapshotCache)
+      return
+    }
+
+    const [profiles, taxStock, deposits, withdrawals, services] = await Promise.all([
+      loadAllAdminRows('user_profiles?select=id,username,avatar_url,avatar_headshot_url,played,won,lost'),
+      loadAllAdminRows('tax_stock?select=value'),
+      adminRest('deposits?select=id,profile_id,username,items,total_value,deposited_at&order=deposited_at.desc&limit=100'),
+      adminRest('withdraws?select=*&canceled=eq.false&order=withdrawed_at.desc&limit=250'),
+      loadSiteServiceSettings({ force: true }),
+    ])
+
+    const profileById = new Map(profiles.map((profile) => [String(profile.id), profile]))
+    const depositActivity = (Array.isArray(deposits) ? deposits : []).map((deposit) => {
+      const profile = profileById.get(String(deposit.profile_id || '')) || {}
+      return {
+        id: `deposit:${deposit.id}`,
+        type: 'Deposit',
+        date: deposit.deposited_at,
+        amount: Math.max(0, Number(deposit.total_value) || 0),
+        items: (Array.isArray(deposit.items) ? deposit.items : []).map(normalizeAdminActivityItem),
+        player: {
+          id: deposit.profile_id || null,
+          name: deposit.username || profile.username || 'Unknown user',
+          avatar: profile.avatar_headshot_url || profile.avatar_url || null,
+        },
+      }
+    })
+
+    const withdrawalGroups = new Map()
+    for (const withdrawal of Array.isArray(withdrawals) ? withdrawals : []) {
+      const userId = String(withdrawal.user_id || '')
+      const groupKey = String(withdrawal.external_trade_id || '').trim()
+        || `${userId}:${String(withdrawal.withdrawed_at || withdrawal.id)}`
+      const profile = profileById.get(userId) || {}
+      const current = withdrawalGroups.get(groupKey) || {
+        id: `withdraw:${groupKey}`,
+        type: 'Withdraw',
+        date: withdrawal.completed_at || withdrawal.withdrawed_at,
+        amount: 0,
+        items: [],
+        player: {
+          id: withdrawal.user_id || null,
+          name: withdrawal.user_name || profile.username || 'Unknown user',
+          avatar: profile.avatar_headshot_url || profile.avatar_url || null,
+        },
+      }
+      const item = normalizeAdminActivityItem(withdrawal)
+      current.amount -= item.value
+      current.items.push(item)
+      const currentDate = new Date(current.date || 0).getTime()
+      const nextDate = new Date(withdrawal.completed_at || withdrawal.withdrawed_at || 0).getTime()
+      if (nextDate > currentDate) current.date = withdrawal.completed_at || withdrawal.withdrawed_at
+      withdrawalGroups.set(groupKey, current)
+    }
+
+    const activity = [...depositActivity, ...withdrawalGroups.values()]
+      .sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime())
+      .slice(0, 100)
+
+    const sumValues = (rows) => rows.reduce((sum, row) => sum + Math.max(0, Number(row.value) || 0), 0)
+    const wagered = profiles.reduce((sum, profile) => sum + Math.max(0, Number(profile.played) || 0), 0)
+    const profit = profiles.reduce((sum, profile) => (
+      sum + (Number(profile.lost) || 0) - (Number(profile.won) || 0)
+    ), 0)
+
+    const responsePayload = {
+      ok: true,
+      stats: {
+        users: profiles.length,
+        wagered,
+        stock: sumValues(taxStock),
+        profit,
+      },
+      activity,
+      services,
+    }
+    adminGeneralSnapshotCache = responsePayload
+    adminGeneralSnapshotExpiresAt = Date.now() + 10_000
+    res.setHeader('Cache-Control', 'private, no-cache')
+    res.json(responsePayload)
+  } catch (error) {
+    console.error('[admin/general] failed', error)
+    res.status(error?.status || 500).json({ ok: false, error: error?.message || 'Unable to load the admin overview.' })
+  }
+})
+
+app.patch('/api/admin/services/:serviceKey', express.json({ limit: '2kb' }), requireAuthenticatedUser, async (req, res) => {
+  try {
+    const profile = await requireAdminProfile(req, res)
+    if (!profile) return
+    const serviceKey = String(req.params.serviceKey || '').trim().toLowerCase()
+    if (!SITE_SERVICE_KEYS.includes(serviceKey) || typeof req.body?.enabled !== 'boolean') {
+      res.status(400).json({ ok: false, error: 'Select a valid service setting.' })
+      return
+    }
+
+    const rows = await adminRest('site_service_settings?on_conflict=service_key&select=service_key,enabled', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: [{
+        service_key: serviceKey,
+        enabled: req.body.enabled,
+        updated_by: String(profile.id),
+        updated_at: new Date().toISOString(),
+      }],
+    })
+    const setting = Array.isArray(rows) ? rows[0] : rows
+    siteServiceSettingsCache = { ...siteServiceSettingsCache, [serviceKey]: Boolean(setting?.enabled) }
+    siteServiceSettingsExpiresAt = Date.now() + 5_000
+    if (adminGeneralSnapshotCache) {
+      adminGeneralSnapshotCache = {
+        ...adminGeneralSnapshotCache,
+        services: { ...adminGeneralSnapshotCache.services, [serviceKey]: Boolean(setting?.enabled) },
+      }
+    }
+    io.emit('services:updated', siteServiceSettingsCache)
+    res.json({ ok: true, service_key: serviceKey, enabled: Boolean(setting?.enabled) })
+  } catch (error) {
+    console.error('[admin/services] failed', error)
+    const missingTable = error?.code === '42P01' || /site_service_settings.*does not exist/i.test(error?.message || '')
+    res.status(missingTable ? 503 : error?.status || 500).json({
+      ok: false,
+      error: missingTable
+        ? 'Run migration 20260815020000_create_site_service_settings.sql in Supabase first.'
+        : error?.message || 'Unable to update the service.',
+    })
+  }
+})
+
+function serviceKeyForApiMutation(req) {
+  if (!isUnsafeHttpMethod(req.method)) return null
+  const route = String(req.originalUrl || '').split('?')[0]
+  if (route === '/api/case-battles' || /^\/api\/case-battles\/[^/]+\/(?:join|call-bot)$/.test(route)) return 'case_battles'
+  if (route === '/api/cases/open') return 'cases'
+  if (/^\/api\/coinflip\/(?:create|join)$/.test(route)) return 'coinflip'
+  if (route === '/api/upgrader/play') return 'upgrader'
+  if (route === '/api/mines/create') return 'mines'
+  if (route === '/api/roll/bet') return 'roll'
+  if (route === '/api/blackjack/create') return 'blackjack'
+  if (/^\/api\/rain\/(?:join|tip)$/.test(route)) return 'rain'
+  return null
+}
+
+app.use('/api', async (req, res, next) => {
+  const serviceKey = serviceKeyForApiMutation(req)
+  if (!serviceKey || await isSiteServiceEnabled(serviceKey)) {
+    next()
+    return
+  }
+  res.status(503).json({ ok: false, error: 'This service is currently paused.' })
+})
 
 function isAdminInventoryCatalogItemAllowed(item) {
   const name = String(item?.name || '')
@@ -3054,6 +3293,7 @@ app.post('/api/withdrawals', express.json({ limit: '16kb' }), requireAuthenticat
     p_user_name: profile?.username || 'user',
     p_item_uuids: itemIds,
   })
+  invalidateAdminGeneralSnapshot('withdrawal-created')
   res.json({ ok: true, data: result })
 })
 
@@ -3070,6 +3310,7 @@ app.post('/api/withdrawals/cancel', express.json({ limit: '16kb' }), requireAuth
       p_profile_id: req.identity.profileId,
       p_withdrawal_uuids: withdrawalIds,
     })
+    invalidateAdminGeneralSnapshot('withdrawal-cancelled')
     res.json({ ok: true, data: result })
   } catch (error) {
     const message = String(error?.message || '')
@@ -6383,6 +6624,7 @@ app.post('/deposit/deposit', express.json({ limit: '64kb' }), requirePs99Bot, as
     }
 
     await emitWalletRefreshes([profile.id])
+    if (!result?.duplicate) invalidateAdminGeneralSnapshot('deposit-created')
 
     res.json({
       success: true,
@@ -6434,6 +6676,7 @@ async function confirmPs99Withdrawal(req, res) {
     })
 
     await emitWalletRefreshes([profile.id])
+    if (!result?.duplicate) invalidateAdminGeneralSnapshot('withdrawal-completed')
 
     res.json({
       success: true,

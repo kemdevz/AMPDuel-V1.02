@@ -26,6 +26,7 @@ import {
   AdminPrivateServers,
   AdminRewards,
   AdminStock,
+  prefetchAdminGeneral,
 } from './AdminSections'
 
 const COIN_ICON = '/bobux.png'
@@ -1262,6 +1263,11 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const activeAdminSection =
     adminSections.find((section) => section.id === adminSection) ||
     adminSections[0]
+
+  useEffect(() => {
+    if (!isOpen || !hasAdminPanelAccess) return
+    void prefetchAdminGeneral().catch(() => {})
+  }, [hasAdminPanelAccess, isOpen])
 
   useEffect(() => {
     if (!isOpen) return
