@@ -496,7 +496,7 @@ export default function Blackjack() {
               {dealer.length ? <div className="blackjackCards">{dealer.map((card, index) => <PlayingCard key={`dealer-${index}`} card={card} revealed={index < visibleDealerCards} index={index} />)}</div> : <EmptyHand />}
             </section>
             <div className="blackjackConsole" aria-label="Blackjack table rules">
-              <span className="blackjackRule">BLACKJACK PAYS 2.375X</span>
+              <span className="blackjackRule">BLACKJACK PAYS 3:2</span>
               <span className="blackjackRuleDivider" aria-hidden="true" />
               <span className="blackjackRule">DEALER STANDS ON 17</span>
             </div>
