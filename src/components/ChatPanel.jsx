@@ -1403,9 +1403,44 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     }
   }
 
-  function sendMessage(text) {
+  async function sendMessage(text) {
     const normalized = String(text || "").slice(0, MAX_CHAT_MESSAGE_LENGTH).trim();
     if (!normalized) return;
+
+    const tipCommand = normalized.match(/^\/tip(?:\s+(.+))?$/i);
+    if (tipCommand) {
+      setReplyTo(null);
+      if (!user) {
+        setAuthModalOpen(true);
+        return;
+      }
+
+      const robloxId = String(tipCommand[1] || "").trim();
+      if (!/^\d{1,20}$/.test(robloxId)) {
+        notifications.error("Use /tip followed by a Roblox user ID.");
+        return;
+      }
+
+      try {
+        const result = await apiRequest(`/api/public-profiles?roblox_id=${encodeURIComponent(robloxId)}`);
+        const recipient = Array.isArray(result?.profiles) ? result.profiles[0] || null : null;
+        if (!recipient) {
+          notifications.error("No BloxDice account was found for that Roblox user ID.");
+          return;
+        }
+
+        const senderProfileId = String(user?.profile_id || user?.id || "").trim();
+        if (String(recipient.id || "").trim() === senderProfileId || String(user?.roblox_id || "").trim() === robloxId) {
+          notifications.error("You cannot tip yourself.");
+          return;
+        }
+
+        setTipRecipient({ ...recipient, profile_id: recipient.id });
+      } catch (error) {
+        notifications.error(error?.message || "Unable to find that Roblox user.");
+      }
+      return;
+    }
 
     if (normalized.toLowerCase() === "!tip") {
       setMessages((current) => normalizeStoredMessages([

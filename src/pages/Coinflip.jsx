@@ -1145,8 +1145,8 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const isCompleted = Boolean(room.opponent_uuid && room.result)
   const winner = isCompleted ? room.result || room.winner || null : null
   const gameMode = String(room.game_mode || '').trim().toLowerCase()
-  const gameModeIcon = gameMode === 'gems_only' ? '💎' : gameMode === 'titanics_only' ? '🌴' : null
-  const gameModeLabel = gameMode === 'gems_only' ? 'Gems Only' : gameMode === 'titanics_only' ? 'Titanics Only' : ''
+  const gameModeIcon = gameMode === 'gems_only' || gameMode === 'titanics_only' ? '💎' : null
+  const gameModeLabel = gameMode === 'gems_only' ? 'Gems Only' : gameMode === 'titanics_only' ? 'Titanic + Gems' : ''
   const [rowResultVisible, setRowResultVisible] = useState(
     () => isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS,
   )

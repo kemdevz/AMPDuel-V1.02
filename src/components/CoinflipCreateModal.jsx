@@ -77,8 +77,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const [depositOpen, setDepositOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [gameModes, setGameModes] = useState({
-    gemsOnly: false,
-    titanicsOnly: false,
+    titanicsGems: false,
   })
   const settingsRef = useRef(null)
 
@@ -197,20 +196,19 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     .filter((item) => selectedItems.includes(item.displayKey))
     .reduce((sum, item) => sum + Number(item.value ?? 0), 0)
   const selectedInventoryRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
-  const gemsOnlyEligible = selectedInventoryRows.length > 0 && selectedInventoryRows.every(isGemItem)
-  const titanicsOnlyEligible = selectedInventoryRows.length > 0 && selectedInventoryRows.every(isTitanicItem)
+  const titanicsGemsEligible = selectedInventoryRows.length > 0
+    && selectedInventoryRows.every((item) => isTitanicItem(item) || isGemItem(item))
 
   useEffect(() => {
     setGameModes((current) => {
       const next = {
-        gemsOnly: current.gemsOnly && gemsOnlyEligible,
-        titanicsOnly: current.titanicsOnly && titanicsOnlyEligible,
+        titanicsGems: current.titanicsGems && titanicsGemsEligible,
       }
-      return next.gemsOnly === current.gemsOnly && next.titanicsOnly === current.titanicsOnly
+      return next.titanicsGems === current.titanicsGems
         ? current
         : next
     })
-  }, [gemsOnlyEligible, titanicsOnlyEligible])
+  }, [titanicsGemsEligible])
 
   const allInventoryKeys = inventoryRows.map((item) => item.displayKey)
   const onToggleSelectAll = () => {
@@ -221,19 +219,14 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     setSelectedItems(allInventoryKeys)
   }
 
-  const toggleGameMode = (mode) => {
-    if (mode === 'gemsOnly' && !gemsOnlyEligible) {
-      notifications.error('Select only Gems to enable the Gems Only lock.')
-      return
-    }
-    if (mode === 'titanicsOnly' && !titanicsOnlyEligible) {
-      notifications.error('Select only Titanic pets to enable the Titanics Only lock.')
+  const toggleGameMode = () => {
+    if (!titanicsGemsEligible) {
+      notifications.error('Select only Titanic pets and Gems to enable Titanic + Gems.')
       return
     }
 
     setGameModes((current) => ({
-      gemsOnly: mode === 'gemsOnly' ? !current.gemsOnly : false,
-      titanicsOnly: mode === 'titanicsOnly' ? !current.titanicsOnly : false,
+      titanicsGems: !current.titanicsGems,
     }))
   }
 
@@ -275,9 +268,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     const selectedRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
     const creator_uuid = String(user?.profile_id || user?.id || '')
     const creatorAvatarUrl = user?.avatar_headshot_url || user?.avatar_url || null
-    const gameMode = gameModes.gemsOnly
-      ? 'gems_only'
-      : gameModes.titanicsOnly ? 'titanics_only' : null
+    const gameMode = gameModes.titanicsGems ? 'titanics_only' : null
     const payload = {
       creator_uuid,
       creator_username: user?.username || user?.email || 'user',
@@ -468,32 +459,16 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                   <button
                     type="button"
                     className="_settingsItem_2jqwz_578"
-                    aria-pressed={gameModes.gemsOnly}
-                    title="Gems Only"
-                    onClick={() => toggleGameMode('gemsOnly')}
+                    aria-pressed={gameModes.titanicsGems}
+                    title="Titanic + Gems"
+                    onClick={toggleGameMode}
                   >
                     <span className="_settingsEmoji_2jqwz_593" aria-hidden="true">💎</span>
                     <span className="_settingsItemText_2jqwz_599">
-                      <span className="_settingsItemName_2jqwz_606">Gems Only</span>
-                      <span className="_settingsItemDesc_2jqwz_612">Only Gems can be used</span>
+                      <span className="_settingsItemName_2jqwz_606">Titanic + Gems</span>
+                      <span className="_settingsItemDesc_2jqwz_612">Only Titanics and Gems can be used</span>
                     </span>
-                    <span className={`_settingsToggle_2jqwz_619 ${gameModes.gemsOnly ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
-                      <span className="_settingsToggleThumb_2jqwz_629" />
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="_settingsItem_2jqwz_578"
-                    aria-pressed={gameModes.titanicsOnly}
-                    title="Titanics Only"
-                    onClick={() => toggleGameMode('titanicsOnly')}
-                  >
-                    <span className="_settingsEmoji_2jqwz_593" aria-hidden="true">🌴</span>
-                    <span className="_settingsItemText_2jqwz_599">
-                      <span className="_settingsItemName_2jqwz_606">Titanics Only</span>
-                      <span className="_settingsItemDesc_2jqwz_612">Only Titanic pets can be used</span>
-                    </span>
-                    <span className={`_settingsToggle_2jqwz_619 ${gameModes.titanicsOnly ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
+                    <span className={`_settingsToggle_2jqwz_619 ${gameModes.titanicsGems ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
                       <span className="_settingsToggleThumb_2jqwz_629" />
                     </span>
                   </button>

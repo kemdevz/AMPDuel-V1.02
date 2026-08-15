@@ -105,6 +105,14 @@ function SortIcon({ ascending = false }) {
   return <SortDirectionIcon ascending={ascending} />
 }
 
+function coinflipJoinItemMatchesMode(item, gameMode) {
+  if (!gameMode) return true
+  const name = String(item?.name || '')
+  return gameMode === 'gems_only'
+    ? /\bgems?\b/i.test(name)
+    : /\b(?:titanic|gems?)\b/i.test(name)
+}
+
 function JoinItemCard({ item, selected, onToggle }) {
   return (
     <button
@@ -203,10 +211,15 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
     () => inventoryItems.map((item) => ({ ...item, displayKey: item.id || item.name || 'inventory' })),
     [inventoryItems],
   )
+  const gameMode = String(room?.game_mode || '').trim().toLowerCase()
+  const eligibleInventoryRows = useMemo(
+    () => inventoryRows.filter((item) => coinflipJoinItemMatchesMode(item, gameMode)),
+    [gameMode, inventoryRows],
+  )
 
   const sortedRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    const filtered = inventoryRows.filter((item) => query === '' || String(item.name || '').toLowerCase().includes(query))
+    const filtered = eligibleInventoryRows.filter((item) => query === '' || String(item.name || '').toLowerCase().includes(query))
 
     return filtered.slice().sort((a, b) => {
       const aSelected = selectedItems.includes(a.displayKey)
@@ -216,9 +229,9 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
       if (sortBy === 'Lowest to Highest') return Number(a.value ?? 0) - Number(b.value ?? 0)
       return new Date(b.created_at || 0) - new Date(a.created_at || 0)
     })
-  }, [inventoryRows, searchQuery, selectedItems, sortBy])
+  }, [eligibleInventoryRows, searchQuery, selectedItems, sortBy])
 
-  const selectedRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
+  const selectedRows = eligibleInventoryRows.filter((item) => selectedItems.includes(item.displayKey))
   const selectedValue = selectedRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0)
   const targetValue = parseRoomValue(room)
   const minValue = targetValue * 0.9
@@ -234,15 +247,15 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
   const canJoin = selectedRows.length > 0 && (!targetValue || (selectedValue >= minValue && selectedValue <= maxValue))
 
   const toggleSelectAll = () => {
-    if (selectedItems.length === inventoryRows.length) {
+    if (selectedItems.length === eligibleInventoryRows.length) {
       setSelectedItems([])
       return
     }
-    setSelectedItems(inventoryRows.map((item) => item.displayKey))
+    setSelectedItems(eligibleInventoryRows.map((item) => item.displayKey))
   }
 
   const autoSelect = () => {
-    const keys = findAutoSelectedItems(inventoryRows, minValue, targetValue, maxValue)
+    const keys = findAutoSelectedItems(eligibleInventoryRows, minValue, targetValue, maxValue)
     if (!keys.length) {
       notifications.error('No item combination fits this coinflip value range.')
       return
@@ -344,14 +357,14 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
                 <img src={BOBUX_ICON} alt="" />
                 <div>
                   <span>VALUE</span>
-                  <strong>{formatNumber(inventoryRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0))}</strong>
+                  <strong>{formatNumber(eligibleInventoryRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0))}</strong>
                 </div>
               </div>
               <div className="cfjStat">
                 <BagIcon />
                 <div>
                   <span>ITEMS</span>
-                  <strong>{formatNumber(inventoryRows.length)}</strong>
+                  <strong>{formatNumber(eligibleInventoryRows.length)}</strong>
                 </div>
               </div>
               <button className="cfjPlus" type="button" onClick={() => setDepositOpen(true)}>+</button>
@@ -398,14 +411,14 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
             <button
               className="cfjIconBtn"
               type="button"
-              disabled={inventoryRows.length === 0 || loading || joining}
+              disabled={eligibleInventoryRows.length === 0 || loading || joining}
               onClick={autoSelect}
               aria-label="Automatically select items"
             >
               <AutoSelectIcon />
             </button>
-            <button className="cfjFlatBtn" type="button" disabled={inventoryRows.length === 0} onClick={toggleSelectAll}>
-              {selectedItems.length === inventoryRows.length ? 'Unselect All' : 'Select all'}
+            <button className="cfjFlatBtn" type="button" disabled={eligibleInventoryRows.length === 0} onClick={toggleSelectAll}>
+              {selectedItems.length === eligibleInventoryRows.length ? 'Unselect All' : 'Select all'}
             </button>
             <button
               className={`cfjJoinBtn${joining ? ' cfjJoinBtnPressed' : ''}`}

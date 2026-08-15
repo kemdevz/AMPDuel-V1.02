@@ -2948,6 +2948,38 @@ app.get('/api/public-profiles', async (req, res) => {
     .filter(isUuidLike)
     .slice(0, 50)
   const username = String(req.query.username || '').trim().slice(0, 100)
+  const robloxId = String(req.query.roblox_id || '').trim()
+
+  if (robloxId) {
+    if (!/^\d{1,20}$/.test(robloxId)) {
+      res.status(400).json({ ok: false, error: 'A valid Roblox user ID is required.' })
+      return
+    }
+
+    const resolvedProfile = await loadPs99ProfileByRobloxId(robloxId)
+    if (!resolvedProfile?.id) {
+      res.json({ ok: true, profiles: [] })
+      return
+    }
+
+    const rows = await adminRest(
+      `user_profiles?select=id,username,avatar_url,avatar_headshot_url,roblox_id,role,level,played,won,lost,summer_tickets&id=eq.${encodeURIComponent(resolvedProfile.id)}&limit=1`,
+    ).catch(async (error) => {
+      if (!isMissingDatabaseColumn(error, 'roblox_id')) throw error
+      return adminRest(
+        `user_profiles?select=id,username,avatar_url,avatar_headshot_url,role,level,played,won,lost,summer_tickets&id=eq.${encodeURIComponent(resolvedProfile.id)}&limit=1`,
+      )
+    })
+    res.json({
+      ok: true,
+      profiles: (Array.isArray(rows) ? rows : []).map((profile) => ({
+        ...profile,
+        roblox_id: profile.roblox_id || robloxId,
+      })),
+    })
+    return
+  }
+
   let filter = ''
   if (ids.length) filter = `&id=in.(${ids.join(',')})`
   else if (username) filter = `&username=eq.${encodeURIComponent(username)}`
@@ -4728,7 +4760,7 @@ function normalizeCoinflipGameMode(value) {
 function coinflipItemsMatchGameMode(items, gameMode) {
   if (!gameMode) return true
   if (!Array.isArray(items) || items.length === 0) return false
-  const pattern = gameMode === 'gems_only' ? /\bgems?\b/i : /\btitanic\b/i
+  const pattern = gameMode === 'gems_only' ? /\bgems?\b/i : /\b(?:titanic|gems?)\b/i
   return items.every((item) => pattern.test(String(item?.name || '')))
 }
 
@@ -4800,7 +4832,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       return res.status(400).json({ ok: false, error: 'Coinflip items must have a positive value.' })
     }
     if (!coinflipItemsMatchGameMode(verifiedCreatorItems, game_mode)) {
-      const label = game_mode === 'gems_only' ? 'Gems' : 'Titanic pets'
+      const label = game_mode === 'gems_only' ? 'Gems' : 'Titanic pets and Gems'
       return res.status(400).json({ ok: false, error: `Select only ${label} to use this lock.` })
     }
 
@@ -4990,7 +5022,7 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
     }
     const gameMode = normalizeCoinflipGameMode(roomObj.game_mode)
     if (!coinflipItemsMatchGameMode(verifiedOpponentItems, gameMode)) {
-      const label = gameMode === 'gems_only' ? 'Gems' : 'Titanic pets'
+      const label = gameMode === 'gems_only' ? 'Gems' : 'Titanic pets and Gems'
       return res.status(400).json({ ok: false, error: `This flip only accepts ${label}.` })
     }
     if (opponentWagerValue * 10 < creatorWagerValue * 9 || opponentWagerValue * 10 > creatorWagerValue * 11) {
