@@ -25,21 +25,6 @@ const bots = [
     active: true,
     avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter',
   },
-  {
-    name: 'PS99_Cline',
-    active: false,
-    avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter',
-  },
-  {
-    name: 'PS99_Dept',
-    active: false,
-    avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter',
-  },
-  {
-    name: 'PS99_Leon',
-    active: false,
-    avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter',
-  },
 ]
 
 function StatusDot({ active }) {
