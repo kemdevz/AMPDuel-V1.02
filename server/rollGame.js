@@ -685,13 +685,62 @@ export function registerRollGame({
     }
   }
 
+  function isRecoverablePersistedRoundError(error) {
+    return /unable to decrypt the active Roll round|invalid encrypted Roll server seed|persisted Roll round .* invalid reel/i
+      .test(String(error?.message || ''))
+  }
+
+  async function recoverUnreadableRound(row, hydrationError) {
+    const roundId = String(row?.id || '')
+    if (!roundId || !isRecoverablePersistedRoundError(hydrationError)) throw hydrationError
+
+    console.error(`[roll] recovering unreadable active round ${roundId}:`, hydrationError.message)
+    let recovery
+    try {
+      recovery = await callRpc('recover_unreadable_roll_round', { p_round_id: roundId })
+    } catch (error) {
+      const migrationMissing = /recover_unreadable_roll_round|schema cache|PGRST202/i.test(String(error?.message || ''))
+      if (!migrationMissing) throw error
+
+      const pendingBets = await adminRest(
+        `roll_bets?select=id&round_id=eq.${encodeURIComponent(roundId)}&outcome=eq.pending&limit=1`,
+      )
+      if (Array.isArray(pendingBets) && pendingBets.length > 0) {
+        throw new Error(
+          'Roll recovery is required. Run migration 20260815030000_recover_unreadable_roll_round.sql so pending plays can be refunded safely.',
+        )
+      }
+      await adminRest(`roll_rounds?id=eq.${encodeURIComponent(roundId)}&status=in.(countdown,rolling)`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: { status: 'cancelled', settled_at: new Date().toISOString() },
+      })
+      recovery = { recovered: true, profile_ids: [] }
+    }
+
+    const refundedProfileIds = Array.isArray(recovery?.profile_ids)
+      ? recovery.profile_ids.map(String).filter(Boolean)
+      : []
+    if (refundedProfileIds.length > 0) void emitProfileUpdates(refundedProfileIds)
+    state.currentRound = null
+    state.bets = []
+    state.previousReelItems = []
+    clearTimers()
+  }
+
   async function initialize() {
     if (state.lifecyclePromise) return state.lifecyclePromise
     state.lifecyclePromise = (async () => {
       await loadHistory()
       const activeRound = await loadActiveRound()
-      if (activeRound) await hydrateRound(activeRound)
-      else await createRound()
+      if (activeRound) {
+        try {
+          await hydrateRound(activeRound)
+        } catch (error) {
+          await recoverUnreadableRound(activeRound, error)
+          await createRound()
+        }
+      } else await createRound()
       state.initialized = true
       return state.currentRound
     })().finally(() => {
