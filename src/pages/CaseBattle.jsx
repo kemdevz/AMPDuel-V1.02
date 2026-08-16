@@ -2893,9 +2893,12 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     Number(battle.revealedRoundCount || 0),
     ...battle.results.map((items) => Array.isArray(items) ? items.length : 0),
   );
-  const displayedResults = battle.status === "active" || battle.deferResolution
-    ? completeResultMatrix.map((items) => items.slice(0, revealedResultCount))
-    : completeResultMatrix;
+  const hideResultsBeforeFirstSpin = isWaitingForPlayers || battle.phase === "countdown";
+  const displayedResults = hideResultsBeforeFirstSpin
+    ? completeResultMatrix.map(() => [])
+    : battle.status === "active" || battle.deferResolution
+      ? completeResultMatrix.map((items) => items.slice(0, revealedResultCount))
+      : completeResultMatrix;
   const totals = displayedResults.map(getPlayerTotal);
   const hasWildMode = modeIds.includes("wild");
   const hasTerminalMode = modeIds.includes("terminal");
