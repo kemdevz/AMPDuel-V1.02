@@ -45,17 +45,6 @@ const games = [
     hoverBackground:
       'radial-gradient(130% 80% at 50% 115%, rgba(120, 80, 255, 0.7) 0%, rgba(22, 25, 45, 0) 100%)',
   },
-  {
-    key: 'jackpot',
-    title: 'Jackpot',
-    subtitle: 'Take a Chance',
-    href: '/jackpot',
-    image: 'https://i.ibb.co/5XkQj1Jt/Chat-GPT-mage-28-Oca-2026-21-11-39.png',
-    background:
-      'linear-gradient(rgba(52, 58, 90, 0.85) 0%, rgba(38, 42, 72, 0.8) 45%, rgba(220, 60, 40, 0.1) 72%, rgba(220, 60, 40, 0.18) 100%), radial-gradient(130% 80% at 50% 115%, rgba(220, 60, 40, 0.32) 0%, rgba(22, 25, 45, 0) 100%), rgb(35, 39, 72)',
-    hoverBackground:
-      'radial-gradient(130% 80% at 50% 115%, rgba(220, 60, 40, 0.7) 0%, rgba(22, 25, 45, 0) 100%)',
-  },
 ]
 
 export default function TopGames() {

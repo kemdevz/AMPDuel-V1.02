@@ -1741,195 +1741,8 @@ function startRainTimer() {
   }, 1000)
 }
 
-const JACKPOT_COUNTDOWN_MS = 60_000
-// The client wheel spins for ten seconds. Keep the resolved round visible long
-// enough for network delivery, the full spin, and a clear winner display.
-const JACKPOT_RESULT_DISPLAY_MS = 18_000
-let jackpotVisibleGame = null
-let jackpotResultExpiresAt = 0
-let jackpotLifecycleBusy = false
-let jackpotEnsurePromise = null
-let jackpotRetryAfter = 0
-let jackpotLastBroadcastSecond = null
-
-function getJackpotSeedKey() {
-  const key = getJwtGameSeedEncryptionKey('jackpot')
-  if (!key) throw new Error('JWT_SECRET is required for Jackpot fairness.')
-  return key
-}
-
-function encryptJackpotServerSeed(serverSeed) {
-  const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', getJackpotSeedKey(), iv)
-  const encrypted = Buffer.concat([cipher.update(serverSeed, 'utf8'), cipher.final()])
-  return `${iv.toString('hex')}.${cipher.getAuthTag().toString('hex')}.${encrypted.toString('hex')}`
-}
-
-function decryptJackpotServerSeed(encryptedSeed) {
-  return decryptAesGcmWithKeys(
-    encryptedSeed,
-    [getJackpotSeedKey()],
-    'Invalid encrypted Jackpot server seed.',
-    'Unable to decrypt the active Jackpot round.',
-  )
-}
-
-function normalizeJackpotGame(game) {
-  const serverNow = Date.now()
-  if (!game) return { entrants: [], endsAt: null, remainingMs: 0, serverNow }
-  const entrants = Array.isArray(game.entrants) ? game.entrants : []
-  const endsAt = game.ends_at ? new Date(game.ends_at).getTime() : null
-  return {
-    id: game.id,
-    status: game.status,
-    entrants,
-    potValue: Number(game.pot_value || 0),
-    taxRateBps: Number(game.tax_rate_bps || 0),
-    taxValue: Number(game.tax_value || 0),
-    taxStockValue: Number(game.tax_stock_value || 0),
-    taxChangeValue: Number(game.tax_change_value || 0),
-    netPayoutValue: Number(game.net_payout_value || 0),
-    endsAt,
-    remainingMs: endsAt ? Math.max(0, endsAt - serverNow) : 0,
-    serverNow,
-    result: game.status === 'resolved' ? 'resolved' : null,
-    winnerId: game.winner_profile_id || null,
-    winnerUsername: game.winner_username || null,
-    winningTicket: game.winning_ticket === null || game.winning_ticket === undefined
-      ? null
-      : Number(game.winning_ticket),
-    serverSeedHash: game.server_seed_hash || null,
-    serverSeed: game.status === 'resolved' ? game.server_seed || null : null,
-    clientSeed: game.client_seed || null,
-    resolvedAt: game.resolved_at || null,
-  }
-}
-
-async function loadActiveJackpotGame() {
-  const rows = await adminRest(
-    'jackpot_games?select=*&status=in.(waiting,countdown)&order=created_at.desc&limit=1',
-  )
-  return Array.isArray(rows) ? rows[0] || null : rows
-}
-
-async function createJackpotGame() {
-  const serverSeed = crypto.randomBytes(32).toString('hex')
-  const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
-  try {
-    const rows = await adminRest('jackpot_games?select=*', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: {
-        status: 'waiting',
-        entrants: [],
-        pot_items: [],
-        entrant_count: 0,
-        pot_value: 0,
-        server_seed_hash: serverSeedHash,
-        server_seed_encrypted: encryptJackpotServerSeed(serverSeed),
-        client_seed: crypto.randomBytes(12).toString('hex'),
-      },
-    })
-    return Array.isArray(rows) ? rows[0] || null : rows
-  } catch (error) {
-    if (String(error?.code || '') !== '23505' && Number(error?.status) !== 409) throw error
-    return loadActiveJackpotGame()
-  }
-}
-
-async function ensureActiveJackpotGame() {
-  if (jackpotVisibleGame && ['waiting', 'countdown'].includes(jackpotVisibleGame.status)) {
-    return jackpotVisibleGame
-  }
-  if (jackpotEnsurePromise) return jackpotEnsurePromise
-  jackpotEnsurePromise = (async () => {
-    const activeGame = await loadActiveJackpotGame() || await createJackpotGame()
-    jackpotVisibleGame = activeGame
-    return activeGame
-  })().finally(() => {
-    jackpotEnsurePromise = null
-  })
-  return jackpotEnsurePromise
-}
-
-function emitJackpotState(game = jackpotVisibleGame) {
-  io.emit('jackpot:state', normalizeJackpotGame(game))
-}
-
-function getJackpotRandomValue(game, serverSeed) {
-  const digestHex = crypto
-    .createHmac('sha256', serverSeed)
-    .update(`${game.client_seed}:${game.id}`)
-    .digest('hex')
-  return BigInt(`0x${digestHex.slice(0, 15)}`).toString()
-}
-
-async function settleJackpotGame(game) {
-  const serverSeed = decryptJackpotServerSeed(game.server_seed_encrypted)
-  const expectedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
-  if (expectedHash !== game.server_seed_hash) throw new Error('The Jackpot seed commitment is invalid.')
-  const randomValue = getJackpotRandomValue(game, serverSeed)
-  const settled = await callRainRpc('settle_jackpot_game', {
-    p_game_id: game.id,
-    p_random_value: randomValue,
-    p_server_seed: serverSeed,
-  })
-  jackpotVisibleGame = settled
-  jackpotResultExpiresAt = Date.now() + JACKPOT_RESULT_DISPLAY_MS
-  jackpotLastBroadcastSecond = null
-  emitJackpotState(settled)
-  const entrantIds = (Array.isArray(settled?.entrants) ? settled.entrants : [])
-    .map((entrant) => entrant?.profileId)
-    .filter(Boolean)
-  void emitWalletRefreshes(entrantIds)
-}
-
-async function runJackpotLifecycle() {
-  if (jackpotLifecycleBusy || Date.now() < jackpotRetryAfter) return
-  jackpotLifecycleBusy = true
-  try {
-    if (jackpotVisibleGame?.status === 'resolved') {
-      if (Date.now() < jackpotResultExpiresAt) return
-      jackpotVisibleGame = null
-      jackpotResultExpiresAt = 0
-      jackpotLastBroadcastSecond = null
-    }
-    const game = await ensureActiveJackpotGame()
-    if (game?.status === 'countdown' && new Date(game.ends_at).getTime() <= Date.now()) {
-      await settleJackpotGame(game)
-    } else if (game?.status === 'countdown') {
-      const remainingSecond = Math.max(0, Math.ceil((new Date(game.ends_at).getTime() - Date.now()) / 1000))
-      if (remainingSecond !== jackpotLastBroadcastSecond) {
-        jackpotLastBroadcastSecond = remainingSecond
-        emitJackpotState(game)
-      }
-    } else {
-      jackpotLastBroadcastSecond = null
-    }
-    jackpotRetryAfter = 0
-  } catch (error) {
-    console.warn('[jackpot] lifecycle error', error?.message || error)
-    jackpotVisibleGame = null
-    jackpotRetryAfter = Date.now() + 10_000
-  } finally {
-    jackpotLifecycleBusy = false
-  }
-}
-
-async function initializeJackpotState() {
-  try {
-    await ensureActiveJackpotGame()
-  } catch (error) {
-    console.warn('[jackpot] initialization deferred', error?.message || error)
-  }
-  setInterval(() => {
-    void runJackpotLifecycle()
-  }, 500)
-}
-
 await initializeRainState()
 startRainTimer()
-await initializeJackpotState()
 io.use(async (socket, next) => {
   try {
     const identity = await getAuthenticatedIdentityFromHeaders(socket.handshake.headers)
@@ -1978,73 +1791,6 @@ io.on('connection', (socket) => {
     const count = getOnlineCount()
     if (typeof acknowledge === 'function') acknowledge(count)
     else socket.emit('online:count', count)
-  })
-
-  socket.on('jackpot:state:get', async (acknowledge) => {
-    try {
-      if (jackpotVisibleGame?.status === 'resolved' && Date.now() < jackpotResultExpiresAt) {
-        if (typeof acknowledge === 'function') acknowledge(normalizeJackpotGame(jackpotVisibleGame))
-        return
-      }
-      const game = await ensureActiveJackpotGame()
-      if (typeof acknowledge === 'function') acknowledge(normalizeJackpotGame(game))
-    } catch (error) {
-      console.warn('[jackpot] state error', error?.message || error)
-      if (typeof acknowledge === 'function') acknowledge({ entrants: [], endsAt: null, error: 'Jackpot is unavailable.' })
-    }
-  })
-
-  socket.on('jackpot:join', async (payload, acknowledge) => {
-    const respond = (response) => {
-      if (typeof acknowledge === 'function') acknowledge(response)
-    }
-    if (!await isSiteServiceEnabled('jackpot')) {
-      respond({ ok: false, error: 'Jackpot is currently paused.' })
-      return
-    }
-    if (!socket.data.identity?.profileId) {
-      respond({ ok: false, error: 'Please sign in to join the Jackpot.' })
-      return
-    }
-    const requestedIds = Array.isArray(payload?.item_ids) ? payload.item_ids.map(String) : []
-    const itemIds = [...new Set(requestedIds.filter(isUuidLike))]
-    if (itemIds.length !== requestedIds.length || itemIds.length < 1 || itemIds.length > 20) {
-      respond({ ok: false, error: 'Select between 1 and 20 unique items.' })
-      return
-    }
-
-    try {
-      if (jackpotVisibleGame?.status === 'resolved' && Date.now() < jackpotResultExpiresAt) {
-        respond({ ok: false, error: 'Wait for the next Jackpot round.' })
-        return
-      }
-      const game = await ensureActiveJackpotGame()
-      const profile = await loadProfileById(socket.data.identity.profileId)
-      if (!profile) throw new Error('Your user profile could not be found.')
-      const joined = await callRainRpc('join_jackpot_game', {
-        p_game_id: game.id,
-        p_profile_id: String(socket.data.identity.profileId),
-        p_item_ids: itemIds,
-        p_entrant: {
-          username: String(profile.username || 'Player'),
-          avatar: String(profile.avatar_headshot_url || profile.avatar_url || ''),
-        },
-        p_ends_at: new Date(Date.now() + JACKPOT_COUNTDOWN_MS).toISOString(),
-      })
-      jackpotVisibleGame = joined
-      jackpotLastBroadcastSecond = null
-      emitJackpotState(joined)
-      void emitWalletRefreshes([socket.data.identity.profileId])
-      respond({ ok: true, round: normalizeJackpotGame(joined) })
-    } catch (error) {
-      const missingMigration = /join_jackpot_game.*schema cache|jackpot_games.*does not exist/i.test(error?.message || '')
-      const message = missingMigration
-        ? 'Jackpot is not installed in Supabase yet. Run migration 20260811013000_create_secure_jackpot_games.sql.'
-        : error?.message || 'Unable to join the Jackpot.'
-      const expected = /select between|already joined|closed|full|inventory|selected item|profile|next Jackpot/i.test(message)
-      console.warn('[jackpot] join error', message)
-      respond({ ok: false, error: message, status: expected ? 409 : 500 })
-    }
   })
 
   socket.on('online:identify', () => {
@@ -2600,7 +2346,7 @@ async function requireAdminProfile(req, res) {
 
 const SITE_SERVICE_KEYS = [
   'case_battles', 'cases', 'coinflip', 'upgrader', 'mines',
-  'roll', 'blackjack', 'jackpot', 'chat', 'rain',
+  'roll', 'blackjack', 'chat', 'rain',
 ]
 const DEFAULT_SITE_SERVICES = Object.fromEntries(SITE_SERVICE_KEYS.map((key) => [key, true]))
 let siteServiceSettingsCache = { ...DEFAULT_SITE_SERVICES }
@@ -2942,10 +2688,8 @@ app.get('/api/profile/game-history', requireAuthenticatedUser, async (req, res) 
   const profileId = String(req.identity.profileId)
   const encodedProfileId = encodeURIComponent(profileId)
   const encodedBattleParticipant = encodeURIComponent(JSON.stringify([{ profile_id: profileId }]))
-  const encodedJackpotEntrant = encodeURIComponent(JSON.stringify([{ profileId }]))
-
   try {
-    const [caseRows, battleRows, coinflipRows, upgraderRows, minesRows, rollRows, blackjackRows, jackpotRows] = await Promise.all([
+    const [caseRows, battleRows, coinflipRows, upgraderRows, minesRows, rollRows, blackjackRows] = await Promise.all([
       adminRest(`case_openings?select=id,case_name,case_price,coin_payout,purchased_at,resolved_at&user_id=eq.${encodedProfileId}&order=resolved_at.desc&limit=100`),
       adminRest(`case_battle_games?select=*&players=cs.${encodedBattleParticipant}&status=in.(resolved,cancelled)&order=created_at.desc&limit=100`),
       adminRest(`coinflip_games?select=*&or=(creator_uuid.eq.${encodedProfileId},opponent_uuid.eq.${encodedProfileId})&order=created_at.desc&limit=100`),
@@ -2953,7 +2697,6 @@ app.get('/api/profile/game-history', requireAuthenticatedUser, async (req, res) 
       adminRest(`mines_games?select=id,wager_value,current_value,game_state,created_at,cashed_out_at&profile_id=eq.${encodedProfileId}&game_state=neq.active&order=created_at.desc&limit=100`),
       adminRest(`roll_bets?select=id,wager_amount,payout_amount,outcome,placed_at,settled_at&profile_id=eq.${encodedProfileId}&outcome=not.is.null&order=placed_at.desc&limit=100`),
       adminRest(`blackjack_games?select=id,wager_value,payout_value,outcome,created_at,resolved_at&profile_id=eq.${encodedProfileId}&game_state=eq.finished&order=resolved_at.desc&limit=100`),
-      adminRest(`jackpot_games?select=*&entrants=cs.${encodedJackpotEntrant}&status=in.(resolved,cancelled)&order=created_at.desc&limit=100`),
     ])
 
     const rows = []
@@ -3034,18 +2777,6 @@ app.get('/api/profile/game-history', requireAuthenticatedUser, async (req, res) 
       addRow({ id: `blackjack:${game.id}`, game: 'Blackjack', filter: 'blackjack',
         status: game.outcome === 'push' ? 'PUSH' : won ? 'WON' : 'LOST', amount: wager,
         profit: payout - wager, date: game.resolved_at || game.created_at })
-    }
-
-    for (const game of Array.isArray(jackpotRows) ? jackpotRows : []) {
-      const entrants = Array.isArray(game.entrants) ? game.entrants : []
-      if (!entrants.some((entrant) => String(entrant?.profileId || '') === profileId)) continue
-      const wager = historyParticipantValue(entrants, profileId, 'profileId')
-      const won = String(game.winner_profile_id || '') === profileId
-      const payout = won ? Math.max(0, Number(game.net_payout_value) || Number(game.pot_value) || 0) : 0
-      const cancelled = game.status === 'cancelled'
-      addRow({ id: `jackpot:${game.id}`, game: 'Jackpot', filter: 'jackpot',
-        status: cancelled ? 'CANCELLED' : won ? 'WON' : 'LOST', amount: wager,
-        profit: cancelled ? 0 : payout - wager, date: game.resolved_at || game.created_at })
     }
 
     rows.sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime())

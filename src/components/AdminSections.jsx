@@ -27,7 +27,6 @@ import {
   MinesIcon,
   RollIcon,
   BlackjackIcon,
-  JackpotIcon,
 } from './icons'
 import { notifications } from './Notifications'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
@@ -71,7 +70,7 @@ const petImages = [
   'https://biggamesapi.io/image/14976555825',
 ]
 
-const games = ['Case Battles', 'Cases', 'Coinflip', 'Upgrader', 'Mines', 'Roll', 'Blackjack', 'Jackpot']
+const games = ['Case Battles', 'Cases', 'Coinflip', 'Upgrader', 'Mines', 'Roll', 'Blackjack']
 const serviceKeys = {
   'Case Battles': 'case_battles',
   Cases: 'cases',
@@ -80,7 +79,6 @@ const serviceKeys = {
   Mines: 'mines',
   Roll: 'roll',
   Blackjack: 'blackjack',
-  Jackpot: 'jackpot',
   Chat: 'chat',
   Rain: 'rain',
 }
@@ -92,7 +90,6 @@ const gameIcons = {
   Mines: MinesIcon,
   Roll: RollIcon,
   Blackjack: BlackjackIcon,
-  Jackpot: JackpotIcon,
 }
 
 const people = [

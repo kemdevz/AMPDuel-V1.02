@@ -5,7 +5,6 @@ import Coinflip from './pages/Coinflip'
 import SummerEvent from './pages/SummerEvent'
 import Cases from './pages/Cases'
 import CaseBattle from './pages/CaseBattle'
-import Jackpot from './pages/Jackpot'
 import Mines from './pages/Mines'
 import Roll from './pages/Roll'
 import Upgrader from './pages/Upgrader'
@@ -32,7 +31,6 @@ function AppRoutes() {
     coinflip: <Coinflip />,
     events: <SummerEvent />,
     cases: <Cases />,
-    jackpot: <Jackpot />,
     mines: <Mines />,
     roll: <Roll />,
     blackjack: <Blackjack />,

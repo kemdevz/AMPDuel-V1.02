@@ -5,7 +5,6 @@ import {
   UpgraderIcon,
   MinesIcon,
   RollIcon,
-  JackpotIcon,
   LiveCasinoIcon,
   BlackjackIcon,
   ProfileIcon,
@@ -25,7 +24,6 @@ export const navSections = [
       { name: 'Mines', icon: MinesIcon, path: 'mines' },
       { name: 'Roll', icon: RollIcon, path: 'roll' },
       { name: 'Blackjack', icon: BlackjackIcon, path: 'blackjack' },
-      { name: 'Jackpot', icon: JackpotIcon, path: 'jackpot' },
       { name: 'Live Casino', icon: LiveCasinoIcon, path: 'live-casino', enabled: false },
     ],
   },
@@ -74,14 +72,6 @@ export const games = [
     art: 'mines',
     glow: 'rgba(168,85,247,0.5)',
     footer: 'from-[#3d1f5c] via-[#6a3aa8] to-[#9d4fdb]',
-  },
-  {
-    key: 'jackpot',
-    title: 'Jackpot',
-    subtitle: 'Take A Chance',
-    art: 'jackpot',
-    glow: 'rgba(236,72,153,0.5)',
-    footer: 'from-[#5a1e3f] via-[#9a2d60] to-[#d94878]',
   },
 ]
 
