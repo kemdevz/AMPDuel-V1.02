@@ -3874,11 +3874,83 @@ function decryptCaseBattleServerSeed(encryptedSeed) {
 const CASE_BATTLE_ANIMATION_BASE_MS = 3_000
 const CASE_BATTLE_ROUND_MS = 6_250
 const CASE_BATTLE_FAST_ROUND_MS = 2_490
+const EOS_MAINNET_CHAIN_ID = 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906'
+const EOS_BLOCK_OFFSET = Math.max(2, Math.min(20, Number.parseInt(process.env.EOS_BLOCK_OFFSET || '4', 10) || 4))
+const EOS_BLOCK_WAIT_TIMEOUT_MS = Math.max(10_000, Math.min(60_000, Number.parseInt(process.env.EOS_BLOCK_WAIT_TIMEOUT_MS || '30000', 10) || 30_000))
+const EOS_RPC_TIMEOUT_MS = Math.max(2_000, Math.min(15_000, Number.parseInt(process.env.EOS_RPC_TIMEOUT_MS || '6000', 10) || 6_000))
 const caseBattleSettlementTimers = new Map()
+const caseBattleStartPromises = new Map()
+const caseBattleStartRetryTimers = new Map()
 
-function caseBattleRandomFraction(serverSeed, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
+function getEosRpcEndpoints() {
+  return [...new Set([
+    process.env.EOS_RPC_URL,
+    'https://vaulta.greymass.com',
+    'https://eos.greymass.com',
+  ].map((value) => String(value || '').trim().replace(/\/+$/, '')).filter(Boolean))]
+}
+
+async function callEosRpc(path, body) {
+  let lastError = null
+  for (const endpoint of getEosRpcEndpoints()) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), EOS_RPC_TIMEOUT_MS)
+    try {
+      const response = await fetch(`${endpoint}${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(body || {}),
+        signal: controller.signal,
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error?.what || payload?.message || `EOS RPC returned HTTP ${response.status}.`)
+      return payload
+    } catch (error) {
+      lastError = error
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+  throw new Error(`Unable to reach an EOS RPC endpoint${lastError?.message ? `: ${lastError.message}` : '.'}`)
+}
+
+async function getEosHeadBlock() {
+  const info = await callEosRpc('/v1/chain/get_info', {})
+  const expectedChainId = String(process.env.EOS_CHAIN_ID || EOS_MAINNET_CHAIN_ID).trim().toLowerCase()
+  const actualChainId = String(info?.chain_id || '').trim().toLowerCase()
+  const headBlockNumber = Number(info?.head_block_num)
+  if (actualChainId !== expectedChainId) throw new Error('The configured EOS RPC endpoint returned the wrong chain.')
+  if (!Number.isSafeInteger(headBlockNumber) || headBlockNumber < 1) throw new Error('The EOS RPC endpoint returned an invalid head block.')
+  return headBlockNumber
+}
+
+async function fetchEosBlock(blockNumber) {
+  const block = await callEosRpc('/v1/chain/get_block', { block_num_or_id: String(blockNumber) })
+  const returnedNumber = Number(block?.block_num)
+  const blockId = String(block?.id || '').trim().toLowerCase()
+  if (returnedNumber !== blockNumber || !/^[a-f0-9]{64}$/.test(blockId)) {
+    throw new Error('The EOS RPC endpoint returned an invalid block.')
+  }
+  return { number: returnedNumber, id: blockId }
+}
+
+async function waitForEosBlock(blockNumber) {
+  const deadline = Date.now() + EOS_BLOCK_WAIT_TIMEOUT_MS
+  let lastError = null
+  while (Date.now() < deadline) {
+    try {
+      return await fetchEosBlock(blockNumber)
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    }
+  }
+  throw new Error(`Timed out waiting for EOS block #${blockNumber}${lastError?.message ? `: ${lastError.message}` : '.'}`)
+}
+
+function caseBattleRandomFraction(serverSeed, eosBlockId, clientSeed, nonce, battleId, roundIndex, slotIndex, purpose = 'item') {
   const digest = crypto.createHmac('sha256', serverSeed)
-    .update(`${clientSeed}:${nonce}:${battleId}:${roundIndex}:${slotIndex}:${purpose}`)
+    .update(`${eosBlockId}:${clientSeed}:${nonce}:${battleId}:${roundIndex}:${slotIndex}:${purpose}`)
     .digest('hex')
   return Number.parseInt(digest.slice(0, 13), 16) / 0x10000000000000
 }
@@ -3903,7 +3975,7 @@ function pickCaseBattleItem(caseRow, fraction) {
   }
 }
 
-function resolveCaseBattleOutcome(battle, serverSeed) {
+function resolveCaseBattleOutcome(battle, serverSeed, eosBlockId) {
   // Players are appended to the JSON array in join order, which is not
   // necessarily their selected visual/team slot. All rolls, team totals and
   // payouts must use the canonical slot order shown to every client.
@@ -3911,7 +3983,7 @@ function resolveCaseBattleOutcome(battle, serverSeed) {
   const cases = Array.isArray(battle.cases) ? battle.cases : []
   const results = players.map((_, slotIndex) => cases.map((caseRow, roundIndex) => pickCaseBattleItem(
     caseRow,
-    caseBattleRandomFraction(serverSeed, battle.client_seed, battle.nonce, battle.id, roundIndex, slotIndex),
+    caseBattleRandomFraction(serverSeed, eosBlockId, battle.client_seed, battle.nonce, battle.id, roundIndex, slotIndex),
   )))
   const totals = results.map((items) => items.reduce((sum, item) => sum + Number(item.value || 0), 0))
   const modes = Array.isArray(battle.modes) ? battle.modes : ['normal']
@@ -3925,10 +3997,10 @@ function resolveCaseBattleOutcome(battle, serverSeed) {
   if (String(battle.player_option).startsWith('group-') || modes.includes('group')) {
     winnerIndexes = players.map((_, index) => index)
   } else if (modes.includes('coinflip')) {
-    winnerIndexes = [Math.min(players.length - 1, Math.floor(caseBattleRandomFraction(serverSeed, battle.client_seed, battle.nonce, battle.id, 0, 0, 'winner') * players.length))]
+    winnerIndexes = [Math.min(players.length - 1, Math.floor(caseBattleRandomFraction(serverSeed, eosBlockId, battle.client_seed, battle.nonce, battle.id, 0, 0, 'winner') * players.length))]
   } else if (modes.includes('jackpot')) {
     const weightTotal = totals.reduce((sum, value) => sum + Math.max(0, value), 0)
-    let cursor = caseBattleRandomFraction(serverSeed, battle.client_seed, battle.nonce, battle.id, 0, 0, 'winner') * (weightTotal || players.length)
+    let cursor = caseBattleRandomFraction(serverSeed, eosBlockId, battle.client_seed, battle.nonce, battle.id, 0, 0, 'winner') * (weightTotal || players.length)
     let winnerIndex = players.length - 1
     for (let index = 0; index < players.length; index += 1) {
       cursor -= weightTotal ? Math.max(0, totals[index]) : 1
@@ -4006,22 +4078,73 @@ function scheduleCaseBattleSettlement(battle, retryAttempt = 0) {
   caseBattleSettlementTimers.set(battleId, timer)
 }
 
-async function startCaseBattle(battle) {
+async function prepareCaseBattleStart(battle) {
   if (!battle || !['waiting', 'ready'].includes(battle.status) || Number(battle.player_count) < Number(battle.max_players)) return battle
+  const orderedPlayers = orderCaseBattlePlayersBySlot(battle.players)
+  let eosBlockNumber = Number(battle.eos_block_number)
+  const storedStartedAt = new Date(battle.started_at || 0)
+
+  const needsEosBlockNumber = !Number.isSafeInteger(eosBlockNumber) || eosBlockNumber < 1
+  if (!needsEosBlockNumber && battle.started_at) return battle
+  if (needsEosBlockNumber) eosBlockNumber = (await getEosHeadBlock()) + EOS_BLOCK_OFFSET
+  // Do not consume part of the first countdown second while waiting on the
+  // EOS head request. The completed start payload must arrive with a fresh,
+  // full "3" before progressing to 2.
+  const countdownStartedAt = Number.isFinite(storedStartedAt.getTime()) && storedStartedAt.getTime() > 0
+    ? storedStartedAt
+    : new Date()
+
+  const preparedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}&status=in.(waiting,ready)`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: {
+      status: 'ready',
+      players: orderedPlayers,
+      eos_block_number: eosBlockNumber,
+      eos_block_id: null,
+      started_at: countdownStartedAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  })
+  const preparedBattle = Array.isArray(preparedRows) ? preparedRows[0] : preparedRows
+  if (!preparedBattle) {
+    const currentRows = await adminRest(`case_battle_games?select=*&id=eq.${encodeURIComponent(battle.id)}&limit=1`)
+    const currentBattle = Array.isArray(currentRows) ? currentRows[0] : currentRows
+    if (currentBattle?.id && Number.isSafeInteger(Number(currentBattle.eos_block_number))) return currentBattle
+    throw new Error('The Case Battle start state changed before its EOS block could be locked.')
+  }
+  io.emit('case-battle:updated', preparedBattle)
+  return preparedBattle
+}
+
+async function startCaseBattleInternal(battle) {
+  if (!battle || !['waiting', 'ready'].includes(battle.status) || Number(battle.player_count) < Number(battle.max_players)) return battle
+  const preparedBattle = await prepareCaseBattleStart(battle)
+  const eosBlockNumber = Number(preparedBattle.eos_block_number)
+  if (!Number.isSafeInteger(eosBlockNumber) || eosBlockNumber < 1) {
+    throw new Error('The Case Battle EOS block could not be locked.')
+  }
+
+  const eosBlock = await waitForEosBlock(eosBlockNumber)
   const secretRows = await adminRest(`case_battle_fairness_secrets?select=server_seed_encrypted&battle_id=eq.${encodeURIComponent(battle.id)}&limit=1`)
   const secret = Array.isArray(secretRows) ? secretRows[0] : secretRows
   const serverSeed = decryptCaseBattleServerSeed(secret?.server_seed_encrypted)
-  const outcome = resolveCaseBattleOutcome(battle, serverSeed)
-  // Start the shared three-second countdown immediately. A future start
-  // boundary held the first number for an extra second before 3 changed to 2.
-  const startedAt = new Date()
-  const roundDuration = battle.gold_spin ? CASE_BATTLE_FAST_ROUND_MS : CASE_BATTLE_ROUND_MS
-  const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(battle.case_count) * roundDuration)
-  const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(battle.id)}&status=in.(waiting,ready)`, {
+  if (crypto.createHash('sha256').update(serverSeed).digest('hex') !== preparedBattle.server_seed_hash) {
+    throw new Error('Case Battle seed commitment is invalid.')
+  }
+  const outcome = resolveCaseBattleOutcome(preparedBattle, serverSeed, eosBlock.id)
+  // The countdown begins while the future EOS block is being reached. Keep
+  // that same server-authored boundary when the outcome becomes available so
+  // clients never restart 3-2-1 after the final slot is filled.
+  const startedAt = new Date(preparedBattle.started_at)
+  const roundDuration = preparedBattle.gold_spin ? CASE_BATTLE_FAST_ROUND_MS : CASE_BATTLE_ROUND_MS
+  const settleAt = new Date(startedAt.getTime() + CASE_BATTLE_ANIMATION_BASE_MS + Number(preparedBattle.case_count) * roundDuration)
+  const updatedRows = await adminRest(`case_battle_games?id=eq.${encodeURIComponent(preparedBattle.id)}&status=eq.ready&eos_block_number=eq.${eosBlockNumber}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
     body: {
       status: 'active', players: outcome.players, results: outcome.results,
+      eos_block_id: eosBlock.id,
       winner_profile_id: outcome.winnerProfiles[0]?.profile_id || null,
       winner_profile_ids: outcome.winnerProfiles.map((player) => String(player.profile_id)),
       payouts: outcome.payouts, payout_value: outcome.totalPot,
@@ -4036,12 +4159,55 @@ async function startCaseBattle(battle) {
   return updated || battle
 }
 
+async function startCaseBattle(battle) {
+  const battleId = String(battle?.id || '')
+  if (!battleId) return battle
+  const existing = caseBattleStartPromises.get(battleId)
+  if (existing) return existing
+  const pending = startCaseBattleInternal(battle)
+    .then((startedBattle) => {
+      const retryTimer = caseBattleStartRetryTimers.get(battleId)
+      if (retryTimer) clearTimeout(retryTimer)
+      caseBattleStartRetryTimers.delete(battleId)
+      return startedBattle
+    })
+    .catch((error) => {
+      scheduleCaseBattleStartRetry(battleId)
+      throw error
+    })
+    .finally(() => caseBattleStartPromises.delete(battleId))
+  caseBattleStartPromises.set(battleId, pending)
+  return pending
+}
+
+function scheduleCaseBattleStartRetry(battleId) {
+  const normalizedId = String(battleId || '')
+  if (!normalizedId || caseBattleStartRetryTimers.has(normalizedId)) return
+  const timer = setTimeout(async () => {
+    caseBattleStartRetryTimers.delete(normalizedId)
+    try {
+      const rows = await adminRest(`case_battle_games?select=*&id=eq.${encodeURIComponent(normalizedId)}&limit=1`)
+      const battle = Array.isArray(rows) ? rows[0] : rows
+      if (battle?.status === 'ready' && Number(battle.player_count) >= Number(battle.max_players)) {
+        await startCaseBattle(battle)
+      }
+    } catch (error) {
+      console.warn(`[case-battles] EOS start retry failed for ${normalizedId}`, error?.message || error)
+    }
+  }, 3_000)
+  caseBattleStartRetryTimers.set(normalizedId, timer)
+}
+
 async function initializeCaseBattles() {
   try {
     const rows = await adminRest('case_battle_games?select=*&status=in.(ready,active)&order=created_at.asc')
     for (const battle of Array.isArray(rows) ? rows : []) {
       if (battle.status === 'active') scheduleCaseBattleSettlement(battle)
-      else if (Number(battle.player_count) >= Number(battle.max_players)) await startCaseBattle(battle)
+      else if (Number(battle.player_count) >= Number(battle.max_players)) {
+        void startCaseBattle(battle).catch((error) => {
+          console.warn(`[case-battles] unable to resume EOS wait for ${battle.id}`, error?.message || error)
+        })
+      }
     }
   } catch (error) {
     console.warn('[case-battles] initialisation skipped', error?.message || error)
@@ -4254,16 +4420,18 @@ app.post('/api/case-battles/:battleId/call-bot', express.json({ limit: '8kb' }),
         headers: { Prefer: 'return=representation' },
       },
     )
-    const updatedBattle = Array.isArray(updatedRows) ? updatedRows[0] || null : updatedRows
+    let updatedBattle = Array.isArray(updatedRows) ? updatedRows[0] || null : updatedRows
     if (!updatedBattle) {
       res.status(409).json({ ok: false, error: 'The Case Battle changed while the bot was joining.' })
       return
     }
-    const responseBattle = nextCount >= Number(battle.max_players)
-      ? await startCaseBattle(updatedBattle)
-      : updatedBattle
-    if (responseBattle === updatedBattle) io.emit('case-battle:updated', updatedBattle)
-    res.json({ ok: true, battle: stampCaseBattleServerTime(responseBattle) })
+    if (nextCount >= Number(battle.max_players)) {
+      updatedBattle = await prepareCaseBattleStart(updatedBattle)
+      void startCaseBattle(updatedBattle).catch((error) => {
+        console.warn(`[case-battles] waiting for EOS after bot joined ${battleId}`, error?.message || error)
+      })
+    } else io.emit('case-battle:updated', updatedBattle)
+    res.json({ ok: true, battle: stampCaseBattleServerTime(updatedBattle) })
   } catch (error) {
     const message = error?.message || 'Unable to call a bot.'
     console.warn('[api/case-battles] call bot error', message)
@@ -4301,14 +4469,16 @@ app.post('/api/case-battles/:battleId/join', express.json({ limit: '8kb' }), req
         lost: Number(profile.lost) || 0,
       },
     })
-    const joinedBattle = result?.battle || null
+    let joinedBattle = result?.battle || null
     if (!joinedBattle) throw new Error('The joined Case Battle was not returned.')
-    const responseBattle = Number(joinedBattle.player_count) >= Number(joinedBattle.max_players)
-      ? await startCaseBattle(joinedBattle)
-      : joinedBattle
-    if (responseBattle === joinedBattle) io.emit('case-battle:updated', joinedBattle)
+    if (Number(joinedBattle.player_count) >= Number(joinedBattle.max_players)) {
+      joinedBattle = await prepareCaseBattleStart(joinedBattle)
+      void startCaseBattle(joinedBattle).catch((error) => {
+        console.warn(`[case-battles] waiting for EOS after player joined ${battleId}`, error?.message || error)
+      })
+    } else io.emit('case-battle:updated', joinedBattle)
     void emitWalletRefreshes([profileId])
-    res.json({ ok: true, battle: stampCaseBattleServerTime(responseBattle), balance: result?.balance })
+    res.json({ ok: true, battle: stampCaseBattleServerTime(joinedBattle), balance: result?.balance })
   } catch (error) {
     const missingJoinFunction = /join_case_battle_game.*schema cache|schema cache.*join_case_battle_game/i.test(error?.message || '')
     const message = missingJoinFunction
@@ -6061,6 +6231,9 @@ const rollGame = registerRollGame({
   adminRest,
   getSupabaseAdminConfig,
   emitProfileUpdates,
+  getEosHeadBlock,
+  waitForEosBlock,
+  eosBlockOffset: EOS_BLOCK_OFFSET,
 })
 
 app.get('/api/games/feed', (req, res) => {

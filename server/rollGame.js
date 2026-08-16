@@ -182,14 +182,14 @@ function alignMultipliersToItemValues(items, generatedMultipliers) {
   return aligned
 }
 
-function generateResultIndex(serverSeed, clientSeed, nonce) {
+function generateResultIndex(serverSeed, eosBlockId, clientSeed, nonce) {
   const resultRange = RESULT_INDEX_MAX - RESULT_INDEX_MIN + 1
   const unbiasedLimit = Math.floor(0x100000000 / resultRange) * resultRange
 
   for (let attempt = 0; ; attempt += 1) {
     const digest = crypto
       .createHmac('sha256', serverSeed)
-      .update(`${clientSeed}:${nonce}:result-index:${attempt}`)
+      .update(`${eosBlockId}:${clientSeed}:${nonce}:result-index:${attempt}`)
       .digest()
     const candidate = digest.readUInt32BE(0)
     if (candidate < unbiasedLimit) {
@@ -227,6 +227,9 @@ export function registerRollGame({
   adminRest,
   getSupabaseAdminConfig,
   emitProfileUpdates,
+  getEosHeadBlock,
+  waitForEosBlock,
+  eosBlockOffset = 4,
 }) {
   const state = {
     currentRound: null,
@@ -237,19 +240,26 @@ export function registerRollGame({
     countdownTimer: null,
     settlementTimer: null,
     nextRoundTimer: null,
+    eosRetryTimer: null,
+    eosPromise: null,
     catalog: [],
     catalogExpiresAt: 0,
     previousReelItems: [],
     initialized: false,
+    databaseClockOffsetMs: 0,
+    databaseClockSyncedAt: 0,
   }
 
   function clearTimers() {
     if (state.countdownTimer) clearTimeout(state.countdownTimer)
     if (state.settlementTimer) clearTimeout(state.settlementTimer)
     if (state.nextRoundTimer) clearTimeout(state.nextRoundTimer)
+    if (state.eosRetryTimer) clearTimeout(state.eosRetryTimer)
     state.countdownTimer = null
     state.settlementTimer = null
     state.nextRoundTimer = null
+    state.eosRetryTimer = null
+    state.eosPromise = null
   }
 
   function deriveSeedKey(secret) {
@@ -334,6 +344,35 @@ export function registerRollGame({
     return result
   }
 
+  function rollNow() {
+    return Date.now() + state.databaseClockOffsetMs
+  }
+
+  async function syncDatabaseClock(force = false) {
+    if (!force && state.databaseClockSyncedAt > Date.now() - 30_000) return state.databaseClockOffsetMs
+    const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
+    if (!supabaseUrl || !supabaseKey) return state.databaseClockOffsetMs
+    const requestStartedAt = Date.now()
+    const response = await fetch(`${supabaseUrl}/rest/v1/roll_rounds?select=id&limit=0`, {
+      headers: {
+        apikey: supabaseKey,
+        ...(!String(supabaseKey).startsWith('sb_secret_') ? { Authorization: `Bearer ${supabaseKey}` } : {}),
+        'Cache-Control': 'no-cache',
+      },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!response.ok) throw new Error(`Unable to synchronize the Roll database clock (${response.status}).`)
+    const databaseDate = new Date(response.headers.get('date') || 0).getTime()
+    if (!Number.isFinite(databaseDate) || databaseDate <= 0) return state.databaseClockOffsetMs
+    const requestFinishedAt = Date.now()
+    // HTTP Date has one-second precision. Its midpoint plus half a second is a
+    // closer estimate than treating the truncated value as the exact instant.
+    const localMidpoint = requestStartedAt + (requestFinishedAt - requestStartedAt) / 2
+    state.databaseClockOffsetMs = databaseDate + 500 - localMidpoint
+    state.databaseClockSyncedAt = requestFinishedAt
+    return state.databaseClockOffsetMs
+  }
+
   async function loadCatalog() {
     if (state.catalogExpiresAt > Date.now() && state.catalog.length > 0) return state.catalog
     const catalog = []
@@ -390,10 +429,10 @@ export function registerRollGame({
   function timeRemaining(round = state.currentRound) {
     if (!round) return 0
     if (round.status === 'countdown') {
-      return Math.max(0, new Date(round.bettingClosesAt).getTime() - Date.now())
+      return Math.max(0, new Date(round.bettingClosesAt).getTime() - rollNow())
     }
     if (round.status === 'rolling') {
-      return Math.max(0, new Date(round.rollingStartedAt).getTime() + ROLL_DURATION_MS - Date.now())
+      return Math.max(0, new Date(round.rollingStartedAt).getTime() + ROLL_DURATION_MS - rollNow())
     }
     return 0
   }
@@ -412,6 +451,8 @@ export function registerRollGame({
       result_multiplier: resultVisible ? round.resultMultiplier : 0,
       result_index: resultVisible ? round.resultIndex : null,
       server_seed_hash: round.serverSeedHash,
+      eos_block_number: round.eosBlockNumber,
+      eos_block_id: round.eosBlockId || null,
       revealed_server_seed: round.status === 'settled' ? round.serverSeed : null,
       client_seed: round.clientSeed,
       nonce: round.nonce,
@@ -452,6 +493,7 @@ export function registerRollGame({
 
   async function createRoundInternal() {
     clearTimers()
+    await syncDatabaseClock()
     const catalog = await loadCatalog()
     const previousItems = state.currentRound?.items?.length === REEL_ITEM_COUNT
       ? state.currentRound.items
@@ -460,11 +502,14 @@ export function registerRollGame({
     const serverSeed = crypto.randomBytes(32).toString('hex')
     const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
     const clientSeed = crypto.randomBytes(16).toString('hex')
-    const nonce = Date.now()
+    const nonce = Math.floor(rollNow())
     const generatedMultipliers = generateMultipliers(serverSeed, clientSeed, nonce)
     const multipliers = alignMultipliersToItemValues(items, generatedMultipliers)
-    const resultIndex = generateResultIndex(serverSeed, clientSeed, nonce)
-    const now = new Date()
+    if (typeof getEosHeadBlock !== 'function' || typeof waitForEosBlock !== 'function') {
+      throw new Error('Roll EOS fairness is not configured.')
+    }
+    const eosBlockNumber = (await getEosHeadBlock()) + Math.max(2, Number(eosBlockOffset) || 4)
+    const now = new Date(rollNow())
     const closesAt = new Date(now.getTime() + COUNTDOWN_MS)
     const roundId = crypto.randomUUID()
 
@@ -482,7 +527,9 @@ export function registerRollGame({
           result_multiplier: null,
           reel_items: items,
           reel_multipliers: multipliers,
-          result_index: resultIndex,
+          result_index: null,
+          eos_block_number: eosBlockNumber,
+          eos_block_id: null,
           status: 'countdown',
           betting_opened_at: now.toISOString(),
           betting_closes_at: closesAt.toISOString(),
@@ -511,8 +558,10 @@ export function registerRollGame({
       clientSeed,
       nonce,
       multipliers,
-      resultIndex,
-      resultMultiplier: multipliers[resultIndex],
+      resultIndex: null,
+      resultMultiplier: null,
+      eosBlockNumber,
+      eosBlockId: null,
       items,
       createdAt: row.created_at || now.toISOString(),
       bettingClosesAt: row.betting_closes_at || closesAt.toISOString(),
@@ -522,8 +571,56 @@ export function registerRollGame({
     state.previousReelItems = items
     state.bets = []
     scheduleCountdown()
+    scheduleEosResolution(state.currentRound)
     io.emit('roll:new_round', statePayload())
     return state.currentRound
+  }
+
+  async function resolveRoundEos(round = state.currentRound) {
+    if (!round || round.status !== 'countdown') return round?.eosBlockId || null
+    if (round.eosBlockId) return round.eosBlockId
+    if (state.eosPromise) return state.eosPromise
+
+    const operation = (async () => {
+      const blockNumber = Number(round.eosBlockNumber)
+      if (!Number.isSafeInteger(blockNumber) || blockNumber < 1) {
+        throw new Error('The active Roll round has no valid EOS block number.')
+      }
+      const block = await waitForEosBlock(blockNumber)
+      const rows = await adminRest(
+        `roll_rounds?id=eq.${encodeURIComponent(round.id)}&status=eq.countdown&eos_block_number=eq.${blockNumber}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: { eos_block_id: block.id },
+        },
+      )
+      const updated = Array.isArray(rows) ? rows[0] : rows
+      if (state.currentRound?.id === round.id) {
+        state.currentRound.eosBlockId = updated?.eos_block_id || block.id
+        io.emit('roll:state', statePayload())
+      }
+      return updated?.eos_block_id || block.id
+    })()
+
+    state.eosPromise = operation
+    try {
+      return await operation
+    } finally {
+      if (state.eosPromise === operation) state.eosPromise = null
+    }
+  }
+
+  function scheduleEosResolution(round = state.currentRound) {
+    if (!round || round.status !== 'countdown' || round.eosBlockId || state.eosRetryTimer) return
+    void resolveRoundEos(round).catch((error) => {
+      console.warn(`[roll] waiting for EOS block #${round.eosBlockNumber}`, error?.message || error)
+      if (state.currentRound?.id !== round.id || state.currentRound.status !== 'countdown') return
+      state.eosRetryTimer = setTimeout(() => {
+        state.eosRetryTimer = null
+        scheduleEosResolution(state.currentRound)
+      }, 2_000)
+    })
   }
 
   function scheduleCountdown() {
@@ -555,13 +652,29 @@ export function registerRollGame({
   async function startRolling() {
     const round = state.currentRound
     if (!round || round.status !== 'countdown') return
-    const startedAt = new Date()
+    if (timeRemaining(round) > 0) {
+      scheduleCountdown()
+      return
+    }
+    const eosBlockId = round.eosBlockId || await resolveRoundEos(round)
+    if (!/^[a-f0-9]{64}$/i.test(String(eosBlockId || ''))) {
+      throw new Error(`Waiting for EOS block #${round.eosBlockNumber}.`)
+    }
+    const resultIndex = generateResultIndex(round.serverSeed, eosBlockId, round.clientSeed, round.nonce)
+    const resultMultiplier = round.multipliers[resultIndex]
+    await syncDatabaseClock()
+    const startedAt = new Date(rollNow())
     const rows = await adminRest(
       `roll_rounds?id=eq.${encodeURIComponent(round.id)}&status=eq.countdown`,
       {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: { status: 'rolling', rolling_started_at: startedAt.toISOString() },
+        body: {
+          status: 'rolling',
+          rolling_started_at: startedAt.toISOString(),
+          eos_block_id: eosBlockId,
+          result_index: resultIndex,
+        },
       },
     )
     const updated = Array.isArray(rows) ? rows[0] : rows
@@ -577,6 +690,9 @@ export function registerRollGame({
       return
     }
     round.status = 'rolling'
+    round.eosBlockId = eosBlockId
+    round.resultIndex = resultIndex
+    round.resultMultiplier = resultMultiplier
     round.rollingStartedAt = updated.rolling_started_at || startedAt.toISOString()
     io.emit('roll:rolling', {
       round: publicRound(round),
@@ -606,7 +722,7 @@ export function registerRollGame({
     })
 
     round.status = 'settled'
-    round.settledAt = new Date().toISOString()
+    round.settledAt = new Date(rollNow()).toISOString()
     const settlements = Array.isArray(result?.settlements) ? result.settlements : []
     const settlementByBetId = new Map(settlements.map((entry) => [String(entry.id), entry]))
     state.bets = state.bets.map((bet) => {
@@ -648,11 +764,11 @@ export function registerRollGame({
       throw new Error(`Persisted Roll round ${row.id} has an invalid reel.`)
     }
     const storedResultIndex = row.result_index === null || row.result_index === undefined
-      ? 40
+      ? null
       : Number(row.result_index)
     const resultIndex = Number.isInteger(storedResultIndex) && storedResultIndex >= 0 && storedResultIndex < REEL_ITEM_COUNT
       ? storedResultIndex
-      : 40
+      : null
     state.currentRound = {
       id: row.id,
       status: row.status,
@@ -662,7 +778,9 @@ export function registerRollGame({
       nonce: Number(row.nonce),
       multipliers,
       resultIndex,
-      resultMultiplier: multipliers[resultIndex],
+      resultMultiplier: resultIndex === null ? null : multipliers[resultIndex],
+      eosBlockNumber: Number(row.eos_block_number),
+      eosBlockId: row.eos_block_id || null,
       items,
       createdAt: row.created_at,
       bettingClosesAt: row.betting_closes_at,
@@ -673,14 +791,30 @@ export function registerRollGame({
     state.bets = await loadBets(row.id)
 
     if (row.status === 'countdown') {
+      if (!Number.isSafeInteger(state.currentRound.eosBlockNumber) || state.currentRound.eosBlockNumber < 1) {
+        const eosBlockNumber = (await getEosHeadBlock()) + Math.max(2, Number(eosBlockOffset) || 4)
+        const rows = await adminRest(`roll_rounds?id=eq.${encodeURIComponent(row.id)}&status=eq.countdown`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: { eos_block_number: eosBlockNumber, eos_block_id: null, result_index: null },
+        })
+        const updated = Array.isArray(rows) ? rows[0] : rows
+        if (updated?.id) {
+          state.currentRound.eosBlockNumber = Number(updated.eos_block_number)
+          state.currentRound.eosBlockId = updated.eos_block_id || null
+          state.currentRound.resultIndex = null
+          state.currentRound.resultMultiplier = null
+        }
+      }
+      scheduleEosResolution(state.currentRound)
       if (timeRemaining() <= 0) await startRolling()
       else scheduleCountdown()
     } else if (row.status === 'rolling') {
       if (timeRemaining() <= 0) await settleRound()
       else scheduleSettlement()
     } else if (row.status === 'settled') {
-      const settledAt = new Date(row.settled_at || Date.now()).getTime()
-      const delay = Math.max(0, settledAt + RESULT_HOLD_MS - Date.now())
+      const settledAt = new Date(row.settled_at || rollNow()).getTime()
+      const delay = Math.max(0, settledAt + RESULT_HOLD_MS - rollNow())
       state.nextRoundTimer = setTimeout(() => void createRound().catch(logLifecycleError), delay)
     }
   }
@@ -713,7 +847,7 @@ export function registerRollGame({
       await adminRest(`roll_rounds?id=eq.${encodeURIComponent(roundId)}&status=in.(countdown,rolling)`, {
         method: 'PATCH',
         headers: { Prefer: 'return=minimal' },
-        body: { status: 'cancelled', settled_at: new Date().toISOString() },
+        body: { status: 'cancelled', settled_at: new Date(rollNow()).toISOString() },
       })
       recovery = { recovered: true, profile_ids: [] }
     }
@@ -731,6 +865,7 @@ export function registerRollGame({
   async function initialize() {
     if (state.lifecyclePromise) return state.lifecyclePromise
     state.lifecyclePromise = (async () => {
+      await syncDatabaseClock(true)
       await loadHistory()
       const activeRound = await loadActiveRound()
       if (activeRound) {
@@ -750,7 +885,15 @@ export function registerRollGame({
   }
 
   async function ensureRound() {
-    if (state.currentRound) return state.currentRound
+    if (state.currentRound) {
+      await syncDatabaseClock()
+      if (state.currentRound.status === 'countdown' && timeRemaining(state.currentRound) <= 0) {
+        await startRolling()
+      } else if (state.currentRound.status === 'rolling' && timeRemaining(state.currentRound) <= 0) {
+        await settleRound()
+      }
+      return state.currentRound
+    }
     return initialize()
   }
 
@@ -760,11 +903,11 @@ export function registerRollGame({
   })
 
   app.post('/api/roll/bet', jsonParser, requireAuthenticatedUser, async (req, res) => {
-    const requestReceivedAt = new Date()
     const roundId = String(req.body?.round_id || '')
     const wagerAmount = Math.floor(Number(req.body?.bet_amount || 0))
     const targetMultiplier = Number(req.body?.chosen_multiplier || 0)
     await ensureRound()
+    const requestReceivedAt = new Date(rollNow())
 
     if (!Number.isSafeInteger(wagerAmount) || wagerAmount < MIN_ROLL_WAGER || wagerAmount > MAX_ROLL_WAGER) {
       res.status(400).json({ ok: false, error: 'Play amount must be between 5,000 and 10,000,000 coins.' })

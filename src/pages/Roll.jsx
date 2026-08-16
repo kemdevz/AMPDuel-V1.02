@@ -125,13 +125,14 @@ function RollFairnessModal({ round, onClose }) {
     }
   }, [requestClose])
 
-  const fields = [
-    ['Game ID', round?.id || 'Unavailable'],
-    ['Client Seed', round?.client_seed || 'Unavailable'],
-    ['Nonce', round?.nonce ?? 'Unavailable'],
-    ['Hashed Server Seed', round?.server_seed_hash || 'Unavailable'],
-  ]
+  const eosBlockNumber = Number(round?.eos_block_number)
+  const hasEosBlockNumber = Number.isSafeInteger(eosBlockNumber) && eosBlockNumber > 0
+  const eosBlockId = String(round?.eos_block_id || '').trim()
   const resolved = round?.game_state === 'ended' && round?.revealed_server_seed
+  const fields = [
+    ['Server Seed Hash', round?.server_seed_hash || 'Unavailable'],
+    ...(hasEosBlockNumber ? [['EOS Block Number', eosBlockNumber]] : []),
+  ]
 
   return (
     <div
@@ -149,7 +150,7 @@ function RollFairnessModal({ round, onClose }) {
         <button className="rollFairnessClose" type="button" onClick={requestClose} aria-label="Close Roll Fairness">×</button>
         <h1 id="roll-fairness-title" className="rollFairnessHeader">Roll Fairness</h1>
         <p className="rollFairnessHint">
-          The winning index is committed with a hidden server seed before betting closes and selected uniformly without modulo bias. Multipliers are ranked against real item values, while the item order cannot change the winning odds. The seed and result are revealed after settlement.
+          The server-seed hash and future EOS block are committed before betting closes. Verification values remain hidden until the round settles.
         </p>
 
         {fields.map(([label, value]) => (
@@ -164,10 +165,19 @@ function RollFairnessModal({ round, onClose }) {
 
         {resolved ? (
           <div className="rollFairnessReveal">
-            <span className="rollFairnessRevealTitle">Revealed Result</span>
+            <span className="rollFairnessRevealTitle">Verification</span>
             <span className="rollFairnessRevealDescription">
-              Use this retired server seed with the client seed and nonce above to reproduce the round.
+              Use these retired values to reproduce and verify the settled result.
             </span>
+            {eosBlockId ? (
+              <div className="rollFairnessSection rollFairnessRevealSection">
+                <span className="rollFairnessSectionTitle">EOS Block ID</span>
+                <div className="rollFairnessInputHolder">
+                  <span className="rollFairnessValue" title={eosBlockId}>{eosBlockId}</span>
+                  <RollFairnessCopyIcon label="EOS Block ID" value={eosBlockId} />
+                </div>
+              </div>
+            ) : null}
             <div className="rollFairnessSection rollFairnessRevealSection">
               <span className="rollFairnessSectionTitle">Server Seed</span>
               <div className="rollFairnessInputHolder">
@@ -176,8 +186,9 @@ function RollFairnessModal({ round, onClose }) {
               </div>
             </div>
             <div className="rollFairnessRevealMeta">
+              <span>Client Seed: <b>{round.client_seed || 'Unavailable'}</b></span>
+              <span>Nonce: <b>{round.nonce ?? 'Unavailable'}</b></span>
               <span>Result Index: <b>{round.result_index}</b></span>
-              <span>Multiplier: <b>{Number(round.result_multiplier).toFixed(2)}x</b></span>
             </div>
           </div>
         ) : (
@@ -252,6 +263,7 @@ export default function Roll() {
     })
 
     rollTimeoutRef.current = window.setTimeout(() => {
+      rollTimeoutRef.current = null
       setPhase('result')
     }, safeDuration)
   }, [roundMultipliers.length])
@@ -389,6 +401,34 @@ export default function Roll() {
       }
     }
   }, [socket, user, beginRoll])
+
+  // Socket delivery can be interrupted while a tab sleeps or a mobile device
+  // changes networks. Periodically reconcile with the authoritative round so
+  // the UI cannot remain on ROLLING after the server has already settled it.
+  useEffect(() => {
+    let mounted = true
+    const reconcileRound = async () => {
+      if (document.visibilityState === 'hidden') return
+      try {
+        const response = await apiRequest('/api/roll/state')
+        if (mounted && response?.ok) applyServerStateRef.current?.(response)
+      } catch {
+        // The existing socket state remains usable during a transient retry.
+      }
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void reconcileRound()
+    }
+    const timer = window.setInterval(() => { void reconcileRound() }, 15_000)
+    window.addEventListener('focus', reconcileRound)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      mounted = false
+      window.clearInterval(timer)
+      window.removeEventListener('focus', reconcileRound)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
 
   useEffect(() => () => {
     if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current)

@@ -880,11 +880,13 @@ const BATTLE_STYLES = String.raw`
   .bb-spinner-six-player .bb-reel-result-value { margin-top: 1px; justify-content: center; gap: 3px; font-size: 10px; line-height: 1; white-space: nowrap; }
   .bb-spinner-six-player .bb-reel-result-value img { width: 11px; height: 11px; }
 
-  .bb-countdown { position: absolute; z-index: 100; inset: 0; display: grid; place-items: center; background: #000 !important; opacity: 1; filter: none !important; backdrop-filter: none !important; }
+  .bb-countdown { position: absolute; z-index: 100; inset: 0; display: grid; place-items: center; background: #000 !important; opacity: 1; filter: none !important; backdrop-filter: none !important; animation: bb-countdown-overlay-in .22s cubic-bezier(.22,1,.36,1) both; }
   .bb-countdown-column { width: 100%; height: 100%; background: #000; }
-  .bb-countdown-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .bb-countdown-title { margin-bottom: 8px; color: rgba(255,255,255,.32); font-size: 15px; font-weight: 500; line-height: 1; text-transform: uppercase; letter-spacing: 2.5px; }
+  .bb-countdown-center { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .bb-countdown-title { margin-bottom: 10px; color: rgba(151,160,190,.72); font-size: 13px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 3px; }
   .bb-countdown-number { color: #fff; font-size: 68px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; animation: bb-countdown-up .38s cubic-bezier(.22,1,.36,1) both; }
+  .bb-countdown-eos { min-height: 14px; margin-top: 22px; color: rgba(117,128,162,.72); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: .2px; }
+  @keyframes bb-countdown-overlay-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes bb-countdown-up { from { opacity: 0; transform: translateY(60%); } to { opacity: 1; transform: translateY(0); } }
 
   .bb-winner-overlay { position: absolute; z-index: 60; inset: 0; display: grid; place-items: center; overflow: hidden; padding: 14px; border-radius: 10px; background: rgba(0,0,0,.88); }
@@ -1513,8 +1515,9 @@ const BATTLE_STYLES = String.raw`
     .bb-spinner-six-player .bb-reel-result-value img { width: 9px; height: 9px; }
     .bb-spinner-six-player .bb-ready-text,.bb-spinner-six-player .bb-waiting-text { padding-inline: 2px; font-size: 8px; line-height: 1.2; text-align: center; }
     .bb-spinner-six-player .bb-mini-button { height: 30px; margin-top: 8px; padding: 0 4px; font-size: 9px; }
-    .bb-countdown-title { font-size: 12px; letter-spacing: 2px; }
+    .bb-countdown-title { font-size: 11px; letter-spacing: 2.4px; }
     .bb-countdown-number { font-size: 50px; }
+    .bb-countdown-eos { margin-top: 18px; font-size: 10px; }
   }
 
   @media (max-width: 540px) {
@@ -1579,6 +1582,16 @@ function normalizeCase(row) {
 function countBattleResultItems(results) {
   if (!Array.isArray(results)) return -1;
   return results.reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
+}
+
+function isIncompleteBattleStartRow(row) {
+  if (row?.status !== "ready") return false;
+  const playerCount = Number(row?.player_count ?? (Array.isArray(row?.players) ? row.players.length : 0));
+  const maxPlayers = Number(row?.max_players || 0);
+  const eosBlockNumber = Number(row?.eos_block_number);
+  return playerCount >= maxPlayers
+    && maxPlayers > 0
+    && (!Number.isSafeInteger(eosBlockNumber) || eosBlockNumber < 1 || !row?.started_at);
 }
 
 function getMostCompleteBattleResults(...candidates) {
@@ -1680,10 +1693,13 @@ function normalizeBattleGame(row, previous = null) {
   // Reopening a battle therefore resumes the countdown/spin/round delay at
   // the real current position instead of restarting or inheriting list state.
   const countdownStartedAt = startedAt;
-  const activeElapsed = timelineStatus === "active" && Number.isFinite(countdownStartedAt) && countdownStartedAt > 0
+  const timelineHasStarted = ["ready", "active"].includes(timelineStatus)
+    && Number.isFinite(countdownStartedAt)
+    && countdownStartedAt > 0;
+  const activeElapsed = timelineHasStarted
     ? Math.max(0, timelineNow - countdownStartedAt)
     : 0;
-  let phase = ["waiting", "ready"].includes(timelineStatus) ? "waiting" : timelineStatus === "resolved" ? "finished" : "waiting";
+  let phase = timelineStatus === "waiting" ? "waiting" : timelineStatus === "resolved" ? "finished" : timelineStatus === "ready" ? "countdown" : "waiting";
   let currentRound = timelineStatus === "resolved"
     ? Math.max(0, cases.length - 1)
     : Math.max(0, Number(source.current_round ?? source.currentRound ?? 0));
@@ -1693,7 +1709,12 @@ function normalizeBattleGame(row, previous = null) {
   let resumeDelayMs = 0;
   let visibleRoundCount = timelineStatus === "resolved" ? cases.length : 0;
 
-  if (timelineStatus === "active") {
+  if (timelineStatus === "ready") {
+    phase = "countdown";
+    const countdownRemaining = Math.max(0, BATTLE_COUNTDOWN_DURATION - activeElapsed);
+    countdown = Math.max(1, Math.ceil(countdownRemaining / 1000));
+    resumeCountdownMs = Math.max(20, countdownRemaining - (countdown - 1) * 1000);
+  } else if (timelineStatus === "active") {
     if (activeElapsed < BATTLE_COUNTDOWN_DURATION) {
       phase = "countdown";
       const timeUntilStart = Math.max(0, startedAt - timelineNow);
@@ -2582,11 +2603,18 @@ function FairnessModal({ battle, onClose }) {
   }, []);
 
   const resolved = battle?.status === "resolved" && Boolean(battle?.server_seed);
+  const eosBlockNumber = Number(battle?.eos_block_number);
+  const hasEosBlockNumber = Number.isSafeInteger(eosBlockNumber) && eosBlockNumber > 0;
+  const eosBlockId = String(battle?.eos_block_id || "").trim();
   const fields = [
     ["Game ID", battle?.id || "Unavailable"],
+    ["EOS Block Number", hasEosBlockNumber ? eosBlockNumber : "Unavailable"],
+    ["Server Seed Hash", battle?.server_seed_hash || "Unavailable"],
     ...(resolved ? [
-      ["Hashed Server Seed", battle?.server_seed_hash || "Unavailable"],
-      ["Random Seed", battle?.server_seed || "Unavailable"],
+      ["EOS Block ID", eosBlockId || "Unavailable"],
+      ["Server Seed", battle?.server_seed || "Unavailable"],
+      ["Client Seed", battle?.client_seed || "Unavailable"],
+      ["Nonce", battle?.nonce ?? "Unavailable"],
     ] : []),
   ];
 
@@ -2595,7 +2623,7 @@ function FairnessModal({ battle, onClose }) {
       <section className={`bb-fairness-modal${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="battle-fairness-title" onMouseDown={(event) => event.stopPropagation()}>
         <button type="button" className="bb-fairness-close" onClick={requestClose} aria-label="Close Battle Fairness">×</button>
         <h1 id="battle-fairness-title" className="bb-fairness-header">Battle Fairness</h1>
-        <p className="bb-fairness-hint">A server seed commitment is locked before the battle begins. The seed details remain hidden while the battle is active and are revealed after resolution so the result can be verified.</p>
+        <p className="bb-fairness-hint">The committed seed hash and future EOS block are published before play. Verification values remain hidden until the battle resolves.</p>
 
         {fields.map(([label, value]) => (
           <div className="bb-fairness-section" key={label}>
@@ -2608,7 +2636,7 @@ function FairnessModal({ battle, onClose }) {
         ))}
 
         {!resolved && (
-          <p className="bb-fairness-pending">The server seed remains hidden until this battle is resolved.</p>
+          <p className="bb-fairness-pending">The verification seeds and EOS block ID remain hidden until this battle is resolved.</p>
         )}
       </section>
     </div>,
@@ -2694,7 +2722,10 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
   const calculatedCost = battle.cases.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const totalCost = Number(battle.cost_per_player ?? battle.cost ?? calculatedCost) || calculatedCost;
   const allJoined = battle.players.every(Boolean);
-  const isWaitingForPlayers = ["waiting", "ready"].includes(battle.status) || battle.phase === "waiting";
+  const isWaitingForPlayers = battle.phase === "waiting";
+  const showStartingOverlay = (allJoined && isWaitingForPlayers) || battle.phase === "countdown";
+  const lockedEosBlockNumber = Number(battle.eos_block_number);
+  const hasLockedEosBlock = Number.isSafeInteger(lockedEosBlockNumber) && lockedEosBlockNumber > 0;
   const viewerProfileId = String(viewer?.profile_id || viewer?.id || "");
   const viewerUsername = String(viewer?.username || "").trim().toLowerCase();
   const creatorProfileId = String(battle.creator_profile_id || battle.players[0]?.id || "");
@@ -2960,9 +2991,10 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
     const usedBotIds = new Set(battle.players.filter(Boolean).map((player) => String(player.id)));
     const availableBots = botProfiles.filter((bot) => !usedBotIds.has(String(bot.id)));
     const optimisticBot = availableBots[Math.floor(Math.random() * availableBots.length)] || null;
+    const fillsFinalSlot = battle.players.filter(Boolean).length + 1 >= battle.players.length;
     const previousBattle = battle;
     setCallingBotSlot(index);
-    if (optimisticBot) {
+    if (optimisticBot && !fillsFinalSlot) {
       setBattle((current) => {
         if (!current || current.id !== battle.id || current.players[index]) return current;
         const players = [...current.players];
@@ -2982,7 +3014,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         setBattle((current) => normalizeBattleGame(response.battle, current || previousBattle));
       }
     } catch (error) {
-      if (optimisticBot) {
+      if (optimisticBot && !fillsFinalSlot) {
         setBattle((current) => current?.id === previousBattle.id ? previousBattle : current);
       }
       notifications.error(error?.message || "Unable to call a bot.");
@@ -2998,21 +3030,24 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
       return;
     }
     const previousBattle = battle;
+    const fillsFinalSlot = battle.players.filter(Boolean).length + 1 >= battle.players.length;
     setJoiningSlot(index);
-    setBattle((current) => {
-      if (!current || current.id !== battle.id || current.players[index]) return current;
-      const players = [...current.players];
-      players[index] = {
-        id: viewerProfileId,
-        type: "user",
-        name: String(viewer?.username || "Player"),
-        avatar: viewer?.avatar_headshot_url || viewer?.avatar_url || null,
-      };
-      return {
-        ...current,
-        players,
-      };
-    });
+    if (!fillsFinalSlot) {
+      setBattle((current) => {
+        if (!current || current.id !== battle.id || current.players[index]) return current;
+        const players = [...current.players];
+        players[index] = {
+          id: viewerProfileId,
+          type: "user",
+          name: String(viewer?.username || "Player"),
+          avatar: viewer?.avatar_headshot_url || viewer?.avatar_url || null,
+        };
+        return {
+          ...current,
+          players,
+        };
+      });
+    }
     try {
       const response = await apiRequest(`/api/case-battles/${encodeURIComponent(battle.id)}/join`, {
         method: "POST",
@@ -3090,7 +3125,7 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
         <div className="bb-reel-box">
           <div className="bb-reel-inner">
             <div className="bb-spinner-wrap">
-              <div className={`bb-spinner${battle.players.length === 6 ? " bb-spinner-six-player" : ""}${winnerVisible ? " bb-spinner-hide-reels" : ""}${battle.phase === "countdown" ? " bb-spinner-countdown" : ""}`}>
+              <div className={`bb-spinner${battle.players.length === 6 ? " bb-spinner-six-player" : ""}${winnerVisible ? " bb-spinner-hide-reels" : ""}${showStartingOverlay ? " bb-spinner-countdown" : ""}`}>
                 <div className="bb-spinner-inner" ref={spinnerInnerRef}>
                   {battle.players.map((player, index) => (
                     <div className="bb-spinner-column" key={index}>
@@ -3158,11 +3193,14 @@ function BattleView({ battle, setBattle, botProfiles, onBack, onCancel, onRecrea
                   ))}
                 </div>
 
-                {battle.phase === "countdown" && (
+                {showStartingOverlay && (
                   <div className="bb-countdown">
                     <div className="bb-countdown-center">
-                      <div className="bb-countdown-title">Battle starts in</div>
+                      <div className="bb-countdown-title">Starting in</div>
                       <div className="bb-countdown-number" key={battle.countdown}>{battle.countdown}</div>
+                      <div className="bb-countdown-eos">
+                        {hasLockedEosBlock ? `EOS Block #${lockedEosBlockNumber}` : ""}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3331,6 +3369,10 @@ export default function CaseBattles({ battleId = "" }) {
   useEffect(() => {
     let mounted = true;
     const applyBattleRow = (row) => {
+      // The join transaction and EOS lock are two server operations. Ignore
+      // the tiny intermediate realtime row so every viewer receives the final
+      // avatar, countdown, and EOS block number in one visual update.
+      if (isIncompleteBattleStartRow(row)) return;
       setBattles((current) => {
         const previous = current.find((item) => item.id === String(row.id)) || null;
         const normalized = normalizeBattleRow(row, previous);
