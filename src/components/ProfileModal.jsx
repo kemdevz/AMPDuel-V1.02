@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
-import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import {
   BattlesIcon,
@@ -19,6 +18,10 @@ import AnimatedStatNumber from './AnimatedStatNumber'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
 import SortDirectionIcon from './SortDirectionIcon'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
+import { AllGamesIcon, GameHistoryStatusBadge } from './GameHistoryUI'
+import RoleBadge from './RoleBadge'
+import AdminSearchField from './AdminSearchField'
+import { ADMIN_PRIMARY_BUTTON, SESSION_DANGER_SURFACE } from './AdminControlStyles'
 import {
   AdminGeneral,
   AdminPlayers,
@@ -93,10 +96,6 @@ const transactionFilters = [
   { id: 'commission-claim', label: 'Commission Claim' },
 ]
 
-const dangerGradient =
-  'bg-[linear-gradient(180deg,#ff6b6b_0%,#ff4d4d_45%,#e03131_100%)]'
-const pressableDanger =
-  `${dangerGradient} text-white transition-[transform,filter] duration-[140ms] ease-out hover:brightness-[1.07] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff6b6b]`
 const scrollClasses =
   '[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-[rgba(108,99,255,0.3)]'
 
@@ -223,17 +222,6 @@ function IgnoredIcon() {
       <circle cx="12" cy="8" r="4" />
       <path d="M12.25 19.25H6.95c-1.18 0-2.06-1.04-1.46-2.05C6.36 15.72 8.24 14 12.25 14" />
       <path d="M19.25 19.25 15.75 15.75M15.75 19.25l3.5-3.5" />
-    </svg>
-  )
-}
-
-function AllGamesIcon({ className = '' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
     </svg>
   )
 }
@@ -444,19 +432,7 @@ function AdminItemsDatabase() {
     <div className="adminItemsDatabase flex min-h-0 flex-1 flex-col gap-2.5">
       <div className="relative flex shrink-0 items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <label className="relative block min-w-0 flex-1 sm:max-w-[260px]">
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search for an item..."
-              className="h-8 w-full rounded-[5px] border border-[#323240] bg-[#1c1f2e] py-1.5 pl-8 pr-2.5 text-[11px] text-white opacity-90 shadow-[0_6px_7px_rgba(0,0,0,.12)] outline-none placeholder:text-[#cbd5e1] focus:border-[#45455a]"
-            />
-            <svg className="pointer-events-none absolute left-2.5 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#cbd5e1]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4" />
-              <path d="m16.2 16.2 4.1 4.1" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-          </label>
+          <AdminSearchField value={search} onChange={setSearch} placeholder="Search for an item..." className="sm:max-w-[260px]" />
           <button
             type="button"
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#20222f] text-[#e1e4f2] transition-colors hover:bg-[#2a2e44] active:bg-[#32364d] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]"
@@ -469,7 +445,7 @@ function AdminItemsDatabase() {
         </div>
         <button
           type="button"
-          className="inline-flex h-8 min-w-[68px] shrink-0 items-center justify-center rounded-md border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-3 text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] transition-[transform,background,opacity] duration-[140ms] hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)] hover:opacity-95 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100"
+          className={ADMIN_PRIMARY_BUTTON}
           disabled={!selectedItemCount || addingSelected}
           title={selectedItemCount ? `Add ${selectedItemCount} selected ${selectedItemCount === 1 ? 'item' : 'items'} to your inventory` : 'Select catalog items first'}
           onClick={() => { void addSelectedItems() }}
@@ -653,22 +629,6 @@ function StatBox({ amount, label }) {
   )
 }
 
-function StatusBadge({ status }) {
-  const variants = {
-    WON: 'bg-[rgba(34,197,94,.15)] text-[#34d399]',
-    LOST: 'bg-[rgba(239,68,68,.15)] text-[#f87171]',
-    CANCELLED: 'bg-[rgba(156,163,175,.15)] text-[#9ca3af]',
-    PUSH: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
-    TIE: 'bg-[rgba(167,139,250,.15)] text-[#c4b5fd]',
-  }
-
-  return (
-    <span className={`inline-flex items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-[.05em] ${variants[status]}`}>
-      {status}
-    </span>
-  )
-}
-
 function handleHistoryFilterWheel(event) {
   const delta = event.deltaY || event.deltaX
   if (!delta) return
@@ -750,7 +710,7 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
                 </span>
                 <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] sm:text-xs">{entry.game}</span>
               </span>
-              <span><StatusBadge status={entry.status} /></span>
+              <span><GameHistoryStatusBadge status={entry.status} /></span>
               <span className="inline-flex items-center gap-[3px] text-[10px] sm:text-xs">
                 <img src={COIN_ICON} alt="" className="h-[11px] w-[11px]" />
                 {Number(entry.amount || 0).toLocaleString()}
@@ -1250,7 +1210,6 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
   const userId = String(account?.roblox_id ?? profile?.id ?? '').replace(/^roblox:/, '')
   const username = account?.username
   const avatarUrl = account?.avatar_headshot_url || account?.avatar_url
-  const roleStyle = getRoleStyle(account?.role)
   const isDiscordLinked = Boolean(account?.discord_linked)
   const discordHandle = account?.discord_username
     ? `@${String(account.discord_username).replace(/^@/, '')}`
@@ -1724,25 +1683,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
 
                     <div className="flex items-center justify-between gap-2 pt-1">
                       <div className="relative -top-0.5 inline-flex items-center gap-1.5">
-                        <div className="relative inline-flex items-center">
-                          <div
-                            className="_rankBackground_8f3xs_118 absolute inset-0 rounded-[5px] opacity-30"
-                            style={{ backgroundColor: roleStyle.color }}
-                          />
-                          <p
-                            className="_rank_8f3xs_96 relative m-0 inline-flex items-center gap-1.5 rounded-lg px-2 py-[3px] text-[12px] font-semibold uppercase tracking-[.8px] sm:text-[13px]"
-                            style={{ color: roleStyle.color }}
-                          >
-                            {roleStyle.label}
-                            {roleStyle.image ? (
-                              <img
-                                src={roleStyle.image}
-                                className="_rankImage_8f3xs_145 h-[22px] w-[22px] object-contain"
-                                alt="Role Icon"
-                              />
-                            ) : null}
-                          </p>
-                        </div>
+                        <RoleBadge role={account?.role} />
                       </div>
                     </div>
                   </div>
@@ -1785,7 +1726,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                     )}
                   </div>
                   {isDiscordLinked ? (
-                    <button type="button" className={`profileModalDiscordButton shrink-0 rounded-md border-none px-3 py-[7px] text-[11px] font-semibold sm:px-4 sm:py-[9px] sm:text-xs ${pressableDanger}`}>
+                    <button type="button" className={`profileModalDiscordButton shrink-0 rounded-md border-none px-3 py-[7px] text-[11px] font-semibold sm:px-4 sm:py-[9px] sm:text-xs ${SESSION_DANGER_SURFACE}`}>
                       Unlink Discord
                     </button>
                   ) : (
@@ -1801,7 +1742,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   <span className="text-[13px] font-semibold text-white">Active Sessions</span>
                   <button
                     type="button"
-                    className={`w-full rounded-md border-none px-3 py-[7px] text-[11px] font-semibold sm:w-auto ${pressableDanger}`}
+                    className={`w-full rounded-md border-none px-3 py-[7px] text-[11px] font-semibold sm:w-auto ${SESSION_DANGER_SURFACE}`}
                     onClick={() => { void handleLogoutAllOthers() }}
                   >
                     Logout All Others
@@ -1832,7 +1773,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                           ) : (
                             <button
                               type="button"
-                              className={`whitespace-nowrap rounded border-none px-2 py-[3px] text-[9px] font-semibold sm:px-2.5 sm:py-1 sm:text-[10px] ${pressableDanger}`}
+                              className={`whitespace-nowrap rounded border-none px-2 py-[3px] text-[9px] font-semibold sm:px-2.5 sm:py-1 sm:text-[10px] ${SESSION_DANGER_SURFACE}`}
                               onClick={() => { void handleLogoutSession(session) }}
                             >
                               Logout

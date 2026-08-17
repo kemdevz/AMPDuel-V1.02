@@ -2036,11 +2036,12 @@ function CasePicker({ cases, casesLoading, casesError, selectedCases, onAdd, onR
                   className="bb-picker-card"
                   role="button"
                   tabIndex={0}
-                  onClick={() => selectedCases.length < MAX_CASES && onAdd(caseItem)}
+                  onClick={() => onPreview(caseItem)}
                   onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      if (selectedCases.length < MAX_CASES) onAdd(caseItem);
+                      onPreview(caseItem);
                     }
                   }}
                 >
@@ -2076,7 +2077,16 @@ function CasePicker({ cases, casesLoading, casesError, selectedCases, onAdd, onR
                         <button type="button" className="bb-picker-quantity-button bb-picker-quantity-plus" disabled={selectedCases.length >= MAX_CASES} onClick={() => onAdd(caseItem)} aria-label={`Add one ${caseItem.name}`}><QuantityPlusIcon /></button>
                       </div>
                     ) : (
-                      <button type="button" className="bb-picker-price" tabIndex={-1}>
+                      <button
+                        type="button"
+                        className="bb-picker-price"
+                        disabled={selectedCases.length >= MAX_CASES}
+                        aria-label={`Add one ${caseItem.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onAdd(caseItem);
+                        }}
+                      >
                         <span><img src={COIN_ICON} alt="" />{formatPriceValue(caseItem.price, { compactNumbers: false })}</span>
                       </button>
                     )}

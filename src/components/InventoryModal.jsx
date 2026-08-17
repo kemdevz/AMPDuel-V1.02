@@ -59,7 +59,7 @@ function LoadingButton({ className, disabled = false, onClick, children }) {
   )
 }
 
-export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, footer, ariaLabel = 'Wallet inventory' }) {
+export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, footer, ariaLabel = 'Wallet inventory', profileId = null, readOnly = false }) {
   const user = useAuth((state) => state.user)
   const [depositOpen, setDepositOpen] = useState(false)
   const [inventoryItems, setInventoryItems] = useState([])
@@ -95,7 +95,8 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
       setInventoryLoading(true)
       setInventoryError(null)
 
-      if (!user?.profile_id) {
+      const resolvedProfileId = profileId || user?.profile_id
+      if (!resolvedProfileId) {
         if (!isMounted) return
         setInventoryItems([])
         setInventoryLoading(false)
@@ -105,7 +106,9 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
       }
 
       try {
-        const result = await apiRequest('/api/inventory')
+        const result = await apiRequest(profileId
+          ? `/api/admin/players/${encodeURIComponent(profileId)}/inventory`
+          : '/api/inventory')
         if (!isMounted) return
         setInventoryItems(result?.items ?? [])
       } catch (error) {
@@ -120,7 +123,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
 
     void loadInventory()
 
-    const ownerIdsForRealtime = [user?.profile_id, user?.id]
+    const ownerIdsForRealtime = profileId ? [profileId] : [user?.profile_id, user?.id]
       .filter((value) => value !== null && value !== undefined && value !== '')
       .map((value) => String(value))
 
@@ -142,7 +145,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
         supabase.removeChannel(inventoryChannel)
       }
     }
-  }, [isOpen, user?.id, user?.profile_id])
+  }, [isOpen, profileId, user?.id, user?.profile_id])
 
   useEffect(() => {
     if (!isOpen) {
@@ -273,9 +276,11 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
               </div>
             </div>
 
-            <LoadingButton className="_plusbutton_cpcgp_145" onClick={() => setDepositOpen(true)}>
-              +
-            </LoadingButton>
+            {!readOnly ? (
+              <LoadingButton className="_plusbutton_cpcgp_145" onClick={() => setDepositOpen(true)}>
+                +
+              </LoadingButton>
+            ) : null}
           </div>
 
           <div className="_itemsGrid_cpcgp_259">
@@ -293,17 +298,19 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
               <div className="_emptyState_cpcgp_432">
                 <h1>No items!</h1>
                 <p>No items were found...</p>
-                <LoadingButton className="_depositbutton_cpcgp_170" onClick={() => setDepositOpen(true)}>
-                  Deposit
-                </LoadingButton>
+                {!readOnly ? (
+                  <LoadingButton className="_depositbutton_cpcgp_170" onClick={() => setDepositOpen(true)}>
+                    Deposit
+                  </LoadingButton>
+                ) : null}
               </div>
             ) : (
               displayInventoryItems.map((item, index) => (
             <InventoryItemCard
               key={item.displayKey || `${item.name}-${index}`}
               item={item}
-              selected={selectedItems.includes(item.displayKey)}
-              onToggleSelect={() => {
+              selected={!readOnly && selectedItems.includes(item.displayKey)}
+              onToggleSelect={readOnly ? undefined : () => {
                 setSelectedItems((prev) =>
                   prev.includes(item.displayKey)
                     ? prev.filter((key) => key !== item.displayKey)
@@ -316,7 +323,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
           </div>
         </div>
 
-        <div className="_buttonWrapper_cpcgp_356">
+        {!readOnly ? <div className="_buttonWrapper_cpcgp_356">
           {footer ? (
             typeof footer === 'function'
               ? footer({
@@ -359,7 +366,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
           {withdrawError ? (
             <p className="_walletWithdrawError_cpcgp_local">{withdrawError}</p>
           ) : null}
-        </div>
+        </div> : null}
 
         <style>{`
           ${inventoryItemCardStyles}

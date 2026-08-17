@@ -2272,6 +2272,10 @@ app.post('/api/auth/roblox/verify', express.json({ limit: '8kb' }), async (req, 
       avatarUrl: challenge.avatarUrl || null,
       avatarHeadshotUrl: challenge.headshotUrl || challenge.avatarUrl || null,
     })
+    if (profile.is_banned) {
+      res.status(403).json({ ok: false, error: 'This account has been banned.' })
+      return
+    }
     const identity = await createServerSession({
       profileId: profile.id,
       subject,
@@ -2297,6 +2301,11 @@ app.get('/api/auth/me', async (req, res) => {
     const profile = await loadProfileById(identity.profileId)
     if (!profile) {
       res.status(404).json({ ok: false, error: 'Your user profile could not be found.' })
+      return
+    }
+    if (profile.is_banned) {
+      clearSessionCookie(res, req)
+      res.status(403).json({ ok: false, error: 'This account has been banned.' })
       return
     }
     res.json({
@@ -2544,6 +2553,123 @@ app.patch('/api/admin/services/:serviceKey', express.json({ limit: '2kb' }), req
       error: missingTable
         ? 'Run migration 20260815020000_create_site_service_settings.sql in Supabase first.'
         : error?.message || 'Unable to update the service.',
+    })
+  }
+})
+
+function normalizeAdminPlayer(profile = {}) {
+  return {
+    id: String(profile.id || ''),
+    username: String(profile.username || 'Unknown player'),
+    roblox_id: profile.roblox_id ? String(profile.roblox_id) : null,
+    avatar_url: profile.avatar_url || null,
+    avatar_headshot_url: profile.avatar_headshot_url || profile.avatar_url || null,
+    role: String(profile.role || 'player'),
+    level: Math.max(1, Number(profile.level) || 1),
+    coin_balance: Math.max(0, Number(profile.balance) || 0),
+    wagered: Math.max(0, Number(profile.played) || 0),
+    won: Math.max(0, Number(profile.won) || 0),
+    lost: Math.max(0, Number(profile.lost) || 0),
+    created_at: profile.created_at || null,
+    is_banned: Boolean(profile.is_banned),
+  }
+}
+
+async function loadAdminPlayerRows() {
+  return loadAllAdminRows('user_profiles?select=*&order=username.asc')
+}
+
+app.get('/api/admin/players', requireAuthenticatedUser, async (req, res) => {
+  try {
+    if (!await requireAdminProfile(req, res)) return
+    const query = String(req.query.q || '').trim().toLowerCase().slice(0, 100)
+    const profiles = await loadAdminPlayerRows()
+    const matchedPlayers = profiles
+      .map(normalizeAdminPlayer)
+      .filter((player) => !query || `${player.username} ${player.id} ${player.roblox_id || ''}`.toLowerCase().includes(query))
+      .slice(0, 75)
+    const playerIds = matchedPlayers.map((player) => player.id).filter(Boolean)
+    const inventory = playerIds.length
+      ? await loadAllAdminRows(`inventory_items?select=user_id,value&user_id=in.(${playerIds.map(encodeURIComponent).join(',')})`)
+      : []
+    const itemBalanceByPlayer = new Map()
+    for (const item of inventory) {
+      const ownerId = String(item.user_id || '')
+      itemBalanceByPlayer.set(ownerId, (itemBalanceByPlayer.get(ownerId) || 0) + Math.max(0, Number(item.value) || 0))
+    }
+    const players = matchedPlayers.map((player) => ({
+      ...player,
+      item_balance: itemBalanceByPlayer.get(player.id) || 0,
+    }))
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({ ok: true, players })
+  } catch (error) {
+    console.error('[admin/players] failed', error)
+    res.status(error?.status || 500).json({ ok: false, error: error?.message || 'Unable to search players.' })
+  }
+})
+
+app.get('/api/admin/players/:profileId/inventory', requireAuthenticatedUser, async (req, res) => {
+  try {
+    if (!await requireAdminProfile(req, res)) return
+    const profileId = String(req.params.profileId || '').trim()
+    if (!profileId || profileId.length > 200) {
+      res.status(400).json({ ok: false, error: 'Select a valid player.' })
+      return
+    }
+    const rows = await adminRest(
+      `inventory_items?select=*&user_id=eq.${encodeURIComponent(profileId)}&order=created_at.desc`,
+    )
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({ ok: true, items: Array.isArray(rows) ? rows : [] })
+  } catch (error) {
+    console.error('[admin/players/inventory] failed', error)
+    res.status(error?.status || 500).json({ ok: false, error: error?.message || 'Unable to load the player inventory.' })
+  }
+})
+
+app.patch('/api/admin/players/:profileId/ban', express.json({ limit: '2kb' }), requireAuthenticatedUser, async (req, res) => {
+  try {
+    const adminProfile = await requireAdminProfile(req, res)
+    if (!adminProfile) return
+    const profileId = String(req.params.profileId || '').trim()
+    const banned = req.body?.banned
+    if (!profileId || profileId.length > 200 || typeof banned !== 'boolean') {
+      res.status(400).json({ ok: false, error: 'Select a valid player and ban state.' })
+      return
+    }
+    if (profileId === String(adminProfile.id)) {
+      res.status(400).json({ ok: false, error: 'You cannot ban your own account.' })
+      return
+    }
+    await adminRest(`user_profiles?id=eq.${encodeURIComponent(profileId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: {
+        is_banned: banned,
+        banned_at: banned ? new Date().toISOString() : null,
+        banned_by: banned ? String(adminProfile.id) : null,
+        updated_at: new Date().toISOString(),
+      },
+    })
+    if (banned) {
+      await adminRest(`user_sessions?user_id=eq.${encodeURIComponent(profileId)}`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=minimal' },
+      })
+      for (const socket of io.sockets.sockets.values()) {
+        if (String(socket.data.identity?.profileId || '') === profileId) socket.disconnect(true)
+      }
+    }
+    res.json({ ok: true, profile_id: profileId, is_banned: banned })
+  } catch (error) {
+    console.error('[admin/player/ban] failed', error)
+    const missingColumn = isMissingDatabaseColumn(error, 'is_banned')
+    res.status(missingColumn ? 503 : error?.status || 500).json({
+      ok: false,
+      error: missingColumn
+        ? 'Run migration 20260816012000_add_user_profile_bans.sql in Supabase first.'
+        : error?.message || 'Unable to update the player ban.',
     })
   }
 })
@@ -6684,12 +6810,20 @@ function startServer(port, attempt = 1) {
   })
 }
 
+startServer(PORT)
+
+// Bind the HTTP server before hydrating persisted game state. Database recovery
+// can legitimately take longer than the development launcher's readiness
+// window, and delaying listen() caused the launcher to kill the process before
+// an unreadable Roll round could be cancelled and refunded.
 try {
   await rollGame.initialize()
 } catch (error) {
   console.error('[roll] initialisation failed; the state route will retry', error)
 }
 
-await initializeCaseBattles()
-
-startServer(PORT)
+try {
+  await initializeCaseBattles()
+} catch (error) {
+  console.error('[case-battles] initialisation failed; API requests will retry', error)
+}

@@ -73,6 +73,14 @@ export const inventoryItemCardStyles = `
     transform: scale(1.03);
   }
 
+  ._inventoryItemCard_cpcgp_local_readonly {
+    cursor: default;
+  }
+
+  ._inventoryItemCard_cpcgp_local_readonly:hover {
+    transform: none;
+  }
+
   ._inventoryItemCard_cpcgp_local_compact {
     height: 144px;
     min-width: 138px;
@@ -213,15 +221,16 @@ export const inventoryItemCardStyles = `
 `
 
 export default function InventoryItemCard({ item, selected, onToggleSelect, compact = false }) {
+  const interactive = typeof onToggleSelect === 'function'
   return (
     <div
-      className={`_inventoryItemCard_cpcgp_local${selected ? ' _inventoryItemCard_cpcgp_local_selected' : ''}${compact ? ' _inventoryItemCard_cpcgp_local_compact' : ''}`}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
+      className={`_inventoryItemCard_cpcgp_local${selected ? ' _inventoryItemCard_cpcgp_local_selected' : ''}${compact ? ' _inventoryItemCard_cpcgp_local_compact' : ''}${interactive ? '' : ' _inventoryItemCard_cpcgp_local_readonly'}`}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-pressed={interactive ? selected : undefined}
       onClick={onToggleSelect}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+        if (interactive && (event.key === 'Enter' || event.key === ' ')) {
           event.preventDefault()
           onToggleSelect()
         }

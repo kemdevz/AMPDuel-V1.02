@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Ban,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
@@ -13,10 +12,7 @@ import {
   Plus,
   Power,
   RefreshCw,
-  Search,
-  ShieldBan,
   Trash2,
-  VolumeX,
   Wallet,
 } from 'lucide-react'
 import {
@@ -30,6 +26,11 @@ import {
 } from './icons'
 import { notifications } from './Notifications'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
+import InventoryModal from './InventoryModal'
+import RoleBadge from './RoleBadge'
+import AdminSearchField from './AdminSearchField'
+import SortDirectionIcon from './SortDirectionIcon'
+import { ADMIN_DANGER_BUTTON, ADMIN_PRIMARY_BUTTON } from './AdminControlStyles'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
 import { apiRequest } from '../lib/apiClient'
 import { connectSocket } from '../lib/socket'
@@ -91,15 +92,6 @@ const gameIcons = {
   Roll: RollIcon,
   Blackjack: BlackjackIcon,
 }
-
-const people = [
-  { id: '114847208', name: 'deanzapper2022', value: 12450800, status: 'Online', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-CD1D1A7071137D011815CEDDB70AC5FA-Png/420/420/AvatarHeadshot/Png/noFilter' },
-  { id: '92730154', name: 'MexicanTravis_Scott', value: 8820600, status: 'Online', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-4A2AEBC1024BCF622CAA069C82B06E7F-Png/420/420/AvatarHeadshot/Png/noFilter' },
-  { id: '33190982', name: 'larpsky3', value: 4153400, status: 'Offline', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-D517857E5CC51E2FF93E63E20241169E-Png/420/420/AvatarHeadshot/Png/noFilter' },
-  { id: '61842007', name: 'klerp1234', value: 1100250, status: 'Offline', avatar: '/ps99-cat.png' },
-  { id: '50213066', name: 'WaveRider', value: 748900, status: 'Online', avatar: '/ps99-cat.png' },
-]
-
 const bots = [
   { id: 'ps-01', name: 'BloxyBot One', status: 'Online', players: '4/10', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter' },
   { id: 'ps-02', name: 'BloxyBot Two', status: 'Online', players: '7/10', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter' },
@@ -130,13 +122,8 @@ function CoinValue({ value, compact = false }) {
   return <span className="inline-flex items-center gap-1 font-semibold text-white"><img src={COIN_ICON} alt="" className="h-3.5 w-3.5" />{formatPriceValue(value, { compactNumbers: compact })}</span>
 }
 
-function SearchField({ value, onChange, placeholder }) {
-  return (
-    <label className="relative block">
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-[13px] w-[13px] -translate-y-1/2 text-white/35" />
-      <input className={`${INPUT} pl-8`} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
-    </label>
-  )
+function SearchField({ value, onChange, placeholder, onFocus }) {
+  return <AdminSearchField value={value} onChange={onChange} onFocus={onFocus} placeholder={placeholder} />
 }
 
 function Toggle({ checked, onChange, label, disabled = false }) {
@@ -159,6 +146,17 @@ function formatActivityTime(value) {
   if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
   const days = Math.floor(hours / 24)
   return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
+function formatPlayerJoinedDate(value) {
+  if (!value) return 'Unknown'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown'
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 function EmptyState({ children }) {
@@ -358,45 +356,96 @@ export function AdminGeneral() {
 }
 
 export function AdminPlayers() {
-  return <div className="min-h-0 flex-1" />
-
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState(people[0].id)
-  const [coinAmount, setCoinAmount] = useState('')
-  const [muted, setMuted] = useState(false)
-  const [banned, setBanned] = useState(false)
-  const selected = people.find((person) => person.id === selectedId) || people[0]
-  const filtered = people.filter((person) => `${person.name} ${person.id}`.toLowerCase().includes(query.toLowerCase()))
-  const act = (message) => notifications.success(message)
+  const [playerSortAscending, setPlayerSortAscending] = useState(true)
+  const [searchOpen, setSearchOpen] = useState(true)
+  const [players, setPlayers] = useState([])
+  const [selectedId, setSelectedId] = useState('')
+  const [loadingPlayers, setLoadingPlayers] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [savingBan, setSavingBan] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(async () => {
+      setLoadingPlayers(true)
+      try {
+        const result = await apiRequest(`/api/admin/players?q=${encodeURIComponent(query.trim())}`, { cache: 'no-store' })
+        if (!active) return
+        const nextPlayers = Array.isArray(result?.players) ? result.players : []
+        setPlayers(nextPlayers)
+        setSelectedId((current) => nextPlayers.some((player) => player.id === current) ? current : '')
+        setLoadError('')
+      } catch (error) {
+        if (active) {
+          setPlayers([])
+          setSelectedId('')
+          setLoadError(error?.message || 'Unable to search players.')
+        }
+      } finally {
+        if (active) setLoadingPlayers(false)
+      }
+    }, query ? 220 : 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [query])
+
+  const sortedPlayers = useMemo(() => players.slice().sort((left, right) => (
+    playerSortAscending
+      ? String(left.username || '').localeCompare(String(right.username || ''))
+      : String(right.username || '').localeCompare(String(left.username || ''))
+  )), [playerSortAscending, players])
+  const selectedPlayer = players.find((player) => player.id === selectedId) || null
+
+  const togglePlayerBan = async () => {
+    if (!selectedPlayer || savingBan) return
+    const nextBanned = !selectedPlayer.is_banned
+    setSavingBan(true)
+    try {
+      await apiRequest(`/api/admin/players/${encodeURIComponent(selectedPlayer.id)}/ban`, {
+        method: 'PATCH',
+        body: JSON.stringify({ banned: nextBanned }),
+      })
+      setPlayers((current) => current.map((player) => (
+        player.id === selectedPlayer.id ? { ...player, is_banned: nextBanned } : player
+      )))
+      notifications.success(`${selectedPlayer.username} ${nextBanned ? 'banned' : 'unbanned'}.`)
+    } catch (error) {
+      notifications.error(error?.message || `Unable to ${nextBanned ? 'ban' : 'unban'} this player.`)
+    } finally {
+      setSavingBan(false)
+    }
+  }
 
   return (
-    <div className="grid min-h-0 flex-1 gap-2.5 overflow-y-auto sm:grid-cols-[220px_minmax(0,1fr)] sm:overflow-hidden">
-      <div className={`${PANEL} flex min-h-[190px] flex-col p-2 sm:min-h-0`}>
-        <SearchField value={query} onChange={setQuery} placeholder="Search name or ID..." />
-        <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
-          {filtered.map((person) => (
-            <button type="button" key={person.id} onClick={() => setSelectedId(person.id)} className={`flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors ${selectedId === person.id ? 'border-[#5147d9]/40 bg-[rgba(108,99,255,.13)]' : 'border-transparent bg-[#171925] hover:bg-[#202332]'}`}>
-              <img src={person.avatar} alt="" className="h-7 w-7 shrink-0 rounded-full border border-[#292d43] bg-[#202435] object-cover" />
-              <span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-semibold text-[#e1e4f2]">{person.name}</span><span className="block truncate font-mono text-[8px] text-white/25">ID {person.id}</span></span>
-              <span className="text-[9px]"><CoinValue value={person.value} compact /></span>
+    <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-hidden pr-0.5">
+      <div className={searchOpen ? 'flex min-h-0 w-full flex-1 flex-col' : 'w-full shrink-0'}>
+        <div className="flex w-full items-center justify-between gap-2"><div className="flex min-w-0 flex-1 items-center gap-1.5"><div className="min-w-0 flex-1 sm:max-w-[260px]"><SearchField value={query} onChange={(value) => { setQuery(value); setSearchOpen(true) }} onFocus={() => setSearchOpen(true)} placeholder="Search players..." /></div><button type="button" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#20222f] text-[#e1e4f2] transition-colors hover:bg-[#2a2e44] active:bg-[#32364d] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]" title={`Username ${playerSortAscending ? 'Ascending' : 'Descending'}`} aria-label={`Sort username ${playerSortAscending ? 'descending' : 'ascending'}`} onClick={() => { setPlayerSortAscending((value) => !value); setSearchOpen(true) }}><SortDirectionIcon ascending={playerSortAscending} /></button></div><div className="flex shrink-0 items-center gap-1.5"><button type="button" className={ADMIN_PRIMARY_BUTTON} aria-disabled={!selectedPlayer} title={selectedPlayer ? `Open ${selectedPlayer.username}'s inventory` : 'Select a player first'} onClick={() => { if (selectedPlayer) setInventoryOpen(true) }}>Inventory</button><button type="button" className={ADMIN_DANGER_BUTTON} aria-disabled={!selectedPlayer || savingBan} title={selectedPlayer ? `${selectedPlayer.is_banned ? 'Unban' : 'Ban'} ${selectedPlayer.username}` : 'Select a player first'} onClick={() => { if (selectedPlayer && !savingBan) void togglePlayerBan() }}>{savingBan ? 'Saving...' : selectedPlayer?.is_banned ? 'Unban' : 'Ban'}</button></div></div>
+        {searchOpen ? <div className="mt-2 flex min-h-0 flex-1 flex-col gap-[3px]">
+          <div className="hidden min-h-7 shrink-0 grid-cols-[1.3fr_.7fr_1fr_1fr] items-end gap-2 px-2 pb-1 pt-2 text-[10px] font-bold uppercase leading-none tracking-[.06em] text-[rgba(225,228,242,.35)] sm:grid">
+            <span>User</span><span>Rank</span><span>Balance</span><span>Joined At</span>
+          </div>
+          <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto">
+          {sortedPlayers.map((player) => (
+            <button type="button" key={player.id} onClick={() => setSelectedId(player.id)} className={`adminActivityRow flex h-[42px] min-h-[42px] w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[5px] px-2 text-left text-[10px] font-semibold text-[rgba(225,228,242,.85)] transition-colors sm:grid sm:grid-cols-[1.3fr_.7fr_1fr_1fr] sm:gap-2 sm:text-[11px] ${selectedId === player.id ? 'bg-[#202332]' : 'bg-[#171925] hover:bg-[#202332]'}`}>
+              <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
+                <img src={player.avatar_headshot_url || player.avatar_url || '/ps99-cat.png'} alt="" className="h-[22px] w-[22px] shrink-0 rounded-full border border-[#292d43] bg-[#202435] object-cover" />
+                <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{player.username}</span>
+              </span>
+              <span className="hidden min-w-0 sm:block"><RoleBadge role={player.role} compact /></span>
+              <span className="inline-flex shrink-0 items-center gap-[3px] font-bold"><img src={COIN_ICON} alt="" className="h-[11px] w-[11px]" />{formatPriceValue(Number(player.coin_balance || 0) + Number(player.item_balance || 0), { compactNumbers: false })}</span>
+              <span className="hidden min-w-0 truncate text-[10px] opacity-55 sm:block">{formatPlayerJoinedDate(player.created_at)}</span>
             </button>
           ))}
-          {!filtered.length ? <EmptyState>No players found.</EmptyState> : null}
-        </div>
-      </div>
-      <div className="min-h-0 overflow-visible sm:overflow-y-auto">
-        <div className={`${PANEL} mb-2.5 p-3`}>
-          <div className="flex items-center gap-3">
-            <div className="relative"><img src={selected.avatar} alt="" className="h-12 w-12 rounded-full border-2 border-[#292e46] bg-[#202435] object-cover" /><span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#1c1f2e] ${selected.status === 'Online' ? 'bg-[#22c55e]' : 'bg-[#5c627d]'}`} /></div>
-            <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h3 className="truncate text-[14px] font-bold text-white">{selected.name}</h3><span className="rounded bg-[#6c63ff]/15 px-1.5 py-0.5 text-[8px] font-semibold text-[#9d98ff]">PLAYER</span></div><p className="font-mono text-[9px] text-white/30">Roblox ID {selected.id}</p><p className="mt-1 text-[10px] text-white/45">Balance <CoinValue value={selected.value} /></p></div>
+          {loadingPlayers ? <div className="flex h-[42px] items-center justify-center rounded-[5px] bg-[#171925] text-[10px] text-white/30">Searching players...</div> : null}
+          {!loadingPlayers && !players.length ? <div className={`flex h-[42px] items-center justify-center rounded-[5px] bg-[#171925] px-3 text-center text-[10px] ${loadError ? 'font-semibold text-[#f87171]' : 'text-white/30'}`}>{loadError || 'No players found.'}</div> : null}
           </div>
-        </div>
-        <div className="grid gap-2.5 lg:grid-cols-2">
-          <div className={`${PANEL} p-3`}><div className="mb-2.5 flex items-center gap-2"><ShieldBan className="h-3.5 w-3.5 text-[#ff7b87]" /><p className="text-[11px] font-bold text-white">Moderation</p></div><div className="space-y-2"><label className="block"><span className={LABEL}>Reason</span><input className={`${INPUT} mt-1`} placeholder="Enter a reason..." /></label><div className="grid grid-cols-2 gap-2"><button className={muted ? SECONDARY : DANGER} onClick={() => { setMuted(!muted); act(`${selected.name} ${muted ? 'unmuted' : 'muted'}.`) }}><VolumeX className="h-3.5 w-3.5" />{muted ? 'Unmute' : 'Mute'}</button><button className={banned ? SECONDARY : DANGER} onClick={() => { setBanned(!banned); act(`${selected.name} ${banned ? 'unbanned' : 'banned'}.`) }}><Ban className="h-3.5 w-3.5" />{banned ? 'Unban' : 'Ban'}</button></div></div></div>
-          <div className={`${PANEL} p-3`}><div className="mb-2.5 flex items-center gap-2"><Wallet className="h-3.5 w-3.5 text-[#8d86ff]" /><p className="text-[11px] font-bold text-white">Coin Balance</p></div><label className="block"><span className={LABEL}>Amount</span><div className="relative mt-1"><img src={COIN_ICON} alt="" className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" /><input className={`${INPUT} pl-8`} inputMode="numeric" value={coinAmount} onChange={(event) => setCoinAmount(event.target.value.replace(/\D/g, ''))} placeholder="0" /></div></label><div className="mt-2 grid grid-cols-2 gap-2"><button className={SECONDARY} disabled={!coinAmount} onClick={() => { act(`${formatPriceValue(coinAmount)} coins removed.`); setCoinAmount('') }}>Remove</button><button className={PRIMARY} disabled={!coinAmount} onClick={() => { act(`${formatPriceValue(coinAmount)} coins added.`); setCoinAmount('') }}>Add coins</button></div></div>
-          <div className={`${PANEL} p-3 lg:col-span-2`}><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-[#8d86ff]" /><div><p className="text-[11px] font-bold text-white">Player Inventory</p><p className="text-[9px] text-white/30">18 items • 34.2M total value</p></div></div><button className={SECONDARY} onClick={() => act(`Opened ${selected.name}'s inventory.`)}>Manage inventory <ChevronRight className="h-3 w-3" /></button></div></div>
-        </div>
+        </div> : null}
       </div>
+      {selectedPlayer ? <InventoryModal isOpen={inventoryOpen} onClose={() => setInventoryOpen(false)} profileId={selectedPlayer.id} readOnly ariaLabel={`${selectedPlayer.username}'s inventory`} /> : null}
     </div>
   )
 }

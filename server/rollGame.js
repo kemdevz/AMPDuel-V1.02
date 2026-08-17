@@ -828,7 +828,7 @@ export function registerRollGame({
     const roundId = String(row?.id || '')
     if (!roundId || !isRecoverablePersistedRoundError(hydrationError)) throw hydrationError
 
-    console.error(`[roll] recovering unreadable active round ${roundId}:`, hydrationError.message)
+    console.warn(`[roll] cancelling and refunding unreadable active round ${roundId}.`)
     let recovery
     try {
       recovery = await callRpc('recover_unreadable_roll_round', { p_round_id: roundId })

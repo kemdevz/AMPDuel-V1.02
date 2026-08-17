@@ -1,0 +1,5 @@
+export const ADMIN_PRIMARY_BUTTON = 'inline-flex h-8 min-w-[68px] shrink-0 items-center justify-center gap-1.5 rounded-md border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-3 text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] transition-[transform,background,opacity] duration-[140ms] hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)] hover:opacity-95 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100'
+
+export const SESSION_DANGER_SURFACE = 'bg-[linear-gradient(180deg,#ff6b6b_0%,#ff4d4d_45%,#e03131_100%)] text-white transition-[transform,filter] duration-[140ms] ease-out hover:brightness-[1.07] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff6b6b]'
+
+export const ADMIN_DANGER_BUTTON = `inline-flex h-8 min-w-[68px] shrink-0 items-center justify-center rounded-md border-none px-3 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 ${SESSION_DANGER_SURFACE}`
