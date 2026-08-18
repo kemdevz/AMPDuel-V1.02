@@ -136,7 +136,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
       <MiniProfileModal isOpen={Boolean(selectedPlayer)} player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
 
       <style>{`
-        .leaderboardOverlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(7,8,14,.72);backdrop-filter:blur(3px);animation:leaderboardFade .18s ease-out}
+        .leaderboardOverlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.55);animation:leaderboardFade .18s ease-out}
         .leaderboardModal{position:relative;background-color:#171925;border:1px solid #181a28;border-radius:6px;padding:16px;width:82%;max-width:560px;height:520px;display:flex;flex-direction:column;overflow:hidden;color:#e1e4f2;font-family:Poppins,sans-serif;box-shadow:0 20px 80px rgba(0,0,0,.55);animation:leaderboardOpen .22s forwards}
         .leaderboardTitle{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding:1px 2px 13px}
         .leaderboardTitle h1{margin:0;color:#fff;font-size:21px;font-weight:650;line-height:1.3}

@@ -2,155 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { TermsIcon } from './icons'
 
-const EFFECTIVE_DATE = '14 Apr 2026'
-
-const sections = [
+const terms = [
+  { text: 'You must be 18+, legally eligible to use BloxDice, and comply with local laws.' },
+  { text: 'Secure your account and all activity performed on it.' },
+  { text: 'BloxDice is entertainment, not real-money gambling.' },
+  { text: 'Coins and items have no real-world cash value.' },
+  { text: 'No exploits, automation, abusive alts, or reward farming.' },
+  { text: 'Check trades carefully; completed transactions are generally final.' },
+  { text: 'BloxDice is independent from Roblox and its services.' },
+  { text: 'Games, balances, features, and these Terms may change.' },
+  { text: 'BloxDice is not liable for indirect losses where lawful.' },
+  { text: 'Do not harass users or share private or personal information.' },
+  { text: 'Do not impersonate users, staff, bots, or official accounts.' },
   {
-    title: 'Welcome',
     content: (
-      <div className="space-y-2">
-        <p>
-          Welcome to BloxDice. These Terms of Service (the <strong>Terms</strong>) govern your access to and use of the BloxDice website (the <strong>Site</strong>) and related services (the <strong>Services</strong>). By using the Site, you acknowledge that you have read, understood, and agreed to these Terms.
-        </p>
-        <p>
-          BloxDice is an online social entertainment platform and does not provide financial services, investment products, or real-money gambling.
-        </p>
-      </div>
-    ),
-  },
-  {
-    title: '1. Eligibility',
-    content: (
-      <ul>
-        <li>You must be at least 18 years old, or the age of majority in your jurisdiction, to use the Services.</li>
-        <li>By using the Site, you confirm that you have the legal capacity to enter into this agreement.</li>
-        <li>Your participation is voluntary and for personal entertainment purposes only.</li>
-        <li>You are responsible for ensuring that your use of the Services complies with all applicable laws in your jurisdiction.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '2. Use of Services',
-    content: (
-      <ul>
-        <li>BloxDice allows users to participate in randomized, game-based activities involving in-game items.</li>
-        <li>Outcomes on BloxDice have no real-world financial consequence.</li>
-        <li>No real-world money is wagered on the platform.</li>
-        <li>All in-game items used on BloxDice have no real-world monetary value and cannot be redeemed or exchanged for real money.</li>
-        <li>Users may participate using in-game items or Coins. Participation may change a user's in-game item inventory or Coin balance solely within BloxDice and without real-world financial consequence.</li>
-        <li>We may suspend or terminate accounts suspected of abuse, exploitation, or violation of these Terms.</li>
-        <li>We may update these Terms at any time. Continued use of the Site constitutes acceptance of any revisions.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '3. Account Registration',
-    content: (
-      <ul>
-        <li>Certain features require account registration.</li>
-        <li>You agree to provide accurate and complete information.</li>
-        <li>You are responsible for maintaining the security of your account and all activities under it.</li>
-        <li>Acceptance of registration is at our sole discretion.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '4. Alternate Accounts (Alts)',
-    content: (
-      <ul>
-        <li>Alternate accounts may not be used to manipulate or exploit platform mechanics, promotions, or gameplay systems.</li>
-        <li>We may suspend or terminate any account suspected of abusive multi-account behavior.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '5. In-Game Items & Coins',
-    content: (
-      <ul>
-        <li>BloxDice is not affiliated with Roblox Corporation. Use of Roblox in-game items remains subject to Roblox's own terms and policies.</li>
-        <li>BloxDice does not guarantee the availability, stability, or continued functionality of any in-game items or external platforms.</li>
-        <li>The Coin value displayed on BloxDice is an internal, non-transferable gameplay unit used solely within the platform for scoring, balancing, and participation in gameplay activities.</li>
-        <li>Coins may be used to participate in gameplay activities on BloxDice. Such use remains entirely internal to the platform and does not grant Coins independent economic value.</li>
-        <li>Coins are not real currency, cryptocurrency, stored value, financial instruments, or transferable assets.</li>
-        <li>Coins do not exist independently outside BloxDice and have no value outside the platform.</li>
-        <li>In-game items may be converted into Coins, and Coins may be converted back into in-game items solely within BloxDice.</li>
-        <li>These conversions are internal platform mechanics only and do not create ownership rights, property interests, monetary claims, or any form of real-world value.</li>
-        <li>Coins cannot be deposited, withdrawn, transferred, or exchanged for real-world money or assets.</li>
-        <li>All Coin balances and related displays exist solely within BloxDice for entertainment purposes.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '6. Bots & Platform Responsibility',
-    content: (
-      <ul>
-        <li>BloxDice may utilize automated accounts or bots to facilitate in-game actions or trades.</li>
-        <li>If a bot or host account becomes restricted or banned on Roblox or another external platform, BloxDice is not liable for lost items, delayed trades, or related inconveniences.</li>
-        <li>Users are responsible for verifying official bot accounts and reviewing trade details before acceptance.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '7. Refund Policy',
-    content: (
-      <ul>
-        <li>BloxDice does not provide refunds or exchanges for in-game items that have been lost, wagered, traded, or withdrawn.</li>
-        <li>Any discretionary refund or adjustment does not establish an ongoing right to compensation.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '8. Prohibited Activities',
-    content: (
-      <ul>
-        <li>Using the platform for unlawful purposes.</li>
-        <li>Engaging in fraudulent or deceptive behavior.</li>
-        <li>Attempting to exploit or manipulate platform systems.</li>
-        <li>Attempting to convert real-world money into in-game items or in-game items into real-world value, including real-world trading.</li>
-        <li>Abusing rewards by repeatedly claiming promotions, bonuses, or incentives without meaningful gameplay participation, or by using the platform solely to extract rewards.</li>
-        <li>Creating or using accounts primarily to farm, collect, or exploit rewards, promotions, or referral systems.</li>
-      </ul>
-    ),
-  },
-  {
-    title: '9. Intellectual Property',
-    content: (
-      <p>
-        All content on the Site, including text, graphics, logos, and software, is the property of BloxDice or its licensors and is protected by applicable intellectual property laws.
-      </p>
-    ),
-  },
-  {
-    title: '10. Limitation of Liability',
-    content: (
-      <p>
-        To the fullest extent permitted by law, BloxDice shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the Site or Services.
-      </p>
-    ),
-  },
-  {
-    title: '11. Termination',
-    content: (
-      <p>
-        We may suspend or terminate your access to the Site at our sole discretion for violations of these Terms or suspected abuse.
-      </p>
-    ),
-  },
-  {
-    title: '12. Contact Us',
-    content: (
-      <p>
-        If you have any questions regarding these Terms, contact us through our{' '}
-        <a
-          href="https://discord.gg/xcDdtcnPP2"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold text-[#8f96c8] underline decoration-[#8f96c8]/50 underline-offset-2 transition-colors hover:text-[#cbd3f2]"
-        >
-          official Discord server
-        </a>
-        .
-      </p>
+      <>
+        Rule-breaking accounts may be restricted. Contact our{' '}
+        <a href="https://discord.gg/xcDdtcnPP2" target="_blank" rel="noopener noreferrer">Discord Server</a> support.
+      </>
     ),
   },
 ]
@@ -182,23 +51,19 @@ export default function TermsModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (!isOpen) return undefined
-
     const previouslyFocused = document.activeElement
     const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0)
-
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         requestClose()
         return
       }
-
       if (event.key !== 'Tab') return
       const focusable = dialogRef.current?.querySelectorAll(
         'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
       )
       if (!focusable?.length) return
-
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
       if (event.shiftKey && document.activeElement === first) {
@@ -209,7 +74,6 @@ export default function TermsModal({ isOpen, onClose }) {
         first.focus()
       }
     }
-
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       window.clearTimeout(focusTimer)
@@ -221,16 +85,7 @@ export default function TermsModal({ isOpen, onClose }) {
   if (!isOpen) return null
 
   return (
-    <div
-      className={`fixed inset-0 z-[10000] flex items-center justify-center bg-[rgba(0,0,0,.55)] p-3 sm:p-5 ${
-        closing
-          ? 'animate-[termsFadeOut_.2s_ease-in_forwards]'
-          : 'animate-[termsFadeIn_.2s_ease-out]'
-      }`}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) requestClose()
-      }}
-    >
+    <div className={`termsOverlay ${closing ? 'closing' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && requestClose()}>
       <section
         ref={dialogRef}
         role="dialog"
@@ -238,102 +93,56 @@ export default function TermsModal({ isOpen, onClose }) {
         aria-labelledby="terms-modal-title"
         aria-describedby="terms-modal-summary"
         tabIndex={-1}
-        className={`flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[680px] flex-col overflow-hidden rounded-[6px] border border-solid border-[#181a28] bg-[#131520] font-[Poppins] text-[#e1e4f2] shadow-[0_20px_80px_rgba(0,0,0,0.55)] outline-none sm:max-h-[min(760px,calc(100dvh-2.5rem))] ${
-          closing
-            ? 'animate-[termsModalClose_.2s_forwards]'
-            : 'animate-[termsModalOpen_.25s_forwards]'
-        }`}
+        className={`termsModal ${closing ? 'closing' : ''}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-4 sm:px-5">
-          <span className="flex h-10 w-5 shrink-0 items-center justify-center text-[#8f96c8]" aria-hidden="true">
-            <TermsIcon className="h-5 w-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 id="terms-modal-title" className="text-[18px] font-bold leading-[1.3] text-white sm:text-[21px]">
-              Terms of Service
-            </h2>
-            <p id="terms-modal-summary" className="mt-0.5 text-[10px] font-semibold text-[#666d8d] sm:text-[11px]">
-              Effective date: {EFFECTIVE_DATE}
-            </p>
+        <header className="termsHeader">
+          <TermsIcon className="termsIcon" />
+          <div className="termsHeading">
+            <h1 id="terms-modal-title">Terms of Service</h1>
           </div>
-          <button
-            type="button"
-            aria-label="Close Terms of Service"
-            onClick={requestClose}
-            className="grid h-[30px] w-[30px] shrink-0 place-content-center rounded-[5px] border-0 bg-transparent text-[#7d839f] transition-colors duration-150 hover:bg-white/[0.05] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6c63ff]"
-          >
-            <X className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          <button type="button" className="termsClose" aria-label="Close Terms of Service" onClick={requestClose}>
+            <X size={18} strokeWidth={2.2} />
           </button>
         </header>
 
-        <div className="terms-modal-scroll min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-          <div className="space-y-4">
-            {sections.map((section) => (
-              <article key={section.title}>
-                <h3 className="mb-1.5 text-xs font-bold text-white sm:text-[13px]">{section.title}</h3>
-                <div className="text-[11px] font-medium leading-[1.7] text-[#8f96b5] sm:text-xs [&_a]:text-[#8f96c8] [&_strong]:font-semibold [&_strong]:text-[#cdd1e3] [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-4">
-                  {section.content}
-                </div>
+        <div className="termsScroll">
+          <div className="termsWelcome">
+            <p id="terms-modal-summary"><strong>Welcome to BloxDice.</strong> Using this platform confirms that you accept these Terms.</p>
+          </div>
+          <div className="termsList">
+            {terms.map((term, index) => (
+              <article key={index}>
+                <span>{index + 1}.</span>
+                <p>{term.content || term.text}</p>
               </article>
             ))}
           </div>
         </div>
 
-        <footer className="flex shrink-0 flex-col gap-3 border-t border-white/[0.06] bg-[#131520] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
-          <p className="text-[10px] font-medium leading-relaxed text-[#666d8d] sm:max-w-[390px] sm:text-[11px]">
-            Using the Service means you accept these Terms. Keep a copy for your records.
-          </p>
-          <button
-            type="button"
-            onClick={requestClose}
-            className="h-10 shrink-0 rounded-[8px] border border-[rgba(94,85,217,0.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-5 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,0.2)] transition-[transform,background,opacity] duration-150 hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)] hover:opacity-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8079ff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#131520]"
-          >
-            I understand
-          </button>
+        <footer className="termsFooter">
+          <p>By using BloxDice, you confirm that you have read, understood, and accept these Terms.</p>
+          <button type="button" onClick={requestClose}>I understand</button>
         </footer>
+
         <style>{`
-          @keyframes termsFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-
-          @keyframes termsFadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-          }
-
-          @keyframes termsModalOpen {
-            from { opacity: 0; transform: scale(.93); }
-            to { opacity: 1; transform: scale(1); }
-          }
-
-          @keyframes termsModalClose {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0; transform: scale(.93); }
-          }
-
-          .terms-modal-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: #2a2e44 transparent;
-          }
-
-          .terms-modal-scroll::-webkit-scrollbar {
-            width: 8px;
-          }
-
-          .terms-modal-scroll::-webkit-scrollbar-track {
-            background: transparent;
-          }
-
-          .terms-modal-scroll::-webkit-scrollbar-thumb {
-            border-radius: 999px;
-            background: #2a2e44;
-          }
-
-          .terms-modal-scroll::-webkit-scrollbar-thumb:hover {
-            background: #32385a;
-          }
+          .termsOverlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.55);animation:termsFadeIn .18s ease-out}
+          .termsOverlay.closing{animation:termsFadeOut .2s ease-in forwards}
+          .termsModal{position:relative;width:74%;max-width:480px;height:480px;display:flex;flex-direction:column;overflow:hidden;padding:16px;border:1px solid #181a28;border-radius:6px;background:#171925;color:#e1e4f2;font-family:Poppins,sans-serif;box-shadow:0 20px 80px rgba(0,0,0,.55);outline:none;animation:termsModalOpen .22s forwards}
+          .termsModal.closing{animation:termsModalClose .2s forwards}
+          .termsHeader{display:flex;align-items:center;gap:9px;flex-shrink:0;padding:1px 2px 13px;border-bottom:1px solid rgba(255,255,255,.06)}
+          .termsIcon{width:19px;height:19px;flex:0 0 19px;color:#8f96c8}
+          .termsHeading{min-width:0;flex:1}.termsHeading h1{margin:0;color:#fff;font-size:21px;font-weight:650;line-height:1.3}
+          .termsClose{display:grid;width:30px;height:30px;place-items:center;padding:0;border:0;border-radius:5px;background:transparent;color:#7d839f;cursor:pointer;transition:color .14s ease,background .14s ease}.termsClose:hover{color:#fff;background:rgba(255,255,255,.05)}
+          .termsScroll{min-height:0;display:flex;flex:1;flex-direction:column;overflow:hidden;padding:9px 2px 7px}
+          .termsWelcome{margin-bottom:7px;padding:0 3px}
+          .termsWelcome p{display:block;box-sizing:border-box;width:100%;margin:0;padding-right:2px;color:#9299bc;font-size:clamp(9px,2.15vw,11px);font-weight:500;line-height:1.35;letter-spacing:-.02em;white-space:nowrap}.termsWelcome strong{color:#fff;font-weight:700}
+          .termsList{display:grid;min-height:0;flex:1;grid-template-rows:repeat(12,minmax(0,1fr));gap:1px}.termsList article{display:grid;grid-template-columns:17px minmax(0,1fr);align-items:center;gap:2px;padding:0 3px}.termsList article>span{color:#e4e7f4;font-size:10.6px;font-weight:700;line-height:1.3;text-align:left}.termsList p{margin:0;color:#8f96b5;font-size:clamp(9px,2.1vw,10.6px);font-weight:500;line-height:1.3;letter-spacing:-.015em;white-space:nowrap}.termsList a{color:#a7adcf;font-weight:650;text-decoration:underline;text-decoration-color:rgba(167,173,207,.45);text-underline-offset:2px}.termsList a:hover{color:#fff}
+          .termsFooter{display:flex;flex-shrink:0;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)}
+          .termsFooter p{max-width:275px;margin:0;color:#737b9b;font-size:10.5px;font-weight:500;line-height:1.35}
+          .termsFooter button{height:36px;padding:0 16px;border:1px solid rgba(94,85,217,.4);border-radius:8px;background:linear-gradient(180deg,#8079ff 0%,#6c63ff 45%,#5a51e6 100%);color:#fff;font:600 11px Poppins,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(108,99,255,.2);transition:filter .14s ease,transform .14s ease}.termsFooter button:hover{filter:brightness(1.08)}.termsFooter button:active{transform:scale(.98)}
+          @keyframes termsFadeIn{from{opacity:0}to{opacity:1}}@keyframes termsFadeOut{from{opacity:1}to{opacity:0}}@keyframes termsModalOpen{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes termsModalClose{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.94)}}
+          @media(max-width:640px){.termsModal{width:100%;height:min(480px,calc(100dvh - 32px));padding:12px}.termsHeading h1{font-size:19px}.termsScroll{padding-top:8px}.termsList{gap:0}.termsList article{grid-template-columns:17px minmax(0,1fr);gap:2px}.termsList article>span,.termsList p{font-size:9.5px}.termsFooter p{font-size:10px}}
         `}</style>
       </section>
     </div>

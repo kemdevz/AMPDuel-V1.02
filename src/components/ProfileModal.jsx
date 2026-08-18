@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
@@ -1556,11 +1556,11 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
             <span id="profile-modal-title">Account</span>
             <button
               type="button"
-              className="block border-none bg-transparent p-0 text-[22px] leading-none text-white/50 transition-colors hover:text-white sm:hidden"
+              className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-[5px] border-0 bg-transparent p-0 text-[#7d839f] transition-[color,background] duration-150 hover:bg-white/[.05] hover:text-white sm:hidden"
               aria-label="Close account"
               onClick={requestClose}
             >
-              ×
+              <X size={18} strokeWidth={2.2} />
             </button>
           </div>
 
@@ -1641,11 +1641,11 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
         <section className="profileModalPanel relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#131520]">
           <button
             type="button"
-            className="absolute right-4 top-3.5 z-[5] hidden h-auto w-auto items-center justify-center border-none bg-transparent text-[22px] leading-none text-white/60 transition-colors hover:text-white sm:inline-flex"
+            className="absolute right-4 top-3.5 z-[5] hidden h-[30px] w-[30px] shrink-0 place-items-center rounded-[5px] border-0 bg-transparent p-0 text-[#7d839f] transition-[color,background] duration-150 hover:bg-white/[.05] hover:text-white sm:grid"
             aria-label="Close account"
             onClick={requestClose}
           >
-            ×
+            <X size={18} strokeWidth={2.2} />
           </button>
 
           <div className="hidden shrink-0 items-center gap-2.5 px-[22px] pb-3.5 pt-[18px] sm:flex">
