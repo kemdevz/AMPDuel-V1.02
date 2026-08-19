@@ -102,7 +102,7 @@ function coinflipJoinItemMatchesMode(item, gameMode) {
   const name = String(item?.name || '')
   return gameMode === 'gems_only'
     ? /\bgems?\b/i.test(name)
-    : /\b(?:titanic|gems?)\b/i.test(name)
+    : /\b(?:gargantuan|titanic|gems?)\b/i.test(name)
 }
 
 function JoinItemCard({ item, selected, onToggle }) {

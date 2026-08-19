@@ -61,8 +61,8 @@ function isGemItem(item) {
   return /\bgems?\b/i.test(String(item?.name || ''))
 }
 
-function isTitanicItem(item) {
-  return /\btitanic\b/i.test(String(item?.name || ''))
+function isTitanicLockItem(item) {
+  return /\b(?:gargantuan|titanic)\b/i.test(String(item?.name || ''))
 }
 
 export default function CoinflipCreateModal({ onClose, onCreate }) {
@@ -197,7 +197,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     .reduce((sum, item) => sum + Number(item.value ?? 0), 0)
   const selectedInventoryRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
   const titanicsGemsEligible = selectedInventoryRows.length > 0
-    && selectedInventoryRows.every((item) => isTitanicItem(item) || isGemItem(item))
+    && selectedInventoryRows.every((item) => isTitanicLockItem(item) || isGemItem(item))
 
   useEffect(() => {
     setGameModes((current) => {
@@ -221,7 +221,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 
   const toggleGameMode = () => {
     if (!titanicsGemsEligible) {
-      notifications.error('Select only Titanic pets and Gems to enable Titanic + Gems.')
+      notifications.error('Select only Gargantuan or Titanic pets and Gems to enable Titanic + Gems.')
       return
     }
 
@@ -466,7 +466,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                     <span className="_settingsEmoji_2jqwz_593" aria-hidden="true">💎</span>
                     <span className="_settingsItemText_2jqwz_599">
                       <span className="_settingsItemName_2jqwz_606">Titanic + Gems</span>
-                      <span className="_settingsItemDesc_2jqwz_612">Only Titanics and Gems can be used</span>
+                      <span className="_settingsItemDesc_2jqwz_612">Only Gargantuans, Titanics, and Gems can be used</span>
                     </span>
                     <span className={`_settingsToggle_2jqwz_619 ${gameModes.titanicsGems ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
                       <span className="_settingsToggleThumb_2jqwz_629" />

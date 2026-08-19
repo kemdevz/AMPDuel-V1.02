@@ -5030,7 +5030,7 @@ function normalizeCoinflipGameMode(value) {
 function coinflipItemsMatchGameMode(items, gameMode) {
   if (!gameMode) return true
   if (!Array.isArray(items) || items.length === 0) return false
-  const pattern = gameMode === 'gems_only' ? /\bgems?\b/i : /\b(?:titanic|gems?)\b/i
+  const pattern = gameMode === 'gems_only' ? /\bgems?\b/i : /\b(?:gargantuan|titanic|gems?)\b/i
   return items.every((item) => pattern.test(String(item?.name || '')))
 }
 
@@ -5102,7 +5102,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       return res.status(400).json({ ok: false, error: 'Coinflip items must have a positive value.' })
     }
     if (!coinflipItemsMatchGameMode(verifiedCreatorItems, game_mode)) {
-      const label = game_mode === 'gems_only' ? 'Gems' : 'Titanic pets and Gems'
+      const label = game_mode === 'gems_only' ? 'Gems' : 'Gargantuan or Titanic pets and Gems'
       return res.status(400).json({ ok: false, error: `Select only ${label} to use this lock.` })
     }
 
@@ -5292,7 +5292,7 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
     }
     const gameMode = normalizeCoinflipGameMode(roomObj.game_mode)
     if (!coinflipItemsMatchGameMode(verifiedOpponentItems, gameMode)) {
-      const label = gameMode === 'gems_only' ? 'Gems' : 'Titanic pets and Gems'
+      const label = gameMode === 'gems_only' ? 'Gems' : 'Gargantuan or Titanic pets and Gems'
       return res.status(400).json({ ok: false, error: `This flip only accepts ${label}.` })
     }
     if (opponentWagerValue * 10 < creatorWagerValue * 9 || opponentWagerValue * 10 > creatorWagerValue * 11) {
