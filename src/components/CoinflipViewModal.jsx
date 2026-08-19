@@ -4,6 +4,7 @@ import { getInventoryItemAccent } from './InventoryItemCard'
 import { notifications } from './Notifications'
 import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
+import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 // All coin animation assets and timing live here so the mockup can be retuned
 // without touching the component markup.
@@ -36,11 +37,7 @@ function formatValue(value) {
 }
 
 function formatCompactValue(value) {
-  const numeric = Number(value ?? 0)
-  if (!Number.isFinite(numeric)) return '0'
-  if (numeric >= 1_000_000) return `${(numeric / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}M`
-  if (numeric >= 1_000) return `${(numeric / 1_000).toFixed(1).replace(/\.0$/, '')}K`
-  return formatValue(numeric)
+  return formatPriceValue(value, { maximumFractionDigits: 2 })
 }
 
 function normalizeItem(item, index) {

@@ -2,18 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CoinflipIcon } from './icons'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
+import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const CLOSE_DURATION_MS = 200
 
 function compactValue(value) {
-  const number = Number(value ?? 0)
-  if (!Number.isFinite(number)) return '0'
-  if (number >= 1_000_000_000_000) return `${(number / 1_000_000_000_000).toFixed(1)}T`
-  if (number >= 1_000_000_000) return `${(number / 1_000_000_000).toFixed(1)}B`
-  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(1)}M`
-  if (number >= 1_000) return `${(number / 1_000).toFixed(1)}K`
-  return number.toLocaleString('en-US')
+  return formatPriceValue(value)
 }
 
 function itemQuantity(item) {

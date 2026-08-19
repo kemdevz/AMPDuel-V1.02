@@ -6,6 +6,7 @@ import DepositModal from './DepositModal'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
 import SortDirectionIcon from './SortDirectionIcon'
 import { notifications } from './Notifications'
+import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
 
 const BOBUX_ICON = '/bobux.png'
 const HEADS_ICON = '/heads.png'
@@ -19,20 +20,11 @@ const formatNumber = (value) => {
 }
 
 const compactValue = (value) => {
-  const number = Number(value ?? 0)
-  if (!Number.isFinite(number)) return '0'
-  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
-  if (number >= 1_000) return `${(number / 1_000).toFixed(1).replace(/\.0$/, '')}K`
-  return number.toLocaleString()
+  return formatPriceValue(value)
 }
 
 const parseRoomValue = (room) => {
-  const raw = String(room?.value || '0').trim().toUpperCase()
-  const number = Number(raw.replace(/[MK,]/g, ''))
-  if (!Number.isFinite(number)) return 0
-  if (raw.includes('M')) return number * 1_000_000
-  if (raw.includes('K')) return number * 1_000
-  return number
+  return parsePriceValue(room?.value)
 }
 
 function findAutoSelectedItems(items, minValue, targetValue, maxValue) {

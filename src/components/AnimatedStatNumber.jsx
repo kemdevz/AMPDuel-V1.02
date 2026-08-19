@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 function normalizeValue(value) {
   const numericValue = Number(value ?? 0)
@@ -6,16 +7,7 @@ function normalizeValue(value) {
 }
 
 function formatCompact(value) {
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(value % 1_000_000_000 === 0 ? 0 : 1)}B`
-  }
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`
-  }
-  return value.toLocaleString('en-US')
+  return formatPriceValue(value)
 }
 
 export default function AnimatedStatNumber({ value, compact = false, duration = 750, className }) {

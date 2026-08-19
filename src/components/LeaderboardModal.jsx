@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { get } from '../lib/api'
 import MiniProfileModal from './MiniProfileModal'
+import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 const TABS = [
   { id: 'played', label: 'Played', heading: 'Played' },
@@ -9,18 +10,7 @@ const TABS = [
 ]
 
 function formatCompact(value) {
-  const amount = Number(value) || 0
-  const absolute = Math.abs(amount)
-  const units = [
-    [1e12, 'T'],
-    [1e9, 'B'],
-    [1e6, 'M'],
-    [1e3, 'K'],
-  ]
-  const unit = units.find(([size]) => absolute >= size)
-  if (!unit) return amount.toLocaleString('en-US')
-  const compact = amount / unit[0]
-  return `${compact.toFixed(Math.abs(compact) >= 100 ? 0 : 1).replace(/\.0$/, '')}${unit[1]}`
+  return formatPriceValue(value)
 }
 
 export default function LeaderboardModal({ isOpen, onClose }) {

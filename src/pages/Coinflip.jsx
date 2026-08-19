@@ -15,6 +15,7 @@ import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
 import { BattlesIcon } from '../components/icons'
+import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const RESOLVED_ROOM_LIFETIME_MS = 40_000
@@ -59,33 +60,11 @@ function mergeRecentCoinflipResults(current, incoming) {
 }
 
 function formatCoinflipValue(value) {
-  const numericValue = Number(value ?? 0)
-  if (!Number.isFinite(numericValue)) return '0'
-
-  if (numericValue >= 1_000_000) {
-    return `${(numericValue / 1_000_000).toFixed(2).replace(/\.0+$/, '').replace(/(\.\d)0+$/, '$1')}M`
-  }
-
-  if (numericValue >= 1_000) {
-    return `${(numericValue / 1_000).toFixed(1).replace(/\.0$/, '')}K`
-  }
-
-  return numericValue.toLocaleString('en-US')
+  return formatPriceValue(value, { maximumFractionDigits: 2 })
 }
 
 function parseCoinflipValue(value) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-
-  const raw = String(value ?? '').trim().toUpperCase()
-  if (!raw) return 0
-
-  const cleaned = raw.replace(/,/g, '')
-  const number = Number(cleaned.replace(/[MK]/g, ''))
-  if (!Number.isFinite(number)) return 0
-
-  if (cleaned.includes('M')) return number * 1_000_000
-  if (cleaned.includes('K')) return number * 1_000
-  return number
+  return parsePriceValue(value)
 }
 
 function getRoomValueDetails(room) {
