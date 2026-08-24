@@ -13,12 +13,13 @@ import {
   PlusIcon,
 } from './AmpInventoryModalUI'
 import { notifications } from './Notifications'
+import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 
 const HEADS_ICON = '/heads.webp'
 const TAILS_ICON = '/tails.webp'
 const MAX_ITEMS = 20
 
-export default function CoinflipCreateModal({ onClose, onCreate }) {
+export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCreate }) {
   const user = useAuth((state) => state.user)
   const [inventoryItems, setInventoryItems] = useState([])
   const [selectedItems, setSelectedItems] = useState([])
@@ -88,10 +89,13 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     return () => { isMounted = false }
   }, [user?.id, user?.profile_id])
 
-  const inventoryRows = useMemo(() => inventoryItems.map((item, index) => ({
-    ...item,
-    displayKey: item.id || `${item.name || 'inventory'}-${index}`,
-  })), [inventoryItems])
+  const normalizedGameMode = normalizeCoinflipGameMode(gameMode, 'ps99')
+  const inventoryRows = useMemo(() => inventoryItems
+    .filter((item) => inventoryItemMatchesGame(item, normalizedGameMode))
+    .map((item, index) => ({
+      ...item,
+      displayKey: item.id || `${item.name || 'inventory'}-${index}`,
+    })), [inventoryItems, normalizedGameMode])
 
   const visibleRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -147,11 +151,12 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
         name: item.name,
         image_url: item.image_url || item.image || null,
         value: Number(item.value ?? 0),
+        type: item.type || item.item_type || null,
       })),
       creator_avatar_url: creatorAvatarUrl,
       creator_avatar: creatorAvatarUrl,
       item_ids: selectedRows.map((item) => item.id),
-      game_mode: null,
+      game_mode: normalizedGameMode,
     }
 
     try {
@@ -169,7 +174,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
         opponent_username: returned?.opponent_username || null,
         opponent_side: returned?.opponent_side || null,
         opponent_items: returned?.opponent_items || null,
-        game_mode: returned?.game_mode || null,
+        game_mode: returned?.game_mode || normalizedGameMode,
         created_at: returned?.created_at || new Date().toISOString(),
       }
       try { onCreate?.(roomLocal) } catch (error) { console.warn('[coinflip] onCreate callback failed', error) }

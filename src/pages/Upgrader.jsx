@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Search } from 'lucide-react'
 import InventoryItemCard, { inventoryItemCardStyles } from '../components/InventoryItemCard'
+import CoinflipFairnessModal from '../components/CoinflipFairnessModal'
 import { notifications } from '../components/Notifications'
 import SortDirectionIcon from '../components/SortDirectionIcon'
 import { apiRequest } from '../lib/apiClient'
@@ -1155,9 +1156,9 @@ const REFERENCE_UPGRADER_CSS = `
 .ref-browser-select span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ref-browser-select svg { width:16px; height:16px; flex:none; opacity:.5; transition:transform .15s ease; }
 .ref-browser-select[aria-expanded="true"] svg { transform:rotate(180deg); }
-.ref-filter-menu { position:absolute; z-index:100; top:52px; left:0; width:100%; padding:4px; border:1px solid hsl(231 16% 16%); border-radius:8px; background:hsl(227 17% 11%); box-shadow:none; transform-origin:top; animation:ref-filter-in .15s ease-out; }
-.ref-filter-option { display:flex; width:100%; padding:8px 12px; border:0; border-radius:6px; background:transparent; color:rgba(255,255,255,.7); font-size:14px; font-weight:600; text-align:left; }
-.ref-filter-option:hover,.ref-filter-option.is-active { background:rgba(255,255,255,.05); color:#fff; }
+.ref-filter-menu { position:absolute; z-index:100; top:52px; left:0; min-width:164px; width:max-content; padding:4px; border:1px solid rgba(255,255,255,.16); border-radius:7px; outline:0; background:#191c24; box-shadow:0 12px 30px rgba(0,0,0,.35); transform-origin:top left; animation:ref-filter-in .12s ease-out; }
+.ref-filter-option { display:flex; width:100%; min-width:156px; height:32px; align-items:center; padding:0 12px; border:0; border-radius:5px; outline:0; background:transparent; color:#aeb2bc; font:500 12px/18px Poppins,sans-serif; text-align:left; cursor:pointer; }
+.ref-filter-option:hover,.ref-filter-option:focus { background:#262a35; color:#aeb2bc; }
 .ref-browser-items { height:400px; margin-top:16px; overflow:auto; }
 .ref-browser-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
 .ref-browser-empty { display:flex; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
@@ -1248,8 +1249,8 @@ function ReferenceFilterSelect({ value, options, onChange, ariaLabel }) {
       <button type="button" role="combobox" aria-label={ariaLabel} aria-expanded={open} className="ref-browser-select" onClick={() => setOpen((current) => !current)}>
         <span>{selectedLabel}</span><ReferenceChevron />
       </button>
-      {open ? <div className="ref-filter-menu" role="listbox">{normalizedOptions.map((option) => (
-        <button type="button" role="option" aria-selected={option.value === value} className={`ref-filter-option ${option.value === value ? 'is-active' : ''}`} key={option.value} onClick={() => { onChange(option.value); setOpen(false) }}>{option.label}</button>
+      {open ? <div className="ref-filter-menu" role="menu" aria-orientation="vertical">{normalizedOptions.map((option, index) => (
+        <button type="button" role="menuitem" tabIndex={index === 0 ? 0 : -1} className="ref-filter-option" key={option.value} onClick={() => { onChange(option.value); setOpen(false) }}>{option.label}</button>
       ))}</div> : null}
     </div>
   )
@@ -2000,7 +2001,7 @@ export default function Upgrader() {
           }}
         />
       ) : null}
-      {fairnessOpen ? <FairnessModal gameActive={spinning} onClose={() => setFairnessOpen(false)} /> : null}
+      {fairnessOpen ? <CoinflipFairnessModal onClose={() => setFairnessOpen(false)} /> : null}
     </div>
   )
 }

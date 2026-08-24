@@ -10,7 +10,7 @@ import { useAuth } from '../store/auth'
 import { NavLink } from '../lib/router'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
-import { FairnessModal } from '../pages/Upgrader'
+import CoinflipFairnessModal from './CoinflipFairnessModal'
 import HeaderUtilityBar from './HeaderUtilityBar'
 import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
 
@@ -211,7 +211,7 @@ export default function Layout({ children }) {
         isOpen={termsModalOpen}
         onClose={() => setTermsModalOpen(false)}
       />
-      {fairnessModalOpen ? <FairnessModal onClose={() => setFairnessModalOpen(false)} /> : null}
+      {fairnessModalOpen ? <CoinflipFairnessModal onClose={() => setFairnessModalOpen(false)} /> : null}
 
       <ProfileTipManager />
       <Notifications />

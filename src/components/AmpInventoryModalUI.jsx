@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState } from 'react'
+
 export const AMP_MODAL_STYLES = `
   @keyframes ampModalOverlayIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes ampModalIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
@@ -74,6 +76,7 @@ export const AMP_MODAL_STYLES = `
   .amp-modal-body {
     min-height: 0;
     padding: 20px;
+    overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -102,8 +105,12 @@ export const AMP_MODAL_STYLES = `
   }
   .amp-value-label { color: #8f95a3; font-size: 13px; font-weight: 600; line-height: 20px; white-space: nowrap; }
   .amp-value-icon { width: 13px; height: 13px; flex: 0 0 13px; color: #ff4fa3; }
+  .amp-value-pill.is-valid .amp-value-icon { color: #22c55e; }
   .amp-value-number { color: #f5f6f8; font-size: 16px; font-weight: 700; line-height: 20px; white-space: nowrap; }
   .amp-count-badge { padding: 8px 12px; border-radius: 7px; color: #a6acb8; background: #20242d; font-size: 10px; font-weight: 700; line-height: 14px; white-space: nowrap; }
+  .amp-join-required { display: inline-flex; align-items: center; gap: 6px; color: #858c99; font-size: 12px; font-weight: 600; line-height: 18px; white-space: nowrap; }
+  .amp-join-required svg { width: 11px; height: 11px; flex: 0 0 11px; }
+  .amp-join-max-items { color: #fff; font-size: 10px; font-weight: 400; line-height: 14px; white-space: nowrap; }
 
   .amp-search { position: relative; width: 260px; height: 42px; flex: 0 0 260px; }
   .amp-search > svg { position: absolute; top: 50%; left: 16px; width: 13px; height: 13px; color: #747b89; transform: translateY(-50%); pointer-events: none; }
@@ -127,23 +134,45 @@ export const AMP_MODAL_STYLES = `
   .amp-search-clear:hover { color: #eceef2; background: rgba(255, 255, 255, .06); }
 
   .amp-sort { position: relative; display: inline-flex; height: 42px; flex: 0 0 auto; }
-  .amp-sort select {
-    height: 42px;
+  .amp-sort-trigger {
+    display: inline-flex;
     min-width: 132px;
-    padding: 0 38px 0 16px;
-    appearance: none;
-    outline: 0;
+    height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 16px;
     border: 1px solid rgba(255, 255, 255, .07);
     border-radius: 8px;
+    outline: 0;
     color: #d9dce3;
     background: #20242e;
+    box-shadow: none;
     font: 600 13px/20px Poppins, sans-serif;
     cursor: pointer;
   }
-  .amp-sort select:hover { background: #272c37; }
-  .amp-sort select:focus-visible { border-color: rgba(255, 255, 255, .16); }
-  .amp-sort select option { color: #d9dce3; background: #20242e; }
-  .amp-sort > svg { position: absolute; top: 16px; right: 15px; width: 10px; height: 10px; pointer-events: none; }
+  .amp-sort-trigger:hover, .amp-sort-trigger[aria-expanded="true"] { border-color: rgba(255,255,255,.07); background: #272c37; }
+  .amp-sort-trigger:focus-visible { box-shadow: none; }
+  .amp-sort-trigger svg { width: 11px; height: 11px; flex: 0 0 11px; }
+  .amp-sort-menu-positioner { position: absolute; top: 50px; right: 0; left: auto; z-index: 30; min-width: max-content; margin: 0; visibility: visible; transform-origin: top right; }
+  .amp-sort-menu {
+    display: flex;
+    min-width: 160px;
+    flex-direction: column;
+    gap: 0;
+    padding: 6px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    outline: 0;
+    color: #d9dce3;
+    background: #20242e;
+    box-shadow: 0 16px 40px rgba(0,0,0,.4);
+    transform-origin: top right;
+    animation: ampSortMenuIn .12s ease-out both;
+  }
+  @keyframes ampSortMenuIn { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+  .amp-sort-menu-item { display: flex; width: 100%; height: 36px; align-items: center; padding: 0 12px; border: 0; border-radius: 6px; outline: 0; color: #d9dce3; background: transparent; font: 500 13px/20px Poppins, sans-serif; text-align: left; cursor: pointer; }
+  .amp-sort-menu-item:hover, .amp-sort-menu-item:focus { background: #292e39; }
 
   .amp-action {
     display: inline-flex;
@@ -206,6 +235,7 @@ export const AMP_MODAL_STYLES = `
   .amp-create-button:hover { background: #ff69b0; }
   .amp-create-button:active { background: #f33f94; }
   .amp-create-button:disabled { cursor: not-allowed; opacity: .5; }
+  .amp-join-coin { width: 42px; height: 42px; object-fit: contain; }
 
   .amp-custom-footer { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 12px; }
   .amp-custom-footer > button {
@@ -295,11 +325,36 @@ export function AmpSearch({ value, onChange }) {
 }
 
 export function AmpSort({ ascending, onChange }) {
-  return <label className="amp-sort"><select value={ascending ? 'asc' : 'desc'} onChange={(event) => onChange(event.target.value === 'asc')} aria-label="Sort inventory"><option value="desc">High to low</option><option value="asc">Low to high</option></select><ChevronIcon /></label>
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const menuId = useId()
+
+  useEffect(() => {
+    if (!open) return undefined
+    const closeOutside = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const choose = (nextAscending) => {
+    onChange(nextAscending)
+    setOpen(false)
+  }
+
+  return <div className="amp-sort" ref={rootRef}><button type="button" className="amp-sort-trigger" aria-label="Sort inventory" aria-haspopup="menu" aria-controls={menuId} aria-expanded={open} onClick={() => setOpen((current) => !current)}><span>{ascending ? 'Low to high' : 'High to low'}</span><ChevronIcon /></button>{open ? <div className="amp-sort-menu-positioner" data-popper-placement="bottom-end"><div id={menuId} className="amp-sort-menu" role="menu" aria-orientation="vertical"><button type="button" className="amp-sort-menu-item" role="menuitem" tabIndex={0} onClick={() => choose(false)}>High to low</button><button type="button" className="amp-sort-menu-item" role="menuitem" tabIndex={-1} onClick={() => choose(true)}>Low to high</button></div></div> : null}</div>
 }
 
-export function AmpValuePill({ label, value }) {
-  return <div className="amp-value-pill"><span className="amp-value-label">{label}</span><RobuxIcon className="amp-value-icon" /><span className="amp-value-number">{Number(value || 0).toLocaleString()}</span></div>
+export function AmpValuePill({ label, value, valid = false }) {
+  return <div className={`amp-value-pill${valid ? ' is-valid' : ''}`}><span className="amp-value-label">{label}</span><RobuxIcon className="amp-value-icon" /><span className="amp-value-number">{Number(value || 0).toLocaleString()}</span></div>
 }
 
 export function AmpItemCard({ item, selected = false, selectable = false, onClick }) {

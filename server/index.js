@@ -5090,12 +5090,46 @@ function getCoinflipWagerValue(items) {
 
 function normalizeCoinflipGameMode(value) {
   const mode = String(value || '').trim().toLowerCase()
-  return mode === 'gems_only' || mode === 'titanics_only' ? mode : null
+  return ['mm2', 'adm', 'ps99', 'gems_only', 'titanics_only'].includes(mode) ? mode : null
+}
+
+function getCoinflipItemGame(item) {
+  const type = String(item?.type || item?.game || item?.item_type || item?.game_mode || '').trim().toLowerCase()
+  if (type.includes('murder') || type.includes('mm2')) return 'mm2'
+  if (type.includes('adopt') || type === 'adm') return 'adm'
+  if (type.includes('pet sim') || type.includes('ps99')) return 'ps99'
+  return null
+}
+
+function getCoinflipRecordGame(game) {
+  const explicitMode = normalizeCoinflipGameMode(game?.game_mode)
+  if (explicitMode === 'mm2' || explicitMode === 'adm' || explicitMode === 'ps99') return explicitMode
+  if (explicitMode === 'gems_only' || explicitMode === 'titanics_only') return 'ps99'
+  const items = [
+    ...(Array.isArray(game?.creator_items) ? game.creator_items : []),
+    ...(Array.isArray(game?.opponent_items) ? game.opponent_items : []),
+  ]
+  for (const item of items) {
+    const itemGame = getCoinflipItemGame(item)
+    if (itemGame) return itemGame
+  }
+  return 'ps99'
+}
+
+function coinflipGameModeLabel(gameMode) {
+  if (gameMode === 'mm2') return 'Murder Mystery 2 items'
+  if (gameMode === 'adm') return 'Adopt Me pets'
+  if (gameMode === 'ps99') return 'Pet Simulator 99 pets'
+  if (gameMode === 'gems_only') return 'Gems'
+  return 'Gargantuan or Titanic pets and Gems'
 }
 
 function coinflipItemsMatchGameMode(items, gameMode) {
   if (!gameMode) return true
   if (!Array.isArray(items) || items.length === 0) return false
+  if (gameMode === 'mm2' || gameMode === 'adm' || gameMode === 'ps99') {
+    return items.every((item) => getCoinflipItemGame(item) === gameMode)
+  }
   const pattern = gameMode === 'gems_only' ? /\bgems?\b/i : /\b(?:gargantuan|titanic|gems?)\b/i
   return items.every((item) => pattern.test(String(item?.name || '')))
 }
@@ -5107,6 +5141,34 @@ function serializeCoinflipGame(game) {
   return publicGame
 }
 
+app.get('/api/coinflip/history', requireAuthenticatedUser, async (req, res) => {
+  const profileId = String(req.identity.profileId)
+  const encodedProfileId = encodeURIComponent(profileId)
+  const requestedGame = normalizeCoinflipGameMode(req.query.game)
+  const selectedGame = requestedGame === 'mm2' || requestedGame === 'adm' || requestedGame === 'ps99'
+    ? requestedGame
+    : null
+
+  try {
+    const rows = await adminRest(
+      `coinflip_games?select=*&or=(creator_uuid.eq.${encodedProfileId},opponent_uuid.eq.${encodedProfileId})&canceled=eq.false&result=not.is.null&order=resolved_at.desc&limit=250`,
+    )
+    const history = (Array.isArray(rows) ? rows : [])
+      .filter((game) => !selectedGame || getCoinflipRecordGame(game) === selectedGame)
+      .slice(0, 100)
+      .map(serializeCoinflipGame)
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({
+      ok: true,
+      game: selectedGame || 'all',
+      history,
+    })
+  } catch (error) {
+    console.error('[coinflip/history] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load coinflip history.' })
+  }
+})
+
 app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
   const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
   if (!supabaseUrl || !supabaseKey) {
@@ -5115,7 +5177,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
   }
 
   const payload = req.body || {}
-  const game_mode = normalizeCoinflipGameMode(payload.game_mode)
+  let game_mode = normalizeCoinflipGameMode(payload.game_mode)
   if (payload.game_mode && !game_mode) {
     return res.status(400).json({ ok: false, error: 'Invalid coinflip game mode.' })
   }
@@ -5167,9 +5229,12 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
     if (getCoinflipWagerValue(verifiedCreatorItems) <= 0) {
       return res.status(400).json({ ok: false, error: 'Coinflip items must have a positive value.' })
     }
+    if (!game_mode) game_mode = getCoinflipItemGame(verifiedCreatorItems[0])
+    if (!game_mode) {
+      return res.status(400).json({ ok: false, error: 'Unable to determine the selected item game.' })
+    }
     if (!coinflipItemsMatchGameMode(verifiedCreatorItems, game_mode)) {
-      const label = game_mode === 'gems_only' ? 'Gems' : 'Gargantuan or Titanic pets and Gems'
-      return res.status(400).json({ ok: false, error: `Select only ${label} to use this lock.` })
+      return res.status(400).json({ ok: false, error: `Select only ${coinflipGameModeLabel(game_mode)} for this coinflip.` })
     }
 
     const insertPayload = [{
@@ -5190,10 +5255,7 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       nonce: 0,
       canceled: false,
       tax_rate_bps: 1250,
-      // Keep ordinary coinflips compatible while the optional game-mode
-      // migration rolls out. PostgREST rejects even a null property when the
-      // backing column is not present in its schema cache.
-      ...(game_mode ? { game_mode } : {}),
+      game_mode,
     }]
 
     const response = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
@@ -5356,10 +5418,9 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
     if (creatorWagerValue <= 0 || opponentWagerValue <= 0) {
       return res.status(409).json({ ok: false, error: 'Both coinflip wagers must have a positive value.' })
     }
-    const gameMode = normalizeCoinflipGameMode(roomObj.game_mode)
+    const gameMode = normalizeCoinflipGameMode(roomObj.game_mode) || getCoinflipRecordGame(roomObj)
     if (!coinflipItemsMatchGameMode(verifiedOpponentItems, gameMode)) {
-      const label = gameMode === 'gems_only' ? 'Gems' : 'Gargantuan or Titanic pets and Gems'
-      return res.status(400).json({ ok: false, error: `This flip only accepts ${label}.` })
+      return res.status(400).json({ ok: false, error: `This flip only accepts ${coinflipGameModeLabel(gameMode)}.` })
     }
     if (opponentWagerValue * 10 < creatorWagerValue * 9 || opponentWagerValue * 10 > creatorWagerValue * 11) {
       return res.status(400).json({ ok: false, error: 'Your wager must be within 10% of the creator wager.' })

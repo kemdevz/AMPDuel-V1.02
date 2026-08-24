@@ -8,12 +8,12 @@ import CoinflipCreateModal from '../components/CoinflipCreateModal'
 import CoinflipJoinModal from '../components/CoinflipJoinModal'
 import CoinflipViewModal from '../components/CoinflipViewModal'
 import RecentCoinflipsModal from '../components/RecentCoinflipsModal'
-import { getInventoryItemCardStyle } from '../components/InventoryItemCard'
 import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileModal'
 import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
 import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
+import { getCoinflipRoomGame } from '../lib/coinflipGameMode'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const RESOLVED_ROOM_LIFETIME_MS = 40_000
@@ -23,7 +23,7 @@ const CREATOR_VIEW_OPEN_DELAY_MS = 140
 const COINFLIP_GAME_STORAGE_KEY = 'bloxdice:coinflip-game'
 const COINFLIP_GAME_OPTIONS = [
   ['mm2', 'MM2'],
-  ['adm', 'AMP'],
+  ['adm', 'ADM'],
   ['ps99', 'PS99'],
 ]
 
@@ -126,14 +126,6 @@ function normalizeCoinflipPreviewItem(item) {
   }
 }
 
-function getCoinflipRoomGame(room) {
-  const item = [...(room?.creator_items || []), ...(room?.opponent_items || [])][0]
-  const type = String(item?.type || item?.game || item?.item_type || room?.item_type || '').toLowerCase()
-  if (type.includes('murder') || type.includes('mm2')) return 'mm2'
-  if (type.includes('adopt') || type === 'adm') return 'adm'
-  return 'ps99'
-}
-
 export default function Coinflip() {
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
@@ -161,8 +153,8 @@ export default function Coinflip() {
   const [userCoinTipAmount, setUserCoinTipAmount] = useState('')
   const [showUserCoinTipInChat, setShowUserCoinTipInChat] = useState(false)
   const [rooms, setRooms] = useState([])
-  const [recentResults, setRecentResults] = useState([])
   const [recentPlayerResults, setRecentPlayerResults] = useState([])
+  const [recentPlayerResultsLoading, setRecentPlayerResultsLoading] = useState(false)
   const socketRef = useRef(null)
   const viewOpenTimerRef = useRef(null)
   const handledResolvedRoomIdsRef = useRef(new Set())
@@ -251,7 +243,6 @@ export default function Coinflip() {
         activeProfileId === String(normalized.opponent_uuid || '')
       )
     )
-    setRecentResults((current) => mergeRecentCoinflipResults(current, [normalized]))
     if (isActiveParticipant || normalized.canceled) {
       setRecentPlayerResults((current) => mergeRecentCoinflipResults(current, [normalized]))
     }
@@ -350,42 +341,24 @@ export default function Coinflip() {
     const activeProfileId = String(user?.profile_id || user?.id || '').trim()
 
     const loadRecentResults = async () => {
-      const { data, error } = await supabase
-        .from('coinflip_games')
-        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled,game_mode')
-        .eq('canceled', false)
-        .not('result', 'is', null)
-        .order('resolved_at', { ascending: false })
-        .limit(RECENT_RESULT_LIMIT)
-
-      if (!isMounted) return
-      if (error) {
-        console.warn('[coinflip] failed to load recent results', error)
-        return
-      }
-
-      setRecentResults((current) => mergeRecentCoinflipResults(current, Array.isArray(data) ? data : []))
-
       if (!activeProfileId) {
         setRecentPlayerResults([])
+        setRecentPlayerResultsLoading(false)
         return
       }
 
-      const { data: playerData, error: playerError } = await supabase
-        .from('coinflip_games')
-        .select('id,creator_uuid,creator_username,creator_avatar_url,creator_side,creator_items,opponent_uuid,opponent_username,opponent_avatar_url,opponent_side,opponent_items,created_at,result,winner_uuid,winner_username,resolved_at,canceled,game_mode')
-        .eq('canceled', false)
-        .not('result', 'is', null)
-        .or(`creator_uuid.eq.${activeProfileId},opponent_uuid.eq.${activeProfileId}`)
-        .order('resolved_at', { ascending: false })
-        .limit(RECENT_RESULT_LIMIT)
-
-      if (!isMounted) return
-      if (playerError) {
+      setRecentPlayerResultsLoading(true)
+      try {
+        const playerResult = await apiRequest(`/api/coinflip/history?game=${encodeURIComponent(gameMode)}`, { cache: 'no-store' })
+        if (!isMounted) return
+        setRecentPlayerResults(mergeRecentCoinflipResults([], Array.isArray(playerResult?.history) ? playerResult.history : []))
+      } catch (playerError) {
+        if (!isMounted) return
         console.warn('[coinflip] failed to load player flip history', playerError)
-        return
+        setRecentPlayerResults([])
+      } finally {
+        if (isMounted) setRecentPlayerResultsLoading(false)
       }
-      setRecentPlayerResults(mergeRecentCoinflipResults([], Array.isArray(playerData) ? playerData : []))
     }
 
     void loadRecentResults()
@@ -403,7 +376,7 @@ export default function Coinflip() {
       isMounted = false
       supabase.removeChannel(channel)
     }
-  }, [applyRoomUpdate, user?.id, user?.profile_id])
+  }, [applyRoomUpdate, gameMode, recentOpen, user?.id, user?.profile_id])
 
   // Derived stats for the stat cards
   const gameRooms = rooms.filter((room) => getCoinflipRoomGame(room) === gameMode)
@@ -603,6 +576,14 @@ export default function Coinflip() {
     <div className="reference-coinflip flex-1 overflow-x-hidden bg-transparent">
       <style>{`
         @keyframes coinflip-slide-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .reference-coinflip {
+          min-height: 100%;
+          background-color: #111319;
+          background-image: url('/cf-paw-pattern.svg');
+          background-repeat: repeat;
+          background-size: 180px 180px;
+          background-position: 0 18px;
+        }
         @keyframes coinflip-resolved-out {
           from {
             opacity: 1;
@@ -621,41 +602,33 @@ export default function Coinflip() {
         }
         .coinflip-row-winner-coin {
           display: block;
-          width: 68px;
-          height: 68px;
+          width: 58px;
+          height: 58px;
           object-fit: contain;
           animation: coinflip-row-winner-in 150ms forwards;
         }
         .coinflip-row-avatar {
           position: relative;
           display: block;
-          width: 50px;
-          height: 50px;
-          flex: 0 0 50px;
+          width: 58px;
+          height: 58px;
+          flex: 0 0 58px;
           padding: 0;
           overflow: hidden;
-          border: 2px solid hsl(231 16% 16%);
-          border-radius: 50%;
-          background: #151820;
+          border: 2px solid #ff4fa3;
+          border-radius: 9999px;
+          background: #111319;
           cursor: pointer;
-          box-shadow: 0 0 0 0 rgba(255, 79, 163, 0);
-          transition:
-            border-color 560ms cubic-bezier(.22, 1, .36, 1),
-            box-shadow 560ms cubic-bezier(.22, 1, .36, 1),
-            filter 560ms cubic-bezier(.22, 1, .36, 1);
-          will-change: border-color, box-shadow, filter;
+          box-shadow: none;
+          transition: border-color .2s ease, opacity .2s ease;
         }
+        .game-preview-player:nth-child(3) .coinflip-row-avatar { border-color: #1f6fff; }
         .coinflip-row-avatar:disabled { cursor: default; }
-        .coinflip-row-avatar:not(:disabled):hover { border-color: #ff4fa3; }
+        .coinflip-row-avatar:not(:disabled):hover { opacity: .9; }
         .coinflip-row-avatar:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
-        .coinflip-row-avatar-image { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .coinflip-row-avatar--winner {
-          border-color: #ff4fa3;
-          box-shadow: 0 0 0 1px rgba(255, 79, 163, .18), 0 0 12px rgba(255, 79, 163, .14);
-        }
-        .coinflip-row-avatar--loser {
-          filter: brightness(.7);
-        }
+        .coinflip-row-avatar-image { display: block; width: 54px; height: 54px; border-radius: 9999px; object-fit: cover; }
+        .coinflip-row-avatar--winner { box-shadow: none; }
+        .coinflip-row-avatar--loser { filter: none; }
         .coinflip-row-battle-icon {
           color: #6c7399;
           transition: color .2s ease;
@@ -668,69 +641,81 @@ export default function Coinflip() {
           box-sizing: border-box;
           grid-template-columns: auto minmax(190px, 1fr) 86px minmax(120px, 145px) auto;
           align-items: center;
-          gap: clamp(10px, 1.25vw, 20px);
-          padding: 10px 16px;
-          overflow: visible;
+          justify-content: space-between;
+          gap: clamp(10px, 1.25cqw, 20px);
+          padding: 12px 20px;
+          overflow: hidden;
           border: 1px solid rgba(255, 255, 255, .07);
-          border-radius: 6px;
+          border-radius: 9px;
           background: #191c24;
-          box-shadow: none;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
           font-family: Poppins, sans-serif;
         }
         .game-preview-players {
           display: flex;
-          min-width: 150px;
+          width: auto;
+          min-width: 0;
+          flex: 0 0 auto;
           align-items: center;
-          justify-content: flex-start;
-          gap: 11px;
+          justify-content: center;
+          gap: 12px;
         }
-        .game-preview-player { position: relative; flex: 0 0 50px; width: 50px; height: 50px; }
+        .game-preview-player { position: relative; flex: 0 0 58px; width: 58px; height: 58px; }
         .game-preview-side-coin {
           position: absolute;
-          right: -5px;
-          bottom: -4px;
+          top: -7px;
+          right: -7px;
           z-index: 2;
           display: block;
-          width: 22px;
-          height: 22px;
+          width: 28px;
+          height: 28px;
           object-fit: contain;
-          filter: drop-shadow(0 2px 3px rgba(0,0,0,.42));
           pointer-events: none;
         }
-        .game-preview-versus { margin: 0; color: rgba(255,255,255,.36); font-size: 12px; font-weight: 700; }
+        .game-preview-versus { margin: 0; color: #717784; font-size: 11px; font-weight: 700; line-height: 16.5px; }
         .game-preview-waiting {
-          display: grid;
+          display: flex;
           width: 100%;
           height: 100%;
-          place-items: center;
-          border-radius: 50%;
-          color: #777d8c;
-          background: #151820;
-          font-size: 20px;
-          font-weight: 700;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9999px;
+          color: #f7fafc;
+          background: #111319;
+          font-size: 18px;
+          font-weight: 400;
         }
         .game-preview-items {
           display: flex;
           min-width: 0;
+          height: 76px;
+          flex: 0 0 auto;
           align-items: center;
-          gap: 7px;
-          overflow: visible;
+          justify-content: flex-start;
+          gap: 8px;
+          padding: 4px 0 8px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          scrollbar-width: none;
         }
+        .game-preview-items::-webkit-scrollbar { display: none; }
         .game-preview-item {
           position: relative;
-          display: block;
-          width: 52px;
-          height: 52px;
-          flex: 0 0 52px;
+          display: flex;
+          width: 64px;
+          height: 64px;
+          flex: 0 0 64px;
           box-sizing: border-box;
-          border: 1px solid rgba(255,255,255,.07);
-          border-radius: 50%;
-          background: #151820;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(255,255,255,.05);
+          border-radius: 9999px;
+          background: #12151c;
           cursor: pointer;
-          transition: border-color .15s ease, transform .15s ease;
+          transition: border-color .15s ease;
         }
-        .game-preview-item:hover { z-index: 5; border-color: #ff4fa3; transform: translateY(-1px); }
-        .game-preview-item-image { display: block; width: 100%; height: 100%; box-sizing: border-box; padding: 5px; border-radius: 50%; object-fit: contain; }
+        .game-preview-item:hover { z-index: 5; border-color: rgba(255,255,255,.12); }
+        .game-preview-item-image { display: block; width: 56px; height: 56px; padding: 0; border-radius: 0; object-fit: contain; }
         .game-preview-tooltip {
           position: absolute;
           bottom: calc(100% + 7px);
@@ -768,14 +753,13 @@ export default function Coinflip() {
           font-weight: 600;
           pointer-events: none;
         }
-        .game-preview-result { display: flex; width: 86px; height: 76px; align-items: center; justify-content: center; overflow: visible; }
+        .game-preview-result { position: relative; display: flex; width: 86px; height: 78px; flex: 0 0 auto; align-items: center; justify-content: center; overflow: visible; }
         .coinflip-row-result-video {
           display: block;
-          width: 86px;
-          height: 86px;
+          width: 78px;
+          height: 78px;
           object-fit: contain;
           mix-blend-mode: screen;
-          transform: scale(1.32);
           pointer-events: none;
         }
         .game-preview-mode {
@@ -788,30 +772,30 @@ export default function Coinflip() {
           background: rgba(255,79,163,.08);
           font-size: 23px;
         }
-        .game-preview-value { min-width: 0; text-align: center; }
-        .game-preview-value-total { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; color: #f4f5f8; font-size: 16px; font-weight: 700; line-height: 1.35; }
-        .game-preview-value-total svg { width: 17px; height: 17px; flex: 0 0 17px; }
-        .game-preview-range { margin: 2px 0 0; color: rgba(255,255,255,.48); font-size: 11px; font-weight: 600; line-height: 1.35; white-space: nowrap; }
-        .game-preview-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        .game-preview-value { width: 145px; min-width: 0; flex: 0 0 auto; text-align: center; }
+        .game-preview-value-total { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; color: #f4f5f8; font-size: 15px; font-weight: 700; line-height: 22.5px; }
+        .game-preview-value-total svg { width: 16px; height: 16px; flex: 0 0 16px; }
+        .game-preview-range { margin: 4px 0 0; color: #777e8d; font-size: 11px; font-weight: 600; line-height: 16.5px; white-space: nowrap; }
+        .game-preview-actions { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 6px; }
         .game-preview-join,
         .game-preview-view {
           display: inline-flex;
-          height: 36px;
+          height: 42px;
           box-sizing: border-box;
           align-items: center;
           justify-content: center;
           border: 0;
-          border-radius: 6px;
+          border-radius: 8px;
           box-shadow: none;
           font-family: Poppins, sans-serif;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
           transition: opacity .15s ease, background-color .15s ease;
         }
-        .game-preview-join { min-width: 72px; padding: 0 16px; background: #ff4fa3; color: #1a0711; }
-        .game-preview-view { width: 38px; min-width: 38px; padding: 0; background: #2a2e3a; color: #fff; }
-        .game-preview-view svg { width: 15px; height: 15px; }
+        .game-preview-join { min-width: 40px; padding: 0 20px; background: #ff4fa3; color: #111319; line-height: 15.6px; }
+        .game-preview-view { width: 42px; min-width: 42px; padding: 0; background: #2b303c; color: #f1f2f5; }
+        .game-preview-view svg { width: 16px; height: 16px; }
         .game-preview-join:hover:not(:disabled), .game-preview-view:hover { opacity: .88; }
         .game-preview-join:disabled { cursor: not-allowed; opacity: .5; }
         .game-preview-join:focus-visible, .game-preview-view:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
@@ -952,7 +936,7 @@ export default function Coinflip() {
           }
         </div>
       </div>
-      {createOpen && <CoinflipCreateModal onClose={() => setCreateOpen(false)} onCreate={(room) => {
+      {createOpen && <CoinflipCreateModal gameMode={gameMode} onClose={() => setCreateOpen(false)} onCreate={(room) => {
         const normalized = normalizeRoom(room)
         if (!normalized) return
         setRooms((prev) => {
@@ -988,6 +972,7 @@ export default function Coinflip() {
       {joinRoom && (
         <CoinflipJoinModal
           room={joinRoom}
+          gameMode={gameMode}
           onClose={() => setJoinRoom(null)}
           onJoin={({ updatedRoom } = {}) => {
             if (updatedRoom) {
@@ -1001,7 +986,8 @@ export default function Coinflip() {
       )}
       <RecentCoinflipsModal
         isOpen={recentOpen}
-        games={recentPlayerResults}
+        games={recentPlayerResults.filter((game) => getCoinflipRoomGame(game) === gameMode)}
+        loading={recentPlayerResultsLoading}
         isAuthenticated={Boolean(user?.profile_id || user?.id)}
         onClose={() => setRecentOpen(false)}
         onView={(game) => {
@@ -1018,6 +1004,10 @@ export default function Coinflip() {
         <CoinflipViewModal
           room={viewRoom}
           onClose={() => closeViewRoom(viewRoom)}
+          onJoin={(room) => {
+            setViewRoom(null)
+            setJoinRoom(room)
+          }}
           onProfileOpen={(player) => {
             void preloadMiniProfile(player).then((loadedProfile) => {
               setSelectedProfile({ ...player, ...(loadedProfile || {}) })
@@ -1256,7 +1246,11 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
                 }}
               />
             ) : (
-              <span className="game-preview-waiting" aria-hidden="true">?</span>
+              <span className="game-preview-waiting" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 384 512" fill="currentColor">
+                  <path d="M202.021 0C122.202 0 70.503 32.703 29.914 91.026c-7.363 10.58-5.093 25.086 5.178 32.874l43.138 32.709c10.373 7.865 25.132 6.026 33.253-4.148 25.049-31.381 43.63-49.449 82.757-49.449 30.764 0 68.816 19.799 68.816 49.631 0 22.552-18.617 34.134-48.993 51.164-35.423 19.86-82.299 44.576-82.299 106.405V320c0 13.255 10.745 24 24 24h72.471c13.255 0 24-10.745 24-24v-5.773c0-42.86 125.268-44.645 125.268-160.627C377.504 66.256 286.902 0 202.021 0zM192 373.459c-38.196 0-69.271 31.075-69.271 69.271 0 38.195 31.075 69.27 69.271 69.27s69.271-31.075 69.271-69.271-31.075-69.27-69.271-69.27z" />
+                </svg>
+              </span>
             )}
           </button>
           <img className="game-preview-side-coin" alt="" src={player2.side === 'tails' ? '/tails.webp' : '/heads.webp'} draggable={false} />
@@ -1273,7 +1267,6 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
               key={item.id || `items-${idx}`}
               className="game-preview-item group"
               aria-label={item.name}
-              style={getInventoryItemCardStyle(item)}
             >
               <span
                 role="tooltip"

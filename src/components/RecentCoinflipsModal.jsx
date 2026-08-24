@@ -1,303 +1,186 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CoinflipIcon } from './icons'
-import { getInventoryItemCardStyle } from './InventoryItemCard'
-import { formatPriceValue } from '../Utils/FormatPriceValues'
+import { AMP_MODAL_STYLES, CloseIcon, RobuxIcon } from './AmpInventoryModalUI'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
+const PAGE_SIZE = 5
 const CLOSE_DURATION_MS = 200
-
-function compactValue(value) {
-  return formatPriceValue(value)
-}
 
 function itemQuantity(item) {
   const quantity = Number(item?.quantity ?? item?.qty ?? item?.count ?? 1)
   return Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1
 }
 
-function gameValue(game) {
-  const allItems = [...(game?.creator_items || []), ...(game?.opponent_items || [])]
-  const itemTotal = allItems.reduce((total, item) => total + ((Number(item?.value) || 0) * itemQuantity(item)), 0)
-  return itemTotal || Number(game?.total_value ?? game?.numericValue ?? game?.value ?? 0) || 0
+function itemValue(items) {
+  return (Array.isArray(items) ? items : []).reduce((total, item) => (
+    total + (Math.max(0, Number(item?.value) || 0) * itemQuantity(item))
+  ), 0)
 }
 
-function normalizeItem(item) {
-  if (typeof item === 'string') return { id: item, image: item, name: 'Item' }
+function normalizeItem(item, index) {
+  if (typeof item === 'string') return { id: `${item}-${index}`, image: item, name: 'Item' }
   return {
     ...item,
-    id: item?.item_uuid || item?.id || item?.uuid || item?.image_url || item?.image,
+    id: item?.item_uuid || item?.id || item?.uuid || item?.image_url || item?.image || `item-${index}`,
     image: item?.image_url || item?.image || '',
     name: item?.name || 'Item',
-    quantity: itemQuantity(item),
   }
 }
 
-function HistoryAvatar({ avatar, username, side, winner, onClick }) {
-  return (
-    <button
-      type="button"
-      className={`recentFlipPlayer ${winner ? 'recentFlipPlayer--winner' : 'recentFlipPlayer--loser'}`}
-      onClick={onClick}
-      aria-label={`Open ${username || 'player'} profile`}
-    >
-      <span className="recentFlipPlayerCoin">
-        <img src={side === 'tails' ? '/tails.webp' : '/heads.webp'} alt="coin" className="recentFlipCoinIndicator" />
-      </span>
-      <img
-        src={avatar || DEFAULT_AVATAR}
-        alt={username || 'Player'}
-        className="recentFlipAvatar"
-        loading="lazy"
-        draggable={false}
-        referrerPolicy="no-referrer"
-        onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }}
-      />
-    </button>
-  )
+function formatNumber(value) {
+  return Math.max(0, Number(value) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })
 }
 
-function HistoryItem({ item, overlay }) {
-  return (
-    <div className="recentFlipItemWrapper" style={getInventoryItemCardStyle(item)} title={item.name}>
-      {item.image ? (
-        <>
-          <img src={item.image} className="recentFlipBackgroundImage" alt="" loading="lazy" />
-          <img src={item.image} className="recentFlipItem" alt={item.name} loading="lazy" />
-        </>
-      ) : null}
-      {overlay > 0 ? <span className="recentFlipItemOverlay">+{overlay}</span> : null}
-    </div>
-  )
+function itemTags(name = '') {
+  const prefix = String(name).trim().split(/\s+/)[0]?.toUpperCase() || ''
+  if (!/^[MFRN]+$/.test(prefix)) return []
+  return ['M', 'N', 'F', 'R'].filter((tag) => prefix.includes(tag))
 }
 
-function HistoryRow({ game, onView, onProfileOpen }) {
+function EyeIcon() {
+  return <svg viewBox="0 0 576 512" fill="currentColor" aria-hidden="true"><path d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z" /></svg>
+}
+
+function HistoryIcon() {
+  return <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M504 256c0 136.967-111.033 248-248 248S8 392.967 8 256 119.033 8 256 8c69.742 0 132.886 28.79 177.999 75.146L467.314 49.83C482.434 34.71 508 45.418 508 66.802V192c0 13.255-10.745 24-24 24H358.802c-21.384 0-32.092-25.566-16.971-40.686l35.19-35.19C346.586 109.768 303.964 91 256 91c-91.047 0-165 73.953-165 165s73.953 165 165 165c84.146 0 153.972-62.881 164.244-144.252 1.659-13.144 13.633-22.456 26.777-20.797l35.715 4.508C495.85 262.111 505.579 274.78 504 256zM256 136c-13.255 0-24 10.745-24 24v110.627l-58.515 58.515c-9.373 9.373-9.373 24.569 0 33.941l16.971 16.971c9.373 9.373 24.569 9.373 33.941 0l71.544-71.544A24 24 0 0 0 303 291.539V160c0-13.255-10.745-24-24-24h-23z" /></svg>
+}
+
+function ArrowIcon({ direction }) {
+  return <svg viewBox="0 0 448 512" fill="currentColor" aria-hidden="true" style={{ transform: direction === 'right' ? 'rotate(180deg)' : undefined }}><path d="M257.5 445.1 235.3 467.3c-9.4 9.4-24.6 9.4-33.9 0L7 273c-9.4-9.4-9.4-24.6 0-33.9L201.4 44.7c9.4-9.4 24.6-9.4 33.9 0l22.2 22.2c9.5 9.5 9.3 25-.4 34.3L136.6 216H424c13.3 0 24 10.7 24 24v32c0 13.3-10.7 24-24 24H136.6l120.5 114.8c9.8 9.3 10 24.8.4 34.3z" /></svg>
+}
+
+function HistoryPlayer({ game, creator, winner, onProfileOpen }) {
+  const creatorSide = String(game?.creator_side || 'heads').toLowerCase()
+  const side = creator ? creatorSide : String(game?.opponent_side || (creatorSide === 'heads' ? 'tails' : 'heads')).toLowerCase()
+  const id = creator ? game?.creator_uuid : game?.opponent_uuid
+  const username = creator ? game?.creator_username : game?.opponent_username
+  const avatar = creator ? game?.creator_avatar_url || game?.creator_avatar : game?.opponent_avatar_url || game?.opponent_avatar
+  const openProfile = () => {
+    if (!id) return
+    onProfileOpen?.({ id, profile_id: id, username, avatar, avatar_url: avatar, avatar_headshot_url: avatar })
+  }
+
+  return <button type="button" className={`history-player side-${side}${winner ? ' is-winner' : ' is-loser'}`} onClick={openProfile} disabled={!id} aria-label={id ? `Open ${username || 'player'} profile` : 'Player'}><img className="history-player-avatar" src={avatar || DEFAULT_AVATAR} alt="Player" draggable="false" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }} /><img className="history-player-coin" src={side === 'tails' ? '/tails.webp' : '/heads.webp'} alt="" draggable="false" /></button>
+}
+
+function HistoryItem({ item }) {
+  const tags = itemTags(item.name)
+  return <div className="history-item" title={item.name}>{item.image ? <img src={item.image} alt={item.name} draggable="false" /> : null}{tags.length ? <span className="history-item-tags">{tags.map((tag) => <span key={tag} className={`history-item-tag tag-${tag.toLowerCase()}`}>{tag}</span>)}</span> : null}</div>
+}
+
+function HistoryRow({ game, index, onView, onProfileOpen }) {
   const creatorSide = String(game?.creator_side || 'heads').toLowerCase()
   const opponentSide = String(game?.opponent_side || (creatorSide === 'heads' ? 'tails' : 'heads')).toLowerCase()
-  const result = String(game?.result || creatorSide).toLowerCase()
-  const creatorWon = game?.winner_uuid
-    ? String(game.winner_uuid) === String(game.creator_uuid)
-    : result === creatorSide
-  const opponentWon = game?.winner_uuid
-    ? String(game.winner_uuid) === String(game.opponent_uuid)
-    : result === opponentSide
-  const items = [...(game?.creator_items || []), ...(game?.opponent_items || [])].map(normalizeItem)
-  const visibleItems = items.slice(0, 3)
-  const totalItemQuantity = items.reduce((total, item) => total + item.quantity, 0)
-  const hiddenCount = Math.max(0, totalItemQuantity - visibleItems.length)
-  const total = gameValue(game)
-  const creatorValue = (game?.creator_items || []).reduce(
-    (sum, item) => sum + ((Number(item?.value) || 0) * itemQuantity(item)),
-    0,
-  )
-  const low = creatorValue || total / 2
-  const high = total - low || low
+  const result = String(game?.result || '').toLowerCase()
+  const creatorWon = game?.winner_uuid ? String(game.winner_uuid) === String(game.creator_uuid) : result === creatorSide
+  const opponentWon = game?.winner_uuid ? String(game.winner_uuid) === String(game.opponent_uuid) : result === opponentSide
+  const creatorItems = Array.isArray(game?.creator_items) ? game.creator_items : []
+  const opponentItems = Array.isArray(game?.opponent_items) ? game.opponent_items : []
+  const items = [...creatorItems, ...opponentItems].map(normalizeItem)
+  const visibleItems = items.slice(0, 4)
+  const total = itemValue(items) || Number(game?.total_value ?? game?.numericValue ?? game?.value ?? 0) || 0
+  const wager = itemValue(creatorItems) || total / 2
+  const low = Number(game?.join_requirements?.min ?? game?.joinRequirements?.min ?? wager * .8)
+  const high = Number(game?.join_requirements?.max ?? game?.joinRequirements?.max ?? wager * 1.2)
 
-  const openProfile = (player) => {
-    const creator = player === 'creator'
-    const id = creator ? game?.creator_uuid : game?.opponent_uuid
-    if (!id) return
-    const avatar = creator ? game?.creator_avatar_url : game?.opponent_avatar_url
-    onProfileOpen?.({
-      id,
-      profile_id: id,
-      username: creator ? game?.creator_username : game?.opponent_username,
-      avatar,
-      avatar_url: avatar,
-      avatar_headshot_url: avatar,
-    })
-  }
-
-  return (
-    <article className="recentFlipRow">
-      <div className="recentFlipPlayers">
-        <HistoryAvatar
-          avatar={game?.creator_avatar_url || game?.creator_avatar}
-          username={game?.creator_username}
-          side={creatorSide}
-          winner={creatorWon}
-          onClick={() => openProfile('creator')}
-        />
-        <HistoryAvatar
-          avatar={game?.opponent_avatar_url || game?.opponent_avatar}
-          username={game?.opponent_username}
-          side={opponentSide}
-          winner={opponentWon}
-          onClick={() => openProfile('opponent')}
-        />
-      </div>
-
-      <img src={result === 'tails' ? '/tails.webp' : '/heads.webp'} alt="Winner Coin" className="recentFlipWinnerCoin" />
-
-      <div className="recentFlipItemColumn">
-        <div className="recentFlipItemStack">
-          {visibleItems.map((item, index) => (
-            <HistoryItem
-              key={`${item.id || 'item'}-${index}`}
-              item={item}
-              overlay={index === visibleItems.length - 1 ? hiddenCount : 0}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="recentFlipValue">
-        <div className="recentFlipTopRow">
-          <img src="/bobux.png" alt="Icon" className="recentFlipBobuxIcon" />
-          <span>{compactValue(total)}</span>
-        </div>
-        <p>{compactValue(low)} — {compactValue(high)}</p>
-      </div>
-
-      <div className="recentFlipButtons">
-        <button type="button" className="recentFlipViewButton" onClick={() => onView?.(game)}>View</button>
-      </div>
-    </article>
-  )
+  return <article className="history-game-card" style={{ '--history-row-index': index }}><div className="history-game-players"><HistoryPlayer game={game} creator winner={creatorWon} onProfileOpen={onProfileOpen} /><span className="history-game-vs">VS</span><HistoryPlayer game={game} winner={opponentWon} onProfileOpen={onProfileOpen} /></div><div className="history-game-items">{visibleItems.map((item) => <HistoryItem key={item.id} item={item} />)}{items.length > 4 ? <button type="button" className="history-extra-items" onClick={() => onView?.(game)}>+{items.length - 4}</button> : null}</div><div className="history-game-result">{result === 'heads' || result === 'tails' ? <img src={result === 'tails' ? '/tails.webp' : '/heads.webp'} alt={`${result} won`} draggable="false" /> : null}</div><div className="history-game-value"><span className="history-game-total"><RobuxIcon /><span>{formatNumber(total)}</span></span><span className="history-game-range">({formatNumber(low)} -&nbsp; {formatNumber(high)})</span></div><div className="history-game-actions"><button type="button" className="history-view-button" aria-label="View game" onClick={() => onView?.(game)}><EyeIcon /></button></div></article>
 }
 
-export default function RecentCoinflipsModal({ isOpen, games = [], isAuthenticated, onClose, onView, onProfileOpen }) {
+export default function RecentCoinflipsModal({ isOpen, games = [], loading = false, isAuthenticated, onClose, onView, onProfileOpen }) {
   const [closing, setClosing] = useState(false)
+  const [page, setPage] = useState(1)
   const dialogRef = useRef(null)
   const closeTimerRef = useRef(null)
+  const totalPages = Math.max(1, Math.ceil(games.length / PAGE_SIZE))
+  const visibleGames = useMemo(() => games.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [games, page])
 
   const closeWith = useCallback((callback) => {
     if (closing) return
     setClosing(true)
     closeTimerRef.current = window.setTimeout(() => callback?.(), CLOSE_DURATION_MS)
   }, [closing])
-
   const requestClose = useCallback(() => closeWith(onClose), [closeWith, onClose])
   const requestView = useCallback((game) => closeWith(() => onView?.(game)), [closeWith, onView])
 
-  useEffect(() => {
-    if (isOpen) setClosing(false)
-  }, [isOpen])
-
-  useEffect(() => () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
-  }, [])
-
+  useEffect(() => { if (isOpen) { setClosing(false); setPage(1) } }, [isOpen])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  useEffect(() => () => { if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current) }, [])
   useEffect(() => {
     if (!isOpen) return undefined
     const previousFocus = document.activeElement
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0)
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        requestClose()
-      }
-    }
+    const handleKeyDown = (event) => { if (event.key === 'Escape') { event.preventDefault(); requestClose() } }
     document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.clearTimeout(focusTimer)
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
-      previousFocus?.focus?.()
-    }
+    return () => { window.clearTimeout(focusTimer); document.removeEventListener('keydown', handleKeyDown); document.body.style.overflow = previousOverflow; previousFocus?.focus?.() }
   }, [isOpen, requestClose])
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
-  return createPortal(
-    <div className="recentFlipsBackdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="recent-flips-title"
-        tabIndex={-1}
-        className={`recentFlipsModal ${closing ? 'recentFlipsModal--closing' : ''}`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <button type="button" className="recentFlipsClose" aria-label="Close recent flips" onClick={requestClose}>×</button>
-        <div className="recentFlipsContent">
-          <div className="recentFlipsTitleRow">
-            <span className="recentFlipsIconWrap"><CoinflipIcon className="recentFlipsGameIcon" /></span>
-            <h1 id="recent-flips-title" className="recentFlipsTitle">Recent Flips</h1>
-          </div>
-
-          <div className="recentFlipsList">
-            {games.length > 0 ? games.map((game) => (
-              <HistoryRow key={game.id || game.room_id} game={game} onView={requestView} onProfileOpen={onProfileOpen} />
-            )) : (
-              <div className="recentFlipsEmpty">
-                <p>{isAuthenticated ? 'No recent flips yet.' : 'Log in to view your recent flips.'}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <style>{`
-          @keyframes recentFlipsFadeIn { from { opacity: 0; } to { opacity: 1; } }
-          @keyframes recentFlipsModalOpen { from { transform: scale(.95) translateY(15px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
-          @keyframes recentFlipsShrinkOut { from { transform: scale(1); } to { transform: scale(.8); opacity: 0; } }
-          .recentFlipsBackdrop { position: fixed; inset: 0; z-index: 2147482900; display: flex; align-items: center; justify-content: center; background-color: rgba(0,0,0,.55); animation: recentFlipsFadeIn .5s ease-out; font-family: Poppins, sans-serif; }
-          .recentFlipsModal, .recentFlipsModal * { box-sizing: border-box; font-family: Poppins, sans-serif; }
-          .recentFlipsModal { position: relative; display: flex; width: 85%; max-width: 700px; height: 450px; flex-direction: column; overflow: hidden; border: 1px solid #181a28; border-radius: 5px; background-color: #131520; padding: 20px; outline: none; transition: transform .3s ease-out; animation: recentFlipsModalOpen .3s forwards; }
-          .recentFlipsModal--closing { animation: recentFlipsShrinkOut .2s forwards; }
-          .recentFlipsClose { position: absolute; top: 2px; right: 7px; z-index: 1000; border: 0; background: none; color: #e1e4f2; padding: 0; font-size: 24px; line-height: normal; cursor: pointer; opacity: .8; transition: opacity .3s ease; }
-          .recentFlipsClose:hover { opacity: 1; }
-          .recentFlipsContent { display: flex; min-height: 0; flex-grow: 1; flex-direction: column; overflow: hidden; text-align: center; }
-          .recentFlipsTitleRow { display: flex; align-items: center; gap: 8px; margin-bottom: 1em; }
-          .recentFlipsIconWrap { position: relative; display: flex; width: 28px; height: 28px; flex-shrink: 0; align-items: center; justify-content: center; color: #8f96c8; }
-          .recentFlipsGameIcon { width: 24px; height: 24px; }
-          .recentFlipsTitle { margin: 0; color: #fff; font-size: 1rem; font-weight: 600; letter-spacing: .2px; }
-          .recentFlipsList { display: flex; min-height: 0; height: 100%; flex-grow: 1; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 10px; scrollbar-width: thin; scrollbar-color: #999ea7 transparent; }
-          .recentFlipsList::-webkit-scrollbar { width: 4px; background-color: transparent; }
-          .recentFlipsList::-webkit-scrollbar-thumb { border-radius: 50px; background-color: #999ea7; }
-          .recentFlipsList::-webkit-scrollbar-track { border-radius: 10px; background-color: transparent; }
-          .recentFlipRow { position: relative; isolation: isolate; display: grid; width: 100%; height: auto; grid-template-columns: 132px minmax(148px,2fr) minmax(104px,1fr) 100px; align-items: center; justify-content: flex-start; gap: 1rem; border: 1px solid #252839; border-radius: 8px 8px 11px; background: #1c1f2e; padding: 1.02rem; }
-          .recentFlipPlayers { position: relative; z-index: 3; display: flex; width: 132px; min-width: 132px; align-items: center; justify-content: flex-start; gap: 1.5rem; flex-wrap: nowrap; }
-          .recentFlipPlayer { position: relative; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; padding: 0; }
-          .recentFlipPlayerCoin { position: absolute; top: -5px; right: -5px; z-index: 2; border-radius: 50%; padding: 2px; }
-          .recentFlipCoinIndicator { width: 1.7rem; height: 1.7rem; border-radius: 50%; }
-          .recentFlipAvatar { width: 3.3rem; height: 3.3rem; border: 2.5px solid #2F3347; border-radius: 50%; object-fit: cover; cursor: pointer; transition: border-color .3s, filter .3s; }
-          .recentFlipPlayer:not(.recentFlipPlayer--loser) .recentFlipAvatar:hover, .recentFlipPlayer--winner .recentFlipAvatar { border-color: #ff4fa3; }
-          .recentFlipPlayer--loser .recentFlipAvatar { filter: brightness(.7); }
-          .recentFlipPlayer--loser .recentFlipCoinIndicator { opacity: .4; }
-          .recentFlipWinnerCoin { position: absolute; top: 50%; left: 53%; display: flex; width: 3.6rem; height: 3.7rem; align-items: center; justify-content: center; transform: translate(-50%,-50%); }
-          .recentFlipItemColumn { position: relative; z-index: 1; display: flex; min-width: 0; width: 100%; align-items: center; justify-content: center; overflow: hidden; border-radius: 5px; padding: 2px 10px; contain: layout paint; }
-          .recentFlipItemStack { display: flex; min-width: 0; width: min(100%,148px); min-height: 3.6rem; align-items: center; justify-content: center; overflow: hidden; padding-inline: 1.3rem; transform: translateX(-42px); }
-          .recentFlipItemWrapper { position: relative; z-index: 1; display: flex; width: 3.6rem; height: 3.6rem; flex: 0 0 3.6rem; align-items: center; justify-content: center; overflow: hidden; border: 2.8px solid #252839; border-radius: 5px; background-color: #20222f; transition: border-color .15s ease; }
-          .recentFlipItemWrapper + .recentFlipItemWrapper { margin-left: -2.6rem; }
-          .recentFlipItemWrapper:nth-child(2) { z-index: 2; }
-          .recentFlipItemWrapper:nth-child(3) { z-index: 3; }
-          .recentFlipItemWrapper:hover { border-color: #ff4fa3; }
-          .recentFlipBackgroundImage { position: absolute; top: 50%; left: 50%; width: 3.7rem; height: 3.7rem; border-radius: 5px; object-fit: cover; filter: blur(6px); opacity: .6; transform: translate(-50%,-50%); }
-          .recentFlipItem { position: absolute; top: 50%; left: 50%; width: 3.6rem; height: 3.6rem; border-radius: 5px; object-fit: cover; cursor: pointer; transform: translate(-50%,-50%); }
-          .recentFlipItemOverlay { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: rgba(32,34,47,.92); color: #fff; font-size: .9rem; font-weight: 500; pointer-events: none; }
-          .recentFlipValue { display: flex; width: 100%; flex-direction: column; align-items: flex-start; justify-content: flex-start; margin-left: 1rem; padding: 2px; font-size: 1.2rem; font-weight: 700; }
-          .recentFlipTopRow { display: flex; align-items: center; justify-content: flex-start; gap: 5px; color: #fff; font-size: 22px; font-weight: 700; }
-          .recentFlipValue p { max-width: 100%; margin: 0 0 0 5px; overflow: hidden; color: rgba(225,228,242,.75); font-size: 14px; white-space: nowrap; text-overflow: ellipsis; }
-          .recentFlipBobuxIcon { width: 25px; height: 25px; }
-          .recentFlipButtons { display: flex; height: 140%; flex-direction: column; align-items: flex-end; justify-content: center; gap: .4em; }
-          .recentFlipViewButton { width: 100px; max-width: 80%; min-width: 0; height: 35px; border: 0; border-radius: 6px; background: #2a2e44; padding: 0 20px; color: #e1e4f2; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s ease, transform .1s ease; }
-          .recentFlipViewButton:hover { background: #32385a; }
-          .recentFlipViewButton:active { transform: scale(.97); }
-          .recentFlipsEmpty { display: flex; height: 100%; align-items: center; justify-content: center; color: #8f96b5; font-size: 12px; font-weight: 500; }
-          @media (max-width: 900px) {
-            .recentFlipsModal { width: 100%; max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
-            .recentFlipsClose { top: 25px; right: 15px; }
-            .recentFlipsTitle { margin-top: 15px; margin-bottom: 1rem; }
-            .recentFlipRow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center; }
-            .recentFlipPlayers { width: auto; min-width: 0; flex-direction: row; justify-content: center; }
-            .recentFlipPlayer { flex-direction: column; }
-            .recentFlipAvatar { width: 3.5rem; height: 3.5rem; }
-            .recentFlipItemColumn { width: 100%; margin: 0; padding: 0; }
-            .recentFlipItemStack { width: min(100%,148px); justify-content: center; padding-inline: 1.3rem; transform: none; }
-            .recentFlipValue { align-items: center; margin: .5rem 0; font-size: 1.2rem; text-align: center; }
-            .recentFlipValue p, .recentFlipWinnerCoin { display: none; }
-            .recentFlipButtons { flex-direction: row; justify-content: flex-end; }
-            .recentFlipTopRow { justify-content: flex-start; }
-            .recentFlipsList:last-child { margin-bottom: 2rem; }
-          }
-          @media (prefers-reduced-motion: reduce) { .recentFlipsBackdrop, .recentFlipsModal, .recentFlipsModal--closing { animation-duration: 1ms; } }
-        `}</style>
-      </section>
-    </div>,
-    document.body,
-  )
+  return createPortal(<div className={`amp-modal-overlay history-modal-overlay${closing ? ' is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}><section ref={dialogRef} className={`amp-modal-dialog history-modal-dialog${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="coinflip-history-title" tabIndex={-1}><h2 className="amp-modal-header" id="coinflip-history-title">Coinflip History</h2><button type="button" className="amp-modal-close" aria-label="Close" onClick={requestClose}><CloseIcon /></button><div className="amp-modal-body history-modal-body">{loading ? <div className="history-state"><span className="amp-spinner" /><span className="history-loading-copy">Loading history</span></div> : games.length === 0 ? <div className="history-state history-empty"><span className="history-empty-icon"><HistoryIcon /></span><span>{isAuthenticated ? 'No coinflip history yet' : 'Log in to view your coinflip history'}</span></div> : <div className="history-list">{visibleGames.map((game, index) => <HistoryRow key={game.id || game.room_id} game={game} index={index} onView={requestView} onProfileOpen={onProfileOpen} />)}{totalPages > 1 ? <div className="history-pagination"><button type="button" aria-label="Previous history page" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ArrowIcon direction="left" /></button><span>Page {page}/{totalPages}</span><button type="button" aria-label="Next history page" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}><ArrowIcon direction="right" /></button></div> : null}</div>}</div><style>{AMP_MODAL_STYLES}</style><style>{HISTORY_STYLES}</style></section></div>, document.body)
 }
+
+const HISTORY_STYLES = `
+  @keyframes historyRowIn { from { opacity: 0; transform: translateX(-100px) scale(.8); } to { opacity: 1; transform: translateX(0) scale(1); } }
+  @keyframes historyModalOut { to { opacity: 0; transform: translateY(15px) scale(.95); } }
+  .history-modal-dialog { max-width: 1152px; outline: none; }
+  .history-modal-dialog.is-closing { animation: historyModalOut .2s ease-in both; }
+  .history-modal-overlay.is-closing { opacity: 0; transition: opacity .2s ease; }
+  .history-modal-body { min-height: 400px; }
+  .history-modal-body:has(.history-state) { height: 400px; flex: 0 0 400px; }
+  .history-list { display: flex; flex-direction: column; gap: 12px; }
+  .history-state { display: flex; min-height: 360px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #a2a7b2; font-size: 14px; font-weight: 600; }
+  .history-empty { border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: #14171e; }
+  .history-empty-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; color: #ff4fa3; background: rgba(255,79,163,.09); }
+  .history-empty-icon svg { width: 17px; height: 17px; }
+  .history-loading-copy { color: #858c99; font-size: 13px; font-weight: 400; }
+  .history-game-card { display: flex; width: 100%; min-height: 102px; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 20px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; background: #191c24; box-shadow: 0 8px 24px rgba(0,0,0,.14); animation: historyRowIn .45s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--history-row-index) * 35ms); }
+  .history-game-players { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 12px; }
+  .history-player { position: relative; display: block; width: 58px; height: 58px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+  .history-player:disabled { cursor: default; }
+  .history-player-avatar { display: block; width: 58px; height: 58px; border: 2px solid #ff4fa3; border-radius: 50%; background: #111319; object-fit: cover; }
+  .history-player.side-tails .history-player-avatar { border-color: #1f6fff; }
+  .history-player.is-loser { opacity: .35; }
+  .history-player-coin { position: absolute; top: -7px; right: -7px; width: 28px; height: 28px; object-fit: contain; }
+  .history-game-vs { color: #717784; font-size: 11px; font-weight: 700; }
+  .history-game-items { display: flex; width: 352px; min-width: 0; flex: 0 0 352px; align-items: center; justify-content: flex-start; gap: 8px; padding: 4px 0 8px; overflow-x: auto; overflow-y: visible; scrollbar-width: none; }
+  .history-game-items::-webkit-scrollbar { display: none; }
+  .history-item, .history-extra-items { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #12151c; }
+  .history-item img { width: 56px; height: 56px; object-fit: contain; }
+  .history-item-tags { position: absolute; bottom: -7px; left: 50%; z-index: 2; display: flex; gap: 2px; transform: translateX(-50%); }
+  .history-item-tag { display: flex; width: 17px; height: 17px; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-size: 9px; font-weight: 700; line-height: 1; }
+  .tag-m { background: linear-gradient(135deg,#a855f7,#6d28d9); } .tag-n { background: #84cc16; } .tag-f { background: #3478f6; } .tag-r { background: #e83f65; }
+  .history-extra-items { border: 0; color: #a2a7b2; font: 600 14px/20px Poppins,sans-serif; cursor: pointer; }
+  .history-game-result { position: relative; display: flex; width: 120px; min-width: 120px; height: 78px; flex: 0 0 120px; align-items: center; justify-content: center; }
+  .history-game-result img { width: 58px; height: 58px; object-fit: contain; }
+  .history-game-value { min-width: 150px; flex: 0 0 auto; text-align: center; }
+  .history-game-total { display: flex; align-items: center; justify-content: center; gap: 6px; color: #f4f5f8; font-size: 15px; font-weight: 700; }
+  .history-game-total svg { width: 1em; height: 1em; }
+  .history-game-range { display: block; margin-top: 4px; color: #777e8d; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .history-game-actions { display: flex; min-width: 120px; flex: 0 0 120px; align-items: center; justify-content: flex-start; }
+  .history-view-button { display: flex; width: 42px; min-width: 42px; height: 42px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; color: #f1f2f5; background: #2b303c; cursor: pointer; }
+  .history-view-button:hover { background: #343a47; } .history-view-button:active { background: #252a34; }
+  .history-view-button svg { width: 1em; height: 1em; }
+  .history-pagination { display: flex; align-items: center; justify-content: center; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+  .history-pagination button { display: flex; width: 34px; min-width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 7px; color: #9aa0ac; background: #242833; cursor: pointer; }
+  .history-pagination button:hover { color: #ff4fa3; background: #2b303b; } .history-pagination button:disabled { cursor: not-allowed; opacity: .4; }
+  .history-pagination button svg { width: 10px; height: 10px; }
+  .history-pagination > span { min-width: 92px; color: #a1a6b2; font-size: 12px; font-weight: 600; text-align: center; }
+  @media (max-width: 1535px) {
+    .history-game-card { display: grid; grid-template-areas: 'players value actions' 'items items items'; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 16px; padding: 12px 16px; }
+    .history-game-players { grid-area: players; justify-content: flex-start; }
+    .history-game-items { grid-area: items; width: 100%; flex-basis: 100%; }
+    .history-game-result { display: none; }
+    .history-game-value { grid-area: value; min-width: 0; text-align: left; }
+    .history-game-total { justify-content: flex-start; }
+    .history-game-actions { grid-area: actions; min-width: 42px; flex-basis: 42px; }
+  }
+  @media (max-width: 767px) {
+    .history-modal-body { min-height: 0; }
+    .history-game-card { grid-template-areas: 'players actions' 'value value' 'items items'; grid-template-columns: minmax(0,1fr) auto; }
+    .history-item, .history-extra-items { width: 54px; height: 54px; flex-basis: 54px; }
+    .history-item img { width: 46px; height: 46px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .history-game-card, .history-modal-dialog.is-closing { animation-duration: 1ms; animation-delay: 0ms; } }
+`

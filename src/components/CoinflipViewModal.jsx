@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { getInventoryItemAccent } from './InventoryItemCard'
 import { notifications } from './Notifications'
+import CoinflipFairnessModal from './CoinflipFairnessModal'
 import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
@@ -10,7 +10,6 @@ import { formatPriceValue } from '../Utils/FormatPriceValues'
 // without touching the component markup.
 export const VIEW_MODAL_CONFIG = Object.freeze({
   assets: {
-    logo: '/whitelogo-Dvdx1F_Q.png',
     currency: '/bobux.png',
     coin: {
       heads: '/heads.webp',
@@ -41,14 +40,55 @@ function formatCompactValue(value) {
 }
 
 function normalizeItem(item, index) {
+  const name = item?.name || 'Unnamed item'
   return {
     ...item,
     id: item?.item_uuid || item?.id || item?.uuid || `item-${index}`,
-    name: item?.name || 'Unnamed item',
+    name,
     image: item?.image_url || item?.image || VIEW_MODAL_CONFIG.assets.currency,
     numericValue: Number(item?.value ?? 0) || 0,
     value: formatValue(item?.value),
   }
+}
+
+function CurrencyIcon({ className = '' }) {
+  return <svg className={className} role="img" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z" /></svg>
+}
+
+function CloseIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M.439 21.44a1.5 1.5 0 0 0 2.122 2.121l9.262-9.262a.25.25 0 0 1 .354 0l9.262 9.263a1.5 1.5 0 1 0 2.122-2.121l-9.262-9.263a.25.25 0 0 1 0-.354l9.263-9.262A1.5 1.5 0 0 0 21.439.44l-9.262 9.262a.25.25 0 0 1-.354 0L2.561.44A1.5 1.5 0 0 0 .439 2.561l9.262 9.262a.25.25 0 0 1 0 .354z" /></svg>
+}
+
+function FingerprintIcon() {
+  return <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M256.12 245.96c-13.25 0-24 10.74-24 24 1.14 72.25-8.14 141.9-27.7 211.55-2.73 9.72 2.15 30.49 23.12 30.49 10.48 0 20.11-6.92 23.09-17.52 13.53-47.91 31.04-125.41 29.48-224.52.01-13.25-10.73-24-23.99-24zm-.86-81.73C194 164.16 151.25 211.3 152.1 265.32c.75 47.94-3.75 95.91-13.37 142.55-2.69 12.98 5.67 25.69 18.64 28.36 13.05 2.67 25.67-5.66 28.36-18.64 10.34-50.09 15.17-101.58 14.37-153.02-.41-25.95 19.92-52.49 54.45-52.34 31.31.47 57.15 25.34 57.62 55.47.77 48.05-2.81 96.33-10.61 143.55-2.17 13.06 6.69 25.42 19.76 27.58 19.97 3.33 26.81-15.1 27.58-19.77 8.28-50.03 12.06-101.21 11.27-152.11-.88-55.8-47.94-101.88-104.91-102.72zm-110.69-19.78c-10.3-8.34-25.37-6.8-33.76 3.48-25.62 31.5-39.39 71.28-38.75 112 .59 37.58-2.47 75.27-9.11 112.05-2.34 13.05 6.31 25.53 19.36 27.89 20.11 3.5 27.07-14.81 27.89-19.36 7.19-39.84 10.5-80.66 9.86-121.33-.47-29.88 9.2-57.88 28-80.97 8.35-10.28 6.79-25.39-3.49-33.76zm109.47-62.33c-15.41-.41-30.87 1.44-45.78 4.97-12.89 3.06-20.87 15.98-17.83 28.89 3.06 12.89 16 20.83 28.89 17.83 11.05-2.61 22.47-3.77 34-3.69 75.43 1.13 137.73 61.5 138.88 134.58.59 37.88-1.28 76.11-5.58 113.63-1.5 13.17 7.95 25.08 21.11 26.58 16.72 1.95 25.51-11.88 26.58-21.11a929.06 929.06 0 0 0 5.89-119.85c-1.56-98.75-85.07-180.33-186.16-181.83zm252.07 121.45c-2.86-12.92-15.51-21.2-28.61-18.27-12.94 2.86-21.12 15.66-18.26 28.61 4.71 21.41 4.91 37.41 4.7 61.6-.11 13.27 10.55 24.09 23.8 24.2h.2c13.17 0 23.89-10.61 24-23.8.18-22.18.4-44.11-5.83-72.34zm-40.12-90.72C417.29 43.46 337.6 1.29 252.81.02 183.02-.82 118.47 24.91 70.46 72.94 24.09 119.37-.9 181.04.14 246.65l-.12 21.47c-.39 13.25 10.03 24.31 23.28 24.69.23.02.48.02.72.02 12.92 0 23.59-10.3 23.97-23.3l.16-23.64c-.83-52.5 19.16-101.86 56.28-139 38.76-38.8 91.34-59.67 147.68-58.86 69.45 1.03 134.73 35.56 174.62 92.39 7.61 10.86 22.56 13.45 33.42 5.86 10.84-7.62 13.46-22.59 5.84-33.43z" /></svg>
+}
+
+function KeyIcon() {
+  return <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M512 176c0 97.2-78.8 176-176 176-11.2 0-22.2-1.1-32.8-3.1l-24 27A24 24 0 0 1 261.2 384H224v40a24 24 0 0 1-24 24h-40v40a24 24 0 0 1-24 24H24a24 24 0 0 1-24-24v-78.1c0-6.4 2.5-12.5 7-17l161.8-161.8A176 176 0 1 1 512 176zm-128-48a48 48 0 1 0 0 96 48 48 0 0 0 0-96z" /></svg>
+}
+
+function QuestionIcon() {
+  return <svg viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M202 0C122.2 0 70.5 32.7 29.9 91a24 24 0 0 0 5.2 32.9l43.1 32.7a24 24 0 0 0 33.3-4.1c25-31.4 43.6-49.5 82.7-49.5 30.8 0 68.9 19.8 68.9 49.6 0 22.6-18.7 34.2-49 51.2-35.5 19.9-82.3 44.6-82.3 106.4V320a24 24 0 0 0 24 24h72.4a24 24 0 0 0 24-24v-5.8c0-42.8 125.3-44.6 125.3-160.6C377.5 66.3 286.9 0 202 0zm-10 373.5a69.3 69.3 0 1 0 0 138.5 69.3 69.3 0 0 0 0-138.5z" /></svg>
+}
+
+function ShieldIcon() {
+  return <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="m466.5 83.7-192-80a48.2 48.2 0 0 0-36.9 0l-192 80A48 48 0 0 0 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C360.1 472.6 496 349.3 496 128c0-19.4-11.7-36.9-29.5-44.3zM256.1 446.3 256 65.3l175.9 73.3c-3.3 151.4-82.1 261.1-175.8 307.7z" /></svg>
+}
+
+function relativeGameTime(room, completed) {
+  const source = completed
+    ? room?.resolved_at || room?.updated_at || room?.created_at
+    : room?.created_at
+  const timestamp = new Date(source || Date.now()).getTime()
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
+  const prefix = completed ? 'Ended' : 'Created'
+  if (seconds < 60) return `${prefix} less than a minute ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${prefix} ${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${prefix} ${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  return `${prefix} ${days} day${days === 1 ? '' : 's'} ago`
 }
 
 function CoinAnimation({ side, onComplete }) {
@@ -92,27 +132,19 @@ function Player({ player, completed, winnerSide, winnerVisible, waiting = false,
         aria-label={waiting ? 'Waiting for opponent' : `Open ${player.username} profile`}
       >
         {waiting ? (
-          <div className="view-modal__avatar" aria-hidden="true" />
+          <span className="view-modal__avatar view-modal__avatar--waiting" aria-hidden="true"><QuestionIcon /></span>
         ) : (
-          <>
-            <img
-              src={player.avatar}
-              alt={player.username}
-              className={`view-modal__avatar${isWinner ? ' view-modal__winner' : ''}`}
-              draggable={false}
-              onError={(event) => {
-                event.currentTarget.src = DEFAULT_AVATAR
-              }}
-            />
-            <div className="view-modal__coin">
-              <img
-                src={VIEW_MODAL_CONFIG.assets.coin[player.side]}
-                alt={`${player.side} coin`}
-                draggable={false}
-              />
-            </div>
-          </>
+          <img
+            src={player.avatar}
+            alt={player.username}
+            className={`view-modal__avatar${isWinner ? ' view-modal__winner' : ''}`}
+            draggable={false}
+            onError={(event) => {
+              event.currentTarget.src = DEFAULT_AVATAR
+            }}
+          />
         )}
+        <span className="view-modal__coin"><img src={VIEW_MODAL_CONFIG.assets.coin[player.side]} alt="" draggable={false} /></span>
       </button>
       <h3 className="view-modal__username">
         {waiting ? 'Waiting...' : player.username}
@@ -121,174 +153,21 @@ function Player({ player, completed, winnerSide, winnerVisible, waiting = false,
   )
 }
 
-function ItemColumn({ column }) {
+function ItemColumn({ column, waiting = false }) {
   return (
     <div className="view-modal__player-items">
-      <div className="view-modal__total-value-container">
-        <div className="view-modal__item">
-          <img
-            src={VIEW_MODAL_CONFIG.assets.currency}
-            alt="bobux"
-            className="view-modal__bobux"
-          />
-          <p className="view-modal__desktop-value">{column.total}</p>
-          <p className="view-modal__mobile-value">{column.mobileTotal}</p>
-          <p className="view-modal__chance">{column.chance}</p>
-        </div>
-      </div>
-
-      {column.items.map((item) => (
+      {waiting ? <div className="view-modal__waiting-items">Waiting for an opponent</div> : column.items.map((item) => (
         <div
           key={item.id}
-          className="view-modal__item view-modal__item-row"
-          style={{ '--view-modal-rarity': getInventoryItemAccent({ value: item.numericValue }) }}
+          className="view-modal__item-row"
         >
           <div className="view-modal__item-image-wrapper">
-            <img
-              src={item.image}
-              alt=""
-              className="view-modal__normal-item-image"
-              loading="eager"
-            />
-            <img
-              src={item.image}
-              alt=""
-              className="view-modal__blurred-item-image"
-              loading="eager"
-              aria-hidden="true"
-            />
+            <img src={item.image} alt={item.name} className="view-modal__normal-item-image" loading="eager" />
           </div>
-          <div className="view-modal__item-details">
-            <p className="view-modal__item-name">{item.name}</p>
-            <p className="view-modal__item-value">
-              <img
-                src={VIEW_MODAL_CONFIG.assets.currency}
-                alt="bobux"
-                className="view-modal__item-value-icon"
-              />
-              {item.value}
-            </p>
-          </div>
+          <p className="view-modal__item-name">{item.name}</p>
+          <span className="view-modal__item-value"><CurrencyIcon />{item.value}</span>
         </div>
       ))}
-    </div>
-  )
-}
-
-function CopyIcon({ label, onClick }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="fairness-modal__copy"
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onClick()
-        }
-      }}
-    >
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  )
-}
-
-function shortenIdentifier(value, maxLength = 24) {
-  const text = String(value || '')
-  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
-}
-
-function FairnessModal({ gameId, serverSeedHash, randomSeed, resolved, onClose }) {
-  const [closing, setClosing] = useState(false)
-  const closeTimerRef = useRef(null)
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
-
-  const requestClose = useCallback(() => {
-    if (closeTimerRef.current !== null) return
-    setClosing(true)
-    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), FAIRNESS_CLOSE_MS)
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') requestClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
-    }
-  }, [requestClose])
-
-  const fields = [
-    {
-      id: 'game-id',
-      label: 'Game ID',
-      value: gameId,
-      copiedMessage: 'Game ID copied to clipboard!',
-    },
-    ...(resolved ? [
-      {
-        id: 'server-seed-hash',
-        label: 'Hashed Server Seed',
-        value: serverSeedHash,
-        copiedMessage: 'Hashed Server Seed copied to clipboard!',
-      },
-      {
-        id: 'random-seed',
-        label: 'Random Seed',
-        value: randomSeed,
-        copiedMessage: 'Random Seed copied to clipboard!',
-      },
-    ] : []),
-  ]
-
-  const copyValue = async (value, copiedMessage) => {
-    if (!value || value === 'Unavailable') return
-    try {
-      await navigator.clipboard.writeText(value)
-      notifications.success(copiedMessage)
-    } catch {
-      notifications.error('Unable to copy to clipboard.')
-    }
-  }
-
-  return (
-    <div
-      className={`fairness-modal__backdrop${closing ? ' fairness-modal__backdrop--closing' : ''}`}
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) requestClose()
-      }}
-    >
-      <div className={`fairness-modal__surface${closing ? ' fairness-modal__surface--closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="coinflip-fairness-title">
-        <button type="button" className="fairness-modal__close" onClick={requestClose} aria-label="Close fairness details">
-          ×
-        </button>
-        <h1 id="coinflip-fairness-title" className="fairness-modal__header">Coinflip Fairness</h1>
-
-        {fields.map((field) => (
-          <div className="fairness-modal__section" key={field.id}>
-            <span className="fairness-modal__section-title">{field.label}</span>
-            <div className="fairness-modal__value-holder">
-              <span className="fairness-modal__value" title={field.value}>{shortenIdentifier(field.value)}</span>
-              <CopyIcon
-                label={`Copy ${field.label}`}
-                onClick={() => copyValue(field.value, field.copiedMessage)}
-              />
-            </div>
-          </div>
-        ))}
-
-        {!resolved && (
-          <p className="fairness-modal__pending">The server seed remains hidden until this coinflip is resolved.</p>
-        )}
-      </div>
     </div>
   )
 }
@@ -303,6 +182,7 @@ export default function CoinflipViewModal({
   room,
   onClose = () => {},
   onCanceled = () => {},
+  onJoin = null,
   onProfileOpen = () => {},
   profileOpen = false,
 }) {
@@ -310,6 +190,7 @@ export default function CoinflipViewModal({
   const [closing, setClosing] = useState(false)
   const [fairnessOpen, setFairnessOpen] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const hasOpponent = Boolean(room?.opponent_uuid)
   const completed = Boolean(room?.opponent_uuid && room?.result)
   const winnerSide = String(room?.result || 'heads').toLowerCase() === 'tails' ? 'tails' : 'heads'
   const [winnerVisible, setWinnerVisible] = useState(false)
@@ -421,96 +302,67 @@ export default function CoinflipViewModal({
           aria-modal="true"
           aria-label={completed ? 'Completed coinflip' : 'Open coinflip'}
         >
-          <div className="view-modal__header">
-            <img
-              src={VIEW_MODAL_CONFIG.assets.logo}
-              alt="BloxyPot logo"
-              className="view-modal__logo"
-              draggable={false}
-            />
+          <header className="view-modal__header">
             <button
               type="button"
               className="view-modal__close"
               onClick={close}
               aria-label="Close coinflip"
             >
-              ×
+              <CloseIcon />
             </button>
-          </div>
+          </header>
 
-          <div className="view-modal__players">
-            <Player
-              player={state.playerOne}
-              completed={completed}
-              winnerSide={winnerSide}
-              winnerVisible={winnerVisible}
-              onProfileOpen={onProfileOpen}
-            />
+          <div className="view-modal__body">
+            <div className="view-modal__content">
+              <div className="view-modal__players">
+                <Player player={state.playerOne} completed={completed} winnerSide={winnerSide} winnerVisible={winnerVisible} onProfileOpen={onProfileOpen} />
 
-            <div className="view-modal__game-info">
-              {completed ? (
-                <CoinAnimation
-                  key={`${room?.id || room?.room_id || 'coinflip'}:${winnerSide}`}
-                  side={winnerSide}
-                  onComplete={() => setWinnerVisible(true)}
-                />
-              ) : (
-                <p className="view-modal__versus">Vs</p>
-              )}
+                <div className="view-modal__game-info">
+                  {completed ? (winnerVisible
+                    ? <img className="view-modal__winner-coin" src={VIEW_MODAL_CONFIG.assets.coin[winnerSide]} alt={`${winnerSide} won`} draggable={false} />
+                    : <CoinAnimation key={`${room?.id || room?.room_id || 'coinflip'}:${winnerSide}`} side={winnerSide} onComplete={() => setWinnerVisible(true)} />)
+                    : !hasOpponent ? (canCancel
+                      ? <button type="button" className="view-modal__middle-action view-modal__middle-action--cancel" disabled={canceling} onClick={() => { void cancelCoinflip() }}>{canceling ? 'Canceling' : 'Cancel'}</button>
+                      : <button type="button" className="view-modal__middle-action" onClick={() => onJoin?.(room)}>Join</button>)
+                      : <p className="view-modal__versus">VS</p>}
+                </div>
+
+                <Player player={state.playerTwo} completed={completed} winnerSide={winnerSide} winnerVisible={winnerVisible} waiting={!hasOpponent} onProfileOpen={onProfileOpen} />
+              </div>
+
+              <div className="view-modal__seed-grid">
+                <button type="button" className="view-modal__seed" aria-label="Open coinflip fairness details" onClick={() => setFairnessOpen(true)}><FingerprintIcon /><span>{room?.id || room?.room_id || 'Not available'}</span></button>
+                <button type="button" className="view-modal__seed" aria-label="Open server seed fairness details" onClick={() => setFairnessOpen(true)}><KeyIcon /><span>{completed ? room?.server_seed_hash || 'Not available' : 'Not available'}</span></button>
+                <button type="button" className="view-modal__seed" aria-label="Open client seed fairness details" onClick={() => setFairnessOpen(true)}><QuestionIcon /><span>{completed ? room?.client_seed || room?.random_seed || 'Not available' : 'Not available'}</span></button>
+              </div>
+
+              <div className="view-modal__totals">
+                {[state.playerOne.column, state.playerTwo.column].map((column, index) => {
+                  const unavailable = index === 1 && !hasOpponent
+                  return <div className="view-modal__total" key={index}><strong>{unavailable ? '—' : column.chance}</strong><span><CurrencyIcon />{unavailable ? '—' : column.total}</span></div>
+                })}
+              </div>
+
+              <div className="view-modal__items">
+                <ItemColumn column={state.playerOne.column} />
+                <ItemColumn column={state.playerTwo.column} waiting={!hasOpponent} />
+              </div>
+
+              <div className="view-modal__divider" />
+              <footer className="view-modal__footer">
+                <button type="button" className="view-modal__fairness" onClick={() => setFairnessOpen(true)}><ShieldIcon />Fairness</button>
+                <p>{relativeGameTime(room, completed)}</p>
+              </footer>
             </div>
-
-            <Player
-              player={state.playerTwo}
-              completed={completed}
-              winnerSide={winnerSide}
-              winnerVisible={winnerVisible}
-              waiting={!completed}
-              onProfileOpen={onProfileOpen}
-            />
           </div>
-
-          <button
-            type="button"
-            className="view-modal__game-id"
-            onClick={() => setFairnessOpen(true)}
-            aria-label="Open coinflip fairness details"
-          >
-            <div className="view-modal__game-id-holder">
-              <svg
-                className="view-modal__hashtag"
-                viewBox="0 0 448 512"
-                aria-hidden="true"
-              >
-                <path
-                  fill="currentColor"
-                  d="M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32h-68.9l-21.3 128H384c17.7 0 32 14.3 32 32s-14.3 32-32 32h-68.9l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7h-95.2l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.7-58.7H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192l-21.3 128h95.1l21.3-128z"
-                />
-              </svg>
-              <p className="view-modal__game-id-tag">{room?.id || room?.room_id || 'Game ID unavailable'}</p>
-            </div>
-          </button>
-
-          <div className="view-modal__items">
-            <ItemColumn column={state.playerOne.column} />
-            <ItemColumn column={state.playerTwo.column} />
-          </div>
-          {canCancel && (
-            <button
-              type="button"
-              className={`view-modal__cancel${canceling ? ' view-modal__cancel--pending' : ''}`}
-              onClick={() => { void cancelCoinflip() }}
-              disabled={canceling}
-            >
-              Cancel
-            </button>
-          )}
         </div>
         {fairnessOpen && (
-          <FairnessModal
-            gameId={room?.id || room?.room_id || 'Unavailable'}
-            serverSeedHash={room?.server_seed_hash || 'Unavailable'}
-            randomSeed={room?.client_seed || 'Unavailable'}
-            resolved={completed}
+          <CoinflipFairnessModal
+            coinflipId={room?.id || room?.room_id || 'N/A'}
+            hashedServerSeed={room?.server_seed_hash || 'N/A'}
+            serverSeed={completed ? room?.server_seed || room?.revealed_server_seed || 'N/A' : 'N/A'}
+            clientSeed={completed ? room?.client_seed || room?.random_seed || 'N/A' : 'N/A'}
             onClose={() => setFairnessOpen(false)}
           />
         )}
@@ -964,6 +816,339 @@ const VIEW_MODAL_STYLES = `
     display: flex;
   }
 
+  /* AMP reference coinflip viewer */
+  .view-modal__backdrop {
+    padding: 0;
+    overflow: hidden;
+    background: rgba(4, 5, 8, .76);
+    -webkit-backdrop-filter: blur(9px);
+    backdrop-filter: blur(9px);
+  }
+  .view-modal__surface {
+    width: calc(100% - 32px);
+    max-width: 1024px;
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    min-height: 0;
+    margin: 12px 16px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    color: #f4f5f8;
+    background: transparent;
+  }
+  .view-modal__header {
+    position: relative;
+    flex: 0 0 56px;
+    height: 56px;
+    margin: 0;
+    padding: 12px 20px;
+    box-sizing: border-box;
+  }
+  .view-modal__logo {
+    width: 156px;
+    max-width: 180px;
+    height: 32px;
+    margin: 0 auto;
+    border-radius: 0;
+    object-fit: contain;
+    transform: translateY(-6px);
+  }
+  .view-modal__close {
+    top: 12px;
+    right: 14px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    color: #8e94a2;
+    background: #222631;
+    font-size: 12px;
+    opacity: 1;
+    transition: color .2s, background-color .2s, box-shadow .2s;
+  }
+  .view-modal__close svg { width: 14px; height: 14px; }
+  .view-modal__close:hover { color: #ff4fa3; background: #282c37; opacity: 1; }
+  .view-modal__close:focus-visible { outline: 0; box-shadow: 0 0 0 2px rgba(255,79,163,.4); }
+  .view-modal__body {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3e47 transparent;
+  }
+  .view-modal__body::-webkit-scrollbar { display: block; width: 5px; }
+  .view-modal__body::-webkit-scrollbar-track { background: transparent; }
+  .view-modal__body::-webkit-scrollbar-thumb { border-radius: 999px; background: #3a3e47; }
+  .view-modal__content {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 11px;
+    background: #171a22;
+  }
+  .view-modal__players {
+    display: grid;
+    min-height: 370px;
+    grid-template-columns: minmax(0,270px) minmax(0,360px) minmax(0,270px);
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 12px 20px;
+    box-sizing: border-box;
+  }
+  .view-modal__player {
+    width: 100%;
+    min-width: 0;
+    flex-shrink: 1;
+    gap: 8px;
+  }
+  .view-modal__avatar-wrapper {
+    position: relative;
+    display: block;
+    width: 98px;
+    height: 98px;
+    padding: 3px;
+    box-sizing: border-box;
+    border-radius: 9999px;
+    background: #303540;
+  }
+  .view-modal__avatar {
+    display: inline-flex;
+    width: 92px;
+    height: 92px;
+    margin: 0;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 9999px;
+    color: #fff;
+    background: #111319;
+    object-fit: cover;
+  }
+  .view-modal__avatar:hover { border-color: transparent; filter: none; }
+  .view-modal__avatar--waiting svg { width: 24px; height: 24px; }
+  .view-modal__avatar.view-modal__winner {
+    border: 3px solid #ff4fa3;
+    box-shadow: 0 0 0 5px rgba(255,79,163,.1), 0 0 26px rgba(255,79,163,.22);
+  }
+  .view-modal__coin {
+    top: -8px;
+    right: -8px;
+    bottom: auto;
+    width: 40px;
+    height: 40px;
+    filter: none;
+  }
+  .view-modal__username {
+    width: auto;
+    max-width: 180px;
+    height: 21px;
+    margin: 0;
+    color: #f3f4f6;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 21px;
+  }
+  .view-modal__game-info {
+    width: 100%;
+    min-height: 350px;
+    flex-shrink: 1;
+    justify-content: center;
+  }
+  .view-modal__middle-action {
+    position: relative;
+    display: flex;
+    min-width: 110px;
+    height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 8px;
+    color: #111319;
+    background: #ff4fa3;
+    box-shadow: none;
+    font: 700 13px/15.6px Poppins,sans-serif;
+    cursor: pointer;
+  }
+  .view-modal__middle-action:hover { background: #ff69b0; }
+  .view-modal__middle-action--cancel { color: #fff; background: #e34f5f; }
+  .view-modal__middle-action--cancel:hover { background: #ef6271; }
+  .view-modal__middle-action:disabled { cursor: not-allowed; opacity: .55; }
+  .view-modal__versus { margin: 0; color: #777e8d; font-size: 18px; font-weight: 700; line-height: 27px; }
+  .view-modal__coin-video {
+    width: 280px;
+    height: 280px;
+    border-radius: 0;
+    mix-blend-mode: screen;
+    transform: none;
+  }
+  .view-modal__winner-coin { display: block; width: 150px; height: 150px; object-fit: contain; }
+  .view-modal__seed-grid {
+    display: grid;
+    height: 46px;
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    gap: 8px;
+  }
+  .view-modal__seed {
+    display: flex;
+    min-width: 0;
+    height: 46px;
+    box-sizing: border-box;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 8px;
+    outline: 0;
+    color: #9298a5;
+    background: #20242e;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  .view-modal__seed:hover { border-color: rgba(255,255,255,.12); background: #252a35; }
+  .view-modal__seed:focus-visible { border-color: rgba(255,79,163,.7); box-shadow: 0 0 0 2px rgba(255,79,163,.18); }
+  .view-modal__seed svg { width: 13px; height: 13px; flex: 0 0 13px; }
+  .view-modal__seed span {
+    min-width: 0;
+    overflow: hidden;
+    color: #aeb3be;
+    font: 400 12px/18px monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .view-modal__totals {
+    display: grid;
+    height: 46px;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 8px;
+  }
+  .view-modal__total {
+    display: flex;
+    height: 46px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 16px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: #20242e;
+  }
+  .view-modal__total strong { color: #f0f1f4; font-size: 15px; font-weight: 700; line-height: 22.5px; }
+  .view-modal__total span { display: flex; align-items: center; gap: 6px; color: #f0f1f4; font-size: 14px; font-weight: 700; line-height: 21px; }
+  .view-modal__total svg { width: 16px; height: 16px; color: #ff4fa3; }
+  .view-modal__items {
+    display: grid;
+    width: 100%;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    justify-content: normal;
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .view-modal__surface--cancelable .view-modal__items { padding-bottom: 0; }
+  .view-modal__player-items {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    padding: 0;
+  }
+  .view-modal__item-row {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    height: 64px;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .view-modal__item-image-wrapper { display: flex; width: 48px; height: 48px; flex: 0 0 48px; align-items: center; justify-content: center; margin: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .view-modal__normal-item-image { display: block; width: 46px; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; object-fit: contain; object-position: center; }
+  .view-modal__item-name {
+    display: flow-root;
+    min-width: 0;
+    flex: 1;
+    margin: 0;
+    overflow: hidden;
+    color: #dde0e6;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 19.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .view-modal__item-value { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; margin: 0; color: #f1f2f5; font-size: 12px; font-weight: 600; line-height: 18px; }
+  .view-modal__item-value svg { width: 11px; height: 11px; color: #ff69b0; }
+  .view-modal__waiting-items { display: flex; min-height: 80px; align-items: center; justify-content: center; color: #777e8d; font-size: 13px; line-height: 19.5px; }
+  .view-modal__divider { width: 100%; height: 1px; background: rgba(255,255,255,.16); opacity: .6; }
+  .view-modal__footer { position: relative; display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: center; gap: 8px; }
+  .view-modal__footer p { margin: 0; color: #8b919e; font-size: 12px; font-weight: 600; line-height: 18px; }
+  .view-modal__fairness {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    display: flex;
+    min-width: 40px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 7px;
+    color: #a8aeb9;
+    background: #20242e;
+    font: 600 12px/14.4px Poppins,sans-serif;
+    cursor: pointer;
+  }
+  .view-modal__fairness:hover { color: #ff4fa3; background: #282c37; }
+  .view-modal__fairness svg { width: 13px; height: 13px; }
+
+  @media (max-width: 760px) {
+    .view-modal__surface { width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; }
+    .view-modal__header { flex-basis: 56px; }
+    .view-modal__body { padding: 0 8px 8px; }
+    .view-modal__content { padding: 14px; gap: 12px; }
+    .view-modal__players { min-height: 260px; grid-template-columns: minmax(0,1fr) 110px minmax(0,1fr); padding: 8px 0; gap: 8px; }
+    .view-modal__game-info { min-height: 240px; }
+    .view-modal__avatar-wrapper { width: 82px; height: 82px; }
+    .view-modal__avatar { width: 76px; height: 76px; }
+    .view-modal__coin { width: 34px; height: 34px; }
+    .view-modal__username { max-width: 120px; font-size: 12px; }
+    .view-modal__coin-video { width: 180px; height: 180px; }
+    .view-modal__seed-grid { height: auto; grid-template-columns: 1fr; }
+    .view-modal__items { gap: 16px; }
+    .view-modal__fairness { position: static; }
+    .view-modal__footer { justify-content: space-between; }
+  }
+
+  @media (max-width: 520px) {
+    .view-modal__players { grid-template-columns: 1fr 86px 1fr; }
+    .view-modal__middle-action { min-width: 76px; padding: 0 10px; }
+    .view-modal__items { grid-template-columns: 1fr; gap: 8px; }
+    .view-modal__totals { grid-template-columns: 1fr; height: auto; }
+    .view-modal__item-name { font-size: 12px; }
+  }
+
   .fairness-modal__backdrop {
     position: fixed;
     inset: 0;
@@ -1116,54 +1301,6 @@ const VIEW_MODAL_STYLES = `
     font-weight: 500;
     line-height: 1.55;
     text-align: center;
-  }
-
-  @media (max-width: 768px) {
-    .view-modal__coin-video {
-      width: 150px;
-      height: 150px;
-      transform: scale(2.25);
-    }
-  }
-
-  @media (max-width: 740px) {
-    .view-modal__surface {
-      min-width: 100%;
-      min-height: 100%;
-      border-radius: 0;
-    }
-
-    .view-modal__avatar {
-      width: 90px;
-      height: 90px;
-    }
-
-    .view-modal__items {
-      width: calc(100% - 20px);
-      gap: 10px;
-      margin: 12px 10px 10px;
-    }
-
-    .view-modal__players {
-      gap: 30px;
-    }
-
-    .view-modal__player,
-    .view-modal__game-info {
-      width: 100px;
-    }
-
-    .view-modal__versus {
-      font-size: 34px;
-    }
-
-    .view-modal__desktop-value {
-      display: none;
-    }
-
-    .view-modal__mobile-value {
-      display: flex;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
