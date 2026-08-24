@@ -20,6 +20,11 @@ const RESOLVED_ROOM_LIFETIME_MS = 40_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const RECENT_RESULT_LIMIT = 100
 const CREATOR_VIEW_OPEN_DELAY_MS = 140
+const COINFLIP_GAME_OPTIONS = [
+  ['mm2', 'MM2'],
+  ['adm', 'AMP'],
+  ['ps99', 'PS99'],
+]
 
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
@@ -135,7 +140,8 @@ export default function Coinflip() {
   const walletSelection = useAuth((state) => state.walletSelection)
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen)
   const [sortBy, setSortBy] = useState('Highest to Lowest')
-  const [gameMode, setGameMode] = useState('ps99')
+  const [gameMode, setGameMode] = useState('mm2')
+  const gameModeIndex = Math.max(0, COINFLIP_GAME_OPTIONS.findIndex(([value]) => value === gameMode))
   const [createOpen, setCreateOpen] = useState(false)
   const [joinRoom, setJoinRoom] = useState(null)
   const [viewRoom, setViewRoom] = useState(null)
@@ -383,9 +389,10 @@ export default function Coinflip() {
   }, [applyRoomUpdate, user?.id, user?.profile_id])
 
   // Derived stats for the stat cards
-  const activeRoomsCount = rooms.filter((r) => !r.canceled && !r.result).length
-  const totalValueSum = rooms.reduce((sum, r) => sum + Number(r.total_value ?? r.numericValue ?? 0), 0)
-  const totalItemsCount = rooms.reduce((sum, r) => sum + (Array.isArray(r.creator_items) ? r.creator_items.length : 0) + (Array.isArray(r.opponent_items) ? r.opponent_items.length : 0), 0)
+  const gameRooms = rooms.filter((room) => getCoinflipRoomGame(room) === gameMode)
+  const activeRoomsCount = gameRooms.filter((room) => !room.canceled && !room.result).length
+  const totalValueSum = gameRooms.reduce((sum, room) => sum + Number(room.total_value ?? room.numericValue ?? 0), 0)
+  const totalItemsCount = gameRooms.reduce((sum, room) => sum + (Array.isArray(room.creator_items) ? room.creator_items.length : 0) + (Array.isArray(room.opponent_items) ? room.opponent_items.length : 0), 0)
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('coinflip:nav-value', { detail: { value: totalValueSum } }))
@@ -833,6 +840,14 @@ export default function Coinflip() {
           .coinflip-row-result-video { display: none; }
           .coinflip-row-winner-coin { animation-duration: 1ms; }
         }
+        @keyframes coinflipGameListIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .coinflip-game-list { animation: coinflipGameListIn .22s cubic-bezier(.22,1,.36,1); }
+        @media (prefers-reduced-motion: reduce) {
+          .coinflip-game-list { animation: none; }
+        }
       `}</style>
       <div className="relative z-10 flex w-full flex-col px-4 pb-32 pt-3">
         {/* Stats Cards */}
@@ -870,12 +885,13 @@ export default function Coinflip() {
               History
             </button>
           </div>
-          <div role="tablist" aria-label="CoinFlip game" className="grid h-10 w-full grid-cols-3 items-center justify-center rounded-md bg-[hsl(229_17%_13%)] p-1 sm:w-auto">
-            {[
-              ['mm2', 'MM2'],
-              ['adm', 'ADM'],
-              ['ps99', 'PS99'],
-            ].map(([value, label]) => {
+          <div role="tablist" aria-label="CoinFlip game" className="relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
+              style={{ width: 'calc(100% / 3)', transform: `translateX(${gameModeIndex * 100}%)` }}
+            />
+            {COINFLIP_GAME_OPTIONS.map(([value, label]) => {
               const active = gameMode === value
               return (
                 <button
@@ -884,7 +900,7 @@ export default function Coinflip() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => setGameMode(value)}
-                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'bg-[#ff4fa3] font-semibold text-black shadow-sm' : 'text-white/60 hover:text-white'}`}
+                  className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}
                 >
                   {label}
                 </button>
@@ -894,11 +910,10 @@ export default function Coinflip() {
         </div>
 
         {/* Room Cards */}
-        <div className="flex flex-col gap-2">
-          {rooms.length > 0 &&
-            rooms
+        <div key={gameMode} className="coinflip-game-list flex flex-col gap-2">
+          {gameRooms.length > 0 &&
+            gameRooms
               .slice()
-              .filter((room) => getCoinflipRoomGame(room) === gameMode)
               .sort((a, b) => {
                 const aVal = Number(a.numericValue ?? 0)
                 const bVal = Number(b.numericValue ?? 0)

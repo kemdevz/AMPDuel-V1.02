@@ -11,7 +11,7 @@ const TABS = [
 const GAMES = [
   { id: 'all', label: 'All Games' },
   { id: 'mm2', label: 'MM2' },
-  { id: 'adm', label: 'ADM' },
+  { id: 'adm', label: 'AMP' },
   { id: 'ps99', label: 'PS99' },
 ]
 

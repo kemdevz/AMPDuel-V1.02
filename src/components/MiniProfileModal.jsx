@@ -11,7 +11,7 @@ const profileCache = new Map()
 const profilePreloadRequests = new Map()
 const FALLBACK_AVATAR = '/login.png'
 const EMPTY_STATS = { totalBet: 0, totalProfit: 0, totalWon: 0, totalLost: 0 }
-const GAME_OPTIONS = [['all', 'All Games'], ['mm2', 'MM2'], ['adm', 'ADM'], ['ps99', 'PS99']]
+const GAME_OPTIONS = [['all', 'All Games'], ['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
 
 function normalizeProfileCacheKey(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -79,6 +79,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [activeGame, setActiveGame] = useState('all')
+  const activeGameIndex = Math.max(0, GAME_OPTIONS.findIndex(([value]) => value === activeGame))
   const [statsByGame, setStatsByGame] = useState(null)
 
   const playerAliases = useMemo(() => [player?.profile_id, player?.id, player?.user_id, player?.uuid, player?.username, player?.name]
@@ -208,11 +209,12 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
         </div>
 
         <div className="mt-4 w-full">
-          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs grid h-10 w-full grid-cols-4 items-center justify-center rounded-md bg-[hsl(229_17%_13%)] p-1">
+          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs relative grid h-10 w-full isolate grid-cols-4 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)]">
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 4)', transform: `translateX(${activeGameIndex * 100}%)` }} />
             {GAME_OPTIONS.map(([value, label]) => {
               const active = activeGame === value
               return (
-                <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setActiveGame(value)} className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'bg-[#ff4fa3] font-semibold text-black shadow-sm' : 'text-white/60 hover:text-white'}`}>
+                <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setActiveGame(value)} className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}>
                   {label}
                 </button>
               )
