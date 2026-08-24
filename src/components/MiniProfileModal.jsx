@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
-import { useNavigate } from '../lib/router'
 import { isUuidLike } from '../lib/supabaseClient'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
@@ -11,7 +10,7 @@ const profileCache = new Map()
 const profilePreloadRequests = new Map()
 const FALLBACK_AVATAR = '/login.png'
 const EMPTY_STATS = { totalBet: 0, totalProfit: 0, totalWon: 0, totalLost: 0 }
-const GAME_OPTIONS = [['all', 'All Games'], ['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
+const GAME_OPTIONS = [['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
 
 function normalizeProfileCacheKey(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -76,9 +75,8 @@ function StatCard({ amount, label }) {
 
 export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   const currentUser = useAuth((state) => state.user)
-  const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
-  const [activeGame, setActiveGame] = useState('all')
+  const [activeGame, setActiveGame] = useState('mm2')
   const activeGameIndex = Math.max(0, GAME_OPTIONS.findIndex(([value]) => value === activeGame))
   const [statsByGame, setStatsByGame] = useState(null)
 
@@ -101,7 +99,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     if (!isOpen) {
       setProfile(null)
       setStatsByGame(null)
-      setActiveGame('all')
+      setActiveGame('mm2')
       return undefined
     }
     let active = true
@@ -126,8 +124,8 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   useEffect(() => {
     if (!isOpen || !isOwnProfile) return
     onClose?.()
-    navigate('/profile')
-  }, [isOpen, isOwnProfile, navigate, onClose])
+    window.dispatchEvent(new CustomEvent('profile:open'))
+  }, [isOpen, isOwnProfile, onClose])
 
   useEffect(() => {
     if (!isOpen || !targetProfileId || isOwnProfile) return undefined
@@ -153,7 +151,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     totalWon: Number(resolvedProfile?.won || 0),
     totalLost: Number(resolvedProfile?.lost || 0),
   }
-  const stats = statsByGame?.[activeGame] || (activeGame === 'all' ? fallbackStats : EMPTY_STATS)
+  const stats = statsByGame?.[activeGame] || (activeGame === 'mm2' ? fallbackStats : EMPTY_STATS)
 
   const handleTip = () => {
     if (typeof onTip === 'function') onTip(resolvedProfile)
@@ -173,7 +171,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
         }
         .miniPlayerProfileTabs {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .miniPlayerProfileCard {
           border-color: hsl(231 16% 16%);
@@ -209,8 +207,8 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
         </div>
 
         <div className="mt-4 w-full">
-          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs relative grid h-10 w-full isolate grid-cols-4 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)]">
-            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 4)', transform: `translateX(${activeGameIndex * 100}%)` }} />
+          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)]">
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 3)', transform: `translateX(${activeGameIndex * 100}%)` }} />
             {GAME_OPTIONS.map(([value, label]) => {
               const active = activeGame === value
               return (

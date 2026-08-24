@@ -11,7 +11,6 @@ import Upgrader from './pages/Upgrader'
 import LiveCasino from './pages/LiveCasino'
 import LiveCasinoGame from './pages/LiveCasinoGame'
 import Blackjack from './pages/Blackjack'
-import Profile from './pages/Profile'
 import { useAuth } from './store/auth'
 
 function decodeRouteSegment(value) {
@@ -36,7 +35,6 @@ function AppRoutes() {
     roll: <Roll />,
     blackjack: <Blackjack />,
     upgrader: <Upgrader />,
-    profile: <Profile />,
     'live-casino': <LiveCasino />,
   }
   const caseRouteMatch = pathname.match(/^\/cases\/([^/]+)$/)

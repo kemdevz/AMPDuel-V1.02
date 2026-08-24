@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, useNavigate } from "../lib/router";
+import { NavLink } from "../lib/router";
 import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
 import InventoryModal from "./InventoryModal";
@@ -179,7 +179,6 @@ const getOwnerIdsForUser = async (userData) => {
 }
 
 export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
-  const navigate = useNavigate()
   const [loginOpen, setLoginOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
@@ -801,7 +800,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
                         setMenuOpen(false)
                         setVolumeOpen(false)
                         setNotificationsOpen(false)
-                        navigate('/profile')
+                        onOpenProfileModal?.()
                       }}
                     >
                       <svg
