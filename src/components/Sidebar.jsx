@@ -4,7 +4,7 @@ import { navSections } from '../data'
 
 function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
   const requiresLogin = path === 'sessions' || path === 'profile'
-  const itemClass = `group relative flex w-full items-center gap-3 rounded-[7px] px-1 py-2.5 text-sm font-medium leading-[18px] transition-colors duration-100 before:absolute before:-left-3 before:top-0 before:h-full before:w-[2px] before:bg-[#6c63ff] before:opacity-0 before:transition-opacity before:duration-100 hover:before:opacity-100 ${
+  const itemClass = `group relative flex w-full items-center gap-3 rounded-[7px] px-1 py-2.5 text-sm font-medium leading-[18px] transition-colors duration-100 before:absolute before:-left-3 before:top-0 before:h-full before:w-[2px] before:bg-[#ff4fa3] before:opacity-0 before:transition-opacity before:duration-100 hover:before:opacity-100 ${
     isCollapsed ? 'justify-center' : ''
   }`
   const iconClass = 'h-[18px] w-[18px] shrink-0 transition-colors duration-100'
@@ -109,7 +109,7 @@ function SectionLabel({ children, isCollapsed }) {
   if (isCollapsed) {
     return (
       <div className="flex min-h-5 justify-center py-1">
-        <div className="h-1 w-5 rounded-full bg-[#6c63ff] opacity-90"></div>
+        <div className="h-1 w-5 rounded-full bg-[#ff4fa3] opacity-90"></div>
       </div>
     )
   }
@@ -127,7 +127,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
     <>
       <aside
         aria-label="Primary navigation"
-        className={`fixed bottom-0 left-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-20 lg:relative lg:inset-auto lg:z-auto lg:h-full lg:w-[var(--sidebar-width)] lg:translate-x-0 lg:pb-0 ${
+        className={`fixed bottom-0 left-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex w-full shrink-0 flex-col overflow-hidden bg-[hsl(227_17%_11%)] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[width,transform] duration-300 ease-out sm:top-20 xl:hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-[105%]'
         }`}
         style={{
@@ -160,7 +160,10 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
           <div key={section.label} className={`flex flex-col rounded-md bg-[#1b1f2e] px-3 py-2 ${isCollapsed ? 'gap-1 !px-2' : 'gap-2'}`}>
             <SectionLabel isCollapsed={isCollapsed}>{section.label}</SectionLabel>
             <ul>
-              {section.items.filter((item) => item.enabled !== false).map((item) => (
+              {section.items
+                .filter((item) => item.enabled !== false)
+                .filter((item) => section.label !== 'Games' || ['coinflip', 'upgrader'].includes(item.path))
+                .map((item) => (
                 <NavItem
                   key={item.name}
                   icon={item.icon}
@@ -173,7 +176,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
                   onOpenLeaderboardModal={onOpenLeaderboardModal}
                   onOpenTermsModal={onOpenTermsModal}
                 />
-              ))}
+                ))}
             </ul>
           </div>
         ))}

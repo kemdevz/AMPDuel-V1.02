@@ -711,12 +711,12 @@ const VIEW_MODAL_STYLES = `
   }
 
   .view-modal__avatar:hover {
-    border-color: rgba(108, 99, 255, .65);
+    border-color: rgba(255, 79, 163, .65);
     filter: brightness(1.04);
   }
 
   .view-modal__avatar.view-modal__winner {
-    border-color: rgba(108, 99, 255, .85);
+    border-color: rgba(255, 79, 163, .85);
   }
 
   .view-modal__username {
@@ -788,7 +788,7 @@ const VIEW_MODAL_STYLES = `
   }
 
   .view-modal__game-id:focus-visible {
-    outline: 2px solid #6c63ff;
+    outline: 2px solid #ff4fa3;
     outline-offset: 3px;
   }
 

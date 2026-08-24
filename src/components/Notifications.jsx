@@ -302,7 +302,7 @@ export default function Notifications() {
           left: 0;
           width: 100%;
           height: 3px;
-          background: #6c63ff;
+          background: #ff4fa3;
           content: "";
           transform-origin: left;
           animation: appNotificationProgress var(--notification-duration, 4000ms) linear forwards;
@@ -376,7 +376,7 @@ export default function Notifications() {
 
         .appNotificationIconInfo {
           border-radius: 50%;
-          background: #6c63ff;
+          background: #ff4fa3;
           color: #fff;
           font-size: 13px;
           font-weight: 700;

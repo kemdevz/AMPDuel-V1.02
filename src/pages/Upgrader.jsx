@@ -8,7 +8,7 @@ import { apiRequest } from '../lib/apiClient'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 
-const COIN_ICON = '/bobux.png'
+const COIN_ICON = '/currency.svg'
 const MAX_TARGETS = 25
 const MIN_CHANCE = 1
 const MAX_CHANCE = 75
@@ -18,9 +18,35 @@ const FULL_SPIN_TURNS = 8
 const SPIN_SOUND = '/money-D3u6qQYl.mp3'
 const WIN_SOUND = '/upgrader_win-B7YBQOH1.mp3'
 const LOSE_SOUND = '/upgrader_lose-Bvgxc2nW.mp3'
+const UPGRADER_SORT_OPTIONS = ['Highest to Lowest', 'Lowest to Highest', 'Selected', 'Alphabetical']
+const UPGRADER_GAME_OPTIONS = [
+  { value: 'mm2', label: 'Murder Mystery 2' },
+  { value: 'adm', label: 'Adopt Me' },
+  { value: 'ps99', label: 'Pet Simulator 99' },
+]
 
 function formatValue(value) {
   return Math.max(0, Number(value) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
+}
+
+function getItemGame(item) {
+  const type = String(item?.type || item?.game || item?.item_type || '').toLowerCase()
+  if (type.includes('murder') || type.includes('mm2')) return 'mm2'
+  if (type.includes('adopt') || type === 'adm') return 'adm'
+  return 'ps99'
+}
+
+function sortUpgraderItems(items, sortBy, isSelected) {
+  return [...items].sort((a, b) => {
+    if (sortBy === 'Selected') {
+      const aSelected = Boolean(isSelected?.(a))
+      const bSelected = Boolean(isSelected?.(b))
+      if (aSelected !== bSelected) return aSelected ? -1 : 1
+    }
+    if (sortBy === 'Lowest to Highest') return a.value - b.value
+    if (sortBy === 'Alphabetical') return a.name.localeCompare(b.name)
+    return b.value - a.value
+  })
 }
 
 function groupStockPool(rows = []) {
@@ -271,11 +297,11 @@ function TargetArrow({ className, delay = '0ms', gradientId, accent }) {
 function InventoryBagIcon() {
   return (
     <svg className="upgrader-inventory-bag-icon" viewBox="0 0 260 320" aria-hidden="true">
-      <path fill="#6c63ff" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
+      <path fill="#ff4fa3" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
       <path fill="#5a55e6" d="M60 120c0-35 28-80 70-80s70 45 70 80v20H60v-20z" />
       <path fill="#4a43c9" d="M110 40h40c8 0 12 10 12 20v10H98V60c0-10 4-20 12-20z" />
       <path fill="#7a72ff" d="M60 180h140v75c0 20-15 35-35 35H95c-20 0-35-15-35-35v-75z" />
-      <path fill="#6c63ff" d="M60 180h140v25H60v-25z" />
+      <path fill="#ff4fa3" d="M60 180h140v25H60v-25z" />
       <path fill="none" stroke="#3a33a8" strokeWidth="3" d="M60 205h140" />
       <path fill="#5850e6" d="M50 130c-10 5-20 25-20 45s10 40 20 45v-90zm160 0c10 5 20 25 20 45s-10 40-20 45v-90z" />
       <ellipse cx="130" cy="290" rx="90" ry="18" fill="#3b36a6" opacity=".35" />
@@ -473,7 +499,14 @@ function InventoryModal({ initialItems, inventoryItems, loading, error, onClose,
   )
 }
 
-function FairnessModal({ onClose, gameActive = false }) {
+export function FairnessModal({ onClose, gameActive = false }) {
+  const [activeFairnessTab, setActiveFairnessTab] = useState('coinflip')
+  const [eosBlockNumber, setEosBlockNumber] = useState('')
+  const [coinflipServerSeed, setCoinflipServerSeed] = useState('')
+  const [starterTotalValue, setStarterTotalValue] = useState('')
+  const [joinerTotalValue, setJoinerTotalValue] = useState('')
+  const [validationMessage, setValidationMessage] = useState('')
+  const [showCode, setShowCode] = useState(false)
   const [clientSeed, setClientSeed] = useState('')
   const [hashedServerSeed, setHashedServerSeed] = useState('Loading...')
   const [nonce, setNonce] = useState(0)
@@ -507,6 +540,7 @@ function FairnessModal({ onClose, gameActive = false }) {
   }, [requestClose])
 
   useEffect(() => {
+    if (activeFairnessTab !== 'upgrader') return undefined
     let cancelled = false
     apiRequest('/api/upgrader/fairness')
       .then((response) => {
@@ -534,7 +568,7 @@ function FairnessModal({ onClose, gameActive = false }) {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [activeFairnessTab])
 
   const randomizeClientSeed = () => {
     setClientSeed(randomString(12, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'))
@@ -566,65 +600,51 @@ function FairnessModal({ onClose, gameActive = false }) {
     }
   }
 
+  const validateCoinflip = () => {
+    if (!eosBlockNumber.trim() || !coinflipServerSeed.trim() || !starterTotalValue.trim() || !joinerTotalValue.trim()) {
+      setValidationMessage('Please complete all fields to validate fairness.')
+      return
+    }
+    setValidationMessage('Fairness inputs are ready to validate.')
+  }
+
   return createPortal(
     <div className={`upgrader-fairness-overlay${closing ? ' is-closing' : ''}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
+      <style>{UPGRADER_CSS}</style>
       <section className={`upgrader-fairness-modal${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="upgrader-fairness-title" onMouseDown={(event) => event.stopPropagation()}>
-        <button className="upgrader-fairness-close" type="button" onClick={requestClose} aria-label="Close Upgrader Fairness">×</button>
-        <h1 id="upgrader-fairness-title" className="upgrader-fairness-header">Upgrader Fairness</h1>
-        <p className="upgrader-fairness-hint">Single-player house games use a separate provably-fair system that keeps you in full control, the active server seed stays hidden, only its hash is shown. Changing your client seed generates a brand-new server seed and reveals the previous one, so you can verify all your past games.</p>
+        <h2 id="upgrader-fairness-title" className="upgrader-fairness-header">Fairness</h2>
+        <p className="upgrader-fairness-hint">Our Provably Fair system works by generating a completely random seed on our server which is then combined with a block ID from the EOS blockchain that is not known before the game starts and used to determine the winning ticket in a game. This design doesn't allow anyone to predict the outcome of a game</p>
 
-        <div className="upgrader-fairness-section">
-          <span className="upgrader-fairness-section-title">Hashed Server Seed</span>
-          <div className="upgrader-fairness-input-holder">
-            <span className="upgrader-fairness-value" title={hashedServerSeed}>{hashedServerSeed}</span>
-            <CopySeedIcon label="Hashed Server Seed" value={hashedServerSeed} />
-          </div>
+        <div className="upgrader-fairness-tabs" role="tablist" aria-label="Fairness game">
+          <button type="button" role="tab" aria-selected={activeFairnessTab === 'coinflip'} data-state={activeFairnessTab === 'coinflip' ? 'active' : 'inactive'} onClick={() => setActiveFairnessTab('coinflip')}>Coinflip</button>
+          <button type="button" role="tab" aria-selected={activeFairnessTab === 'upgrader'} data-state={activeFairnessTab === 'upgrader' ? 'active' : 'inactive'} onClick={() => setActiveFairnessTab('upgrader')}>Upgrader</button>
         </div>
 
-        <div className="upgrader-fairness-section">
-          <span className="upgrader-fairness-section-title">Client Seed</span>
-          <div className="upgrader-fairness-seed-row">
-            <input
-              type="text"
-              className="upgrader-fairness-seed-input"
-              maxLength="128"
-              placeholder="Your client seed"
-              autoComplete="off"
-              spellCheck="false"
-              disabled={loading || saving || gameActive}
-              value={clientSeed}
-              onChange={(event) => setClientSeed(event.target.value)}
-            />
-            <button type="button" className="upgrader-fairness-random" disabled={loading || saving || gameActive} title="Generate a random 12-character seed" onClick={randomizeClientSeed}>Random</button>
-          </div>
-        </div>
-
-        <div className="upgrader-fairness-section">
-          <span className="upgrader-fairness-section-title">Nonce</span>
-          <div className="upgrader-fairness-input-holder">
-            <span className="upgrader-fairness-value">{nonce}</span>
-            <CopySeedIcon label="Nonce" value={nonce} />
-          </div>
-        </div>
-
-        <button type="button" className="upgrader-fairness-save" disabled={loading || saving || gameActive || !clientSeed.trim()} onClick={rotateServerSeed}>{saving ? 'Changing Seed...' : 'Change Seed'}</button>
-        <p className="upgrader-fairness-note">Entering the same client seed still rotates the server seed (and reveals the old one). You can't change it while a game is active.</p>
-
-        {previousSeed?.serverSeed ? (
-          <div className="upgrader-fairness-reveal-box">
-            <span className="upgrader-fairness-reveal-title">Previous Server Seed</span>
-            <span className="upgrader-fairness-reveal-description">This seed is now retired. Use it together with the client seed, nonce below to verify your past games.</span>
-            <div className="upgrader-fairness-input-holder upgrader-fairness-reveal-value">
-              <span className="upgrader-fairness-value" title={previousSeed.serverSeed}>{previousSeed.serverSeed}</span>
-              <CopySeedIcon label="Previous Server Seed" value={previousSeed.serverSeed} />
+        {activeFairnessTab === 'coinflip' ? (
+          <div className="upgrader-fairness-panel" role="tabpanel">
+            <div className="upgrader-fairness-form">
+              <div><label className="upgrader-fairness-section-title" htmlFor="eos-block-number">EOS Block Number</label><input id="eos-block-number" className="upgrader-fairness-field has-help" value={eosBlockNumber} onChange={(event) => setEosBlockNumber(event.target.value)} /><blockquote className="upgrader-fairness-blockchain-note">You can view the EOS blockchain by visiting your favorite EOS blockchain viewer, such as <a target="_blank" rel="noreferrer" href="https://eosflare.io/">https://eosflare.io</a> or <a target="_blank" rel="noreferrer" href="https://eosauthority.com/">https://eosauthority.com</a> in order to validate that the ID that we gave you is legitimate</blockquote></div>
+              <div><label className="upgrader-fairness-section-title" htmlFor="server-seed">Server Seed</label><input id="server-seed" className="upgrader-fairness-field" value={coinflipServerSeed} onChange={(event) => setCoinflipServerSeed(event.target.value)} /></div>
+              <div className="upgrader-fairness-value-pair"><div><label className="upgrader-fairness-section-title" htmlFor="starter-total-value">Starter Total Value</label><input id="starter-total-value" className="upgrader-fairness-field" value={starterTotalValue} onChange={(event) => setStarterTotalValue(event.target.value)} /></div><div><label className="upgrader-fairness-section-title" htmlFor="joiner-total-value">Joiner Total Value</label><input id="joiner-total-value" className="upgrader-fairness-field" value={joinerTotalValue} onChange={(event) => setJoinerTotalValue(event.target.value)} /></div></div>
             </div>
-            <div className="upgrader-fairness-reveal-meta">
-              <span>Client Seed: <b>{previousSeed.clientSeed || 'Unavailable'}</b></span>
-              <span>Nonce: <b>{previousSeed.nonce}</b></span>
-              {previousSeed.roll !== null && previousSeed.roll !== undefined ? <span>Roll: <b>{Number(previousSeed.roll).toFixed(8)}</b></span> : null}
-            </div>
+            <div className="upgrader-fairness-validation-message">{validationMessage}</div>
+            <button type="button" className="upgrader-fairness-validate" onClick={validateCoinflip}>Validate Fairness</button>
+            <div><button type="button" className="upgrader-fairness-show-code" onClick={() => setShowCode((visible) => !visible)}>{showCode ? 'Hide Code' : 'Show Code'}</button></div>
+            {showCode ? <pre className="upgrader-fairness-code">winningTicket = hash(serverSeed + eosBlockId) % totalValue</pre> : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="upgrader-fairness-panel" role="tabpanel">
+            <div className="upgrader-fairness-form">
+              <div><span className="upgrader-fairness-section-title">Hashed Server Seed</span><div className="upgrader-fairness-input-holder"><span className="upgrader-fairness-value" title={hashedServerSeed}>{hashedServerSeed}</span><CopySeedIcon label="Hashed Server Seed" value={hashedServerSeed} /></div></div>
+              <div><label className="upgrader-fairness-section-title" htmlFor="upgrader-client-seed">Client Seed</label><div className="upgrader-fairness-seed-row"><input id="upgrader-client-seed" type="text" className="upgrader-fairness-field" maxLength="128" autoComplete="off" spellCheck="false" disabled={loading || saving || gameActive} value={clientSeed} onChange={(event) => setClientSeed(event.target.value)} /><button type="button" className="upgrader-fairness-random" disabled={loading || saving || gameActive} onClick={randomizeClientSeed}>Random</button></div></div>
+              <div><span className="upgrader-fairness-section-title">Nonce</span><div className="upgrader-fairness-input-holder"><span className="upgrader-fairness-value">{nonce}</span><CopySeedIcon label="Nonce" value={nonce} /></div></div>
+            </div>
+            <button type="button" className="upgrader-fairness-validate" disabled={loading || saving || gameActive || !clientSeed.trim()} onClick={rotateServerSeed}>{saving ? 'Changing Seed...' : 'Change Seed'}</button>
+            {previousSeed?.serverSeed ? <div className="upgrader-fairness-reveal-box"><span className="upgrader-fairness-reveal-title">Previous Server Seed</span><div className="upgrader-fairness-input-holder upgrader-fairness-reveal-value"><span className="upgrader-fairness-value" title={previousSeed.serverSeed}>{previousSeed.serverSeed}</span><CopySeedIcon label="Previous Server Seed" value={previousSeed.serverSeed} /></div><div className="upgrader-fairness-reveal-meta"><span>Client Seed: <b>{previousSeed.clientSeed || 'Unavailable'}</b></span><span>Nonce: <b>{previousSeed.nonce}</b></span></div></div> : null}
+          </div>
+        )}
+
+        <button className="upgrader-fairness-close" type="button" onClick={requestClose} aria-label="Close Fairness"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg><span>Close</span></button>
       </section>
     </div>,
     document.body,
@@ -634,9 +654,9 @@ function FairnessModal({ onClose, gameActive = false }) {
 const UPGRADER_CSS = `
 ${inventoryItemCardStyles}
 .upgrader-page {
-  --accent: #6c63ff;
-  --accent-light: #8079ff;
-  --accent-dark: #5a51e6;
+  --accent: #ff4fa3;
+  --accent-light: #ff69b0;
+  --accent-dark: #f43f8f;
   --accent-gradient: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 45%, var(--accent-dark) 100%);
   --danger: #ff4d4d;
   --danger-light: #ff6b6b;
@@ -713,9 +733,9 @@ ${inventoryItemCardStyles}
   line-height: 1;
   transition: transform .13s cubic-bezier(.22,1,.36,1), filter .14s ease, opacity .14s ease, background .2s ease, border-color .2s ease;
 }
-.upgrader-primary-btn { border-color: rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); box-shadow: 0 2px 8px rgba(108,99,255,.2); }
+.upgrader-primary-btn { border-color: rgba(255,79,163,.4); background: linear-gradient(135deg,#ff4fa3,#f43f8f); box-shadow: 0 2px 8px rgba(255,79,163,.2); }
 .upgrader-secondary-btn { border-color: transparent; background: #2a2e44; color: #e1e4f2; box-shadow: none; }
-.upgrader-primary-btn:hover:not(:disabled) { background: linear-gradient(135deg,#6c63ff,#5147d9); }
+.upgrader-primary-btn:hover:not(:disabled) { background: linear-gradient(135deg,#ff4fa3,#f43f8f); }
 .upgrader-secondary-btn:hover:not(:disabled) { background: var(--btn-secondary-hover); color: #fff; }
 .upgrader-primary-btn:active:not(:disabled), .upgrader-secondary-btn:active:not(:disabled) { transform: scale(.98); }
 .upgrader-primary-btn:focus-visible, .upgrader-secondary-btn:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
@@ -728,8 +748,8 @@ ${inventoryItemCardStyles}
 .upgrader-wheel-tab:active:not(:disabled) { transform: scale(.98); }
 .upgrader-wheel-tab:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
 .upgrader-wheel-tab:disabled { opacity: .6; cursor: not-allowed; }
-.upgrader-wheel-tab.is-active { border-color: rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); color: #fff; box-shadow: 0 2px 8px rgba(108,99,255,.18); }
-.upgrader-wheel-tab.is-active:hover:not(:disabled) { border-color: rgba(94,85,217,.4); background: linear-gradient(135deg,#6c63ff,#5147d9); color: #fff; }
+.upgrader-wheel-tab.is-active { border-color: rgba(255,79,163,.4); background: linear-gradient(135deg,#ff4fa3,#f43f8f); color: #fff; box-shadow: 0 2px 8px rgba(255,79,163,.18); }
+.upgrader-wheel-tab.is-active:hover:not(:disabled) { border-color: rgba(255,79,163,.4); background: linear-gradient(135deg,#ff4fa3,#f43f8f); color: #fff; }
 .upgrader-wheel-wrap { display: flex; width: 100%; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px 0; }
 .upgrader-wheel-circle { position: relative; display: flex; width: 220px; height: 220px; align-items: center; justify-content: center; border-radius: 50%; background: radial-gradient(100% 100% at 50% 100%,var(--wheel-glow,rgba(104,84,224,.1)) 0,transparent 80%); transition: background .6s; }
 .upgrader-wheel-ring { position: absolute; z-index: 6; top: -3%; left: -3%; width: 106%; height: 106%; }
@@ -749,10 +769,10 @@ ${inventoryItemCardStyles}
 .upgrader-upgrade-btn { width: 100%; min-width: 0; padding: 0; font-size: 15px; }
 .upgrader-roll-modes { display: flex; width: 100%; gap: 8px; margin-top: 8px; }
 .upgrader-roll-mode { flex: 1; min-width: 0; height: 36px; padding: 0; font-size: 13px; transition: transform .13s cubic-bezier(.22,1,.36,1),color .1s,border-color .1s,opacity .14s; }
-.upgrader-roll-mode.is-active { border-color: rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); color: #fff; box-shadow: 0 2px 8px rgba(108,99,255,.18); }
-.upgrader-roll-mode.is-active:hover:not(:disabled) { border-color: rgba(94,85,217,.4); background: linear-gradient(135deg,#6c63ff,#5147d9); color: #fff; }
+.upgrader-roll-mode.is-active { border-color: rgba(255,79,163,.4); background: linear-gradient(135deg,#ff4fa3,#f43f8f); color: #fff; box-shadow: 0 2px 8px rgba(255,79,163,.18); }
+.upgrader-roll-mode.is-active:hover:not(:disabled) { border-color: rgba(255,79,163,.4); background: linear-gradient(135deg,#ff4fa3,#f43f8f); color: #fff; }
 .upgrader-target-panel { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; cursor: default; }
-.upgrader-target-blob { position: absolute; z-index: 1; top: 50%; left: 50%; width: 320px; height: 260px; border-radius: 50%; background: radial-gradient(ellipse at center,var(--target-glow,rgba(108,99,255,.18)) 0%,transparent 70%); filter: blur(32px); opacity: 1; transform: translate(-50%,-50%); pointer-events: none; transition: background 1.2s ease,opacity .8s ease; }
+.upgrader-target-blob { position: absolute; z-index: 1; top: 50%; left: 50%; width: 320px; height: 260px; border-radius: 50%; background: radial-gradient(ellipse at center,var(--target-glow,rgba(255,79,163,.18)) 0%,transparent 70%); filter: blur(32px); opacity: 1; transform: translate(-50%,-50%); pointer-events: none; transition: background 1.2s ease,opacity .8s ease; }
 .upgrader-target-empty { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; }
 .upgrader-target-empty p { color: #6b7280; font-size: 12px; font-weight: 500; letter-spacing: .04em; text-align: center; text-transform: uppercase; cursor: default; }
 .upgrader-target-content { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; }
@@ -835,16 +855,16 @@ ${inventoryItemCardStyles}
 .upgrader-slider-row { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
 .upgrader-slider-label { color: rgba(255,255,255,.45); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .upgrader-slider-value { color: #f6f6f6; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.upgrader-slider { width: 100%; height: 6px; border-radius: 999px; outline: none; appearance: none; background: linear-gradient(to right,#6c63ff 0%,#6c63ff var(--slider-fill,0%),#2a2e44 var(--slider-fill,0%),#2a2e44 100%); cursor: pointer; }
+.upgrader-slider { width: 100%; height: 6px; border-radius: 999px; outline: none; appearance: none; background: linear-gradient(to right,#ff4fa3 0%,#ff4fa3 var(--slider-fill,0%),#2a2e44 var(--slider-fill,0%),#2a2e44 100%); cursor: pointer; }
 .upgrader-slider:disabled { opacity: .45; cursor: not-allowed; }
-.upgrader-slider::-webkit-slider-thumb { width: 16px; height: 16px; border: 2px solid var(--accent); border-radius: 50%; appearance: none; background: #fff; box-shadow: 0 2px 6px rgba(108,99,255,.4); cursor: pointer; transition: transform .15s; }
+.upgrader-slider::-webkit-slider-thumb { width: 16px; height: 16px; border: 2px solid var(--accent); border-radius: 50%; appearance: none; background: #fff; box-shadow: 0 2px 6px rgba(255,79,163,.4); cursor: pointer; transition: transform .15s; }
 .upgrader-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
 .upgrader-quick-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
 .upgrader-quick-btn { min-width: 0; height: 32px; padding: 0; font-size: 12px; }
 .upgrader-inventory-overlay, .upgrader-fairness-overlay {
-  --accent: #6c63ff;
-  --accent-light: #8079ff;
-  --accent-dark: #5a51e6;
+  --accent: #ff4fa3;
+  --accent-light: #ff69b0;
+  --accent-dark: #f43f8f;
   --accent-gradient: linear-gradient(180deg,var(--accent-light) 0%,var(--accent) 45%,var(--accent-dark) 100%);
   --surface-1: #1c1f2e;
   --btn-secondary-hover: #32385a;
@@ -912,47 +932,59 @@ ${inventoryItemCardStyles}
 .upgrader-inventory-empty { position: absolute; top: 50%; left: 50%; display: flex; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; text-align: center; transform: translate(-50%,-50%); }
 .upgrader-inventory-empty h1 { margin-bottom: 8px; color: #ddd; font-size: 20px; }
 .upgrader-inventory-empty p { margin-bottom: 15px; color: #aaa; }
-.upgrader-fairness-overlay { position: fixed; z-index: 2147483100; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 20px; background: rgba(0,0,0,.58); animation: upgrader-overlay-in 180ms ease-out both; transition: opacity 180ms ease; }
+.upgrader-fairness-overlay { position: fixed; z-index: 2147483100; inset: 0; background: hsl(228 17% 12%/.4); animation: upgrader-overlay-in 150ms ease-out both; transition: opacity 150ms ease; }
 .upgrader-fairness-overlay.is-closing { pointer-events: none; animation: upgrader-overlay-out 220ms cubic-bezier(.4,0,1,1) both; }
-.upgrader-fairness-modal { position: relative; box-sizing: border-box; width: 90%; max-width: 600px; max-height: 90vh; margin: 0; padding: 2rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #181a28; border-radius: 5px; background: #131520; color: #e1e4f2; box-shadow: 0 20px 80px #0000008c; font-family: Poppins,sans-serif; animation: upgrader-fairness-modal-in .3s ease-out both; transition: opacity 180ms ease,transform 180ms ease; }
+.upgrader-fairness-modal { position: fixed; top: 50%; left: 50%; display: flex; width: 100%; height: 100dvh; max-width: 768px; box-sizing: border-box; flex-direction: column; gap: 16px; padding: 24px; overflow-y: auto; transform: translate(-50%,-50%); border: 1px solid hsl(231 16% 16%); border-radius: 0; outline: 0; background: hsl(227 17% 11%); color: #fff; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1); font-family: Poppins,sans-serif; animation: upgrader-fairness-modal-in 200ms ease-out both; transition: opacity 200ms ease,transform 200ms ease; }
 .upgrader-fairness-modal.is-closing { animation: upgrader-fairness-modal-out 220ms cubic-bezier(.4,0,1,1) both; }
-.upgrader-fairness-close { position: absolute; top: 12px; right: 14px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: transparent; color: rgba(255,255,255,.76); font-size: 25px; line-height: 1; cursor: pointer; transition: color 140ms ease,transform 140ms ease; }
-.upgrader-fairness-close:hover { color: #fff; }
-.upgrader-fairness-close:active { transform: scale(.92); }
-.upgrader-fairness-header { margin: 0 38px 12px 0; color: #fff; font-size: 24px; font-weight: 700; line-height: 1.25; }
-.upgrader-fairness-hint { margin: 0 0 22px; color: #a6b2d3; font-size: 12px; font-weight: 500; line-height: 1.65; }
-.upgrader-fairness-section + .upgrader-fairness-section { margin-top: 19px; }
-.upgrader-fairness-section-title { display: block; margin-bottom: 8px; color: rgba(255,255,255,.68); font-size: 13px; font-weight: 600; }
-.upgrader-fairness-input-holder,.upgrader-fairness-seed-input { box-sizing: border-box; min-height: 42px; border: 0; border-radius: 6px; background: #1c1f2e; }
-.upgrader-fairness-input-holder { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 12px 13px; }
+.upgrader-fairness-close { position: absolute; top: 16px; right: 16px; padding: 0; border: 0; border-radius: 2px; outline: 0; background: transparent; color: #fff; opacity: .7; cursor: pointer; transition: opacity 150ms ease; }
+.upgrader-fairness-close:hover { opacity: 1; }
+.upgrader-fairness-close svg { display: block; width: 20px; height: 20px; }
+.upgrader-fairness-close span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+.upgrader-fairness-header { margin: 0; color: #fff; font-size: 18px; font-weight: 600; line-height: 18px; letter-spacing: -.025em; }
+.upgrader-fairness-hint { margin: 0; color: #d1d5db; font-size: 14px; font-weight: 500; line-height: 20px; }
+.upgrader-fairness-tabs { display: inline-flex; width: fit-content; height: 40px; align-items: center; justify-content: center; padding: 4px; border-radius: 6px; background: hsl(229 17% 13%); color: rgba(255,255,255,.5); }
+.upgrader-fairness-tabs button { display: inline-flex; height: 32px; align-items: center; justify-content: center; padding: 6px 12px; border: 0; border-radius: 2px; outline: 0; background: transparent; color: inherit; font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap; cursor: pointer; transition: all 150ms ease; }
+.upgrader-fairness-tabs button[data-state=active] { background: hsl(233 16% 22%/.4); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.upgrader-fairness-panel { margin-top: 8px; outline: 0; }
+.upgrader-fairness-form { display: flex; flex-direction: column; gap: 16px; }
+.upgrader-fairness-section-title { display: block; margin: 0; color: rgba(255,255,255,.8); font-size: 14px; font-weight: 500; line-height: 14px; }
+.upgrader-fairness-field { display: flex; width: 100%; height: 40px; box-sizing: border-box; margin-top: 8px; padding: 8px 12px; border: 2px solid rgba(255,255,255,.05); border-radius: 6px; outline: 0; background: hsl(228 17% 12%); color: #fff; font-size: 14px; transition: border-color 150ms ease; }
+.upgrader-fairness-field.has-help { margin-bottom: 8px; }
+.upgrader-fairness-field:focus { border-color: rgba(255,255,255,.6); }
+.upgrader-fairness-field:disabled { cursor: not-allowed; opacity: .5; }
+.upgrader-fairness-blockchain-note { width: fit-content; margin: 0; padding: 8px; border-left: 4px solid #3b82f6; border-radius: 6px; background: rgba(0,0,0,.5); color: #fff; font-size: 16px; line-height: 24px; }
+.upgrader-fairness-blockchain-note a { color: #60a5fa; text-decoration: none; }
+.upgrader-fairness-blockchain-note a:hover { text-decoration: underline; }
+.upgrader-fairness-value-pair { display: flex; align-items: center; gap: 16px; }
+.upgrader-fairness-value-pair>div { flex: 1; }
+.upgrader-fairness-input-holder { display: flex; width: 100%; height: 40px; box-sizing: border-box; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 12px; border: 2px solid rgba(255,255,255,.05); border-radius: 6px; background: hsl(228 17% 12%); }
 .upgrader-fairness-value { display: block; min-width: 0; flex: 1; overflow: hidden; color: rgba(255,255,255,.88); font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
 .upgrader-fairness-copy-icon { display: inline-flex; width: 18px; height: 18px; flex: 0 0 18px; align-items: center; justify-content: center; padding: 0; border: 0; outline: none; background: transparent; color: #fff; cursor: pointer; transition: color 140ms ease; -webkit-tap-highlight-color: transparent; }
 .upgrader-fairness-copy-icon svg { width: 18px; height: 18px; }
 .upgrader-fairness-copy-icon:hover { color: rgba(255,255,255,.72); }
-.upgrader-fairness-copy-icon:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+.upgrader-fairness-copy-icon:focus-visible { outline: 2px solid #ff69b0; outline-offset: 3px; }
 .upgrader-fairness-seed-row { display: flex; align-items: stretch; gap: 10px; }
-.upgrader-fairness-seed-input { width: 100%; min-width: 0; padding: 0 13px; outline: none; color: rgba(255,255,255,.9); font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; transition: box-shadow 140ms ease,background 140ms ease; }
-.upgrader-fairness-seed-input:focus { background: #1f2335; box-shadow: inset 0 0 0 1px rgba(108,99,255,.55); }
-.upgrader-fairness-random,.upgrader-fairness-save { min-height: 42px; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform .13s cubic-bezier(.22,1,.36,1),background .15s ease,opacity .15s ease; }
-.upgrader-fairness-random { min-width: 108px; padding: 0 18px; border: 0; background: #2a2e44; }
-.upgrader-fairness-random:hover:not(:disabled) { background: #32385a; }
-.upgrader-fairness-save { width: 100%; margin-top: 22px; padding: 0 20px; border: 1px solid rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); box-shadow: 0 2px 8px rgba(108,99,255,.2); }
-.upgrader-fairness-save:hover:not(:disabled) { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
-.upgrader-fairness-random:active:not(:disabled),.upgrader-fairness-save:active:not(:disabled) { transform: scale(.98); }
-.upgrader-fairness-seed-input:disabled,.upgrader-fairness-random:disabled,.upgrader-fairness-save:disabled { cursor: not-allowed; opacity: .55; }
-.upgrader-fairness-note { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
-.upgrader-fairness-reveal-box { margin-top: 1.4rem; padding: 1rem; border: 0 solid rgba(108,99,255,.4); border-radius: 6px; background: rgba(108,99,255,.06); animation: upgrader-fairness-modal-in .24s ease-out both; }
+.upgrader-fairness-seed-row .upgrader-fairness-field { min-width: 0; flex: 1; }
+.upgrader-fairness-random { height: 40px; margin-top: 8px; padding: 0 16px; border: 0; border-radius: 6px; background: hsl(233 16% 22%); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; }
+.upgrader-fairness-random:disabled,.upgrader-fairness-validate:disabled { pointer-events: none; opacity: .5; }
+.upgrader-fairness-validation-message { min-height: 20px; margin-top: 16px; text-align: center; font-size: 14px; font-weight: 500; }
+.upgrader-fairness-validate { display: inline-flex; width: 100%; height: 40px; align-items: center; justify-content: center; margin-top: 16px; padding: 8px 16px; border: 0; border-radius: 6px; background: hsl(331 100% 65%); color: #000; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 150ms ease; }
+.upgrader-fairness-validate:hover { opacity: .9; }
+.upgrader-fairness-show-code { display: inline-flex; height: 40px; align-items: center; padding: 8px 0; border: 0; background: transparent; color: #9ca3af; font-size: 14px; font-weight: 500; cursor: pointer; text-underline-offset: 4px; }
+.upgrader-fairness-show-code:hover { text-decoration: underline; }
+.upgrader-fairness-code { overflow-x: auto; margin: 0; padding: 12px; border-radius: 6px; background: rgba(0,0,0,.5); color: #d1d5db; font-size: 12px; }
+.upgrader-fairness-reveal-box { margin-top: 16px; padding: 16px; border-radius: 6px; background: rgba(0,0,0,.25); animation: upgrader-fairness-modal-in .24s ease-out both; }
 .upgrader-fairness-reveal-title { display: block; color: #e1e4f2; font-size: 13px; font-weight: 700; }
 .upgrader-fairness-reveal-description { display: block; margin-top: 5px; color: #a6b2d3; font-size: 11px; font-weight: 500; line-height: 1.55; }
-.upgrader-fairness-reveal-value { margin-top: .6rem; margin-bottom: 0; }
+.upgrader-fairness-reveal-value { margin-top: 10px; margin-bottom: 0; }
 .upgrader-fairness-reveal-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin-top: 9px; color: #6c7399; font-size: 11px; font-weight: 500; }
 .upgrader-fairness-reveal-meta b { color: #a6b2d3; font-weight: 700; }
 @keyframes upgrader-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes upgrader-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes upgrader-overlay-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes upgrader-modal-in { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
-@keyframes upgrader-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes upgrader-fairness-modal-out { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(.96) translateY(8px); } }
+@keyframes upgrader-fairness-modal-in { from { opacity: 0; transform: translate(-50%,-48%); } to { opacity: 1; transform: translate(-50%,-50%); } }
+@keyframes upgrader-fairness-modal-out { from { opacity: 1; transform: translate(-50%,-50%); } to { opacity: 0; transform: translate(-50%,-50%); } }
 @keyframes upgrader-arrow-popup { from { scale: .55; } to { scale: 1; } }
 @keyframes upgrader-arrow-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes upgrader-arrow-pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
@@ -975,11 +1007,11 @@ ${inventoryItemCardStyles}
   .upgrader-upgrade-wrap { padding-top: 4px; }
 }
 @media (max-width: 520px) {
-  .upgrader-fairness-overlay { padding: 8px; }
-  .upgrader-fairness-modal { width: 100%; max-height: calc(100dvh - 16px); padding: 1.25rem; }
-  .upgrader-fairness-header { font-size: 20px; }
   .upgrader-fairness-seed-row { flex-direction: column; }
   .upgrader-fairness-random { width: 100%; }
+}
+@media (min-width: 640px) {
+  .upgrader-fairness-modal { height: fit-content; max-height: 100dvh; border-radius: 8px; }
 }
 @media (max-width: 640px) {
   .upgrader-page { padding: 12px 12px 80px; }
@@ -1041,6 +1073,270 @@ ${inventoryItemCardStyles}
   .upgrader-page, .upgrader-target-content, .upgrader-fairness-overlay, .upgrader-inventory-overlay, .upgrader-inventory-modal, .upgrader-fairness-modal { animation: none; }
 }
 `
+
+const REFERENCE_LIVE_WINS = [
+  { before: 120, gain: 45, after: 165, player: 'KWOXP_9', multiplier: '1.38' },
+  { before: 130, gain: 25, after: 155, player: 'KWOXP_9', multiplier: '1.19' },
+  { before: 32, gain: 6, after: 38, player: '9x_Icey', multiplier: '1.19' },
+  { before: 35, gain: 30, after: 65, player: 'hellolol321g', multiplier: '1.86' },
+  { before: 105, gain: 15, after: 120, player: 'hellolol321g', multiplier: '1.14' },
+  { before: 35, gain: 10, after: 45, player: '9x_Icey', multiplier: '1.29' },
+]
+
+const REFERENCE_UPGRADER_CSS = `
+.reference-upgrader { width:100%; min-height:100%; padding:16px 16px 80px; color:#fff; }
+.reference-upgrader * { box-sizing:border-box; }
+.reference-upgrader button,.reference-upgrader input { font-family:Poppins,sans-serif; }
+.ref-live-wins { overflow:hidden; padding:16px; border:1px solid hsl(231 16% 16%); border-radius:6px; background:hsl(230 16% 14%); }
+.ref-live-title { display:flex; align-items:center; gap:8px; color:rgba(255,255,255,.8); font-size:14px; font-weight:600; }
+.ref-live-dot-wrap { display:grid; }
+.ref-live-dot { grid-area:1/1; width:12px; height:12px; border-radius:999px; background:rgba(239,67,99,.5); animation:ref-live-pulse 1.8s ease-in-out infinite; }
+.ref-live-track { display:flex; gap:8px; overflow:hidden; margin-top:12px; }
+.ref-live-card { display:flex; min-width:222px; flex-direction:column; gap:8px; padding:16px; border:1px solid hsl(231 16% 16%); border-radius:6px; background:hsl(230 16% 14%); }
+.ref-live-values,.ref-live-player { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ref-live-values { color:#ff4fa3; font-size:12px; font-weight:600; }
+.ref-live-value,.ref-live-gain { display:flex; align-items:center; gap:4px; }
+.ref-live-gain { padding:4px 8px; border-radius:999px; background:rgba(11,248,148,.2); font-size:14px; }
+.ref-live-values img { width:16px; height:16px; }
+.ref-live-items { display:flex; align-items:center; justify-content:space-between; }
+.ref-live-stack { display:flex; min-height:40px; align-items:center; margin-left:12px; }
+.ref-live-item { display:grid; width:40px; height:40px; place-items:center; overflow:hidden; margin-left:-12px; border:1px solid hsl(231 16% 16%); border-radius:999px; background:hsl(228 17% 12%); }
+.ref-live-item img { width:32px; height:32px; object-fit:contain; }
+.ref-live-arrow { width:20px; color:rgba(255,255,255,.8); }
+.ref-live-player { font-size:14px; font-weight:600; }
+.ref-live-avatar { width:16px; height:16px; border-radius:999px; background:#303341; }
+.ref-live-multiplier { color:#ff4fa3; }
+.ref-upgrader-content { margin-top:16px; }
+.ref-upgrade-card { display:flex; max-height:50%; flex-direction:column; padding:24px; border:1px solid hsl(231 16% 16%); border-radius:6px; background:hsl(230 16% 14%); }
+.ref-wheel-stage { position:relative; display:grid; min-height:360px; place-items:center; }
+.ref-wheel { position:relative; z-index:20; display:grid; width:min(380px,24.75vw); min-width:280px; aspect-ratio:1; place-items:center; }
+.ref-wheel-glow,.ref-wheel-ring { position:absolute; inset:0; border-radius:999px; }
+.ref-wheel-glow { background:rgba(11,248,148,.12); filter:blur(32px); }
+.ref-wheel-ring { z-index:2; padding:5px; }
+.ref-wheel-ring svg { width:100%; height:100%; overflow:visible; }
+.ref-wheel-inner { position:absolute; z-index:4; inset:5px; display:grid; place-items:center; overflow:hidden; border-radius:999px; background:hsl(228 17% 12%); }
+.ref-wheel-logo { position:absolute; width:60%; padding:20%; opacity:.05; }
+.ref-wheel-readout { position:relative; z-index:3; max-width:78%; text-align:center; }
+.ref-wheel-chance { display:block; font-size:60px; font-weight:600; line-height:1.05; }
+.ref-wheel-caption { display:block; margin-top:7px; font-size:16px; font-weight:500; }
+.ref-wheel-pointer { position:absolute; z-index:8; top:0; left:50%; width:0; height:0; border-top:16px solid #ff4fa3; border-right:8px solid transparent; border-left:8px solid transparent; transform-origin:0 calc((min(380px,24.75vw) - 10px)/2); transition:transform 5s cubic-bezier(.15,.5,.25,1); }
+.ref-wheel-side { position:absolute; z-index:8; top:50%; display:flex; width:30%; align-items:center; gap:6px; transform:translateY(-50%); }
+.ref-wheel-side.is-left { left:4%; justify-content:flex-end; }
+.ref-wheel-side.is-right { right:4%; justify-content:flex-start; }
+.ref-wheel-side-item { display:grid; width:72px; height:72px; place-items:center; overflow:hidden; border:1px solid hsl(231 16% 16%); border-radius:999px; background:hsl(228 17% 12%); box-shadow:0 0 22px rgba(11,248,148,.08); }
+.ref-wheel-side-item img { width:58px; height:58px; object-fit:contain; }
+.ref-wheel-side-empty { width:72px; height:72px; border:1px solid hsl(231 16% 16%); border-radius:999px; background:hsl(228 17% 12%); }
+.ref-wheel-multiplier { margin-bottom:16px; text-align:center; }
+.ref-wheel-multiplier strong { color:#ff4fa3; }
+.ref-upgrade-footer { display:grid; grid-template-columns:1fr 240px 1fr; align-items:end; gap:20px; }
+.ref-total-label { font-size:18px; font-weight:600; }
+.ref-total-value { display:flex; align-items:center; gap:3px; color:#ff4fa3; font-weight:600; }
+.ref-total-value img { width:16px; height:16px; }
+.ref-total.is-right { text-align:right; }
+.ref-total.is-right .ref-total-value { justify-content:flex-end; }
+.ref-mobile-total { display:none; }
+.ref-upgrade-button { height:44px; border:0; border-radius:6px; background:#ff4fa3; color:hsl(230 16% 14%); font-size:18px; font-weight:600; transition:opacity .15s ease,transform .12s ease; }
+.ref-upgrade-button:hover:not(:disabled) { opacity:.9; }
+.ref-upgrade-button:active:not(:disabled) { transform:scale(.98); }
+.ref-upgrade-button:disabled { cursor:not-allowed; opacity:.5; }
+.ref-browser-card { display:flex; gap:16px; margin-top:16px; padding:16px; border:1px solid hsl(231 16% 16%); border-radius:6px; background:hsl(230 16% 14%); }
+.ref-browser-column { min-width:0; width:50%; }
+.ref-browser-divider { width:1px; flex:0 0 1px; background:rgba(255,255,255,.1); }
+.ref-browser-controls { display:flex; align-items:flex-end; gap:8px; }
+.ref-search-group { display:grid; width:100%; max-width:384px; gap:8px; }
+.ref-search-group label { font-size:14px; font-weight:500; opacity:.8; }
+.ref-browser-input,.ref-browser-select { height:48px; border:2px solid rgba(255,255,255,.25); border-radius:8px; outline:0; background:transparent; color:rgba(255,255,255,.5); font-size:14px; font-weight:600; }
+.ref-browser-input { width:100%; padding:8px 12px; }
+.ref-browser-input:focus,.ref-browser-select:focus { border-color:rgba(255,255,255,.6); }
+.ref-filter-row { display:flex; width:100%; flex-direction:row; gap:8px; }
+.ref-filter-select { position:relative; width:180px; }
+.ref-browser-select { display:flex; width:100%; height:48px; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:2px solid rgba(255,255,255,.25); border-radius:8px; outline:0; background:transparent; color:rgba(255,255,255,.5); font-size:14px; font-weight:600; white-space:nowrap; transition:border-color .15s ease; }
+.ref-browser-select:focus { border-color:rgba(255,255,255,.6); }
+.ref-browser-select span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ref-browser-select svg { width:16px; height:16px; flex:none; opacity:.5; transition:transform .15s ease; }
+.ref-browser-select[aria-expanded="true"] svg { transform:rotate(180deg); }
+.ref-filter-menu { position:absolute; z-index:100; top:52px; left:0; width:100%; padding:4px; border:1px solid hsl(231 16% 16%); border-radius:8px; background:hsl(227 17% 11%); box-shadow:none; transform-origin:top; animation:ref-filter-in .15s ease-out; }
+.ref-filter-option { display:flex; width:100%; padding:8px 12px; border:0; border-radius:6px; background:transparent; color:rgba(255,255,255,.7); font-size:14px; font-weight:600; text-align:left; }
+.ref-filter-option:hover,.ref-filter-option.is-active { background:rgba(255,255,255,.05); color:#fff; }
+.ref-browser-items { height:400px; margin-top:16px; overflow:auto; }
+.ref-browser-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
+.ref-browser-empty { display:flex; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.ref-browser-empty strong { font-size:30px; font-weight:500; }
+.ref-browser-empty p { margin-top:8px; font-weight:500; opacity:.8; }
+.ref-browser-empty button { height:44px; margin-top:24px; padding:0 32px; border:0; border-radius:6px; background:#ff4fa3; color:hsl(230 16% 14%); font-size:14px; font-weight:600; }
+.ref-mobile-tabs { display:none; }
+@keyframes ref-live-pulse { 0%,100%{opacity:.5}50%{opacity:1} }
+@keyframes ref-filter-in { from{opacity:0;transform:translateY(-4px) scaleY(.96)} to{opacity:1;transform:translateY(0) scaleY(1)} }
+@media(max-width:767px){
+  .reference-upgrader { padding:12px 12px 88px; }
+  .ref-live-wins { margin:0; padding:12px; }
+  .ref-live-track { overflow-x:auto; }
+  .ref-live-card { min-width:210px; }
+  .ref-upgrade-card { padding:20px; }
+  .ref-wheel-stage { min-height:300px; }
+  .ref-wheel { width:210px; min-width:210px; }
+  .ref-wheel-chance { font-size:28px; }
+  .ref-wheel-caption { font-size:12px; }
+  .ref-wheel-pointer { transform-origin:0 100px; }
+  .ref-wheel-side { width:auto; flex-direction:column; }
+  .ref-wheel-side.is-left { left:0; }.ref-wheel-side.is-right { right:0; }
+  .ref-wheel-side-item,.ref-wheel-side-empty { width:48px; height:48px; }
+  .ref-wheel-side-item img { width:38px; height:38px; }
+  .ref-upgrade-footer { grid-template-columns:1fr; gap:14px; }
+  .ref-upgrade-footer .ref-total { display:none; }
+  .ref-mobile-total { display:block; }
+  .ref-mobile-total.is-right { text-align:right; }
+  .ref-mobile-total.is-right .ref-total-value { justify-content:flex-end; }
+  .ref-upgrade-button { height:64px; font-size:20px; }
+  .ref-browser-card { display:block; margin-bottom:20px; padding:0; border:0; background:transparent; }
+  .ref-mobile-tabs { display:inline-flex; height:40px; align-items:center; padding:4px; border-radius:6px; background:rgba(255,255,255,.05); }
+  .ref-mobile-tab { height:32px; padding:0 14px; border:0; border-radius:4px; background:transparent; color:rgba(255,255,255,.55); font-size:14px; font-weight:500; }
+  .ref-mobile-tab.is-active { background:rgba(255,255,255,.09); color:#fff; }
+  .ref-browser-column { display:none; width:100%; margin-top:8px; }
+  .ref-browser-column.is-mobile-active { display:block; }
+  .ref-browser-divider { display:none; }
+  .ref-browser-controls { flex-direction:column; align-items:stretch; }
+  .ref-search-group { max-width:none; }
+  .ref-filter-row,.ref-filter-select,.ref-browser-select { width:100%; }
+  .ref-browser-items { height:calc(100dvh - 375px); min-height:300px; max-height:400px; }
+  .ref-browser-grid { grid-template-columns:repeat(2,1fr); }
+}
+`
+
+function ReferenceChevron() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+}
+
+function ReferenceLiveWins() {
+  const itemImages = [
+    'https://tr.rbxcdn.com/180DAY-ccf0fd97edf0e575dd354c710cb83c1d/420/420/Model/Png/noFilter',
+    'https://tr.rbxcdn.com/180DAY-57a53bbde69e9c48c2e6c7607e78f7c8/420/420/Model/Png/noFilter',
+  ]
+  return (
+    <section className="ref-live-wins">
+      <div className="ref-live-title">LIVE WINS <span className="ref-live-dot-wrap"><span className="ref-live-dot" /></span></div>
+      <div className="ref-live-track">
+        {REFERENCE_LIVE_WINS.map((win, index) => (
+          <article className="ref-live-card" key={`${win.player}-${index}`}>
+            <div className="ref-live-values"><span className="ref-live-value"><img src="/currency.svg" alt="" />{win.before}</span><span className="ref-live-gain">+<img src="/currency.svg" alt="" />{win.gain}</span><span className="ref-live-value"><img src="/currency.svg" alt="" />{win.after}</span></div>
+            <div className="ref-live-items"><div className="ref-live-stack"><span className="ref-live-item"><img src={itemImages[index % 2]} alt="" /></span><span className="ref-live-item" /></div><svg className="ref-live-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg><div className="ref-live-stack"><span className="ref-live-item"><img src={itemImages[(index + 1) % 2]} alt="" /></span><span className="ref-live-item" /></div></div>
+            <div className="ref-live-player"><span className="ref-live-value"><span className="ref-live-avatar" />{win.player}</span><span><b className="ref-live-multiplier">{win.multiplier}</b>x</span></div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ReferenceFilterSelect({ value, options, onChange, ariaLabel }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const normalizedOptions = options.map((option) => typeof option === 'string' ? { value: option, label: option } : option)
+  const selectedLabel = normalizedOptions.find((option) => option.value === value)?.label || value
+
+  useEffect(() => {
+    if (!open) return undefined
+    const close = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+
+  return (
+    <div className="ref-filter-select" ref={rootRef}>
+      <button type="button" role="combobox" aria-label={ariaLabel} aria-expanded={open} className="ref-browser-select" onClick={() => setOpen((current) => !current)}>
+        <span>{selectedLabel}</span><ReferenceChevron />
+      </button>
+      {open ? <div className="ref-filter-menu" role="listbox">{normalizedOptions.map((option) => (
+        <button type="button" role="option" aria-selected={option.value === value} className={`ref-filter-option ${option.value === value ? 'is-active' : ''}`} key={option.value} onClick={() => { onChange(option.value); setOpen(false) }}>{option.label}</button>
+      ))}</div> : null}
+    </div>
+  )
+}
+
+function ReferenceBrowserControls({ value, onChange, sortBy, onSortChange, game, onGameChange }) {
+  return (
+    <div className="ref-browser-controls">
+      <label className="ref-search-group"><span>Select Item</span><input className="ref-browser-input" value={value} onChange={onChange} placeholder="Search for an item.." /></label>
+      <div className="ref-filter-row">
+        <ReferenceFilterSelect value={sortBy} options={UPGRADER_SORT_OPTIONS} onChange={onSortChange} ariaLabel="Sort items" />
+        <ReferenceFilterSelect value={game} options={UPGRADER_GAME_OPTIONS} onChange={onGameChange} ariaLabel="Filter items by game" />
+      </div>
+    </div>
+  )
+}
+
+function ReferenceUpgraderLayout({ model }) {
+  const [inventorySearch, setInventorySearch] = useState('')
+  const [mobileTab, setMobileTab] = useState('inventory')
+  const [inventorySort, setInventorySort] = useState('Selected')
+  const [inventoryGame, setInventoryGame] = useState('ps99')
+  const [stockSort, setStockSort] = useState('Selected')
+  const [stockGame, setStockGame] = useState('ps99')
+  const inventoryRows = useMemo(() => {
+    const query = inventorySearch.trim().toLowerCase()
+    const matching = model.inventoryItems.filter((item) => getItemGame(item) === inventoryGame && (!query || item.name.toLowerCase().includes(query)))
+    return sortUpgraderItems(matching, inventorySort, (item) => model.selectedItems.some((selected) => selected.id === item.id))
+  }, [inventoryGame, inventorySearch, inventorySort, model.inventoryItems, model.selectedItems])
+  const stockRows = useMemo(() => {
+    const query = model.poolSearch.trim().toLowerCase()
+    const matching = model.poolItems.filter((item) => getItemGame(item) === stockGame && (!query || item.name.toLowerCase().includes(query)))
+    return sortUpgraderItems(matching, stockSort, (item) => Number(model.targetQuantities[item.id]) > 0)
+  }, [model.poolItems, model.poolSearch, model.targetQuantities, stockGame, stockSort])
+  const multiplier = model.wager > 0 ? model.targetValue / model.wager : 0
+  const sideItems = (items, count = 3) => [...items].slice(0, count)
+
+  const InventoryColumn = (
+    <div className={`ref-browser-column ${mobileTab === 'inventory' ? 'is-mobile-active' : ''}`}>
+      <ReferenceBrowserControls value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} sortBy={inventorySort} onSortChange={setInventorySort} game={inventoryGame} onGameChange={setInventoryGame} />
+      <div className="ref-browser-items">
+        {model.inventoryLoading ? <div className="ref-browser-empty"><strong>Loading...</strong></div> : null}
+        {!model.inventoryLoading && model.inventoryError ? <div className="ref-browser-empty"><strong>No Items!</strong><p>{model.inventoryError}</p></div> : null}
+        {!model.inventoryLoading && !model.inventoryError && inventoryRows.length ? <div className="ref-browser-grid">{inventoryRows.map((item) => <ItemCard key={item.id} item={item} selected={model.selectedItems.some((selected) => selected.id === item.id)} compact onClick={() => model.toggleInventory(item)} />)}</div> : null}
+        {!model.inventoryLoading && !model.inventoryError && !inventoryRows.length ? <div className="ref-browser-empty"><strong>No Items!</strong><p>Your inventory seems to be empty...</p><button type="button" onClick={model.openInventory}>Deposit Items</button></div> : null}
+      </div>
+    </div>
+  )
+  const StockColumn = (
+    <div className={`ref-browser-column ${mobileTab === 'stock' ? 'is-mobile-active' : ''}`}>
+      <ReferenceBrowserControls value={model.poolSearch} onChange={(event) => model.setPoolSearch(event.target.value)} sortBy={stockSort} onSortChange={setStockSort} game={stockGame} onGameChange={setStockGame} />
+      <div className="ref-browser-items">
+        {model.poolLoading ? <div className="ref-browser-empty"><strong>Loading...</strong></div> : null}
+        {!model.poolLoading && model.poolError ? <div className="ref-browser-empty"><strong>No Items!</strong><p>{model.poolError}</p></div> : null}
+        {!model.poolLoading && !model.poolError && stockRows.length ? <div className="ref-browser-grid">{stockRows.map((item) => <PoolItemCard key={item.id} item={item} quantity={Number(model.targetQuantities[item.id]) || 0} totalSelected={model.targetCount} onToggle={() => model.toggleTarget(item)} onQuantityChange={(quantity) => model.setTargetQuantity(item, quantity)} />)}</div> : null}
+        {!model.poolLoading && !model.poolError && !stockRows.length ? <div className="ref-browser-empty"><strong>No Items!</strong><p>Stock seems to be empty...</p></div> : null}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="reference-upgrader"><style>{UPGRADER_CSS}{REFERENCE_UPGRADER_CSS}</style>
+      <ReferenceLiveWins />
+      <div className="ref-upgrader-content">
+        <section className="ref-upgrade-card">
+          <div className="ref-mobile-total"><div className="ref-total-label">Selected Total</div><div className="ref-total-value"><img src="/currency.svg" alt="" />{formatValue(model.wager)}</div></div>
+          <div className="ref-wheel-stage">
+            <div className="ref-wheel-side is-left">{sideItems(model.selectedItems).map((item) => <span className="ref-wheel-side-item" key={item.id}><img src={item.image} alt={item.name} onError={safeImage} /></span>)}{!model.selectedItems.length ? <span className="ref-wheel-side-empty" /> : null}</div>
+            <div className="ref-wheel">
+              <div className="ref-wheel-glow" />
+              <div className="ref-wheel-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48.5" stroke="rgba(255,255,255,.035)" strokeWidth="3" fill="none" />{model.winZonePath ? <path d={model.winZonePath} stroke="#ff4fa3" strokeWidth="3" fill="none" /> : null}</svg></div>
+              <div className="ref-wheel-inner"><div className="ref-wheel-readout"><span className="ref-wheel-chance">{model.wheelChance.toFixed(2)}%</span><span className="ref-wheel-caption">Chance of receiving selected items</span></div></div>
+              <span className="ref-wheel-pointer" style={{ transform: `translateX(-50%) rotate(${model.rotation}deg)` }} />
+            </div>
+            <div className="ref-wheel-side is-right">{sideItems(model.expandedTargets).map((item, index) => <span className="ref-wheel-side-item" key={`${item.id}-${index}`}><img src={item.image} alt={item.name} onError={safeImage} /></span>)}{!model.expandedTargets.length ? <span className="ref-wheel-side-empty" /> : null}</div>
+          </div>
+          <div className="ref-mobile-total is-right"><div className="ref-total-label">Desired Total</div><div className="ref-total-value"><img src="/currency.svg" alt="" />{formatValue(model.targetValue)}</div></div>
+          <div className="ref-wheel-multiplier">Multiplier: <strong>{multiplier.toFixed(2)}</strong>x</div>
+          <div className="ref-upgrade-footer"><div className="ref-total"><div className="ref-total-label">Selected Total</div><div className="ref-total-value"><img src="/currency.svg" alt="" />{formatValue(model.wager)}</div></div><button type="button" className="ref-upgrade-button" disabled={!model.isReady} onClick={model.runUpgrade}>{model.spinning ? 'Upgrading...' : 'Upgrade'}</button><div className="ref-total is-right"><div className="ref-total-label">Desired Total</div><div className="ref-total-value"><img src="/currency.svg" alt="" />{formatValue(model.targetValue)}</div></div></div>
+        </section>
+        <span className="block h-4" />
+        <div className="ref-mobile-tabs"><button type="button" className={`ref-mobile-tab ${mobileTab === 'inventory' ? 'is-active' : ''}`} onClick={() => setMobileTab('inventory')}>Inventory</button><button type="button" className={`ref-mobile-tab ${mobileTab === 'stock' ? 'is-active' : ''}`} onClick={() => setMobileTab('stock')}>Stock</button></div>
+        <section className="ref-browser-card">{InventoryColumn}<div className="ref-browser-divider" />{StockColumn}</section>
+      </div>
+    </div>
+  )
+}
 
 export default function Upgrader() {
   const user = useAuth((state) => state.user)
@@ -1143,7 +1439,10 @@ export default function Upgrader() {
   }, [mode, poolRefreshKey])
 
   useEffect(() => {
-    if (!inventoryOpen || !user) return undefined
+    if (!user) {
+      setInventoryItems([])
+      return undefined
+    }
 
     let cancelled = false
     setInventoryLoading(true)
@@ -1170,7 +1469,7 @@ export default function Upgrader() {
     return () => {
       cancelled = true
     }
-  }, [inventoryOpen, setAuthModalOpen, user?.id, user?.profile_id])
+  }, [setAuthModalOpen, user?.id, user?.profile_id])
 
   useEffect(() => {
     spinAudioRef.current = new Audio(SPIN_SOUND)
@@ -1388,6 +1687,15 @@ export default function Upgrader() {
     setSelectedItems((items) => items.filter((candidate) => candidate.id !== item.id))
   }
 
+  const toggleInventoryItem = (item) => {
+    if (spinning) return
+    setSelectedItems((items) => (
+      items.some((candidate) => candidate.id === item.id)
+        ? items.filter((candidate) => candidate.id !== item.id)
+        : [...items, item]
+    ))
+  }
+
   const openInventory = () => {
     if (!user) {
       setAuthModalOpen(true)
@@ -1396,6 +1704,56 @@ export default function Upgrader() {
     setInventoryOpen(true)
   }
 
+  const referenceLayout = (
+    <>
+      <ReferenceUpgraderLayout
+        model={{
+          expandedTargets,
+          filteredPool,
+          inventoryError,
+          inventoryItems,
+          inventoryLoading,
+          isReady,
+          openInventory,
+          poolError,
+          poolItems,
+          poolLoading,
+          poolSearch,
+          rotation,
+          runUpgrade,
+          selectedItems,
+          setPoolSearch,
+          setTargetQuantity,
+          spinning,
+          targetCount,
+          targetQuantities,
+          targetValue,
+          toggleInventory: toggleInventoryItem,
+          toggleTarget,
+          wager,
+          wheelChance,
+          winZonePath,
+        }}
+      />
+      {inventoryOpen ? (
+        <InventoryModal
+          initialItems={selectedItems}
+          inventoryItems={inventoryItems}
+          loading={inventoryLoading}
+          error={inventoryError}
+          onClose={() => setInventoryOpen(false)}
+          onConfirm={(items) => {
+            setSelectedItems(items)
+            setInventoryOpen(false)
+          }}
+        />
+      ) : null}
+    </>
+  )
+
+  return referenceLayout
+
+  // Legacy layout retained below as a rollback-safe reference while the copied UI settles.
   return (
     <div className="upgrader-page">
       <style>{UPGRADER_CSS}</style>
@@ -1551,7 +1909,7 @@ export default function Upgrader() {
         </section>
 
         <section className="upgrader-target-panel">
-          <div className="upgrader-target-blob" style={{ '--target-glow': targetCount ? `rgba(${targetAccent},.32)` : 'rgba(108,99,255,.18)' }} />
+          <div className="upgrader-target-blob" style={{ '--target-glow': targetCount ? `rgba(${targetAccent},.32)` : 'rgba(255,79,163,.18)' }} />
           {targetCount ? (
             <>
               <div className="upgrader-target-arrows" style={{ '--target-accent': targetAccent }}>

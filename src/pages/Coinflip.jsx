@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown } from 'lucide-react'
 import { connectSocket } from '../lib/socket'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike, supabase } from '../lib/supabaseClient'
@@ -14,7 +13,6 @@ import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileM
 import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
-import { BattlesIcon } from '../components/icons'
 import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
@@ -132,6 +130,14 @@ function normalizeCoinflipPreviewItem(item) {
   }
 }
 
+function getCoinflipRoomGame(room) {
+  const item = [...(room?.creator_items || []), ...(room?.opponent_items || [])][0]
+  const type = String(item?.type || item?.game || item?.item_type || room?.item_type || '').toLowerCase()
+  if (type.includes('murder') || type.includes('mm2')) return 'mm2'
+  if (type.includes('adopt') || type === 'adm') return 'adm'
+  return 'ps99'
+}
+
 export default function Coinflip() {
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
@@ -139,6 +145,7 @@ export default function Coinflip() {
   const walletSelection = useAuth((state) => state.walletSelection)
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen)
   const [sortBy, setSortBy] = useState('Highest to Lowest')
+  const [gameMode, setGameMode] = useState('ps99')
   const [createOpen, setCreateOpen] = useState(false)
   const [joinRoom, setJoinRoom] = useState(null)
   const [viewRoom, setViewRoom] = useState(null)
@@ -389,12 +396,10 @@ export default function Coinflip() {
   const activeRoomsCount = rooms.filter((r) => !r.canceled && !r.result).length
   const totalValueSum = rooms.reduce((sum, r) => sum + Number(r.total_value ?? r.numericValue ?? 0), 0)
   const totalItemsCount = rooms.reduce((sum, r) => sum + (Array.isArray(r.creator_items) ? r.creator_items.length : 0) + (Array.isArray(r.opponent_items) ? r.opponent_items.length : 0), 0)
-  const recentHeadsWins = recentResults.filter((game) => game.result === 'heads').length
-  const recentTailsWins = recentResults.filter((game) => game.result === 'tails').length
-  const recentResultBalance = recentHeadsWins - recentTailsWins
-  const recentHeadsCount = Math.min(100, Math.max(0, 50 + recentResultBalance))
-  const recentTailsCount = 100 - recentHeadsCount
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('coinflip:nav-value', { detail: { value: totalValueSum } }))
+  }, [totalValueSum])
   useEffect(() => {
     const timers = []
 
@@ -581,7 +586,7 @@ export default function Coinflip() {
   }
 
   return (
-    <div className="flex-1 overflow-x-hidden overflow-y-auto bg-transparent">
+    <div className="reference-coinflip flex-1 overflow-x-hidden overflow-y-auto bg-transparent">
       <style>{`
         @keyframes coinflip-slide-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes coinflip-resolved-out {
@@ -611,7 +616,7 @@ export default function Coinflip() {
           animation: coinflip-row-winner-in 150ms forwards;
         }
         .coinflip-row-avatar {
-          box-shadow: 0 0 0 0 rgba(108, 99, 255, 0);
+          box-shadow: 0 0 0 0 rgba(255, 79, 163, 0);
           transition:
             border-color 560ms cubic-bezier(.22, 1, .36, 1),
             box-shadow 560ms cubic-bezier(.22, 1, .36, 1),
@@ -619,8 +624,8 @@ export default function Coinflip() {
           will-change: border-color, box-shadow, filter;
         }
         .coinflip-row-avatar--winner {
-          border-color: #6c63ff;
-          box-shadow: 0 0 0 1px rgba(108, 99, 255, .18), 0 0 12px rgba(108, 99, 255, .14);
+          border-color: #ff4fa3;
+          box-shadow: 0 0 0 1px rgba(255, 79, 163, .18), 0 0 12px rgba(255, 79, 163, .14);
         }
         .coinflip-row-avatar--loser {
           filter: brightness(.7);
@@ -629,43 +634,12 @@ export default function Coinflip() {
           color: #6c7399;
           transition: color .2s ease;
         }
-        .coinflip-room-row:hover .coinflip-row-battle-icon { color: #6c63ff; }
-        .coinflip-top-button {
-          position: relative;
-          isolation: isolate;
-          display: inline-flex;
-          height: 42px;
-          min-width: 120px;
-          align-items: center;
-          justify-content: center;
-          box-sizing: border-box;
-          padding: 0 16px;
-          border: 0;
-          border-radius: 8px;
-          color: #fff;
-          font-size: .9rem;
-          font-weight: 600;
-          letter-spacing: .01em;
-          cursor: pointer;
-          transform-origin: center;
-          transition: opacity .2s ease,transform .1s ease,background .25s ease;
-        }
-        .coinflip-top-button:active:not(:disabled) { transform: scale(.97); }
-        .coinflip-top-button:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
-        .coinflip-top-primary {
-          border: 1px solid rgba(94,85,217,.4);
-          background: linear-gradient(135deg,#5b52e2,#4038c0);
-          box-shadow: 0 2px 8px rgba(108,99,255,.2);
-        }
-        .coinflip-top-primary:hover { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
-        .coinflip-top-secondary { background: #2a2e44; box-shadow: none; color: #e1e4f2; }
-        .coinflip-top-secondary:hover { background: #32385a; }
-        .coinflip-top-counter,
-        .coinflip-sort-trigger { height: 42px; border-radius: 8px; }
+        .coinflip-room-row:hover .coinflip-row-battle-icon { color: #ff4fa3; }
+        .coinflip-top-counter { height: 40px; border-radius: 8px; }
+        .coinflip-sort-trigger { height: 48px; border-radius: 8px; }
         @media (max-width: 640px) {
-          .coinflip-top-button { height: 38px; min-width: 0; padding-inline: 12px; }
-          .coinflip-top-counter,
-          .coinflip-sort-trigger { height: 38px; }
+          .coinflip-top-counter { height: 40px; }
+          .coinflip-sort-trigger { height: 48px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .coinflip-row-avatar {
@@ -673,81 +647,62 @@ export default function Coinflip() {
           }
         }
       `}</style>
-      <div className="relative z-10 p-4">
+      <div className="relative z-10 flex w-full flex-col px-4 pb-32 pt-3">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mb-4">
-          <StatCard
-            icon="/assets/room-icon.png"
-            value={String(activeRoomsCount)}
-            label="Active Rooms"
-            showIcon={false}
-          />
-          <StatCard
-            icon="/bobux.png"
-            value={String(totalValueSum.toLocaleString('en-US'))}
-            label="Total Value"
-          />
+        <div className="grid gap-2 md:grid-cols-3">
           <StatCard
             icon="/assets/items-icon.png"
             value={String(totalItemsCount)}
             label="Total Items"
             showIcon={false}
           />
+          <StatCard
+            icon="/currency.svg"
+            value={String(totalValueSum.toLocaleString('en-US'))}
+            label="Total Value"
+          />
+          <StatCard
+            icon="/assets/room-icon.png"
+            value={String(activeRoomsCount)}
+            label="Active Games"
+            showIcon={false}
+          />
         </div>
 
-        {/* Mobile Controls */}
-        <div className="flex flex-col gap-2 sm:hidden mb-4">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="coinflip-top-button coinflip-top-primary w-full"
-          >
-              Create
-            </button>
-            <button type="button" onClick={() => setRecentOpen(true)} className="coinflip-top-button coinflip-top-secondary w-full">
-              Recent
-            </button>
-          </div>
-          <div className="coinflip-top-counter flex items-center justify-center gap-4 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
-            <span className="flex items-center gap-1">
-              <img src="/heads.png" alt="heads" className="h-4 w-4" />
-              {recentHeadsCount}
-            </span>
-            <span className="flex items-center gap-1">
-              <img src="/tails.png" alt="tails" className="h-4 w-4" />
-              {recentTailsCount}
-            </span>
-          </div>
-          <SortDropdown value={sortBy} onChange={setSortBy} className="w-full" />
-        </div>
-
-        {/* Desktop Controls */}
-        <div className="hidden sm:flex items-center gap-2.5 mb-4">
-          <div className="flex gap-2">
+        {/* Game controls */}
+        <div className="mb-3 mt-4 flex flex-col justify-between gap-2 sm:flex-row">
+          <div className="flex items-center justify-start gap-2">
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="coinflip-top-button coinflip-top-primary"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
               Create
             </button>
-            <button type="button" onClick={() => setRecentOpen(true)} className="coinflip-top-button coinflip-top-secondary">
-              Recent
+            <button type="button" onClick={() => setRecentOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+              History
             </button>
           </div>
-          <div className="ml-auto flex items-center gap-3">
-            <div className="coinflip-top-counter flex items-center gap-3 bg-[#20222f] px-3 text-sm font-semibold text-[#E1E4F2]" title="Last 100 resolved coinflips" aria-label={`Last 100 coinflips: ${recentHeadsCount} heads and ${recentTailsCount} tails`}>
-              <span className="flex items-center gap-1">
-                <img src="/heads.png" alt="heads" className="h-4 w-4" />
-                {recentHeadsCount}
-              </span>
-              <span className="flex items-center gap-1">
-                <img src="/tails.png" alt="tails" className="h-4 w-4" />
-                {recentTailsCount}
-              </span>
-            </div>
-            <SortDropdown value={sortBy} onChange={setSortBy} className="w-44" />
+          <div role="tablist" aria-label="CoinFlip game" className="grid h-10 w-full grid-cols-3 items-center justify-center rounded-md bg-[hsl(229_17%_13%)] p-1 sm:w-auto">
+            {[
+              ['mm2', 'MM2'],
+              ['adm', 'ADM'],
+              ['ps99', 'PS99'],
+            ].map(([value, label]) => {
+              const active = gameMode === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setGameMode(value)}
+                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'bg-[#ff4fa3] font-semibold text-black shadow-sm' : 'text-white/60 hover:text-white'}`}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -756,11 +711,13 @@ export default function Coinflip() {
           {rooms.length > 0 &&
             rooms
               .slice()
+              .filter((room) => getCoinflipRoomGame(room) === gameMode)
               .sort((a, b) => {
                 const aVal = Number(a.numericValue ?? 0)
                 const bVal = Number(b.numericValue ?? 0)
                 if (sortBy === 'Highest to Lowest') return bVal - aVal
                 if (sortBy === 'Lowest to Highest') return aVal - bVal
+                if (sortBy === 'Alphabetical') return String(a.creator_username || '').localeCompare(String(b.creator_username || ''))
                 return 0
               })
               .map((room) => (
@@ -893,100 +850,14 @@ export default function Coinflip() {
 
 function StatCard({ icon, value, label, showIcon = true }) {
   return (
-    <div className="flex min-h-[72px] items-center justify-start gap-3 rounded-lg bg-[#1b1f2e] p-3">
+    <div className="flex min-h-[64px] items-center justify-start gap-3 rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-2">
       <div className="flex w-full flex-col items-start justify-center text-left">
         <span className="flex items-center justify-start gap-2 text-left text-xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
           {value}
         </span>
-        <span className="text-left text-sm leading-tight text-white">{label}</span>
+        <span className="text-left text-base font-semibold leading-tight text-white opacity-60">{label}</span>
       </div>
-    </div>
-  )
-}
-
-function SortDropdown({ value, onChange, className = '' }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [menuPosition, setMenuPosition] = useState(null)
-  const buttonRef = useRef(null)
-  const menuRef = useRef(null)
-  const options = ['Highest to Lowest', 'Lowest to Highest']
-
-  useEffect(() => {
-    if (!isOpen) return undefined
-
-    const updatePosition = () => {
-      const button = buttonRef.current
-      if (!button) return
-      const rect = button.getBoundingClientRect()
-      const menuHeight = menuRef.current?.offsetHeight || 88
-      const roomBelow = window.innerHeight - rect.bottom
-      const openAbove = roomBelow < menuHeight + 8 && rect.top > roomBelow
-
-      setMenuPosition({
-        left: rect.left,
-        top: openAbove ? Math.max(4, rect.top - menuHeight - 4) : rect.bottom + 4,
-        width: rect.width,
-      })
-    }
-
-    const closeOnOutsideClick = (event) => {
-      if (buttonRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return
-      setIsOpen(false)
-    }
-
-    updatePosition()
-    const animationFrame = window.requestAnimationFrame(updatePosition)
-    window.addEventListener('resize', updatePosition)
-    window.addEventListener('scroll', updatePosition, true)
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame)
-      window.removeEventListener('resize', updatePosition)
-      window.removeEventListener('scroll', updatePosition, true)
-      document.removeEventListener('pointerdown', closeOnOutsideClick)
-    }
-  }, [isOpen])
-
-  return (
-    <div className={`relative ${className}`}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="coinflip-sort-trigger flex w-full items-center justify-between bg-[#20222f] px-3 text-sm text-[#E1E4F2] shadow-none transition-none hover:bg-[#20222f] focus:border-0 focus:outline-none"
-      >
-        <span>{value}</span>
-        <ChevronDown size={16} className={`text-[#E1E4F2] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {typeof document !== 'undefined' && createPortal(
-        <div
-          ref={menuRef}
-          style={menuPosition || { left: 0, top: 0, width: 0 }}
-          className={`fixed z-[10000] origin-top overflow-hidden rounded-md bg-[#20222f] p-1 shadow-[0_10px_24px_rgba(0,0,0,.35)] transition-[opacity,transform,visibility] duration-150 ease-out ${
-            isOpen && menuPosition
-              ? 'visible translate-y-0 scale-y-100 opacity-100'
-              : 'invisible pointer-events-none -translate-y-1 scale-y-95 opacity-0'
-          }`}
-        >
-          {options.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => {
-                onChange(option)
-                setIsOpen(false)
-              }}
-              className={`mx-0 my-0.5 flex w-full items-center rounded-[6px] px-3 py-2 text-left text-sm text-[#E1E4F2] transition-all duration-200 ease-out hover:bg-[#222531] ${value === option ? 'bg-[#222531]' : 'bg-transparent'}`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
     </div>
   )
 }
@@ -1040,7 +911,7 @@ function CoinflipRowResult({ room, side, onReveal }) {
           r="49"
           fill="#171925"
           strokeWidth="2"
-          stroke="#6c63ff"
+          stroke="#ff4fa3"
           pathLength="100"
           strokeDasharray="100"
           transform="rotate(-90)"
@@ -1066,7 +937,7 @@ function CoinflipRowResult({ room, side, onReveal }) {
           r="49"
           fill="#171925"
           strokeWidth="2"
-          stroke="#6c63ff"
+          stroke="#ff4fa3"
           pathLength="100"
           strokeDasharray="100"
           transform="rotate(-90)"
@@ -1172,7 +1043,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
 
   return (
     <div
-      className="coinflip-room-row relative grid grid-cols-1 items-center gap-2 overflow-visible rounded-lg border border-solid border-[#252839] bg-[#1c1f2e] py-3 pl-6 pr-2.5 xl:grid-cols-[repeat(5,auto)] [&>*]:min-w-0"
+      className="coinflip-room-row relative grid grid-cols-1 items-center gap-4 overflow-visible rounded-lg border border-solid border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_3.75rem_9rem_auto] md:gap-2 md:py-2 [&>*]:min-w-0"
       style={
         room.isExiting
           ? {
@@ -1184,12 +1055,12 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
       }
     >
       {/* Player VS Display */}
-      <div className="flex items-center gap-3 justify-self-center xl:justify-self-start">
+      <div className="flex items-center gap-4 justify-self-center md:justify-self-start">
         <button
           type="button"
           aria-label={`Open ${room.creator_username || 'creator'} profile`}
           onClick={openCreatorProfile}
-          className={`coinflip-row-avatar relative box-border h-14 w-14 flex-[0_0_auto] cursor-pointer rounded-full border-2 border-[#2F3347] bg-[#1C1F2E] p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6c63ff] ${creatorWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !creatorWon ? 'coinflip-row-avatar--loser' : ''}`}
+          className={`coinflip-row-avatar relative box-border h-14 w-14 flex-[0_0_auto] cursor-pointer rounded-full border-2 border-[hsl(231_16%_16%)] bg-[hsl(228_17%_12%)] p-0 transition hover:border-[#ff4fa3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4fa3] ${creatorWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !creatorWon ? 'coinflip-row-avatar--loser' : ''}`}
         >
           <img
             src={player1.avatar || DEFAULT_AVATAR}
@@ -1202,17 +1073,21 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
               event.currentTarget.src = DEFAULT_AVATAR
             }}
           />
-          <div className="absolute right-0 top-0 h-7 w-7 overflow-hidden rounded-full" style={{ transform: 'translate(25%, -25%)' }}>
+          <div className="hidden">
             <img className="block w-full h-full object-contain" alt={player1.side || 'coin'} src={player1.side === 'tails' ? '/tails.png' : '/heads.png'} />
           </div>
         </button>
-        <BattlesIcon className="coinflip-row-battle-icon h-5 w-5 flex-[0_0_auto]" />
+        <img
+          className="h-14 w-14 shrink-0 rounded-full object-contain"
+          alt={`${player1.side || 'coin'} image`}
+          src={player1.side === 'tails' ? '/tails.png' : '/heads.png'}
+        />
         <button
           type="button"
           aria-label={room.opponent_uuid ? `Open ${room.opponent_username || 'opponent'} profile` : 'Waiting for opponent'}
           onClick={openOpponentProfile}
           disabled={!room.opponent_uuid}
-          className={`coinflip-row-avatar relative box-border h-14 w-14 flex-[0_0_auto] rounded-full border-2 border-[#2F3347] bg-[#1C1F2E] p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6c63ff] ${room.opponent_uuid ? 'cursor-pointer' : 'cursor-default'} ${opponentWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !opponentWon ? 'coinflip-row-avatar--loser' : ''}`}
+          className={`coinflip-row-avatar relative box-border h-14 w-14 flex-[0_0_auto] rounded-full border-2 border-[hsl(231_16%_16%)] bg-[hsl(228_17%_12%)] p-0 transition hover:border-[#ff4fa3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4fa3] ${room.opponent_uuid ? 'cursor-pointer' : 'hidden cursor-default'} ${opponentWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !opponentWon ? 'coinflip-row-avatar--loser' : ''}`}
         >
           {player2.avatar ? (
             <img
@@ -1230,35 +1105,35 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             <div className="box-border flex h-full w-full items-center justify-center rounded-full bg-[#171925]">
               <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
                 <circle cx="32" cy="32" r="32" fill="#1c1f2e" />
-                <circle cx="22" cy="32" r="4" fill="#6C63FF">
+                <circle cx="22" cy="32" r="4" fill="#ff4fa3">
                   <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0s" />
                 </circle>
-                <circle cx="32" cy="32" r="4" fill="#6C63FF">
+                <circle cx="32" cy="32" r="4" fill="#ff4fa3">
                   <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.4s" />
                 </circle>
-                <circle cx="42" cy="32" r="4" fill="#6C63FF">
+                <circle cx="42" cy="32" r="4" fill="#ff4fa3">
                   <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.8s" />
                 </circle>
               </svg>
             </div>
           )}
-          <div className="absolute right-0 top-0 h-7 w-7 overflow-hidden rounded-full" style={{ transform: 'translate(25%, -25%)' }}>
+          <div className="hidden">
             <img className="block w-full h-full object-contain" alt={player2.side || 'coin'} src={player2.side === 'tails' ? '/tails.png' : '/heads.png'} />
           </div>
         </button>
       </div>
 
       {/* Items Display */}
-      <div className="flex justify-self-center xl:grid xl:grid-cols-5 xl:justify-self-start">
+      <div className="flex w-52 justify-self-center -space-x-4 overflow-hidden md:justify-self-start">
         {displayItems.map((item, idx) => {
           const isLastVisibleItem = idx === displayItems.length - 1 && hiddenItemCount > 0
 
           return (
             <div
               key={item.id || `items-${idx}`}
-              className="group relative box-border block h-14 w-14 flex-[0_0_auto] cursor-pointer rounded-[5px] border-2 border-solid border-[#2F3347] bg-[#171925] transition-colors duration-200 hover:border-[#6c63ff] xl:[transform:var(--shift)] max-xl:[&+*]:-ml-5"
+              className="group relative box-border block h-16 w-16 flex-[0_0_auto] cursor-pointer overflow-visible rounded-full border-2 border-solid border-[hsl(231_16%_16%)] bg-[hsl(228_17%_12%)] transition-colors duration-200 hover:border-[#ff4fa3]"
               aria-label={item.name}
-              style={{ ...getInventoryItemCardStyle(item), '--shift': `translate(${idx * -35.7}%)` }}
+              style={getInventoryItemCardStyle(item)}
             >
               <span
                 role="tooltip"
@@ -1266,11 +1141,11 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
               >
                 {item.name}
               </span>
-              <img src={item.image} alt="" className="block h-full w-full scale-100 rounded-[3px] object-contain" />
+              <img src={item.image} alt="" className="relative block h-full w-full rounded-full object-contain p-1" />
 
               {isLastVisibleItem && (
                 <div
-                  className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-[5px] text-sm font-semibold text-white"
+                  className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-full text-sm font-semibold text-white"
                   style={{ backdropFilter: 'blur(2px)', background: 'rgba(15, 18, 30, 0.82)' }}
                 >
                   +{hiddenItemCount}
@@ -1282,12 +1157,12 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
       </div>
 
       {/* Value Display */}
-      <div className="w-32 place-self-center text-center font-bold">
-        <p className="inline-flex items-center gap-2 text-[1.375rem] leading-normal text-white">
-          <img src="/bobux.png" className="w-5 text-[#6c63ff]" alt="bobux" />
+      <div className="w-36 place-self-center text-center font-semibold">
+        <p className="inline-flex items-center gap-2 text-base leading-normal text-white">
+          <img src="/bobux.png" className="w-5 text-[#ff4fa3]" alt="bobux" />
           <span>{room.value ?? room.total_value ?? ''}</span>
         </p>
-        <p className="text-sm leading-normal text-[#CCC]">{room.range ?? room.value_range ?? ''}</p>
+        <p className="text-base leading-normal text-white opacity-50">{room.range ?? room.value_range ?? ''}</p>
       </div>
 
       {/* Winner Indicator */}
@@ -1310,7 +1185,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
                 r="49"
                 fill="#171925"
                 strokeWidth="2"
-                stroke="#6c63ff"
+                stroke="#ff4fa3"
                 pathLength="100"
                 strokeDasharray="100"
                 transform="rotate(-90)"
@@ -1327,10 +1202,10 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-center gap-2 justify-self-center xl:ml-auto xl:flex-col xl:justify-self-end">
+      <div className="flex justify-center gap-2 justify-self-center md:ml-auto md:flex-col md:justify-self-end">
         {canJoin && (
           <button
-            className="min-w-24 rounded-md border border-solid px-5 text-base font-semibold transition-none h-[34px] leading-[34px] py-0 cursor-pointer border-[#5E55D9]/40 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] text-white shadow-[0_2px_8px_rgba(108,99,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-8 min-w-24 cursor-pointer rounded-md border-0 bg-[#ff4fa3] px-4 py-0 text-sm font-medium leading-8 text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             onClick={() => { if (!joinDisabled && typeof onJoin === 'function') onJoin() }}
             disabled={joinDisabled}
@@ -1341,7 +1216,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
         <button
           type="button"
           onClick={onView}
-          className="min-w-24 rounded-md border border-solid px-5 text-base font-semibold transition-none h-[34px] leading-[34px] py-0 cursor-pointer border-[#2D314A] bg-[#2a2e44] text-[#E1E4F2] shadow-none hover:opacity-90"
+          className="h-8 min-w-24 cursor-pointer rounded-md border-0 bg-[hsl(233_16%_22%)] px-4 py-0 text-sm font-medium leading-8 text-white shadow-none hover:opacity-90"
         >
           View
         </button>

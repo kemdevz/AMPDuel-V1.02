@@ -362,7 +362,7 @@ function RainBar({ rainSeconds, rainPool, onRainJoin, onTipOpen, hasJoined = fal
 
   return (
     <div className="flex w-full justify-center ">
-      <div className="rain-card relative z-[1] w-full overflow-hidden rounded-[9px] border border-white/[.06] bg-[#1b1f2e] shadow-[0_10px_30px_rgba(0,0,0,.28)]">
+      <div className="rain-card relative z-[1] w-full overflow-hidden rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.6)]">
         <div className="relative z-[2] px-[14px] pb-3 pt-[14px]">
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-[14px]">
@@ -377,7 +377,7 @@ function RainBar({ rainSeconds, rainPool, onRainJoin, onTipOpen, hasJoined = fal
                   </span>
                 </div>
                 <div className="-mt-1 flex min-w-0 items-center gap-[7px]">
-                  <span className="select-none whitespace-nowrap bg-[linear-gradient(90deg,#6c63ff_0%,#5147d9_100%)] bg-clip-text text-base font-bold text-transparent">
+                  <span className="select-none whitespace-nowrap text-base font-bold text-[#ff4fa3]">
                     Rain Pool
                   </span>
                 </div>
@@ -398,7 +398,7 @@ function RainBar({ rainSeconds, rainPool, onRainJoin, onTipOpen, hasJoined = fal
                 type="button"
                 disabled={rainSeconds > joinWindowSeconds || hasJoined}
                 onClick={onRainJoin}
-                className={`h-[39px] select-none whitespace-nowrap rounded-[7px] border border-[#5e55d966] bg-[linear-gradient(135deg,#6c63ff_0%,#5147d9_100%)] px-4 text-base font-bold leading-[39px] text-white shadow-none ${rainSeconds > joinWindowSeconds ? "opacity-55" : "opacity-100"}`}
+                className={`h-[39px] select-none whitespace-nowrap rounded-[7px] border-0 bg-[#ff4fa3] px-4 text-base font-bold leading-[39px] text-black shadow-none ${rainSeconds > joinWindowSeconds ? "opacity-55" : "opacity-100"}`}
               >
                 {hasJoined ? "JOINED" : isJoinWindow ? "JOIN" : formatCountdown(rainSeconds)}
               </button>
@@ -408,7 +408,7 @@ function RainBar({ rainSeconds, rainPool, onRainJoin, onTipOpen, hasJoined = fal
 
         <div className="absolute bottom-0 left-0 z-[3] h-[3px] w-full bg-white/[.05]">
           <div
-            className="h-full bg-[linear-gradient(0deg,#5147d9_0%,#6c63ff_100%)] transition-[width] duration-1000"
+            className="h-full bg-[#ff4fa3] transition-[width] duration-1000"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -434,116 +434,47 @@ function ReplyPreview({ reply }) {
   );
 }
 
-function ChatMessage({ message, onReply, onProfileOpen }) {
+function ChatMessage({ message, onProfileOpen }) {
   const roleStyle = useMemo(() => getRoleStyle(message.role), [message.role]);
   const hasRankIcon = Boolean(roleStyle.image);
 
   return (
-    <div className="msg-wrap">
-      <div
-        className="chat-message-row group relative flex animate-[msgIn_.22s_ease-out_both] gap-2.5 px-3 py-2"
-        style={{ backgroundColor: "rgb(28, 31, 46)", borderRadius: "8px" }}
-      >
-        <div className="relative">
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="Open profile"
-            className="relative flex h-[55px] w-[55px] cursor-pointer items-center justify-center overflow-hidden rounded-full"
-            onClick={() => onProfileOpen(message)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onProfileOpen(message);
-              }
-            }}
+    <div className="chat-message-row group animate-[msgIn_.22s_ease-out_both]">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label={`Open ${message.name || "user"} profile`}
+          className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[hsl(231_16%_16%)] transition hover:border-[#ff4fa3] focus-visible:border-[#ff4fa3] focus-visible:outline-none"
+          onClick={() => onProfileOpen(message)}
+        >
+          {message.avatar ? (
+            <img
+              src={message.avatar}
+              className="h-full w-full rounded-full object-cover"
+              loading="lazy"
+              alt=""
+              draggable={false}
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <span className="grid h-full w-full place-items-center bg-[hsl(230_16%_14%)] font-bold text-white/50">?</span>
+          )}
+        </button>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span
+            className="truncate text-sm font-semibold"
+            style={hasRankIcon
+              ? { backgroundImage: roleStyle.nameGradient, backgroundClip: "text", color: "transparent", WebkitTextFillColor: "transparent" }
+              : { color: "white" }}
           >
-            <div className="relative box-border grid aspect-square h-full w-full cursor-pointer place-content-center overflow-hidden rounded-full border-2 border-solid border-[#22283F] bg-[#1C1F2E] [&>div]:h-full [&>div]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
-              {message.avatar ? (
-                <img
-                  src={message.avatar}
-                  className="block max-w-full rounded object-contain"
-                  loading="lazy"
-                  height="42"
-                  width="42"
-                  alt=""
-                  style={{ borderRadius: "10px" }}
-                  draggable={false}
-                  referrerPolicy="no-referrer"
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none";
-                    event.currentTarget.nextElementSibling?.classList.remove("hidden");
-                  }}
-                />
-              ) : null}
-              <span className={`${message.avatar ? "hidden" : "grid"} h-full w-full place-items-center text-[22px] font-black leading-none text-[#9aa0b5]`}>
-                ?
-              </span>
-            </div>
-          </div>
+            {message.name}
+          </span>
+          {hasRankIcon ? <img src={roleStyle.image} className="h-6 w-6 object-contain" alt="" title={roleStyle.label} /> : null}
         </div>
-
-        <div className="relative flex-1 min-w-0">
-          <div className="mb-[2px] flex flex-wrap items-center">
-            <span className="inline-flex items-center gap-2 min-w-0">
-              <span className="inline-flex min-w-0 items-center">
-                <span
-                  className="w-max text-[0.75rem] select-none truncate"
-                  style={hasRankIcon
-                    ? {
-                        backgroundImage: roleStyle.nameGradient,
-                        backgroundClip: "text",
-                        color: "transparent",
-                        WebkitTextFillColor: "transparent",
-                        display: "inline-block",
-                        fontWeight: 600,
-                      }
-                    : {
-                        color: "rgb(255, 255, 255)",
-                        display: "inline-block",
-                        fontWeight: 600,
-                      }}
-                >
-                  {message.name}
-                </span>
-                {hasRankIcon ? (
-                  <button
-                    type="button"
-                    data-state="closed"
-                    className="ml-1 inline-flex h-3.5 w-3.5 items-center justify-center border-none bg-transparent p-0"
-                    title={roleStyle.label}
-                    aria-label={`${roleStyle.label} rank`}
-                  >
-                    <img
-                      src={roleStyle.image}
-                      className="h-3.5 w-3.5"
-                      alt="Rank Icon"
-                    />
-                  </button>
-                ) : null}
-              </span>
-            </span>
-
-            <button
-              type="button"
-              data-reply-btn="true"
-              className="ml-2 items-center gap-1 border-none bg-transparent text-[#555b82] transition-colors hover:text-[#A6B2D3]"
-              aria-label="Reply"
-              style={{ display: "inline-flex", opacity: 0, transition: "opacity 150ms" }}
-              onClick={() => onReply(message)}
-            >
-              <ReplyIcon />
-            </button>
-
-            <span className="ml-auto text-[0.6rem] font-medium text-[#555b82] select-none">{message.time}</span>
-          </div>
-
-          <ReplyPreview reply={message.reply} />
-
-          <p className="text-[0.8rem] font-medium [overflow-wrap:anywhere] leading-snug" style={{ color: "rgb(151, 147, 186)" }}>
-            <span>{renderEmojiText(message.text)}</span>
-          </p>
-        </div>
+      </div>
+      <ReplyPreview reply={message.reply} />
+      <div className="mt-2 text-wrap break-words text-sm font-medium text-gray-400">
+        {renderEmojiText(message.text)}
       </div>
     </div>
   );
@@ -559,10 +490,10 @@ function TipNotification({ message }) {
       className="group relative flex gap-2.5 overflow-hidden px-3 py-2 animate-[msgIn_.22s_ease-out_both]"
       style={{ backgroundColor: "rgb(28, 31, 46)", borderRadius: "8px" }}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_85%,rgba(108,99,255,0.22),transparent_58%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_85%,rgba(255,79,163,0.22),transparent_58%)]" />
       <div className="relative flex-1 min-w-0">
         <div className="flex flex-wrap items-center mb-0.5">
-          <span className="w-max text-[0.75rem] font-semibold select-none text-[#6C63FF]">Tip Notification</span>
+          <span className="w-max text-[0.75rem] font-semibold select-none text-[#ff4fa3]">Tip Notification</span>
           <span className="ml-auto text-[0.6rem] font-medium text-[#555b82] select-none">{formatChatMessageTime(message.time)}</span>
         </div>
         {isUserTip ? (
@@ -664,7 +595,7 @@ function ChatRulesModal({ onClose }) {
         style={{ opacity: 1, transform: "none" }}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <h2 className="text-base sm:text-lg font-bold text-[#6C63FF] mb-3 text-center">Chat Rules</h2>
+        <h2 className="text-base sm:text-lg font-bold text-[#ff4fa3] mb-3 text-center">Chat Rules</h2>
         <ul className="text-xs sm:text-sm leading-relaxed text-gray-200 list-disc list-inside space-y-1">
           <li>No spamming or flooding the chat.</li>
           <li>Be respectful — no hate speech or harassment.</li>
@@ -738,7 +669,6 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   const valueRef = useRef("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiSearch, setEmojiSearch] = useState("");
-  const [rulesOpen, setRulesOpen] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
   const inputRef = useRef(null);
   const pendingCursorRef = useRef(null);
@@ -762,17 +692,6 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
     inputRef.current?.setSelectionRange(nextCursor, nextCursor);
     setCursorIndex(nextCursor);
   }, [value]);
-
-  useEffect(() => {
-    if (!rulesOpen) return undefined;
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") setRulesOpen(false);
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [rulesOpen]);
 
   function syncCursor(event) {
     setCursorIndex(event.target.selectionStart ?? event.target.value.length);
@@ -812,7 +731,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   }
 
   return (
-    <div className="relative shrink-0 px-[--px] pt-[7px]">
+    <div className="relative shrink-0">
       {replyTo && (
         <div className="mb-[9px] flex items-start gap-[9px] rounded-[9px] bg-[#1c1f2e] px-[14px] py-[9px]">
           <div className="min-w-0 flex-1">
@@ -873,19 +792,18 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
                 submit();
               }
             }}
-            className="box-border w-full appearance-none rounded-[0.5rem] border-0 bg-[#1C1F2E] py-3.5 pl-4 pr-20 text-xs font-bold text-[#A6B2D3] shadow-none outline-none ring-0 placeholder:text-[#68749C] focus:border-0 focus:ring-0"
+            className="flex h-12 w-full rounded-lg border-2 border-transparent bg-[hsl(229_17%_13%/.8)] px-3 py-2 pr-10 text-sm font-semibold text-gray-400 outline-none transition placeholder:text-white/50 focus-visible:border-white/60"
           />
 
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+          <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center">
             <button
               aria-label="Emoji Picker"
               type="button"
               aria-expanded={emojiPickerOpen}
               onClick={() => {
-                setRulesOpen(false);
                 setEmojiPickerOpen((current) => !current);
               }}
-              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd] focus:outline-none focus:ring-0"
+              className="inline-grid cursor-pointer place-content-center border-0 bg-transparent text-white/50 transition hover:text-white focus:outline-none"
             >
               <EmojiIcon />
             </button>
@@ -895,7 +813,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
               type="button"
               onClick={submit}
               disabled={!user}
-              className="inline-grid aspect-square w-7 flex-shrink-0 cursor-pointer place-content-center rounded border-0 bg-[#1c1f2e] text-[#8f96c8] shadow-none outline-none ring-0 transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd] focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="hidden"
             >
               <SendIcon />
             </button>
@@ -903,60 +821,17 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
         </div>
       </div>
 
-      <div className="z-[30] flex items-center justify-between gap-2 pt-3">
-        <div className="flex gap-1">
-          <button
-            type="button"
-            aria-label="X"
-            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd]"
-          >
-            <XIcon size={16} className="transition-colors duration-200" />
-          </button>
-
-          <a
-            href="https://discord.gg/bloxypot"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Discord"
-            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd]"
-          >
-            <DiscordIcon size={17} className="transition-colors duration-200" />
-          </a>
-
-          <button
-            type="button"
-            aria-label="Twitch"
-            className="group flex h-8 w-8 select-none items-center justify-center rounded-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors duration-200 hover:bg-[#252a3d] hover:text-[#aeb4dd]"
-          >
-            <TwitchIcon className="h-4 w-4 transition-colors duration-200" />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-center gap-0.5">
-          <div className="flex h-8 select-none items-center gap-2 rounded-l-[7px] bg-[#1c1f2e] px-3">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3AFF4E] opacity-75" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#3AFF4E]" />
-            </span>
-            <span className="text-xs font-[500] text-[#aeb4dd]">{onlineCount ?? 0}</span>
-          </div>
-
-          <button
-            className="group flex h-8 w-8 items-center justify-center rounded-r-[7px] border-0 bg-[#1c1f2e] text-[#8f96c8] transition-colors hover:bg-[#23283a] hover:text-white [&>svg]:w-[18px]"
-            aria-label="Chat Rules"
-            type="button"
-            aria-expanded={rulesOpen}
-            onClick={() => {
-              setRulesOpen(true);
-              setEmojiPickerOpen(false);
-            }}
-          >
-            <RulesIcon />
-          </button>
-        </div>
+      <div className="mb-6 mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!user || !value.trim()}
+          className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+        >
+          Send
+        </button>
       </div>
 
-      {rulesOpen && <ChatRulesModal onClose={() => setRulesOpen(false)} />}
     </div>
   );
 }
@@ -972,6 +847,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   const [messages, setMessages] = useState([]);
   const [chatSessionId, setChatSessionId] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [chatRulesOpen, setChatRulesOpen] = useState(false);
   const [giveaways, setGiveaways] = useState([]);
   const [rainCountdown, setRainCountdown] = useState(30 * 60);
   const [rainPool, setRainPool] = useState(10000);
@@ -993,6 +869,16 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   const JOIN_WINDOW_SECONDS = 5 * 60;
   const messagesEndRef = useRef(null);
   const chatSessionIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!chatRulesOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setChatRulesOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [chatRulesOpen]);
+
   const chatAuthor = useMemo(
     () => ({
       level: user?.level ?? 1,
@@ -1552,7 +1438,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
   return (
     <>
-      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[#171925] pb-[calc(4.5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 lg:relative lg:right-auto lg:top-auto lg:z-auto lg:h-full lg:max-h-full lg:w-[min(22rem,calc(15rem+10vw))] lg:bg-transparent lg:pb-0 ${
+      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[hsl(227_17%_11%)] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[22rem] xl:min-w-[22rem] xl:bg-[hsl(227_17%_11%)] xl:px-3 xl:pt-3 xl:pb-0 ${
         mobileChatOpen ? "right-0" : "-right-full"
       } ${className}`}>
       <style>{`
@@ -1607,7 +1493,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
           background: rgb(28, 31, 46);
           padding: 4px;
           scrollbar-width: thin;
-          scrollbar-color: rgba(108, 99, 255, 0.35) transparent;
+          scrollbar-color: rgba(255, 79, 163, 0.35) transparent;
         }
 
         .emoji-autocomplete-panel::-webkit-scrollbar {
@@ -1619,7 +1505,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         }
 
         .emoji-autocomplete-panel::-webkit-scrollbar-thumb {
-          background: rgba(108, 99, 255, 0.35);
+          background: rgba(255, 79, 163, 0.35);
           border-radius: 9999px;
         }
 
@@ -1759,7 +1645,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
           z-index: 0;
           pointer-events: none;
           background:
-            radial-gradient(circle at 100% 100%, rgba(108,99,255,.22) 0%, rgba(108,99,255,.16) 24%, rgba(108,99,255,.09) 52%, rgba(108,99,255,.04) 68%, transparent 82%),
+            radial-gradient(circle at 100% 100%, rgba(255,79,163,.22) 0%, rgba(255,79,163,.16) 24%, rgba(255,79,163,.09) 52%, rgba(255,79,163,.04) 68%, transparent 82%),
             radial-gradient(circle at 12% 0%, rgba(81,71,217,.18) 0%, rgba(81,71,217,.1) 26%, transparent 58%);
         }
 
@@ -1779,7 +1665,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         ._giveawayBar_ars74_1{width:100%;padding:0;box-sizing:border-box}
         ._slideViewport_ars74_8{width:100%;overflow:hidden;border-radius:6px}
         ._giveawayWrapper_ars74_15{border-radius:6px;padding:10px 12px;width:100%;min-width:0;color:#fff;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;transition:background .25s ease;position:relative;border:none}
-        ._giveawayWrapper_ars74_15:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:6px;padding:2px;background:linear-gradient(to bottom,transparent 0%,var(--border-side, rgba(108,99,255,.18)) 55%,var(--border-bottom, rgba(108,99,255,.55)) 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;z-index:0}
+        ._giveawayWrapper_ars74_15:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:6px;padding:2px;background:linear-gradient(to bottom,transparent 0%,var(--border-side, rgba(255,79,163,.18)) 55%,var(--border-bottom, rgba(255,79,163,.55)) 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;z-index:0}
         ._giveawayWrapper_ars74_15>*{position:relative;z-index:1}
         @keyframes _slideFromTop_ars74_1{0%{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
         @keyframes _slideToTop_ars74_1{0%{transform:translateY(0);opacity:1}to{transform:translateY(-100%);opacity:0}}
@@ -1810,11 +1696,11 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         ._timerText_ars74_267{font-size:13px;font-weight:600;color:#e1e4f2;white-space:nowrap}
         ._giveawayCounter_ars74_274{font-size:12px;font-weight:500;color:#9ca9d6;white-space:nowrap;margin:0 2px}
         ._navBtn_ars74_283{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;border:none;background:#ffffff14;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#cfd6ff;cursor:pointer;user-select:none;flex-shrink:0;padding:0;transition:background .15s ease}
-        ._navBtn_ars74_283:hover{background:#6c63ff47}
+        ._navBtn_ars74_283:hover{background:#ff4fa347}
         ._navBtn_ars74_283:active{transform:scale(.9)}
         ._navBtnIcon_ars74_305{display:flex;align-items:center;justify-content:center;width:14px;height:14px;flex-shrink:0}
         ._navBtnIcon_ars74_305 svg{width:14px;height:14px;display:block}
-        ._joinButton_ars74_321{background-color:#6c63ff;border:none;border-radius:8px;padding:0 16px;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0;height:28px;display:flex;align-items:center;margin-left:auto}
+        ._joinButton_ars74_321{background-color:#ff4fa3;border:none;border-radius:8px;padding:0 16px;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0;height:28px;display:flex;align-items:center;margin-left:auto}
         ._joinButton_ars74_321:disabled{opacity:.6;cursor:not-allowed}
         ._winnerText_ars74_259{font-size:13px;font-weight:600;color:#f4f4f4}
         @media (max-width: 480px){._giveawayWrapper_ars74_15{padding:9px 10px}._itemImage_ars74_165{width:38px;height:38px}._itemName_ars74_180{font-size:12.5px}._levelBadge_ars74_213{font-size:10.5px;padding:2px 6px}}
@@ -1891,7 +1777,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         }
 
         .tipRainClose:focus-visible {
-          outline: 2px solid #8079ff;
+          outline: 2px solid #ff69b0;
           outline-offset: 2px;
         }
 
@@ -1914,8 +1800,8 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
           align-items: center;
           justify-content: center;
           border-radius: 999px;
-          background: rgba(108, 99, 255, .12);
-          color: #6c63ff;
+          background: rgba(255, 79, 163, .12);
+          color: #ff4fa3;
         }
 
         .tipRainIconBg svg {
@@ -2044,10 +1930,10 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          border: 1px solid rgba(94, 85, 217, .4);
+          border: 1px solid rgba(255, 79, 163, .4);
           border-radius: 8px;
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
-          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
           color: #fff;
           font-size: 14.4px;
           font-weight: 600;
@@ -2059,7 +1945,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         }
 
         .tipRainButton:hover:not(:disabled) {
-          background: linear-gradient(135deg, #6c63ff, #5147d9);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
           opacity: .95;
         }
 
@@ -2068,7 +1954,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         }
 
         .tipRainButton:focus-visible {
-          outline: 2px solid #8079ff;
+          outline: 2px solid #ff69b0;
           outline-offset: 2px;
         }
 
@@ -2220,38 +2106,37 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         </div>
       ) : null}
 
+      {chatRulesOpen ? <ChatRulesModal onClose={() => setChatRulesOpen(false)} /> : null}
+
       <div className="min-h-0 flex-1 overflow-hidden">
-        <div className="relative box-border flex h-full min-w-0 flex-grow flex-col pb-[18px] [--px:1rem] sm:[--px:1.4375rem] lg:pt-0">
-          <div className="shrink-0 px-[--px] pt-0">
-            <div className="-mx-[9px]">
-              <RainBar
-                rainSeconds={rainCountdown}
-                rainPool={rainPool}
-                hasJoined={hasJoinedRain}
-                joinWindowSeconds={JOIN_WINDOW_SECONDS}
-                totalDurationSeconds={RAIN_DURATION_SECONDS}
-                onTipOpen={() => {
-                  if (!user) {
-                    setAuthModalOpen(true)
-                    setIsTipModalOpen(false)
-                    return
-                  }
-                  setIsTipModalOpen(true)
-                }}
-                onRainJoin={() => {
-                  if (!user) {
-                    setAuthModalOpen(true);
-                    return;
-                  }
-                  setRainJoinError("");
-                  setIsRainJoinModalOpen(true);
-                }}
-              />
+        <div className="relative box-border flex h-full min-w-0 flex-grow flex-col gap-2">
+          <div className="h-0 shrink-0" aria-hidden="true" />
+          <div className="flex shrink-0 items-center justify-between rounded border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.6)] px-6 py-3">
+            <div className="text-sm font-semibold opacity-50">Messages</div>
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2" aria-label={`${onlineCount ?? 0} online`}>
+                <div className="text-sm font-semibold opacity-50">{onlineCount ?? 0}</div>
+                <div className={`animate-pulse rounded-full border-2 ${Number(onlineCount) > 0 ? 'border-[#20e68f]/50' : 'border-red-500/50'}`}>
+                  <div className={`h-2 w-2 rounded-full ${Number(onlineCount) > 0 ? 'bg-[#20e68f]' : 'bg-red-500'}`} />
+                </div>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-white/45 transition-colors hover:text-[#ff4fa3] focus-visible:text-[#ff4fa3] focus-visible:outline-none"
+                aria-label="View chat rules"
+                title="Chat rules"
+                aria-expanded={chatRulesOpen}
+                onClick={() => setChatRulesOpen((current) => !current)}
+              >
+                <svg viewBox="0 0 576 512" className="h-[13px] w-[13px]" fill="currentColor" aria-hidden="true">
+                  <path d="M542.22 32.05c-54.8 3.11-163.72 14.43-230.96 55.59-4.64 2.84-7.27 7.89-7.27 13.17v363.87c0 11.55 12.63 18.85 23.28 13.49 69.18-34.82 169.23-44.32 218.7-46.92 16.89-.89 30.02-14.43 30.02-30.66V62.75c.01-17.71-15.35-31.74-33.77-30.7zM264.73 87.64C197.5 46.48 88.58 35.17 33.78 32.05 15.36 31.01 0 45.04 0 62.75V400.6c0 16.24 13.13 29.78 30.02 30.66 49.49 2.6 149.59 12.11 218.77 46.95 10.62 5.35 23.21-1.94 23.21-13.46V100.63c0-5.29-2.62-10.14-7.27-12.99z" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          <div className="chat-scroll min-h-0 flex-1 overflow-y-auto pb-[7px] pt-[14px]">
-            <div className="relative flex flex-col gap-3 px-[--px]">
+          <div className="chat-scroll mb-2 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-2 pr-2">
+            <div className="contents">
               {giveaways.length ? (
                 <div className="space-y-[10px]">
                   {giveaways.map((giveaway) => (
@@ -2268,7 +2153,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
                   <ChatMessage
                     key={message._renderKey || message.id}
                     message={message}
-                    onReply={setReplyTo}
                     onProfileOpen={setSelectedProfile}
                   />
                 )

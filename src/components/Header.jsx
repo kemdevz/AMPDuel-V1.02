@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink } from "../lib/router";
+import { NavLink, useNavigate } from "../lib/router";
 import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
 import InventoryModal from "./InventoryModal";
@@ -8,12 +8,12 @@ import GiveawayCreateModal from "./GiveawayCreateModal";
 import PromoCodeModal from "./PromoCodeModal";
 import { apiRequest } from "../lib/apiClient";
 import { supabase } from "../lib/supabaseClient";
-import ExchangeModal from "./ExchangeModal";
-import BalanceTypesModal from "./BalanceTypesModal";
 import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
+import { DiscordIcon } from "./icons";
+import { CoinStackIcon, MedalIcon, RocketIcon, ScalesIcon } from "./ReferenceNavIcons";
 
-const COIN_ICON = "/bobux.png";
+const COIN_ICON = "/currency.svg";
 const SUMMER_EVENT_ENABLED = false;
 const AVATAR =
   "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter";
@@ -56,7 +56,7 @@ function WalletIcon() {
 
 function BellIcon() {
   return (
-    <svg viewBox="0 0 22 23" fill="none" className="h-[18px] w-[18px] text-[#6c63ff]" aria-hidden="true">
+    <svg viewBox="0 0 22 23" fill="none" className="h-[18px] w-[18px] text-[#ff4fa3]" aria-hidden="true">
       <path
         d="M9.22322 19.287C9.16077 19.0417 9.37186 18.8333 9.62499 18.8333H12.375C12.6281 18.8333 12.8392 19.0417 12.7767 19.287C12.5748 20.0801 11.8559 20.6667 11 20.6667C10.1441 20.6667 9.42513 20.0801 9.22322 19.287Z"
         fill="currentColor"
@@ -85,7 +85,7 @@ function VolumeIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="lucide lucide-volume2 h-[18px] w-[18px] text-[#6c63ff]"
+      className="lucide lucide-volume2 h-[18px] w-[18px] text-[#ff4fa3]"
       aria-hidden="true"
     >
       <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
@@ -179,43 +179,34 @@ const getOwnerIdsForUser = async (userData) => {
   return [...new Set(ownerIds)]
 }
 
-export default function Header({ onOpenProfileModal }) {
+export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
+  const navigate = useNavigate()
   const [loginOpen, setLoginOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   const [volumeOpen, setVolumeOpen] = useState(false)
   const [volumePosition, setVolumePosition] = useState({ x: 0, y: 0 })
   const [volumeLevel, setVolumeLevel] = useState(100)
-  const [walletOpen, setWalletOpen] = useState(false)
-  const [walletPosition, setWalletPosition] = useState({ x: 0, y: 0 })
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [withdrawalDepositOpen, setWithdrawalDepositOpen] = useState(false)
-  const [exchangeOpen, setExchangeOpen] = useState(false)
   const [giveawayOpen, setGiveawayOpen] = useState(false)
   const [promoCodeOpen, setPromoCodeOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsPosition, setNotificationsPosition] = useState({ x: 0, y: 0 })
-  const [balanceTypesOpen, setBalanceTypesOpen] = useState(false)
   const avatarButtonRef = useRef(null)
   const menuRef = useRef(null)
   const volumeButtonRef = useRef(null)
   const volumeMenuRef = useRef(null)
-  const walletButtonRef = useRef(null)
-  const walletMenuRef = useRef(null)
   const notificationsButtonRef = useRef(null)
   const notificationsMenuRef = useRef(null)
   const walletAnimationHeldRef = useRef(false)
   const walletRefreshPendingRef = useRef(false)
 
   const user = useAuth((s) => s.user)
-  const balance = useAuth((s) => s.balance)
   const setBalance = useAuth((s) => s.setBalance)
   const logout = useAuth((s) => s.logout)
-  const walletSelection = useAuth((s) => s.walletSelection)
-  const setWalletSelection = useAuth((s) => s.setWalletSelection)
   const [inventorySummary, setInventorySummary] = useState({ count: 0, value: 0 })
-  const walletDisplayAmount = walletSelection === "coins" ? Number(balance || 0) : inventorySummary.value
-
+  const walletDisplayAmount = inventorySummary.value
   useEffect(() => {
     let isMounted = true
     let inventoryChannel = null
@@ -358,7 +349,7 @@ export default function Header({ onOpenProfileModal }) {
   }, [setBalance, user?.id, user?.profile_id])
 
   useEffect(() => {
-    if (!menuOpen && !volumeOpen && !walletOpen && !notificationsOpen) return undefined
+    if (!menuOpen && !volumeOpen && !notificationsOpen) return undefined
 
     const handleDocumentClick = (event) => {
       if (
@@ -366,8 +357,6 @@ export default function Header({ onOpenProfileModal }) {
         avatarButtonRef.current?.contains(event.target) ||
         volumeMenuRef.current?.contains(event.target) ||
         volumeButtonRef.current?.contains(event.target) ||
-        walletMenuRef.current?.contains(event.target) ||
-        walletButtonRef.current?.contains(event.target) ||
         notificationsMenuRef.current?.contains(event.target) ||
         notificationsButtonRef.current?.contains(event.target)
       ) {
@@ -375,7 +364,6 @@ export default function Header({ onOpenProfileModal }) {
       }
       setMenuOpen(false)
       setVolumeOpen(false)
-      setWalletOpen(false)
       setNotificationsOpen(false)
     }
 
@@ -383,7 +371,6 @@ export default function Header({ onOpenProfileModal }) {
       if (event.key === "Escape") {
         setMenuOpen(false)
         setVolumeOpen(false)
-        setWalletOpen(false)
         setNotificationsOpen(false)
       }
     }
@@ -395,7 +382,7 @@ export default function Header({ onOpenProfileModal }) {
       document.removeEventListener("mousedown", handleDocumentClick)
       document.removeEventListener("keydown", handleKeyDown)
     }
-  }, [menuOpen, volumeOpen, walletOpen, notificationsOpen])
+  }, [menuOpen, volumeOpen, notificationsOpen])
 
   const handleAvatarClick = () => {
     if (!avatarButtonRef.current) {
@@ -408,9 +395,12 @@ export default function Header({ onOpenProfileModal }) {
     }
 
     const rect = avatarButtonRef.current.getBoundingClientRect()
-    const menuWidth = 224
-    const x = Math.max(8, rect.left + rect.width - menuWidth)
-    const y = rect.bottom + 8
+    const menuWidth = 192
+    const x = Math.min(
+      Math.max(8, rect.left + (rect.width - menuWidth) / 2),
+      Math.max(8, window.innerWidth - menuWidth - 8),
+    )
+    const y = rect.bottom + 4
 
     setMenuPosition({ x, y })
     setMenuOpen(true)
@@ -439,40 +429,6 @@ export default function Header({ onOpenProfileModal }) {
     setNotificationsOpen(false)
   }
 
-  const handleWalletPopupClick = (event) => {
-    event.stopPropagation()
-
-    if (!walletButtonRef.current) {
-      return
-    }
-
-    if (walletOpen) {
-      setWalletOpen(false)
-      return
-    }
-
-    const rect = walletButtonRef.current.getBoundingClientRect()
-    const menuWidth = 208
-    const x = Math.min(
-      Math.max(8, rect.left),
-      Math.max(8, window.innerWidth - menuWidth - 8),
-    )
-    const y = rect.bottom + 8
-
-    setWalletPosition({ x, y })
-    setWalletOpen(true)
-    setInventoryOpen(false)
-    setExchangeOpen(false)
-    setMenuOpen(false)
-    setVolumeOpen(false)
-    setNotificationsOpen(false)
-  }
-
-  const handleWalletSelection = (selection) => {
-    setWalletSelection(selection)
-    setWalletOpen(false)
-  }
-
   const handleNotificationsClick = () => {
     if (!notificationsButtonRef.current) {
       return
@@ -492,13 +448,11 @@ export default function Header({ onOpenProfileModal }) {
     setNotificationsOpen(true)
     setMenuOpen(false)
     setVolumeOpen(false)
-    setWalletOpen(false)
   }
 
   return (
     <header 
-      className="box-border flex h-[calc(5rem+env(safe-area-inset-top))] w-full shrink-0 items-center justify-center px-2 pt-[env(safe-area-inset-top)] sm:h-20 sm:px-3 sm:pt-0 md:px-5 lg:px-6"
-      style={{ backgroundColor: 'rgb(23, 25, 37)' }}
+      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-7"
     >
       <style>{`
         @keyframes summerShimmer {
@@ -521,185 +475,91 @@ export default function Header({ onOpenProfileModal }) {
             transform: translateY(0) scale(1);
           }
         }
+
+        @keyframes profileMenuIn {
+          from {
+            opacity: 0;
+            transform: translate3d(0, -0.5rem, 0) scale3d(0.95, 0.95, 0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+          }
+        }
       `}</style>
 
-      <div className="flex min-w-0 flex-1 shrink items-center gap-1.5 sm:gap-2">
-        {SUMMER_EVENT_ENABLED ? <SummerEventLink /> : null}
+      <div className="hidden min-w-0 flex-1 items-center gap-16 xl:flex">
+        <nav className="min-w-0" aria-label="Game navigation">
+          <ul className="flex h-[71px] items-center gap-3">
+            <li className="relative">
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) => `group relative flex h-[71px] items-center border-b-2 px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? 'border-b-[#ff4fa3] text-white' : 'border-b-transparent text-white/[0.48] hover:text-white'}`}
+              >
+                {({ isActive }) => (
+                  <>
+                    <CoinStackIcon className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? 'text-[#ff4fa3]' : 'text-white/[0.36]'}`} />
+                    CoinFlip
+                  </>
+                )}
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/upgrader"
+                className={({ isActive }) => `group relative flex h-[71px] items-center border-b-2 px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? 'border-b-[#ff4fa3] text-white' : 'border-b-transparent text-white/[0.48] hover:text-white'}`}
+              >
+                {({ isActive }) => (
+                  <>
+                    <RocketIcon className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? 'text-[#ff4fa3]' : 'text-white/[0.36]'}`} />
+                    UPGRADER
+                  </>
+                )}
+              </NavLink>
+            </li>
+            <li><button type="button" onClick={onOpenLeaderboardModal} className="group relative flex h-[71px] items-center border-0 border-b-2 border-b-transparent bg-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] text-white/[0.48] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 hover:text-white"><MedalIcon className="mr-2 h-4 w-4 shrink-0 text-white/[0.36]" />Leaderboard</button></li>
+            <li className="h-[71px]"><button type="button" onClick={() => window.dispatchEvent(new CustomEvent('upgrader-fairness:open'))} className="h-[71px] border-0 border-b-2 border-b-transparent bg-transparent px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" aria-label="Fairness"><ScalesIcon className="h-4 w-4" /></button></li>
+            <li><a target="_blank" rel="noreferrer" className="flex h-[71px] items-center px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" href="https://discord.gg/bloxdicecom" aria-label="Discord"><DiscordIcon className="h-4 w-4" /></a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div className="flex min-w-0 flex-1 items-center xl:hidden">
       </div>
 
       {user ? (
-        <div className="flex shrink-0 justify-center lg:fixed lg:inset-x-0 lg:top-5 lg:z-[60] lg:mx-auto lg:w-fit">
+        <div className="hidden shrink-0 justify-center xl:flex">
           <InventoryModal
             isOpen={inventoryOpen}
             onClose={() => setInventoryOpen(false)}
             onOpenWithdrawalDeposit={() => setWithdrawalDepositOpen(true)}
           />
           <DepositModal isOpen={withdrawalDepositOpen} onClose={() => setWithdrawalDepositOpen(false)} />
-          <ExchangeModal isOpen={exchangeOpen} onClose={() => setExchangeOpen(false)} />
-          <div
-            ref={walletButtonRef}
-            className="mx-0.5 inline-flex h-10 max-w-full overflow-hidden rounded-[6px] text-[11px] font-semibold text-white sm:mx-0 sm:text-sm"
+          <button
+            type="button"
+            className="flex cursor-pointer items-stretch rounded border-0 bg-transparent p-0 text-sm font-semibold text-white transition hover:opacity-90"
+            aria-label="Open inventory"
+            onClick={() => {
+              setInventoryOpen(true)
+              setMenuOpen(false)
+              setVolumeOpen(false)
+              setNotificationsOpen(false)
+            }}
           >
-            <button
-              type="button"
-              className="relative inline-flex h-10 min-w-0 cursor-pointer items-center gap-1 overflow-hidden border-0 bg-[#20222f] px-2 text-white transition-none hover:opacity-90 sm:gap-2 sm:px-3"
-              title="Choose balance type"
-              aria-label="Choose balance type"
-              aria-haspopup="menu"
-              aria-expanded={walletOpen}
-              onClick={handleWalletPopupClick}
-            >
-              <img
-                src={COIN_ICON}
-                alt="bobux"
-                draggable={false}
-                style={{ width: "16px", height: "16px", objectFit: "contain" }}
-              />
-
-              <span className="inline-flex min-w-0 items-center gap-1 tabular-nums whitespace-nowrap leading-none sm:gap-1.5">
-                <span className="block max-w-[4.25rem] overflow-hidden text-ellipsis sm:max-w-none">
-                  <AnimatedNumber className="hidden sm:inline" value={walletDisplayAmount} />
-                  <AnimatedNumber className="sm:hidden" value={walletDisplayAmount} />
-                </span>
-
-                <span className="ml-1 h-4 w-px bg-white/10" />
-
-                <ChevronDownIcon />
-              </span>
-            </button>
-
-            <button
-              type="button"
-              className={walletSelection === "coins"
-                ? "inline-flex h-10 w-10 min-w-10 cursor-pointer items-center justify-center gap-1 border-0 border-l border-solid border-white/10 bg-[linear-gradient(135deg,#22C55E_0%,#16A34A_100%)] p-0 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:opacity-90"
-                : "inline-flex h-10 w-10 min-w-10 cursor-pointer items-center justify-center gap-1 border-0 border-l border-solid border-white/10 bg-[linear-gradient(135deg,#6C63FF_0%,#5147D9_100%)] p-0 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:opacity-90"
-              }
-              aria-label={walletSelection === "coins" ? "Exchange" : "Wallet"}
-              onClick={() => {
-                if (walletSelection === "coins") {
-                  setExchangeOpen(true)
-                } else {
-                  setInventoryOpen(true)
-                }
-                setWalletOpen(false)
-                setMenuOpen(false)
-                setVolumeOpen(false)
-                setNotificationsOpen(false)
-              }}
-            >
-              {walletSelection === "coins" ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[18px] w-[18px]" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 7h12l-2.25-2.25M19 7l-2.25 2.25" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                  <path d="M17 17H5l2.25 2.25M5 17l2.25-2.25" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                </svg>
-              ) : (
-                <WalletIcon />
-              )}
-            </button>
-          </div>
-          {walletOpen ? (
-            <div
-              ref={walletMenuRef}
-              data-radix-popper-content-wrapper=""
-              dir="ltr"
-              style={{
-                position: 'fixed',
-                left: '0px',
-                top: '0px',
-                transform: `translate(${walletPosition.x}px, ${walletPosition.y}px)`,
-                minWidth: 'max-content',
-                zIndex: 200,
-                '--radix-popper-available-width': '1261px',
-                '--radix-popper-available-height': '885px',
-                '--radix-popper-anchor-width': '94.046875px',
-                '--radix-popper-anchor-height': '44px',
-                '--radix-popper-transform-origin': '0% 0px',
-              }}
-            >
-              <div
-                data-side="bottom"
-                data-align="start"
-                role="menu"
-                aria-orientation="vertical"
-                data-state="open"
-                data-radix-menu-content=""
-                dir="ltr"
-                className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] overflow-y-auto overflow-x-hidden bg-[#1C1F2D] border border-solid border-[#252839] shadow-none rounded-[6px] p-1 w-52 mt-1 text-[#E1E4F2] animate-[menuPopupIn_180ms_ease-out_forwards]"
-                tabIndex={-1}
-                data-orientation="vertical"
-                style={{
-                  outline: 'none',
-                  '--radix-dropdown-menu-content-transform-origin': 'var(--radix-popper-transform-origin)',
-                  '--radix-dropdown-menu-content-available-width': 'var(--radix-popper-available-width)',
-                  '--radix-dropdown-menu-content-available-height': 'var(--radix-popper-available-height)',
-                  '--radix-dropdown-menu-trigger-width': 'var(--radix-popper-anchor-width)',
-                  '--radix-dropdown-menu-trigger-height': 'var(--radix-popper-anchor-height)',
-                  pointerEvents: 'auto',
-                }}
-              >
-                <div
-                  role="menuitem"
-                  className={`relative flex select-none items-center gap-2 text-sm outline-none transition-colors px-3 py-2 rounded-[6px] cursor-pointer text-[#E1E4F2] ${walletSelection === "items" ? "bg-[#20222f]" : ""}`}
-                  tabIndex={-1}
-                  data-orientation="vertical"
-                  data-radix-collection-item=""
-                  onClick={() => handleWalletSelection("items")}
-                >
-                  <div className="flex w-full items-center gap-2">
-                    <span>Items</span>
-                    <div className="ml-auto flex items-center gap-2 text-[12px] text-[#9ca9d6]">
-                      <img src={COIN_ICON} alt="bobux" draggable={false} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
-                      <AnimatedNumber className="text-white" value={inventorySummary.value} />
-                    </div>
-                  </div>
-                </div>
-                <div
-                  role="menuitem"
-                  className={`relative flex select-none items-center gap-2 text-sm outline-none transition-colors px-3 py-2 rounded-[6px] cursor-pointer text-[#E1E4F2] ${walletSelection === "coins" ? "bg-[#20222f]" : ""}`}
-                  tabIndex={-1}
-                  data-orientation="vertical"
-                  data-radix-collection-item=""
-                  onClick={() => handleWalletSelection("coins")}
-                >
-                  <div className="flex w-full items-center gap-2">
-                    <span>Coins</span>
-                    <div className="ml-auto flex items-center gap-2 text-[12px] text-[#9ca9d6]">
-                      <img src={COIN_ICON} alt="bobux" draggable={false} style={{ width: "16px", height: "16px", objectFit: "contain" }} />
-                      <AnimatedNumber className="text-white" value={balance} />
-                    </div>
-                  </div>
-                </div>
-                <div role="separator" aria-orientation="horizontal" className="-mx-1 my-1 h-px bg-[#252839]" />
-                <div
-                  role="menuitem"
-                  className="relative flex select-none items-center gap-2 text-sm outline-none transition-colors px-3 py-2 rounded-[6px] cursor-pointer text-[#E1E4F2]"
-                  tabIndex={-1}
-                  data-orientation="vertical"
-                  data-radix-collection-item=""
-                  onClick={() => {
-                    setWalletOpen(false)
-                    setBalanceTypesOpen(true)
-                  }}
-                >
-                  <div className="flex w-full items-center justify-center gap-2">
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/5">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-[#9ca9d6]">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 16v-4"></path>
-                        <path d="M12 8h.01"></path>
-                      </svg>
-                    </span>
-                    <span className="text-center">What is this?</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
+            <span className="flex items-center gap-2 rounded-l bg-[hsl(228_17%_12%/.8)] px-4 py-3 font-semibold text-white">
+              <img src={COIN_ICON} alt="bobux" draggable={false} className="h-5 w-5 object-contain" />
+              <AnimatedNumber value={walletDisplayAmount} />
+            </span>
+            <span className="flex items-center rounded-r bg-[#ff4fa3] px-2 text-sm font-semibold tracking-wide text-[hsl(230_16%_14%)]">
+              Wallet
+            </span>
+          </button>
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
-        <div className="hidden overflow-hidden rounded-[6px] min-[390px]:block">
+      <div className="ml-4 flex shrink-0 items-center justify-end gap-4">
+        <div className="hidden">
           <button
             ref={notificationsButtonRef}
             type="button"
@@ -759,7 +619,7 @@ export default function Header({ onOpenProfileModal }) {
               <div className="px-2 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-[6px] bg-[#20222f] flex items-center justify-center">
-                    <svg viewBox="0 0 22 23" fill="none" className="w-4 h-4 text-[#6c63ff]">
+                    <svg viewBox="0 0 22 23" fill="none" className="w-4 h-4 text-[#ff4fa3]">
                       <path d="M9.22322 19.287C9.16077 19.0417 9.37186 18.8333 9.62499 18.8333H12.375C12.6281 18.8333 12.8392 19.0417 12.7767 19.287C12.5748 20.0801 11.8559 20.6667 11 20.6667C10.1441 20.6667 9.42513 20.0801 9.22322 19.287Z" fill="currentColor"></path>
                       <path d="M11.9207 4.16667H10.0793L9.13358 4.50688C6.95371 5.29104 5.5002 7.35861 5.5002 9.67523V10.8908C5.5002 11.5634 5.18395 12.1968 4.64636 12.601C2.7696 14.0121 3.76757 17 6.11563 17H15.8847C18.2327 17 19.2307 14.0121 17.354 12.601C16.8164 12.1968 16.5002 11.5634 16.5002 10.8908V9.67532C16.5002 7.35864 15.0466 5.29105 12.8667 4.50693L11.9207 4.16667Z" fill="currentColor"></path>
                       <path d="M10.0834 3.25C10.0834 2.74374 10.4938 2.33333 11 2.33333C11.5063 2.33333 11.9167 2.74374 11.9167 3.25V4.16667H10.0834V3.25Z" fill="currentColor"></path>
@@ -781,7 +641,7 @@ export default function Header({ onOpenProfileModal }) {
           </div>
         ) : null}
 
-        <div className="relative hidden min-[440px]:block">
+        <div className="hidden">
           <button
             ref={volumeButtonRef}
             className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
@@ -846,7 +706,7 @@ export default function Header({ onOpenProfileModal }) {
                     type="range"
                     min="0"
                     max="100"
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#6c63ff]"
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#ff4fa3]"
                     value={volumeLevel}
                     onChange={(event) => setVolumeLevel(Number(event.target.value))}
                     style={{ backgroundColor: 'rgb(32, 34, 47)' }}
@@ -876,25 +736,20 @@ export default function Header({ onOpenProfileModal }) {
                   }
                 }}
               >
-                <div
-                  className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full md:h-[60px] md:w-[60px]"
-                  style={{ backgroundColor: 'rgb(32, 34, 47)' }}
-                >
-                  <div className="relative box-border grid h-full w-full aspect-square cursor-pointer place-content-center overflow-hidden rounded-full border-2 border-solid border-[#22283F] bg-[#1C1F2E] [&>div]:h-full [&>div]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_img]:object-center">
-                    <img
-                      src={user.avatar_headshot_url || user.avatar_url || AVATAR}
-                      alt=""
-                      className="block max-w-full rounded-[10px]"
-                      height="42"
-                      width="42"
-                      loading="lazy"
-                      draggable={false}
-                      referrerPolicy="no-referrer"
-                      onError={(event) => {
-                        event.currentTarget.src = AVATAR
-                      }}
-                    />
-                  </div>
+                <div className="flex items-center rounded-lg p-2 transition-opacity hover:bg-[hsl(231_16%_17%)]">
+                  <img
+                    src={user.avatar_headshot_url || user.avatar_url || AVATAR}
+                    alt={`${user.username || 'User'} thumbnail`}
+                    className="-mt-1 h-10 w-10 rounded-full object-cover"
+                    height="40"
+                    width="40"
+                    loading="lazy"
+                    draggable={false}
+                    referrerPolicy="no-referrer"
+                    onError={(event) => {
+                      event.currentTarget.src = AVATAR
+                    }}
+                  />
                 </div>
               </div>
 
@@ -909,7 +764,7 @@ export default function Header({ onOpenProfileModal }) {
                     top: '0px',
                     transform: `translate(${menuPosition.x}px, ${menuPosition.y}px)`,
                     minWidth: 'max-content',
-                    zIndex: 200,
+                    zIndex: 50,
                     '--radix-popper-available-width': '1261px',
                     '--radix-popper-available-height': '877px',
                     '--radix-popper-anchor-width': '60px',
@@ -926,7 +781,7 @@ export default function Header({ onOpenProfileModal }) {
                     dir="ltr"
                     id="radix-:rr:"
                     aria-labelledby="radix-:rq:"
-                    className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] overflow-y-auto overflow-x-hidden bg-[#1C1F2D] border border-solid border-[#252839] shadow-none rounded-[6px] p-1 mt-1 text-[#E1E4F2] w-56 animate-[menuPopupIn_180ms_ease-out_forwards]"
+                    className="z-50 min-w-[12rem] overflow-hidden rounded-[8px] bg-[hsl(227_17%_11%)] px-3 py-2 text-white shadow-md [transform-origin:50%_0] animate-[profileMenuIn_150ms_ease-out_forwards]"
                     tabIndex={-1}
                     data-orientation="vertical"
                     style={{
@@ -941,16 +796,15 @@ export default function Header({ onOpenProfileModal }) {
                   >
                     <div
                       role="menuitem"
-                      className="relative select-none text-sm outline-none transition-colors duration-150 hover:bg-[#20222f]/70 focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-[6px] cursor-pointer text-[#E1E4F2] data-[highlighted]:bg-[#20222f] data-[highlighted]:text-[#E1E4F2]"
+                      className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-medium text-white outline-none transition-opacity hover:bg-[hsl(231_16%_17%/.5)] focus:bg-[hsl(231_16%_17%/.5)] [&>svg]:hidden cursor-pointer"
                       tabIndex={-1}
                       data-orientation="vertical"
                       data-radix-collection-item=""
                       onClick={() => {
                         setMenuOpen(false)
                         setVolumeOpen(false)
-                        setWalletOpen(false)
                         setNotificationsOpen(false)
-                        onOpenProfileModal?.()
+                        navigate('/profile')
                       }}
                     >
                       <svg
@@ -963,26 +817,23 @@ export default function Header({ onOpenProfileModal }) {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="lucide lucide-user h-4 w-4 text-[#6C63FF]"
+                        className="lucide lucide-user h-4 w-4 text-[#ff4fa3]"
                       >
                         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
                         <circle cx="12" cy="7" r="4"></circle>
                       </svg>
                       <span>Profile</span>
                     </div>
+                    <div role="separator" aria-orientation="horizontal" className="mx-1 my-1 h-px bg-[hsl(231_16%_17%)]" />
                     <div
                       role="menuitem"
-                      className="relative select-none text-sm outline-none transition-colors duration-150 hover:bg-[#20222f]/70 focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-[6px] cursor-pointer text-[#E1E4F2] data-[highlighted]:bg-[#20222f] data-[highlighted]:text-[#E1E4F2]"
+                      className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-medium text-white outline-none transition-opacity hover:bg-[hsl(231_16%_17%/.5)] focus:bg-[hsl(231_16%_17%/.5)] [&>svg]:hidden cursor-pointer"
                       tabIndex={-1}
                       data-orientation="vertical"
                       data-radix-collection-item=""
                       onClick={() => {
                         setMenuOpen(false)
-                        setInventoryOpen(true)
-                        setExchangeOpen(false)
-                        setWalletOpen(false)
-                        setVolumeOpen(false)
-                        setNotificationsOpen(false)
+                        setGiveawayOpen(true)
                       }}
                     >
                       <svg
@@ -995,18 +846,18 @@ export default function Header({ onOpenProfileModal }) {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="lucide lucide-package h-4 w-4 text-[#6c63ff]"
+                        className="lucide lucide-package h-4 w-4 text-[#ff4fa3]"
                       >
                         <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path>
                         <path d="M12 22V12"></path>
                         <polyline points="3.29 7 12 12 20.71 7"></polyline>
                         <path d="m7.5 4.27 9 5.15"></path>
                       </svg>
-                      <span>Inventory</span>
+                      <span>Create Giveaway</span>
                     </div>
                     <div
                       role="menuitem"
-                      className="relative select-none text-sm outline-none transition-colors duration-150 hover:bg-[#20222f]/70 focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-[6px] cursor-pointer text-[#E1E4F2] data-[highlighted]:bg-[#20222f] data-[highlighted]:text-[#E1E4F2]"
+                      className="hidden"
                       tabIndex={-1}
                       data-orientation="vertical"
                       data-radix-collection-item=""
@@ -1014,8 +865,6 @@ export default function Header({ onOpenProfileModal }) {
                         setMenuOpen(false)
                         setPromoCodeOpen(true)
                         setInventoryOpen(false)
-                        setExchangeOpen(false)
-                        setWalletOpen(false)
                         setVolumeOpen(false)
                         setNotificationsOpen(false)
                       }}
@@ -1030,7 +879,7 @@ export default function Header({ onOpenProfileModal }) {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="lucide lucide-ticket h-4 w-4 text-[#6c63ff]"
+                        className="lucide lucide-ticket h-4 w-4 text-[#ff4fa3]"
                       >
                         <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
                         <path d="M13 5v2"></path>
@@ -1039,11 +888,10 @@ export default function Header({ onOpenProfileModal }) {
                       </svg>
                       <span>Promocodes</span>
                     </div>
-                    {/* Create Giveaway menu item removed */}
-                    <div role="separator" aria-orientation="horizontal" className="-mx-1 my-1 h-px bg-[#252839]" />
+                    <div role="separator" aria-orientation="horizontal" className="mx-1 my-1 h-px bg-[hsl(231_16%_17%)]" />
                     <div
                       role="menuitem"
-                      className="relative select-none text-sm outline-none transition-colors duration-150 hover:bg-[#20222f]/70 focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-[6px] cursor-pointer text-[#FF4757] data-[highlighted]:bg-[#20222f] data-[highlighted]:text-[#FF4757]"
+                      className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-semibold text-[hsl(349_84%_60%)] outline-none transition-opacity hover:bg-[hsl(349_84%_60%/.2)] focus:bg-[hsl(349_84%_60%/.2)] [&>svg]:hidden cursor-pointer"
                       tabIndex={-1}
                       data-orientation="vertical"
                       data-radix-collection-item=""
@@ -1076,7 +924,7 @@ export default function Header({ onOpenProfileModal }) {
           ) : (
             <button
               onClick={() => setLoginOpen(true)}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-[6px] border-none bg-[#20222f] px-3 py-2 text-xs font-semibold text-white transition-none hover:opacity-90 active:opacity-100 sm:gap-2 sm:px-5 sm:text-sm"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border-none bg-[#ff4fa3] px-5 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 active:opacity-100 sm:gap-2 sm:px-8 sm:text-sm"
               type="button"
             >
               <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
@@ -1091,7 +939,6 @@ export default function Header({ onOpenProfileModal }) {
       <LoginModal isOpen={loginOpen && !user} onClose={() => setLoginOpen(false)} />
       <GiveawayCreateModal isOpen={giveawayOpen} onClose={() => setGiveawayOpen(false)} />
       <PromoCodeModal isOpen={promoCodeOpen} onClose={() => setPromoCodeOpen(false)} />
-      <BalanceTypesModal isOpen={balanceTypesOpen} onClose={() => setBalanceTypesOpen(false)} />
     </header>
   );
 }

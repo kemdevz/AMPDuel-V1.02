@@ -97,7 +97,7 @@ const transactionFilters = [
 ]
 
 const scrollClasses =
-  '[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-[rgba(108,99,255,0.3)]'
+  '[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-[rgba(255,79,163,0.3)]'
 
 function formatSessionDate(value) {
   if (!value) return 'Unknown'
@@ -1605,8 +1605,8 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                     role="menuitem"
                     className={`flex w-full items-center gap-2.5 border-x-0 border-t-0 border-b border-solid border-white/[.04] px-3.5 py-[11px] text-left text-[13px] font-semibold transition-colors last:border-b-0 ${
                       tab.id === activeTab
-                        ? 'bg-[rgba(108,99,255,.12)] text-white'
-                        : 'bg-transparent text-[rgba(225,228,242,.6)] hover:bg-[rgba(108,99,255,.08)] hover:text-[#e1e4f2]'
+                        ? 'bg-[rgba(255,79,163,.12)] text-white'
+                        : 'bg-transparent text-[rgba(225,228,242,.6)] hover:bg-[rgba(255,79,163,.08)] hover:text-[#e1e4f2]'
                     }`}
                     onClick={() => selectTab(tab.id)}
                   >
@@ -1626,7 +1626,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                 aria-current={tab.id === activeTab ? 'page' : undefined}
                 className={`flex w-full items-center gap-[9px] rounded-md border-none px-2.5 py-[9px] text-left text-[13px] font-semibold transition-colors ${
                   tab.id === activeTab
-                    ? 'bg-[rgba(108,99,255,.15)] text-white'
+                    ? 'bg-[rgba(255,79,163,.15)] text-white'
                     : 'bg-transparent text-[rgba(225,228,242,.45)] hover:bg-[#1c1f2e] hover:text-[rgba(225,228,242,.8)]'
                 }`}
                 onClick={() => selectTab(tab.id)}
@@ -1649,7 +1649,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           </button>
 
           <div className="hidden shrink-0 items-center gap-2.5 px-[22px] pb-3.5 pt-[18px] sm:flex">
-            <span className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-[rgba(108,99,255,.12)] text-[#a78bfa]">
+            <span className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-[rgba(255,79,163,.12)] text-[#a78bfa]">
               <TabIcon icon={activeTabData.icon} />
             </span>
             <span className="text-[15px] font-bold text-[#f6f6f6]">{activeTabData.label}</span>
@@ -1672,7 +1672,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                       <span className="font-mono text-[9px] text-[rgba(225,228,242,.4)] sm:text-[11px]">{userId}</span>
                       <button
                         type="button"
-                        className="inline-flex items-center border-none bg-transparent p-0.5 text-[rgba(225,228,242,.4)] transition-colors hover:text-[#6c63ff]"
+                        className="inline-flex items-center border-none bg-transparent p-0.5 text-[rgba(225,228,242,.4)] transition-colors hover:text-[#ff4fa3]"
                         title={copied ? 'Copied' : 'Copy User ID'}
                         aria-label={copied ? 'User ID copied' : 'Copy User ID'}
                         onClick={copyUserId}
@@ -1704,7 +1704,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   </div>
                   <input
                     type="checkbox"
-                    className="h-4 w-4 shrink-0 cursor-pointer accent-[#6c63ff]"
+                    className="h-4 w-4 shrink-0 cursor-pointer accent-[#ff4fa3]"
                     checked={discordAvatarEnabled}
                     aria-label="Use Discord avatar"
                     onChange={(event) => setDiscordAvatarEnabled(event.target.checked)}
@@ -1730,7 +1730,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                       Unlink Discord
                     </button>
                   ) : (
-                    <button type="button" className="profileModalDiscordButton shrink-0 rounded-[8px] border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#5b52e2,#4038c0)] px-3 py-[7px] text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(108,99,255,.2)] transition-[transform,background,opacity] duration-[140ms] ease-out hover:bg-[linear-gradient(135deg,#6c63ff,#5147d9)] hover:opacity-95 active:scale-[.98] sm:px-4 sm:py-[9px] sm:text-xs">
+                    <button type="button" className="profileModalDiscordButton shrink-0 rounded-[8px] border border-[rgba(255,79,163,.4)] bg-[linear-gradient(135deg,#ff4fa3,#f43f8f)] px-3 py-[7px] text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(255,79,163,.2)] transition-[transform,background,opacity] duration-[140ms] ease-out hover:bg-[linear-gradient(135deg,#ff4fa3,#f43f8f)] hover:opacity-95 active:scale-[.98] sm:px-4 sm:py-[9px] sm:text-xs">
                       Link Discord
                     </button>
                   )}

@@ -90,11 +90,11 @@ function SortIcon({ ascending = false }) {
 function ItemsIcon() {
   return (
     <svg viewBox="0 0 260 320" width="20" height="20" aria-hidden="true">
-      <path fill="#6C63FF" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
+      <path fill="#ff4fa3" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
       <path fill="#5A55E6" d="M60 120c0-35 28-80 70-80s70 45 70 80v20H60v-20z" />
       <path fill="#4A43C9" d="M110 40h40c8 0 12 10 12 20v10H98V60c0-10 4-20 12-20z" />
       <path fill="#7A72FF" d="M60 180h140v75c0 20-15 35-35 35H95c-20 0-35-15-35-35v-75z" />
-      <path fill="#6C63FF" d="M60 180h140v25H60v-25z" />
+      <path fill="#ff4fa3" d="M60 180h140v25H60v-25z" />
       <path stroke="#3A33A8" strokeWidth="3" d="M60 205h140" />
       <path stroke="#443CB5" strokeWidth="2" d="M130 120v140" />
       <path fill="#5850E6" d="M50 130c-10 5-20 25-20 45s10 40 20 45V130zM210 130c10 5 20 25 20 45s-10 40-20 45V130z" />
@@ -828,8 +828,8 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
           }
 
           ._modeBtn_150j2_197 {
-            --accent: #6c63ff;
-            --accentSoft: rgba(108,99,255,.35);
+            --accent: #ff4fa3;
+            --accentSoft: rgba(255,79,163,.35);
             position: relative;
             height: 40px;
             padding: 0 16px;
@@ -943,11 +943,11 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            border: 1px solid rgba(94,85,217,.4);
+            border: 1px solid rgba(255,79,163,.4);
             border-radius: 8px;
-            background: linear-gradient(135deg,#5b52e2,#4038c0);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(108,99,255,.25);
+            box-shadow: 0 2px 8px rgba(255,79,163,.25);
             cursor: pointer;
             font-size: 22px;
             font-weight: 700;
@@ -956,7 +956,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
           }
 
           ._plusbutton_150j2_329:hover {
-            background: linear-gradient(135deg,#6c63ff,#5147d9);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
             transform: scale(1.05);
           }
 
@@ -988,7 +988,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             z-index: 0;
             padding: 2px;
             border-radius: 6px;
-            background: linear-gradient(to bottom, transparent 0%, var(--item-border-side, rgba(108,99,255,.25)) 55%, var(--item-border-bottom, rgba(108,99,255,.7)) 100%);
+            background: linear-gradient(to bottom, transparent 0%, var(--item-border-side, rgba(255,79,163,.25)) 55%, var(--item-border-bottom, rgba(255,79,163,.7)) 100%);
             -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             -webkit-mask-composite: xor;
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -1018,7 +1018,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             inset: 0;
             z-index: 0;
             border-radius: 6px;
-            background: linear-gradient(to top, var(--stock-selected-glow, rgba(108,99,255,.17)) 0%, transparent 100%);
+            background: linear-gradient(to top, var(--stock-selected-glow, rgba(255,79,163,.17)) 0%, transparent 100%);
             opacity: 0;
             pointer-events: none;
             transition: opacity .25s ease;
@@ -1032,7 +1032,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             position: absolute;
             width: 10px;
             height: 10px;
-            background-color: var(--item-dot-color, rgba(108,99,255,1));
+            background-color: var(--item-dot-color, rgba(255,79,163,1));
             border-radius: 30%;
             top: 10px;
             right: 10px;
@@ -1338,11 +1338,11 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(94,85,217,.4);
+            border: 1px solid rgba(255,79,163,.4);
             border-radius: 8px !important;
-            background: linear-gradient(135deg,#5b52e2,#4038c0);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(108,99,255,.2);
+            box-shadow: 0 2px 8px rgba(255,79,163,.2);
           }
 
           ._loadingButtonBase_150j2_475 { position: relative; overflow: hidden; }
@@ -1368,7 +1368,7 @@ export default function CoinExchangeModal({ isOpen, onClose }) {
             width: 20px;
             height: 20px;
             border: 4px solid #1c1f30;
-            border-top-color: #6c63ff;
+            border-top-color: #ff4fa3;
             border-radius: 50%;
             animation: _spin_150j2_1 .45s linear infinite;
           }

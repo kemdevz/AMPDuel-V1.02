@@ -150,7 +150,7 @@ export default function BalanceTypesModal({ isOpen, onClose }) {
 
 const BALANCE_TYPES_MODAL_STYLES = `
   .balance-types-modal__backdrop {
-    --accent-gradient: linear-gradient(135deg, #5b52e2, #4038c0);
+    --accent-gradient: linear-gradient(135deg, #ff4fa3, #f43f8f);
     --font-weight-btn: 600;
     --radius-sm: 8px;
     --dur-fast: .13s;
@@ -235,7 +235,7 @@ const BALANCE_TYPES_MODAL_STYLES = `
     border: 0 solid rgba(37, 40, 57, .9);
     border-radius: 6px;
     padding: 14px;
-    box-shadow: inset 0 0 24px #6c63ff14, 0 10px 26px #00000047;
+    box-shadow: inset 0 0 24px #ff4fa314, 0 10px 26px #00000047;
   }
 
   .balance-types-modal__card-title {
@@ -260,7 +260,7 @@ const BALANCE_TYPES_MODAL_STYLES = `
     font-size: 11px;
     font-weight: 900;
     letter-spacing: .6px;
-    color: #6c63fff2;
+    color: #ff4fa3f2;
     margin-bottom: 8px;
   }
 
@@ -282,14 +282,14 @@ const BALANCE_TYPES_MODAL_STYLES = `
     border-radius: 6px;
     background: #1c1f2e;
     border: 0 solid rgba(37, 40, 57, .9);
-    box-shadow: inset 0 0 24px #6c63ff0f;
+    box-shadow: inset 0 0 24px #ff4fa30f;
   }
 
   .balance-types-modal__notice-title {
     font-size: 11px;
     font-weight: 900;
     letter-spacing: .6px;
-    color: #6c63fff2;
+    color: #ff4fa3f2;
     margin-bottom: 8px;
   }
 
@@ -315,14 +315,14 @@ const BALANCE_TYPES_MODAL_STYLES = `
     width: 100%;
     min-height: 42px;
     background: var(--accent-gradient);
-    border: 1px solid rgba(94, 85, 217, .4);
+    border: 1px solid rgba(255, 79, 163, .4);
     color: #fff;
     font-weight: var(--font-weight-btn);
     border-radius: var(--radius-sm);
     padding: 14px 16px;
     font-size: 15px;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+    box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
     transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
     display: inline-flex;
     align-items: center;
@@ -331,7 +331,7 @@ const BALANCE_TYPES_MODAL_STYLES = `
   }
 
   .balance-types-modal__button:hover {
-    background: linear-gradient(135deg, #6c63ff, #5147d9);
+    background: linear-gradient(135deg, #ff4fa3, #f43f8f);
     opacity: .95;
   }
 

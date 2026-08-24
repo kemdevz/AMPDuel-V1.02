@@ -5,47 +5,29 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 import DepositModal from './DepositModal'
 import InventoryItemCard, { inventoryItemCardStyles } from './InventoryItemCard'
-import SortDirectionIcon from './SortDirectionIcon'
 import { notifications } from './Notifications'
 
-const COIN_ICON = '/bobux.png'
+const COIN_ICON = '/currency.svg'
 
 const formatNumber = (value) => {
   const numericValue = Number(value ?? 0)
   return Number.isFinite(numericValue) ? numericValue.toLocaleString() : '0'
 }
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="_searchIcon_cpcgp_82" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M9.75 3.5a6.25 6.25 0 0 1 4.96 10.06l4.36 4.36a1 1 0 0 1-1.42 1.41l-4.35-4.35A6.25 6.25 0 1 1 9.75 3.5Zm0 2a4.25 4.25 0 1 0 0 8.5 4.25 4.25 0 0 0 0-8.5Z"
-      />
-    </svg>
-  )
-}
-
-function SortIcon({ ascending = false }) {
-  return <SortDirectionIcon ascending={ascending} />
-}
-
 function ItemsIcon() {
   return (
-    <svg viewBox="0 0 260 320" width="20" height="20" aria-hidden="true">
-      <path fill="#6C63FF" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
-      <path fill="#5A55E6" d="M60 120c0-35 28-80 70-80s70 45 70 80v20H60v-20z" />
-      <path fill="#4A43C9" d="M110 40h40c8 0 12 10 12 20v10H98V60c0-10 4-20 12-20z" />
-      <path fill="#7A72FF" d="M60 180h140v75c0 20-15 35-35 35H95c-20 0-35-15-35-35v-75z" />
-      <path fill="#6C63FF" d="M60 180h140v25H60v-25z" />
-      <path stroke="#3A33A8" strokeWidth="3" d="M60 205h140" />
-      <path stroke="#443CB5" strokeWidth="2" d="M130 120v140" />
-      <path fill="#5850E6" d="M50 130c-10 5-20 25-20 45s10 40 20 45V130zM210 130c10 5 20 25 20 45s-10 40-20 45V130z" />
-      <ellipse cx="130" cy="290" rx="90" ry="18" fill="#3B36A6" opacity=".35" />
-      <path fill="#8A83FF" d="M80 230h100v30H80v-30z" />
-      <path stroke="#363092" strokeWidth="3" d="M80 245h100" />
+    <svg viewBox="0 0 30 30" width="30" height="30" fill="none" aria-hidden="true">
+      <path d="M6.33953 0 0 23.66 23.6605 30 30 6.34 6.33953 0Zm11.08147 19.1925-6.6119-1.7713 1.7724-6.6124 6.6132 1.7724-1.7737 6.6113Z" fill="currentColor" />
     </svg>
   )
+}
+
+function ChevronIcon() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+}
+
+function CloseIcon() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
 }
 
 function LoadingButton({ className, disabled = false, onClick, children }) {
@@ -70,6 +52,8 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
   const [withdrawError, setWithdrawError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortAscending, setSortAscending] = useState(false)
+  const [gameFilter, setGameFilter] = useState('all')
+  const [gameFilterTouched, setGameFilterTouched] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -164,6 +148,11 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
   }))
   const displayInventoryItems = allInventoryRows
     .filter((item) => String(item.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    .filter((item) => {
+      if (!gameFilterTouched || gameFilter === 'all') return true
+      const itemGame = String(item.type || item.game || item.item_type || 'mm2').toLowerCase()
+      return itemGame.includes(gameFilter) || (gameFilter === 'ps99' && itemGame.includes('pet')) || (gameFilter === 'adm' && itemGame.includes('adopt'))
+    })
     .sort((a, b) => {
       const aSelected = selectedItems.includes(a.displayKey)
       const bSelected = selectedItems.includes(b.displayKey)
@@ -231,141 +220,54 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
   }
 
   return createPortal(
-    <div
-      className="_blurbg_cpcgp_1"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <div className="_modalbackgroundinventory_cpcgp_15 _fadeIn_cpcgp_1" role="dialog" aria-modal="true" aria-label={ariaLabel}>
-        <button aria-label="Close" className="_closeButton_150j2_55" type="button" onClick={onClose}>
-          ×
-        </button>
+    <div className="wallet-reference-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="wallet-reference-dialog" role="dialog" aria-modal="true" aria-label={ariaLabel}>
+        <button aria-label="Close" className="wallet-reference-close" type="button" onClick={onClose}><CloseIcon /></button>
+        <div className="wallet-reference-heading"><h2>Inventory</h2></div>
 
-        <div className="_headerinventory_cpcgp_43">
-          <div className="_walletHeaderControls_cpcgp_local">
-            <div className="_inputWrapper_cpcgp_59">
-              <input type="text" placeholder="Search for an item..." className="_inputv3_cpcgp_65" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
-              <SearchIcon />
+        <div className="wallet-reference-main">
+          <div className="wallet-reference-controls">
+            <div className="wallet-reference-search-group">
+              <label htmlFor="wallet-inventory-search">Select Item</label>
+              <input id="wallet-inventory-search" type="text" placeholder="Search for an item.." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
             </div>
-            <button type="button" className="_sortToggle_cpcgp_487" aria-label={sortAscending ? 'Sort highest to lowest' : 'Sort lowest to highest'} onClick={() => setSortAscending((current) => !current)}>
-              <SortIcon ascending={sortAscending} />
-            </button>
+            <div className="wallet-reference-selects">
+              <label className="wallet-reference-select">
+                <select value={sortAscending ? 'asc' : 'desc'} onChange={(event) => setSortAscending(event.target.value === 'asc')} aria-label="Sort inventory">
+                  <option value="desc">High - Low</option><option value="asc">Low - High</option>
+                </select><ChevronIcon />
+              </label>
+              <label className="wallet-reference-select">
+                <select value={gameFilter} onChange={(event) => { setGameFilter(event.target.value); setGameFilterTouched(true) }} aria-label="Filter inventory by game">
+                  <option value="all">All Games</option><option value="mm2">Murder Mystery 2</option><option value="adm">Adopt Me</option><option value="ps99">Pet Simulator 99</option>
+                </select><ChevronIcon />
+              </label>
+            </div>
+          </div>
+
+          <div className="wallet-reference-summary">
+            <div className="wallet-reference-summary-top">
+              <div className="wallet-reference-stats">
+                <div className="wallet-reference-stat"><img src={COIN_ICON} alt="Gem" /><div><div className="wallet-reference-stat-label">Worth</div><div className="wallet-reference-stat-value">{formatNumber(totalInventoryValue)}</div></div></div>
+                <div className="wallet-reference-stat wallet-reference-items-stat"><ItemsIcon /><div><div className="wallet-reference-stat-label">Items</div><div className="wallet-reference-stat-value">{formatNumber(totalInventoryCount)}</div></div></div>
+              </div>
+              {!readOnly ? <LoadingButton className="wallet-reference-plus" onClick={() => setDepositOpen(true)}>+</LoadingButton> : null}
+            </div>
+            <div className="wallet-reference-scroll" tabIndex="0"><div className="wallet-reference-grid">
+              {inventoryLoading ? <div className="wallet-reference-empty"><h3>Loading...</h3><p>Fetching your inventory...</p></div>
+                : inventoryError ? <div className="wallet-reference-empty"><h3>Couldn't load inventory</h3><p>{inventoryError}</p></div>
+                : displayInventoryItems.length === 0 ? <div className="wallet-reference-empty"><h3>No Items!</h3><p>Your inventory seems to be empty...</p>{!readOnly ? <LoadingButton className="wallet-reference-deposit" onClick={() => setDepositOpen(true)}>Deposit Items</LoadingButton> : null}</div>
+                : displayInventoryItems.map((item, index) => <InventoryItemCard key={item.displayKey || `${item.name}-${index}`} item={item} selected={!readOnly && selectedItems.includes(item.displayKey)} onToggleSelect={readOnly ? undefined : () => { setSelectedItems((prev) => prev.includes(item.displayKey) ? prev.filter((key) => key !== item.displayKey) : [...prev, item.displayKey]) }} />)}
+            </div></div>
           </div>
         </div>
 
-        <div className="_itemsWrapper_cpcgp_248">
-          <div className="_stats_cpcgp_92">
-            <div className="_statItem_cpcgp_100">
-              <img src={COIN_ICON} alt="Bobux" />
-              <div className="_statCol_cpcgp_107">
-                <span className="_statLabel_cpcgp_114">VALUE</span>
-                <span className="_statValue_cpcgp_118">
-                  <span className="_pcvalue_cpcgp_471">{formatNumber(totalInventoryValue)}</span>
-                  <span className="_mobilevalue_cpcgp_472">{formatNumber(totalInventoryValue)}</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="_statItem_cpcgp_100">
-              <ItemsIcon />
-              <div className="_statCol_cpcgp_107">
-                <span className="_statLabel_cpcgp_114">ITEMS</span>
-                <span className="_statValue_cpcgp_118">{formatNumber(totalInventoryCount)}</span>
-              </div>
-            </div>
-
-            {!readOnly ? (
-              <LoadingButton className="_plusbutton_cpcgp_145" onClick={() => setDepositOpen(true)}>
-                +
-              </LoadingButton>
-            ) : null}
-          </div>
-
-          <div className="_itemsGrid_cpcgp_259">
-            {inventoryLoading ? (
-              <div className="_emptyState_cpcgp_432">
-                <h1>Loading...</h1>
-                <p>Fetching your inventory...</p>
-              </div>
-            ) : inventoryError ? (
-              <div className="_emptyState_cpcgp_432">
-                <h1>Couldn't load inventory</h1>
-                <p>{inventoryError}</p>
-              </div>
-            ) : displayInventoryItems.length === 0 ? (
-              <div className="_emptyState_cpcgp_432">
-                <h1>No items!</h1>
-                <p>No items were found...</p>
-                {!readOnly ? (
-                  <LoadingButton className="_depositbutton_cpcgp_170" onClick={() => setDepositOpen(true)}>
-                    Deposit
-                  </LoadingButton>
-                ) : null}
-              </div>
-            ) : (
-              displayInventoryItems.map((item, index) => (
-            <InventoryItemCard
-              key={item.displayKey || `${item.name}-${index}`}
-              item={item}
-              selected={!readOnly && selectedItems.includes(item.displayKey)}
-              onToggleSelect={readOnly ? undefined : () => {
-                setSelectedItems((prev) =>
-                  prev.includes(item.displayKey)
-                    ? prev.filter((key) => key !== item.displayKey)
-                    : [...prev, item.displayKey]
-                )
-              }}
-            />
-          ))
-            )}
-          </div>
-        </div>
-
-        {!readOnly ? <div className="_buttonWrapper_cpcgp_356">
-          {footer ? (
-            typeof footer === 'function'
-              ? footer({
-                selectedItems: selectedInventoryItems,
-                selectedAmount,
-                selectedValue,
-                totalItems: allInventoryRows.length,
-                onToggleSelectAll,
-              })
-              : footer
-          ) : (
-            <>
-              <LoadingButton
-                className="_flatActionBtn_cpcgp_373"
-                disabled={allInventoryRows.length === 0}
-                onClick={onToggleSelectAll}
-              >
-                {selectedAmount === allInventoryRows.length ? 'Unselect All' : 'Select all'}
-              </LoadingButton>
-              <LoadingButton className="_withdrawButton_cpcgp_387" disabled={selectedAmount === 0 || withdrawing} onClick={handleWithdraw}>
-                <strong className="_pcvalue_cpcgp_471">
-                  Withdraw
-                  <span className="_walletWithdrawSep_cpcgp_local" />
-                  <span className="_walletCoinValue_cpcgp_local">
-                    <img src={COIN_ICON} alt="Bobux" />
-                    <span className="_pcvalue_cpcgp_471">{formatNumber(selectedValue)}</span>
-                  </span>
-                </strong>
-                <strong className="_mobilevalue_cpcgp_472">
-                  Withdraw
-                  <span className="_walletWithdrawSep_cpcgp_local" />
-                  <span className="_walletCoinValue_cpcgp_local">
-                    <img src={COIN_ICON} alt="Bobux" />
-                    <span className="_mobilevalue_cpcgp_472">{formatNumber(selectedValue)}</span>
-                  </span>
-                </strong>
-              </LoadingButton>
-            </>
-          )}
-          {withdrawError ? (
-            <p className="_walletWithdrawError_cpcgp_local">{withdrawError}</p>
-          ) : null}
+        {!readOnly ? <div className="wallet-reference-footer">
+          {footer ? (typeof footer === 'function' ? footer({ selectedItems: selectedInventoryItems, selectedAmount, selectedValue, totalItems: allInventoryRows.length, onToggleSelectAll }) : footer) : <>
+            <LoadingButton className="wallet-reference-select-all" disabled={allInventoryRows.length === 0} onClick={onToggleSelectAll}>{selectedAmount === allInventoryRows.length && allInventoryRows.length > 0 ? 'Unselect All' : 'Select All'}</LoadingButton>
+            <LoadingButton className="wallet-reference-withdraw" disabled={selectedAmount === 0 || withdrawing} onClick={handleWithdraw}>Withdraw R${formatNumber(selectedValue)}</LoadingButton>
+          </>}
+          {withdrawError ? <p className="wallet-reference-error">{withdrawError}</p> : null}
         </div> : null}
 
         <style>{`
@@ -373,6 +275,120 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
           @keyframes _fadeIn_cpcgp_1 { from { opacity: 0; } to { opacity: 1; } }
           @keyframes _modalOpen_cpcgp_1 { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
           @keyframes _spin_cpcgp_1 { to { transform: rotate(360deg); } }
+
+          @keyframes walletReferenceOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes walletReferenceDialogIn {
+            from { opacity: 0; transform: translate(-50%, -48%) scale(.96); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          }
+
+          .wallet-reference-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: hsl(228 17% 12% / .4);
+            animation: walletReferenceOverlayIn .2s ease-out;
+          }
+
+          .wallet-reference-dialog {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            z-index: 10001;
+            display: flex;
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
+            box-sizing: border-box;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 24px 16px 16px;
+            overflow: hidden;
+            transform: translate(-50%, -50%);
+            border: 1px solid hsl(231 16% 16%);
+            border-radius: 0;
+            background: hsl(227 17% 11%);
+            color: #fff;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+            font-family: Poppins, sans-serif;
+            animation: walletReferenceDialogIn .2s ease-out;
+          }
+
+          .wallet-reference-dialog * { box-sizing: border-box; }
+          .wallet-reference-heading { display: flex; flex-direction: column; flex: 0 0 auto; gap: 6px; text-align: center; }
+          .wallet-reference-heading h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 18px; letter-spacing: -.025em; }
+          .wallet-reference-main { min-height: 0; flex: 1 1 auto; }
+          .wallet-reference-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+          .wallet-reference-search-group { display: grid; width: 100%; align-items: center; gap: 8px; }
+          .wallet-reference-search-group label { opacity: .8; font-size: 14px; font-weight: 500; line-height: 14px; }
+          .wallet-reference-search-group input,
+          .wallet-reference-select {
+            width: 100%;
+            height: 48px;
+            border: 2px solid rgb(255 255 255 / .25);
+            border-radius: 8px;
+            background: transparent;
+            color: rgb(255 255 255 / .5);
+            font: 600 14px/20px Poppins, sans-serif;
+            transition: border-color .15s ease;
+          }
+          .wallet-reference-search-group input { padding: 8px 12px; outline: none; }
+          .wallet-reference-search-group input::placeholder { color: rgb(255 255 255 / .5); opacity: 1; }
+          .wallet-reference-search-group input:focus,
+          .wallet-reference-select:focus-within { border-color: rgb(255 255 255 / .6); }
+          .wallet-reference-selects { display: flex; width: 100%; flex-direction: row; gap: 8px; }
+          .wallet-reference-select { position: relative; display: flex; align-items: center; flex: 1 1 0; overflow: hidden; }
+          .wallet-reference-select select { width: 100%; height: 100%; appearance: none; padding: 8px 36px 8px 12px; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+          .wallet-reference-select select option { background: hsl(227 17% 11%); color: #fff; }
+          .wallet-reference-select svg { position: absolute; right: 12px; opacity: .5; pointer-events: none; }
+
+          .wallet-reference-summary { margin-top: 16px; padding: 16px; border-radius: 8px; background: hsl(228 17% 12%); }
+          .wallet-reference-summary-top { display: flex; align-items: center; gap: 24px; }
+          .wallet-reference-stats { display: flex; align-items: center; gap: 32px; }
+          .wallet-reference-stat { display: flex; align-items: center; gap: 8px; }
+          .wallet-reference-stat > img { width: 35px; height: 35px; object-fit: contain; }
+          .wallet-reference-items-stat > svg { width: 30px; height: 30px; color: #fff; }
+          .wallet-reference-stat-label { opacity: .5; font-size: 12px; font-weight: 500; line-height: 16px; text-transform: uppercase; }
+          .wallet-reference-stat-value { margin-top: -4px; font-size: 20px; font-weight: 700; line-height: 28px; }
+          .wallet-reference-plus { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: hsl(331 100% 65%); color: #000; font-size: 20px; font-weight: 600; line-height: 28px; cursor: pointer; }
+
+          .wallet-reference-scroll { width: 100%; height: 100vh; max-height: calc(100dvh - 375px); margin-top: 16px; overflow: auto; outline: none; }
+          .wallet-reference-grid { position: relative; display: grid; min-height: 100%; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+          .wallet-reference-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+          .wallet-reference-empty h3 { margin: 0; font-size: 30px; font-weight: 500; line-height: 36px; }
+          .wallet-reference-empty p { margin: 8px 0 0; opacity: .8; font-size: 16px; font-weight: 500; line-height: 24px; }
+          .wallet-reference-deposit { display: inline-flex; height: 44px; margin-top: 24px; align-items: center; justify-content: center; padding: 0 32px; border: 0; border-radius: 6px; background: hsl(331 100% 65%); color: #000; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+          .wallet-reference-footer { display: flex; flex: 0 0 auto; flex-direction: row; gap: 8px; }
+          .wallet-reference-footer button { display: inline-flex; height: 44px; align-items: center; justify-content: center; padding: 0 32px; border-radius: 6px; font: 600 14px/20px Poppins, sans-serif; cursor: pointer; transition: color .15s, background-color .15s, opacity .15s; }
+          .wallet-reference-footer button:disabled { opacity: .5; cursor: not-allowed; }
+          .wallet-reference-select-all { border: 1px solid hsl(331 100% 65%); background: hsl(331 100% 65% / .1); color: hsl(331 100% 65%); }
+          .wallet-reference-withdraw { flex: 1 1 0; border: 0; background: hsl(331 100% 65%); color: #000; }
+          .wallet-reference-error { width: 100%; margin: 8px 0 0; color: #ff6b81; font-size: 13px; text-align: right; }
+          .wallet-reference-close { position: absolute; right: 16px; top: 16px; display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 2px; background: transparent; color: #fff; opacity: .7; cursor: pointer; transition: opacity .15s; }
+          .wallet-reference-close:hover { opacity: 1; }
+          .wallet-reference-close:focus-visible { outline: 2px solid hsl(331 100% 65%); outline-offset: 2px; }
+
+          .wallet-reference-dialog ._loadingButtonBase_cpcgp_399 { position: relative; overflow: hidden; }
+          .wallet-reference-dialog ._buttonLabel_cpcgp_401 { display: inline-flex; width: 100%; align-items: center; justify-content: center; }
+          .wallet-reference-dialog ._buttonSpinnerWrap_cpcgp_410 { display: none; }
+
+          @media (min-width: 640px) {
+            .wallet-reference-dialog { width: 100%; max-width: 672px; height: auto; max-height: calc(100dvh - 32px); border-radius: 8px; overflow: visible; }
+            .wallet-reference-heading { text-align: left; }
+            .wallet-reference-scroll { max-height: 400px; }
+            .wallet-reference-footer { justify-content: flex-end; gap: 16px; }
+            .wallet-reference-withdraw { flex: 0 0 auto; }
+          }
+          @media (min-width: 768px) {
+            .wallet-reference-dialog { max-width: 768px; }
+            .wallet-reference-controls { flex-direction: row; align-items: flex-end; }
+            .wallet-reference-search-group { max-width: 384px; }
+            .wallet-reference-select { width: 180px; flex: 0 0 180px; }
+          }
+          @media (min-width: 1024px) { .wallet-reference-dialog { max-width: 896px; } }
+          @media (min-width: 1280px) { .wallet-reference-dialog { max-width: 1024px; } }
 
           ._blurbg_cpcgp_1 {
             position: fixed;
@@ -552,10 +568,10 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(94,85,217,.4);
-            background: linear-gradient(135deg,#5b52e2,#4038c0);
+            border: 1px solid rgba(255,79,163,.4);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(108,99,255,.25);
+            box-shadow: 0 2px 8px rgba(255,79,163,.25);
             cursor: pointer;
             transition: transform .15s ease, opacity .25s ease, background .25s ease;
           }
@@ -580,7 +596,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
 
           ._plusbutton_cpcgp_145:hover,
           ._depositbutton_cpcgp_170:hover {
-            background: linear-gradient(135deg,#6c63ff,#5147d9);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
           }
 
           ._plusbutton_cpcgp_145:hover { transform: scale(1.05); }
@@ -661,10 +677,10 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
             min-width: 190px;
             min-height: 42px;
             padding: 0 16px;
-            border: 1px solid rgba(94,85,217,.4);
-            background: linear-gradient(135deg,#5b52e2,#4038c0);
+            border: 1px solid rgba(255,79,163,.4);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(108,99,255,.2);
+            box-shadow: 0 2px 8px rgba(255,79,163,.2);
           }
 
           ._loadingButtonBase_cpcgp_399 { position: relative; overflow: hidden; }
@@ -693,7 +709,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
             width: 20px;
             height: 20px;
             border: 4px solid #1c1f30;
-            border-top-color: #6c63ff;
+            border-top-color: #ff4fa3;
             border-radius: 50%;
             animation: _spin_cpcgp_1 .45s linear infinite;
           }

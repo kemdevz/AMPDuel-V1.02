@@ -53,7 +53,7 @@ function CasinoGameCard({ game, onPlay }) {
       />
       <button
         type="button"
-        className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border-0 bg-[#131520]/90 p-0 text-white shadow-[0_3px_12px_rgba(0,0,0,.35)] transition duration-150 hover:bg-[#6c63ff] active:scale-95"
+        className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border-0 bg-[#131520]/90 p-0 text-white shadow-[0_3px_12px_rgba(0,0,0,.35)] transition duration-150 hover:bg-[#ff4fa3] active:scale-95"
         aria-label={`Play ${game.name}`}
         title={`Play ${game.name}`}
         onClick={(event) => {

@@ -25,11 +25,11 @@ function SearchIcon() {
 function BagIcon() {
   return (
     <svg viewBox="0 0 260 320" width="20" height="20" aria-hidden="true">
-      <path fill="#6C63FF" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
+      <path fill="#ff4fa3" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
       <path fill="#5A55E6" d="M60 120c0-35 28-80 70-80s70 45 70 80v20H60v-20z" />
       <path fill="#4A43C9" d="M110 40h40c8 0 12 10 12 20v10H98V60c0-10 4-20 12-20z" />
       <path fill="#7A72FF" d="M60 180h140v75c0 20-15 35-35 35H95c-20 0-35-15-35-35v-75z" />
-      <path fill="#6C63FF" d="M60 180h140v25H60v-25z" />
+      <path fill="#ff4fa3" d="M60 180h140v25H60v-25z" />
       <path stroke="#3A33A8" strokeWidth="3" d="M60 205h140" />
       <path stroke="#443CB5" strokeWidth="2" d="M130 120v140" />
       <path fill="#5850E6" d="M50 130c-10 5-20 25-20 45s10 40 20 45V130zM210 130c10 5 20 25 20 45s-10 40-20 45V130z" />
@@ -659,8 +659,8 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._plusbutton_2jqwz_139 {
-  background: linear-gradient(135deg, #5b52e2, #4038c0);
-  border: 1px solid rgba(94,85,217,.4);
+  background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+  border: 1px solid rgba(255,79,163,.4);
   color: #fff;
   font-weight: 700;
   font-size: 22px;
@@ -670,7 +670,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px #6c63ff40;
+  box-shadow: 0 2px 8px #ff4fa340;
   cursor: pointer;
   transition: transform .15s ease, opacity .25s ease, background .25s ease;
   position: relative;
@@ -681,7 +681,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._plusbutton_2jqwz_139:hover {
-  background: linear-gradient(135deg, #6c63ff, #5147d9);
+  background: linear-gradient(135deg, #ff4fa3, #f43f8f);
   transform: scale(1.05);
 }
 
@@ -695,8 +695,8 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._depositbutton_2jqwz_152 {
-  background: linear-gradient(135deg, #5b52e2, #4038c0);
-  border: 1px solid rgba(94,85,217,.4);
+  background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+  border: 1px solid rgba(255,79,163,.4);
   color: #fff;
   font-weight: 600;
   font-size: 16px;
@@ -705,7 +705,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px #6c63ff40;
+  box-shadow: 0 2px 8px #ff4fa340;
   cursor: pointer;
   transition: transform .15s ease, opacity .25s ease, background .25s ease;
   position: relative;
@@ -715,7 +715,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._depositbutton_2jqwz_152:hover {
-  background: linear-gradient(135deg, #6c63ff, #5147d9);
+  background: linear-gradient(135deg, #ff4fa3, #f43f8f);
   transform: scale(1.03);
 }
 
@@ -767,7 +767,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   z-index: 0;
   padding: 2px;
   border-radius: 6px;
-  background: linear-gradient(to bottom, transparent 0%, var(--inventory-border-side, rgba(108,99,255,.25)) 55%, var(--inventory-border-bottom, rgba(108,99,255,.7)) 100%);
+  background: linear-gradient(to bottom, transparent 0%, var(--inventory-border-side, rgba(255,79,163,.25)) 55%, var(--inventory-border-bottom, rgba(255,79,163,.7)) 100%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -956,10 +956,10 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._withdrawButton_2jqwz_287 {
-  background: linear-gradient(135deg, #5b52e2, #4038c0);
-  border: 1px solid rgba(94,85,217,.4);
+  background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+  border: 1px solid rgba(255,79,163,.4);
   color: #fff;
-  box-shadow: 0 2px 8px #6c63ff33;
+  box-shadow: 0 2px 8px #ff4fa333;
   min-height: 42px;
   min-width: 190px;
   padding: 0 16px;
@@ -970,7 +970,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._withdrawButton_2jqwz_287:hover {
-  background: linear-gradient(135deg, #6c63ff, #5147d9);
+  background: linear-gradient(135deg, #ff4fa3, #f43f8f);
   opacity: .95;
 }
 
@@ -1021,7 +1021,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 ._loaderSmall_2jqwz_303 {
   border: 4px solid #1c1f30;
   border-radius: 50%;
-  border-top: 4px solid #6c63ff;
+  border-top: 4px solid #ff4fa3;
   width: 20px;
   height: 20px;
   animation: _spin_2jqwz_1 .45s linear infinite;
@@ -1090,7 +1090,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 ._loader_2jqwz_303 {
   border: 7px solid #131520;
   border-radius: 50%;
-  border-top: 7px solid #6c63ff;
+  border-top: 7px solid #ff4fa3;
   width: 45px;
   height: 45px;
   animation: _spin_2jqwz_1 .45s linear infinite;
@@ -1138,7 +1138,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._autoSelectBtn_2jqwz_320:focus-visible {
-  outline: 2px solid #6c63ff;
+  outline: 2px solid #ff4fa3;
   outline-offset: 2px;
 }
 
@@ -1299,7 +1299,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
 }
 
 ._settingsToggleOn_2jqwz_628 {
-  background: #6c63ff;
+  background: #ff4fa3;
 }
 
 ._settingsToggleThumb_2jqwz_629 {

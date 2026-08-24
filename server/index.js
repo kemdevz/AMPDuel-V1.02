@@ -3096,11 +3096,77 @@ app.get('/api/public-profiles', async (req, res) => {
   res.json({ ok: true, profiles: Array.isArray(rows) ? rows : [] })
 })
 
+app.get('/api/public-profile-stats', async (req, res) => {
+  const profileId = String(req.query.id || '').trim()
+  if (!isUuidLike(profileId)) {
+    res.status(400).json({ ok: false, error: 'A valid profile ID is required.' })
+    return
+  }
+
+  const emptyStats = () => ({ totalBet: 0, totalProfit: 0, totalWon: 0, totalLost: 0 })
+  const stats = {
+    all: emptyStats(),
+    mm2: emptyStats(),
+    adm: emptyStats(),
+    ps99: emptyStats(),
+  }
+
+  const detectGame = (game) => {
+    const item = [
+      ...(Array.isArray(game?.creator_items) ? game.creator_items : []),
+      ...(Array.isArray(game?.opponent_items) ? game.opponent_items : []),
+    ][0]
+    const type = String(item?.type || item?.game || item?.item_type || game?.item_type || '').toLowerCase()
+    if (type.includes('murder') || type.includes('mm2')) return 'mm2'
+    if (type.includes('adopt') || type === 'adm') return 'adm'
+    return 'ps99'
+  }
+
+  try {
+    const encodedProfileId = encodeURIComponent(profileId)
+    const games = await adminRest(
+      `coinflip_games?select=*&or=(creator_uuid.eq.${encodedProfileId},opponent_uuid.eq.${encodedProfileId})&canceled=eq.false&result=not.is.null&order=resolved_at.desc&limit=1000`,
+    )
+
+    for (const game of Array.isArray(games) ? games : []) {
+      const creator = String(game?.creator_uuid || '') === profileId
+      const wager = getCoinflipWagerValue(creator ? game?.creator_items : game?.opponent_items)
+      const won = String(game?.winner_uuid || '') === profileId
+      const grossPot = getCoinflipWagerValue(game?.creator_items) + getCoinflipWagerValue(game?.opponent_items)
+      const payout = won ? Math.max(0, Number(game?.net_payout_value) || grossPot) : 0
+      const profit = payout - wager
+      const gameKey = detectGame(game)
+
+      for (const key of ['all', gameKey]) {
+        stats[key].totalBet += wager
+        stats[key].totalProfit += profit
+        if (won) stats[key].totalWon += payout
+        else stats[key].totalLost += wager
+      }
+    }
+
+    for (const value of Object.values(stats)) {
+      value.totalBet = Math.round(value.totalBet)
+      value.totalProfit = Math.round(value.totalProfit)
+      value.totalWon = Math.round(value.totalWon)
+      value.totalLost = Math.round(value.totalLost)
+    }
+
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30')
+    res.json({ ok: true, stats })
+  } catch (error) {
+    console.error('[public-profile-stats] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load profile stats.' })
+  }
+})
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const sort = ['played', 'profit', 'least-profit'].includes(String(req.query.sort))
       ? String(req.query.sort)
       : 'played'
+    const requestedGame = String(req.query.game || 'all').toLowerCase()
+    const game = ['all', 'mm2', 'adm', 'ps99'].includes(requestedGame) ? requestedGame : 'all'
     const profiles = await adminRest(
       'user_profiles?select=id,username,avatar_url,avatar_headshot_url,role,level,played,won,lost&limit=1000',
     )
@@ -3115,7 +3181,7 @@ app.get('/api/leaderboard', async (req, res) => {
       .slice(0, 10)
 
     res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30')
-    res.json({ ok: true, leaders })
+    res.json({ ok: true, game, leaders })
   } catch (error) {
     console.error('[leaderboard] failed', error)
     res.status(500).json({ ok: false, error: 'Unable to load the leaderboard.' })

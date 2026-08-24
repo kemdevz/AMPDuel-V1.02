@@ -226,7 +226,7 @@ export default function LiveCasinoGame({ providerId, gameId }) {
           <div className={`relative z-[1] flex max-w-[460px] flex-col items-center px-6 text-center ${launch?.launchUrl && !frameLoading ? 'hidden' : ''}`}>
             {loading ? (
               <>
-                <span className="mb-4 h-8 w-8 animate-spin rounded-full border-[3px] border-[#2a3048] border-t-[#6c63ff]" />
+                <span className="mb-4 h-8 w-8 animate-spin rounded-full border-[3px] border-[#2a3048] border-t-[#ff4fa3]" />
                 <p className="m-0 text-[13px] font-medium text-[#a6b2d3]">Converting Coins and launching securely...</p>
               </>
             ) : error ? (
@@ -236,14 +236,14 @@ export default function LiveCasinoGame({ providerId, gameId }) {
                 <button
                   type="button"
                   onClick={() => { void returnToCasino() }}
-                  className="h-10 cursor-pointer rounded-[8px] border border-[#5e55d966] bg-gradient-to-br from-[#5b52e2] to-[#4038c0] px-5 text-[13px] font-semibold text-white"
+                  className="h-10 cursor-pointer rounded-[8px] border border-[#5e55d966] bg-gradient-to-br from-[#ff4fa3] to-[#f43f8f] px-5 text-[13px] font-semibold text-white"
                 >
                   Return to Live Casino
                 </button>
               </>
             ) : launch?.launchUrl && frameLoading ? (
               <>
-                <span className="mb-4 h-8 w-8 animate-spin rounded-full border-[3px] border-[#2a3048] border-t-[#6c63ff]" />
+                <span className="mb-4 h-8 w-8 animate-spin rounded-full border-[3px] border-[#2a3048] border-t-[#ff4fa3]" />
                 <p className="m-0 text-[13px] font-medium text-[#a6b2d3]">Loading {game?.name}...</p>
               </>
             ) : null}

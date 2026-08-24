@@ -91,9 +91,9 @@ function getCaseArtworkSize(caseItem) {
 }
 
 const PLAYER_OPTIONS = [
-  { id: "ffa-2", family: "ffa", label: "1v1", count: 2, color: "#6c63ff" },
-  { id: "ffa-3", family: "ffa", label: "1v1v1", count: 3, color: "#6c63ff" },
-  { id: "ffa-4", family: "ffa", label: "1v1v1v1", count: 4, color: "#6c63ff" },
+  { id: "ffa-2", family: "ffa", label: "1v1", count: 2, color: "#ff4fa3" },
+  { id: "ffa-3", family: "ffa", label: "1v1v1", count: 3, color: "#ff4fa3" },
+  { id: "ffa-4", family: "ffa", label: "1v1v1v1", count: 4, color: "#ff4fa3" },
   { id: "team-4", family: "team", label: "2v2", count: 4, teams: 2, color: "#3a89eb" },
   { id: "team-6", family: "team", label: "3v3", count: 6, teams: 2, color: "#3a89eb" },
   { id: "team-6-2v2v2", family: "team", label: "2v2v2", count: 6, teams: 3, color: "#3a89eb" },
@@ -108,7 +108,7 @@ const MODE_OPTIONS = [
   {
     id: "normal",
     title: "Normal",
-    color: "#6c63ff",
+    color: "#ff4fa3",
     description: "Player or team with the biggest total value wins the battle.",
     Icon: Trophy,
   },
@@ -237,7 +237,7 @@ function BattleVersusIcon() {
 function AddCaseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <path d="M6.667 1.333A.667.667 0 0 0 5.333 1.333V5.333H1.333A.667.667 0 0 0 1.333 6.667H5.333V10.667A.667.667 0 0 0 6.667 10.667V6.667H10.667A.667.667 0 0 0 10.667 5.333H6.667V1.333Z" fill="#6c63ff" />
+      <path d="M6.667 1.333A.667.667 0 0 0 5.333 1.333V5.333H1.333A.667.667 0 0 0 1.333 6.667H5.333V10.667A.667.667 0 0 0 6.667 10.667V6.667H10.667A.667.667 0 0 0 10.667 5.333H6.667V1.333Z" fill="#ff4fa3" />
     </svg>
   );
 }
@@ -392,9 +392,9 @@ const BATTLE_STYLES = String.raw`
   @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap");
 
   .battles-page {
-    --accent: #6c63ff;
-    --accent-light: #8079ff;
-    --accent-dark: #5a51e6;
+    --accent: #ff4fa3;
+    --accent-light: #ff69b0;
+    --accent-dark: #f43f8f;
     --danger: #ff4d4d;
     --success: #22c55e;
     --surface-0: #131520;
@@ -435,10 +435,10 @@ const BATTLE_STYLES = String.raw`
   }
 
   .bb-btn:active:not(:disabled) { transform: scale(.97); }
-  .bb-btn:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
+  .bb-btn:focus-visible { outline: 2px solid #ff69b0; outline-offset: 2px; }
   .bb-btn:disabled { cursor: not-allowed; opacity: .6; transform: none; filter: none; }
-  .bb-btn-primary { border: 1px solid rgba(94,85,217,.4); background: linear-gradient(135deg,#5b52e2,#4038c0); box-shadow: 0 2px 8px rgba(108,99,255,.2); }
-  .bb-btn-primary:hover:not(:disabled) { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
+  .bb-btn-primary { border: 1px solid rgba(255,79,163,.4); background: linear-gradient(135deg,#ff4fa3,#f43f8f); box-shadow: 0 2px 8px rgba(255,79,163,.2); }
+  .bb-btn-primary:hover:not(:disabled) { background: linear-gradient(135deg,#ff4fa3,#f43f8f); opacity: .95; }
   .bb-btn-danger { border: 1px solid rgba(224,49,49,.42); background: linear-gradient(135deg,#ff5f5f,#c92a2a); box-shadow: 0 2px 8px rgba(255,77,77,.16); }
   .bb-btn-danger:hover:not(:disabled) { background: linear-gradient(135deg,#ff6b6b,#e03131); opacity: .95; }
   .bb-btn-secondary { border: 0; background: #2a2e44; box-shadow: none; color: #e1e4f2; }
@@ -552,12 +552,12 @@ const BATTLE_STYLES = String.raw`
   .bb-row-avatar-loading { display: block; width: 100%; height: 100%; }
   .bb-row-battle-icon { display: inline-flex; width: 20px; height: 20px; flex: 0 0 20px; align-items: center; justify-content: center; color: #6c7399; transition: color .2s ease; }
   .bb-row-battle-icon svg { display: block; width: 20px; height: 20px; }
-  .bb-row:hover .bb-row-battle-icon { color: #6c63ff; }
+  .bb-row:hover .bb-row-battle-icon { color: #ff4fa3; }
   .bb-row-player-before-vs { margin-right: 15px; }
   .bb-row-player-after-vs { margin-left: 15px; }
   .bb-row-mode { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
   .bb-row-mode-icon { display: inline-grid; width: 28px; height: 28px; box-sizing: border-box; flex-shrink: 0; place-items: center; padding: 5px; border-radius: 8px; line-height: 0; cursor: default; }
-  .bb-row-mode-normal { color: #6c63ff; background: rgba(108,99,255,.133); }
+  .bb-row-mode-normal { color: #ff4fa3; background: rgba(255,79,163,.133); }
   .bb-row-mode-wild { color: #22c55e; background: rgba(34,197,94,.133); }
   .bb-row-mode-jackpot { color: #f59e0b; background: rgba(245,158,11,.133); }
   .bb-row-mode-group { color: #2dd4bf; background: rgba(45,212,191,.133); }
@@ -656,7 +656,7 @@ const BATTLE_STYLES = String.raw`
   .bb-switch-gold .bb-switch-label { color: #f8ad1a; }
   .bb-switch-gold img { width: 18px; height: 18px; object-fit: contain; }
   .bb-switch-track { position: relative; width: 28px; height: 16px; flex-shrink: 0; border-radius: 999px; background: #2a2e44; transition: background .2s; }
-  .bb-switch-track-on { background: #6c63ff; }
+  .bb-switch-track-on { background: #ff4fa3; }
   .bb-switch-gold .bb-switch-track-on { background: #f8ad1a; }
   .bb-switch-knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .2s; }
   .bb-switch-track-on .bb-switch-knob { left: 14px; }
@@ -669,7 +669,7 @@ const BATTLE_STYLES = String.raw`
   .bb-header-meta-divider { width: 1px; height: 16px; background: #252839; }
   .bb-fast-spin { display: inline-flex; width: 38px; height: 38px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 1px solid #1b1e2c; border-radius: 6px; background: #131520; color: #fff; cursor: pointer; transform-origin: center; transition: transform var(--dur-fast) var(--ease-out),opacity .15s ease; }
   .bb-fast-spin:active { transform: scale(var(--press-scale)); }
-  .bb-fast-spin:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
+  .bb-fast-spin:focus-visible { outline: 2px solid #ff69b0; outline-offset: 2px; }
   .bb-fast-spin svg { display: block; transition: fill .15s ease; }
 
   .bb-section { margin-bottom: 20px; }
@@ -698,7 +698,7 @@ const BATTLE_STYLES = String.raw`
   .bb-add-label { font-size: 11px; font-weight: 600; }
 
   .bb-selected-card { position: relative; display: flex; flex-direction: column; align-items: center; overflow: hidden; padding: 14px; border-radius: 6px; background: #171925; }
-  .bb-selected-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 120% at 95% 95%,rgba(108,99,255,.16) 0%,rgba(108,99,255,.08) 22%,transparent 58%); opacity: .9; pointer-events: none; }
+  .bb-selected-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 120% at 95% 95%,rgba(255,79,163,.16) 0%,rgba(255,79,163,.08) 22%,transparent 58%); opacity: .9; pointer-events: none; }
   .bb-selected-glow { position: absolute; inset: -30px; z-index: 0; width: calc(100% + 60px); height: calc(100% + 60px); object-fit: cover; opacity: .14; filter: blur(48px) saturate(110%); transform: scale(1.22); transition: opacity .18s ease,filter .22s ease,transform .22s ease; pointer-events: none; }
   .bb-selected-card:hover .bb-selected-glow { opacity: .2; filter: blur(54px) saturate(125%); transform: scale(1.28); }
   .bb-drag-handle { position: absolute; z-index: 3; top: 8px; left: 8px; color: #3a3e55; font-size: 10px; user-select: none; }
@@ -768,7 +768,7 @@ const BATTLE_STYLES = String.raw`
   .bb-sort { display: inline-flex; width: 40px; height: 40px; min-width: 40px; flex-shrink: 0; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: #20222f; color: #e1e4f2; cursor: pointer; transition: background .15s; }
   .bb-sort:hover { background: #2a2e44; }
   .bb-sort:active { transform: scale(.97); }
-  .bb-sort:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
+  .bb-sort:focus-visible { outline: 2px solid #ff69b0; outline-offset: 2px; }
   .bb-picker-grid-wrap { position: relative; height: 440px; overflow-x: hidden; overflow-y: auto; margin-top: 14px; padding: 12px; scrollbar-color: rgba(255,255,255,.08) transparent; }
   .bb-picker-grid-wrap::-webkit-scrollbar { width: 8px; }
   .bb-picker-grid-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -777,7 +777,7 @@ const BATTLE_STYLES = String.raw`
   .bb-picker-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(170px,1fr)); gap: 10px; }
   .bb-picker-card { min-width: 170px; cursor: pointer; user-select: none; }
   .bb-picker-card-inner { position: relative; display: flex; flex-direction: column; align-items: center; overflow: hidden; padding: 14px; border-radius: 6px; background: #171925; }
-  .bb-picker-card-inner::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 120% at 95% 95%,rgba(108,99,255,.16) 0%,rgba(108,99,255,.08) 22%,transparent 58%); opacity: .9; pointer-events: none; }
+  .bb-picker-card-inner::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 120% at 95% 95%,rgba(255,79,163,.16) 0%,rgba(255,79,163,.08) 22%,transparent 58%); opacity: .9; pointer-events: none; }
   .bb-picker-glow { position: absolute; inset: -30px; z-index: 0; width: calc(100% + 60px); height: calc(100% + 60px); object-fit: cover; opacity: .14; filter: blur(48px) saturate(110%); transform: scale(1.22); pointer-events: none; transition: opacity .18s ease,filter .22s ease,transform .22s ease; }
   .bb-picker-card:hover .bb-picker-glow { opacity: .2; filter: blur(54px) saturate(125%); transform: scale(1.28); }
   .bb-picker-eye { position: absolute; z-index: 3; top: 8px; left: 8px; display: flex; width: 32px; height: 32px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #fff; opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none; transition: opacity .16s ease,transform .16s ease; }
@@ -822,7 +822,7 @@ const BATTLE_STYLES = String.raw`
   .bb-icon-action { display: inline-flex; height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; border: 0; border-radius: 8px; outline: none; box-shadow: none; background: transparent; color: #e1e4f2; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transform-origin: center; transition: opacity .15s ease,transform .1s ease; }
   .bb-icon-action:hover { background: transparent; opacity: .75; }
   .bb-icon-action:active { transform: scale(.97); }
-  .bb-icon-action:focus-visible { outline: 2px solid #8079ff; outline-offset: 2px; }
+  .bb-icon-action:focus-visible { outline: 2px solid #ff69b0; outline-offset: 2px; }
 
   .bb-battle-meta { position: relative; display: grid; min-height: 73px; grid-template-columns: 1fr 1fr; align-items: center; width: 100%; margin-bottom: 14px; }
   .bb-battle-meta-left { display: flex; min-width: 0; align-items: center; gap: 8px; justify-self: start; }
@@ -931,8 +931,8 @@ const BATTLE_STYLES = String.raw`
   .bb-result-value { display: inline-flex; align-items: center; gap: 6px; color: rgb(var(--rarity)); font-size: 16px; font-weight: 700; white-space: nowrap; }
   .bb-result-value img { width: 14px; height: 14px; flex: 0 0 auto; margin: 0; }
   .bb-vs-overlay { position: absolute; z-index: 50; inset: 0; pointer-events: none; }
-  .bb-vs-badge { position: absolute; top: 88px; display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(108,99,255,.85); border-radius: 10px; background: rgba(24,27,39,.78); backdrop-filter: blur(6px); box-shadow: 0 0 0 1px rgba(108,99,255,.2),0 0 28px rgba(108,99,255,.4); transform: translate(-50%,-50%) rotate(45deg); }
-  .bb-vs-badge::before { content: ""; position: absolute; z-index: 0; inset: -5px; border-radius: 50px; background: radial-gradient(100% 100% at 75% 75%,rgba(108,99,255,.55) 50%,rgba(108,99,255,.1) 45%,rgba(108,99,255,0)); filter: blur(8px); opacity: .9; }
+  .bb-vs-badge { position: absolute; top: 88px; display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(255,79,163,.85); border-radius: 10px; background: rgba(24,27,39,.78); backdrop-filter: blur(6px); box-shadow: 0 0 0 1px rgba(255,79,163,.2),0 0 28px rgba(255,79,163,.4); transform: translate(-50%,-50%) rotate(45deg); }
+  .bb-vs-badge::before { content: ""; position: absolute; z-index: 0; inset: -5px; border-radius: 50px; background: radial-gradient(100% 100% at 75% 75%,rgba(255,79,163,.55) 50%,rgba(255,79,163,.1) 45%,rgba(255,79,163,0)); filter: blur(8px); opacity: .9; }
   .bb-vs-icon { position: relative; z-index: 1; width: 18px; height: 18px; opacity: .95; transform: rotate(-45deg); }
   .bb-vs-icon svg { display: block; width: 100%; height: 100%; }
 
@@ -953,7 +953,7 @@ const BATTLE_STYLES = String.raw`
   .bb-fairness-copy svg { width: 18px; height: 18px; }
   .bb-fairness-copy:hover { color: rgba(255,255,255,.72); }
   .bb-fairness-copy:active { transform: scale(.93); }
-  .bb-fairness-copy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+  .bb-fairness-copy:focus-visible { outline: 2px solid #ff69b0; outline-offset: 3px; }
   .bb-fairness-pending { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
   @keyframes bb-fairness-modal-in { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   @keyframes bb-fairness-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
@@ -1009,7 +1009,7 @@ const BATTLE_STYLES = String.raw`
     font-family: Poppins, sans-serif;
     animation: case-preview-open .3s forwards;
     scrollbar-width: thin;
-    scrollbar-color: #6c63ff transparent;
+    scrollbar-color: #ff4fa3 transparent;
   }
 
   .case-preview-modal::-webkit-scrollbar,
@@ -1027,7 +1027,7 @@ const BATTLE_STYLES = String.raw`
   .case-preview-modal::-webkit-scrollbar-thumb,
   .case-preview-items-wrapper::-webkit-scrollbar-thumb {
     border-radius: 50px;
-    background-color: #6c63ff;
+    background-color: #ff4fa3;
     opacity: .6;
   }
 
@@ -1062,7 +1062,7 @@ const BATTLE_STYLES = String.raw`
   }
 
   .case-preview-close:focus-visible {
-    outline: 2px solid #6c63ff;
+    outline: 2px solid #ff4fa3;
     outline-offset: 2px;
   }
 
@@ -1157,7 +1157,7 @@ const BATTLE_STYLES = String.raw`
     border-radius: 6px;
     background: #1c1f2e;
     scrollbar-width: thin;
-    scrollbar-color: #6c63ff transparent;
+    scrollbar-color: #ff4fa3 transparent;
   }
 
   .case-preview-items-grid {
@@ -1187,7 +1187,7 @@ const BATTLE_STYLES = String.raw`
     z-index: 0;
     padding: 2px;
     border-radius: 6px;
-    background: linear-gradient(to bottom, transparent 0%, var(--item-border-side, rgba(108, 99, 255, .25)) 55%, var(--item-border-bottom, rgba(108, 99, 255, .7)) 100%);
+    background: linear-gradient(to bottom, transparent 0%, var(--item-border-side, rgba(255, 79, 163, .25)) 55%, var(--item-border-bottom, rgba(255, 79, 163, .7)) 100%);
     content: "";
     pointer-events: none;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -2279,13 +2279,13 @@ function BattleRow({ battle, finished = false, onView, onPreview, onProfileOpen 
                     ) : (
                       <svg viewBox="0 0 64 64" className="bb-row-avatar-loading" aria-label="Waiting for player" role="img">
                         <circle cx="32" cy="32" r="32" fill="#1c1f2e" />
-                        <circle cx="22" cy="32" r="4" fill="#6C63FF">
+                        <circle cx="22" cy="32" r="4" fill="#ff4fa3">
                           <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0s" />
                         </circle>
-                        <circle cx="32" cy="32" r="4" fill="#6C63FF">
+                        <circle cx="32" cy="32" r="4" fill="#ff4fa3">
                           <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.4s" />
                         </circle>
-                        <circle cx="42" cy="32" r="4" fill="#6C63FF">
+                        <circle cx="42" cy="32" r="4" fill="#ff4fa3">
                           <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.8s" />
                         </circle>
                       </svg>
@@ -2396,7 +2396,7 @@ function BattlesList({ battles, error, onCreate, onView, onPreview, onProfileOpe
 
 function PlayerSelector({ selected, onSelect }) {
   const groups = [
-    { id: "ffa", title: "Free For All", color: "#6c63ff" },
+    { id: "ffa", title: "Free For All", color: "#ff4fa3" },
     { id: "team", title: "Teams", color: "#3a89eb" },
   ];
 

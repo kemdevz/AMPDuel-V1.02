@@ -7,11 +7,10 @@ import ProfileModal from './ProfileModal'
 import LeaderboardModal from './LeaderboardModal'
 import Notifications from './Notifications'
 import { useAuth } from '../store/auth'
-import { Menu, MessageSquare } from 'lucide-react'
 import { NavLink } from '../lib/router'
-import { CoinflipIcon } from './icons'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
+import { FairnessModal } from '../pages/Upgrader'
 
 export default function Layout({ children }) {
   const user = useAuth((s) => s.user)
@@ -22,6 +21,7 @@ export default function Layout({ children }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const [fairnessModalOpen, setFairnessModalOpen] = useState(false)
 
   useEffect(() => {
     const handleOpenProfileModal = () => {
@@ -32,6 +32,12 @@ export default function Layout({ children }) {
     return () => {
       window.removeEventListener('profile:open', handleOpenProfileModal)
     }
+  }, [])
+
+  useEffect(() => {
+    const openFairness = () => setFairnessModalOpen(true)
+    window.addEventListener('upgrader-fairness:open', openFairness)
+    return () => window.removeEventListener('upgrader-fairness:open', openFairness)
   }, [])
 
   useEffect(() => {
@@ -90,7 +96,7 @@ export default function Layout({ children }) {
   }, [mobileNavOpen])
 
   return (
-    <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[#171925]">
+    <div className="reference-shell flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[hsl(228_17%_12%)]">
       <Sidebar
         isLoggedIn={isLoggedIn}
         mobileOpen={mobileNavOpen}
@@ -100,42 +106,36 @@ export default function Layout({ children }) {
         onOpenTermsModal={() => setTermsModalOpen(true)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header
-          onOpenProfileModal={() => setProfileModalOpen(true)}
-        />
+      <Header
+        onOpenProfileModal={() => setProfileModalOpen(true)}
+        onOpenLeaderboardModal={() => setLeaderboardModalOpen(true)}
+        onOpenTermsModal={() => setTermsModalOpen(true)}
+      />
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="mt-[72px] flex min-h-0 flex-1 overflow-hidden">
+          <ChatPanel mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
 
           <main
-            className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:rounded-t-[0.5rem] lg:pb-0"
-            style={{
-              background:
-                'linear-gradient(rgba(29, 32, 47, 0.82), rgba(29, 32, 47, 0.94)), url("/site-background.png") center center / cover',
-            }}
+            className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto bg-[hsl(228_17%_12%)] pb-[calc(5rem+env(safe-area-inset-bottom))] xl:pb-0"
           >
             {children}
           </main>
-
-          <ChatPanel mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
-        </div>
       </div>
 
       <nav
         aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-[130] grid h-[calc(4.5rem+env(safe-area-inset-bottom))] grid-cols-3 border-t border-white/[0.06] bg-[#151722] pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed bottom-0 left-0 z-[130] flex h-[calc(5rem+env(safe-area-inset-bottom))] w-full items-stretch border-t border-white/[0.06] bg-[hsl(227_17%_11%)] pb-[env(safe-area-inset-bottom)] xl:hidden"
       >
         <button
           type="button"
-          className={`relative flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-semibold ${mobileNavOpen ? 'text-[#766dff]' : 'text-[#969dc8]'}`}
+          aria-label="menu"
+          className={`flex flex-1 items-center justify-center border-0 border-b-2 bg-transparent text-xl transition ${mobileNavOpen ? 'border-b-[#ff4fa3] text-[#ff4fa3]' : 'border-b-transparent text-white/60'}`}
           onClick={() => {
             setMobileChatOpen(false)
             setMobileNavOpen((open) => !open)
           }}
         >
-          {mobileNavOpen ? <span className="absolute inset-x-5 top-0 h-[3px] rounded-b-full bg-[#6c63ff]" /> : null}
-          <Menu className="h-6 w-6" strokeWidth={2.4} />
-          <span>Menu</span>
+          <svg viewBox="0 0 576 512" className="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M575.8 255.5c0 18-15 32.1-32 32.1h-32l.7 160.2c0 2.7-.2 5.4-.5 8.1V472c0 22.1-17.9 40-40 40h-16c-1.1 0-2.2 0-3.3-.1-1.4.1-2.8.1-4.2.1h-56c-22.1 0-40-17.9-40-40v-88c0-17.7-14.3-32-32-32h-64c-17.7 0-32 14.3-32 32v88c0 22.1-17.9 40-40 40h-56c-1.5 0-3-.1-4.5-.2-1.2.1-2.4.2-3.6.2h-16c-22.1 0-40-17.9-40-40V287.6H32c-18 0-32-14-32-32.1 0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7l255.8 224.5c8 7 12 15 11 24z" /></svg>
         </button>
 
         <NavLink
@@ -145,23 +145,22 @@ export default function Layout({ children }) {
             setMobileNavOpen(false)
             setMobileChatOpen(false)
           }}
-          className={({ isActive }) => `relative flex flex-col items-center justify-center gap-1 text-[11px] font-semibold no-underline ${isActive && !mobileNavOpen && !mobileChatOpen ? 'text-[#766dff]' : 'text-[#969dc8]'}`}
+          aria-label="games"
+          className={({ isActive }) => `flex flex-1 items-center justify-center border-b-2 text-xl transition ${isActive && !mobileNavOpen && !mobileChatOpen ? 'border-b-[#ff4fa3] text-[#ff4fa3]' : 'border-b-transparent text-white/60'}`}
         >
-          <CoinflipIcon className="h-6 w-6" />
-          <span>Coinflip</span>
+          <svg viewBox="0 0 640 512" className="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M192 64C86 64 0 150 0 256s86 192 192 192h256c106 0 192-86 192-192S554 64 448 64H192zm304 104a40 40 0 1 1 0 80 40 40 0 1 1 0-80zM392 304a40 40 0 1 1 80 0 40 40 0 1 1-80 0zM168 200c0-13.3 10.7-24 24-24s24 10.7 24 24v32h32c13.3 0 24 10.7 24 24s-10.7 24-24 24h-32v32c0 13.3-10.7 24-24 24s-24-10.7-24-24v-32h-32c-13.3 0-24-10.7-24-24s10.7-24 24-24h32v-32z" /></svg>
         </NavLink>
 
         <button
           type="button"
-          className={`relative flex flex-col items-center justify-center gap-1 border-0 bg-transparent text-[11px] font-semibold ${mobileChatOpen ? 'text-[#766dff]' : 'text-[#969dc8]'}`}
+          aria-label="chat"
+          className={`flex flex-1 items-center justify-center border-0 border-b-2 bg-transparent text-xl transition ${mobileChatOpen ? 'border-b-[#ff4fa3] text-[#ff4fa3]' : 'border-b-transparent text-white/60'}`}
           onClick={() => {
             setMobileNavOpen(false)
             setMobileChatOpen(true)
           }}
         >
-          {mobileChatOpen ? <span className="absolute inset-x-5 top-0 h-[3px] rounded-b-full bg-[#6c63ff]" /> : null}
-          <MessageSquare className="h-6 w-6" fill="currentColor" strokeWidth={1.8} />
-          <span>Chat</span>
+          <svg viewBox="0 0 512 512" className="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M64 0C28.7 0 0 28.7 0 64v288c0 35.3 28.7 64 64 64h96v80c0 6.1 3.4 11.6 8.8 14.3s11.9 2.1 16.8-1.5L309.3 416H448c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H64z" /></svg>
         </button>
       </nav>
 
@@ -180,6 +179,7 @@ export default function Layout({ children }) {
         isOpen={termsModalOpen}
         onClose={() => setTermsModalOpen(false)}
       />
+      {fairnessModalOpen ? <FairnessModal onClose={() => setFairnessModalOpen(false)} /> : null}
 
       <ProfileTipManager />
       <Notifications />

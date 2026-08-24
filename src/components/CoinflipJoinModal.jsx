@@ -78,7 +78,7 @@ function findAutoSelectedItems(items, minValue, targetValue, maxValue) {
 function BagIcon() {
   return (
     <svg viewBox="0 0 260 320" width="20" height="20" aria-hidden="true">
-      <path fill="#6C63FF" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
+      <path fill="#ff4fa3" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
       <path fill="#7A72FF" d="M60 180h140v75c0 20-15 35-35 35H95c-20 0-35-15-35-35v-75z" />
       <path fill="#4A43C9" d="M110 40h40c8 0 12 10 12 20v10H98V60c0-10 4-20 12-20z" />
     </svg>
@@ -446,7 +446,7 @@ export default function CoinflipJoinModal({ room, onClose, onJoin }) {
 .cfjStat div{display:flex;flex-direction:column;gap:1px}
 .cfjStat span{font-size:10px;font-weight:700;color:#ffffff59;letter-spacing:.06em}
 .cfjStat strong{font-size:17px;line-height:1;color:#f6f6f6}
-.cfjPlus,.cfjDeposit,.cfjJoinBtn{border:1px solid rgba(94,85,217,.4);background:linear-gradient(135deg,#5b52e2,#4038c0);color:#fff;box-shadow:0 2px 8px #6c63ff33;cursor:pointer}
+.cfjPlus,.cfjDeposit,.cfjJoinBtn{border:1px solid rgba(255,79,163,.4);background:linear-gradient(135deg,#ff4fa3,#f43f8f);color:#fff;box-shadow:0 2px 8px #ff4fa333;cursor:pointer}
 .cfjPlus{width:34px;height:34px;border-radius:8px;font-size:22px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .cfjGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
 .cfjItem{position:relative;height:170px;border:0;border-radius:6px;padding:8px;overflow:hidden;background:linear-gradient(to top,rgba(54,123,255,.18),rgba(54,123,255,0)),rgb(39,45,70);cursor:pointer;color:inherit;transition:transform .15s;text-align:center}

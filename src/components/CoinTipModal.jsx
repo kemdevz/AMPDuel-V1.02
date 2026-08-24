@@ -129,7 +129,7 @@ export default function CoinTipModal({
         }
 
         .tipUserClose:focus-visible {
-          outline: 2px solid #8079ff;
+          outline: 2px solid #ff69b0;
           outline-offset: 2px;
         }
 
@@ -151,14 +151,14 @@ export default function CoinTipModal({
           align-items: center;
           justify-content: center;
           border-radius: 999px;
-          background: rgba(108, 99, 255, .12);
+          background: rgba(255, 79, 163, .12);
         }
 
         .tipUserIcon {
           display: block;
           width: 28px;
           height: 28px;
-          color: #6c63ff;
+          color: #ff4fa3;
         }
 
         .tipUserTitle {
@@ -270,8 +270,8 @@ export default function CoinTipModal({
         }
 
         .tipUserCheckboxInput:checked + .tipUserCheckboxBox {
-          border-color: rgba(108, 99, 255, .5);
-          background: linear-gradient(135deg, #6c63ff, #574fd6);
+          border-color: rgba(255, 79, 163, .5);
+          background: linear-gradient(135deg, #ff4fa3, #574fd6);
         }
 
         .tipUserCheckboxInput:checked + .tipUserCheckboxBox::after {
@@ -285,7 +285,7 @@ export default function CoinTipModal({
         }
 
         .tipUserCheckboxInput:focus-visible + .tipUserCheckboxBox {
-          outline: 2px solid #8079ff;
+          outline: 2px solid #ff69b0;
           outline-offset: 2px;
         }
 
@@ -312,10 +312,10 @@ export default function CoinTipModal({
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          border: 1px solid rgba(94, 85, 217, .4);
+          border: 1px solid rgba(255, 79, 163, .4);
           border-radius: 8px;
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
-          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
           color: #fff;
           font-size: 14.4px;
           font-weight: 600;
@@ -326,7 +326,7 @@ export default function CoinTipModal({
         }
 
         .tipUserButton:hover:not(:disabled) {
-          background: linear-gradient(135deg, #6c63ff, #5147d9);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
           opacity: .95;
         }
 
@@ -335,7 +335,7 @@ export default function CoinTipModal({
         }
 
         .tipUserButton:focus-visible {
-          outline: 2px solid #8079ff;
+          outline: 2px solid #ff69b0;
           outline-offset: 2px;
         }
 

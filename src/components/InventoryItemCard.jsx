@@ -56,7 +56,7 @@ export const inventoryItemCardStyles = `
     z-index: 0;
     padding: 2px;
     border-radius: 6px;
-    background: linear-gradient(to bottom, transparent 0%, var(--inventory-border-side, rgba(108,99,255,.25)) 55%, var(--inventory-border-bottom, rgba(108,99,255,.7)) 100%);
+    background: linear-gradient(to bottom, transparent 0%, var(--inventory-border-side, rgba(255,79,163,.25)) 55%, var(--inventory-border-bottom, rgba(255,79,163,.7)) 100%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);

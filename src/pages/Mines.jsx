@@ -463,9 +463,9 @@ export default function Mines() {
       <style>{`
         .mines-page {
           --header-height: 5rem;
-          --accent: #6c63ff;
-          --accent-light: #8079ff;
-          --accent-dark: #5a51e6;
+          --accent: #ff4fa3;
+          --accent-light: #ff69b0;
+          --accent-dark: #f43f8f;
           --accent-gradient: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 45%, var(--accent-dark) 100%);
           --surface-0: #131520;
           --surface-1: #1c1f2e;
@@ -495,7 +495,7 @@ export default function Mines() {
           position: relative;
           isolation: isolate;
           overflow: hidden;
-          border: 1px solid rgba(94,85,217,.4);
+          border: 1px solid rgba(255,79,163,.4);
           color: #fff;
           height: var(--btn-height);
           min-width: var(--btn-min-width);
@@ -508,14 +508,14 @@ export default function Mines() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
-          box-shadow: 0 2px 8px rgba(108,99,255,.2);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          box-shadow: 0 2px 8px rgba(255,79,163,.2);
           cursor: pointer;
           transform-origin: center center;
           transition: opacity .2s ease, transform .1s ease, background .25s ease;
         }
 
-        .mines-page ._btnPrimary_sd554_43:hover:not(:disabled) { background: linear-gradient(135deg, #6c63ff, #5147d9); opacity: .95; }
+        .mines-page ._btnPrimary_sd554_43:hover:not(:disabled) { background: linear-gradient(135deg, #ff4fa3, #f43f8f); opacity: .95; }
         .mines-page ._btnPrimary_sd554_43:active:not(:disabled) { opacity: 1; transform: scale(.97); }
         .mines-page ._btnPrimary_sd554_43:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
         .mines-page ._btnPrimary_sd554_43:disabled { opacity: .6; cursor: not-allowed; transform: none; filter: none; }
@@ -567,18 +567,18 @@ export default function Mines() {
         .minesFairnessInputHolder{display:flex;min-width:0;align-items:center;gap:10px;padding:12px 13px}
         .minesFairnessValue{display:block;min-width:0;flex:1;overflow:hidden;color:rgba(255,255,255,.88);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}
         .minesFairnessCopy{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:0 0 18px;padding:0;border:0;outline:none;background:transparent;color:#fff;cursor:pointer;transition:color 140ms ease;-webkit-tap-highlight-color:transparent}
-        .minesFairnessCopy svg{width:18px;height:18px}.minesFairnessCopy:hover{color:rgba(255,255,255,.72)}.minesFairnessCopy:focus-visible{outline:2px solid #8079ff;outline-offset:3px}
+        .minesFairnessCopy svg{width:18px;height:18px}.minesFairnessCopy:hover{color:rgba(255,255,255,.72)}.minesFairnessCopy:focus-visible{outline:2px solid #ff69b0;outline-offset:3px}
         .minesFairnessSeedRow{display:flex;align-items:stretch;gap:10px}
         .minesFairnessSeedInput{width:100%;min-width:0;padding:0 13px;outline:none;color:rgba(255,255,255,.9);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;transition:box-shadow 140ms ease,background 140ms ease}
-        .minesFairnessSeedInput:focus{background:#1f2335;box-shadow:inset 0 0 0 1px rgba(108,99,255,.55)}
+        .minesFairnessSeedInput:focus{background:#1f2335;box-shadow:inset 0 0 0 1px rgba(255,79,163,.55)}
         .minesFairnessRandom,.minesFairnessSave{min-height:42px;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:transform .13s cubic-bezier(.22,1,.36,1),background .15s ease,opacity .15s ease}
         .minesFairnessRandom{min-width:108px;padding:0 18px;border:0;background:#2a2e44}.minesFairnessRandom:hover:not(:disabled){background:#32385a}
-        .minesFairnessSave{width:100%;margin-top:22px;padding:0 20px;border:1px solid rgba(94,85,217,.4);background:linear-gradient(135deg,#5b52e2,#4038c0);box-shadow:0 2px 8px rgba(108,99,255,.2)}
-        .minesFairnessSave:hover:not(:disabled){background:linear-gradient(135deg,#6c63ff,#5147d9);opacity:.95}
+        .minesFairnessSave{width:100%;margin-top:22px;padding:0 20px;border:1px solid rgba(255,79,163,.4);background:linear-gradient(135deg,#ff4fa3,#f43f8f);box-shadow:0 2px 8px rgba(255,79,163,.2)}
+        .minesFairnessSave:hover:not(:disabled){background:linear-gradient(135deg,#ff4fa3,#f43f8f);opacity:.95}
         .minesFairnessRandom:active:not(:disabled),.minesFairnessSave:active:not(:disabled){transform:scale(.98)}
         .minesFairnessSeedInput:disabled,.minesFairnessRandom:disabled,.minesFairnessSave:disabled{cursor:not-allowed;opacity:.55}
         .minesFairnessNote{margin:12px 0 0;color:#6c7399;font-size:11px;font-weight:500;line-height:1.55;text-align:center}
-        .minesFairnessReveal{margin-top:1.4rem;padding:1rem;border:0 solid rgba(108,99,255,.4);border-radius:6px;background:rgba(108,99,255,.06);animation:mines-fairness-modal-in .24s ease-out both}
+        .minesFairnessReveal{margin-top:1.4rem;padding:1rem;border:0 solid rgba(255,79,163,.4);border-radius:6px;background:rgba(255,79,163,.06);animation:mines-fairness-modal-in .24s ease-out both}
         .minesFairnessRevealTitle{display:block;color:#e1e4f2;font-size:13px;font-weight:700}.minesFairnessRevealDescription{display:block;margin-top:5px;color:#a6b2d3;font-size:11px;font-weight:500;line-height:1.55}
         .minesFairnessRevealValue{margin-top:.6rem;margin-bottom:0}.minesFairnessRevealMeta{display:flex;margin-top:9px;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;color:#6c7399;font-size:11px;font-weight:500}.minesFairnessRevealMeta b{color:#a6b2d3;font-weight:700}
         @keyframes mines-fairness-backdrop-in{from{opacity:0}to{opacity:1}}@keyframes mines-fairness-modal-in{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes mines-fairness-backdrop-out{from{opacity:1}to{opacity:0}}@keyframes mines-fairness-modal-out{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.96) translateY(8px)}}
@@ -610,14 +610,14 @@ export default function Mines() {
         ._minesNumberInput_lhu08_251[type=number]{-moz-appearance:textfield}
         ._slider_lhu08_265{width:100%;-webkit-appearance:none;-moz-appearance:none;appearance:none;height:20px;background:transparent;outline:none;cursor:pointer;display:block}
         ._slider_lhu08_265::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--accent) var(--slider-pct, 20%),#2a2e44 var(--slider-pct, 20%))}
-        ._slider_lhu08_265::-webkit-slider-thumb{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 4px #6c63ff66;margin-top:-4.5px}
+        ._slider_lhu08_265::-webkit-slider-thumb{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 4px #ff4fa366;margin-top:-4.5px}
         ._slider_lhu08_265::-moz-range-track{height:4px;border-radius:2px;background:#2a2e44}
         ._slider_lhu08_265::-moz-range-progress{height:4px;border-radius:2px;background:var(--accent)}
-        ._slider_lhu08_265::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:none;box-shadow:0 0 4px #6c63ff66}
+        ._slider_lhu08_265::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:none;box-shadow:0 0 4px #ff4fa366}
         ._tabSelector_lhu08_312{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
         ._tab_lhu08_312._tab_lhu08_312{height:38px;min-width:0;padding:0;font-size:13px}
-        ._activeTab_lhu08_325._activeTab_lhu08_325{background:linear-gradient(135deg,#5b52e2,#4038c0);border:1px solid rgba(94,85,217,.4);box-shadow:0 2px 8px rgba(108,99,255,.2);color:#fff}
-        .mines-page ._activeTab_lhu08_325._activeTab_lhu08_325:hover:not(:disabled){background:linear-gradient(135deg,#6c63ff,#5147d9);opacity:.95}
+        ._activeTab_lhu08_325._activeTab_lhu08_325{background:linear-gradient(135deg,#ff4fa3,#f43f8f);border:1px solid rgba(255,79,163,.4);box-shadow:0 2px 8px rgba(255,79,163,.2);color:#fff}
+        .mines-page ._activeTab_lhu08_325._activeTab_lhu08_325:hover:not(:disabled){background:linear-gradient(135deg,#ff4fa3,#f43f8f);opacity:.95}
         ._statsRow_lhu08_332{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         ._statBox_lhu08_337{background:var(--surface-1);border-radius:var(--radius-sm);padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
         ._statLabel_lhu08_346{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#ffffff61}
@@ -743,7 +743,7 @@ export default function Mines() {
                 <defs>
                   <linearGradient id="minesIconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="100%" stopColor="#6c63ff" />
+                    <stop offset="100%" stopColor="#ff4fa3" />
                   </linearGradient>
                 </defs>
               </svg>

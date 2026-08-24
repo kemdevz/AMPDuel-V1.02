@@ -584,8 +584,8 @@ export default function DepositModal({ isOpen, onClose }) {
             background: linear-gradient(
               to bottom,
               transparent 0%,
-              var(--item-border-side, rgba(108, 99, 255, .25)) 55%,
-              var(--item-border-bottom, rgba(108, 99, 255, .7)) 100%
+              var(--item-border-side, rgba(255, 79, 163, .25)) 55%,
+              var(--item-border-bottom, rgba(255, 79, 163, .7)) 100%
             );
             -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -820,12 +820,12 @@ export default function DepositModal({ isOpen, onClose }) {
             cursor: pointer;
             border-radius: 12px;
             border: 1px solid transparent;
-            background: linear-gradient(#1b1f2e,#1b1f2e) padding-box, linear-gradient(180deg, rgba(108,99,255,.6), rgba(108,99,255,.1)) border-box;
+            background: linear-gradient(#1b1f2e,#1b1f2e) padding-box, linear-gradient(180deg, rgba(255,79,163,.6), rgba(255,79,163,.1)) border-box;
             transition: transform .18s ease, background .25s ease, box-shadow .25s ease;
           }
 
           ._card_13k1a_253:hover {
-            background: linear-gradient(#20222f,#20222f) padding-box, linear-gradient(180deg, rgba(108,99,255,.95), rgba(108,99,255,.2)) border-box;
+            background: linear-gradient(#20222f,#20222f) padding-box, linear-gradient(180deg, rgba(255,79,163,.95), rgba(255,79,163,.2)) border-box;
           }
 
           ._card_13k1a_253:active { transform: scale(.985); }
@@ -962,7 +962,7 @@ export default function DepositModal({ isOpen, onClose }) {
             transition: border-color .2s ease, transform .18s ease;
           }
 
-          ._botPfp_13k1a_597:hover { border-color: #6c63ff; transform: scale(1.03); }
+          ._botPfp_13k1a_597:hover { border-color: #ff4fa3; transform: scale(1.03); }
 
           ._botNameWrap_13k1a_local {
             display: flex;
@@ -1092,9 +1092,9 @@ export default function DepositModal({ isOpen, onClose }) {
             font-weight: 800;
             white-space: nowrap;
             border-radius: 7px;
-            background: linear-gradient(135deg, rgba(108,99,255,.95), rgba(64,56,192,.95));
-            border-color: rgba(94,85,217,.6);
-            box-shadow: 0 2px 8px rgba(108,99,255,.25);
+            background: linear-gradient(135deg, rgba(255,79,163,.95), rgba(64,56,192,.95));
+            border-color: rgba(255,79,163,.6);
+            box-shadow: 0 2px 8px rgba(255,79,163,.25);
           }
 
           ._footer_13k1a_895 p {
@@ -1115,15 +1115,15 @@ export default function DepositModal({ isOpen, onClose }) {
             justify-content: center;
             flex-shrink: 0;
             border-radius: 8px;
-            border: 1px solid rgba(94,85,217,.4);
+            border: 1px solid rgba(255,79,163,.4);
             outline: none;
-            background: linear-gradient(135deg,#6c63ff,#5147d9);
+            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
             color: #fff;
             font-size: 13.5px;
             font-weight: 600;
             line-height: 32px;
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(108,99,255,.25);
+            box-shadow: 0 2px 8px rgba(255,79,163,.25);
             cursor: pointer;
             transition: none;
             pointer-events: auto;
@@ -1138,8 +1138,8 @@ export default function DepositModal({ isOpen, onClose }) {
             font-size: 12.5px;
             font-weight: 700;
             border-radius: 7px;
-            background: linear-gradient(135deg, rgba(108,99,255,.95), rgba(64,56,192,.95));
-            border-color: rgba(94,85,217,.6);
+            background: linear-gradient(135deg, rgba(255,79,163,.95), rgba(64,56,192,.95));
+            border-color: rgba(255,79,163,.6);
           }
 
           ._helpButton_13k1a_local {
@@ -1151,8 +1151,8 @@ export default function DepositModal({ isOpen, onClose }) {
             font-weight: 700;
             line-height: 34px;
             border-radius: 7px;
-            background: linear-gradient(135deg, rgba(108,99,255,.95), rgba(64,56,192,.95));
-            border-color: rgba(94,85,217,.6);
+            background: linear-gradient(135deg, rgba(255,79,163,.95), rgba(64,56,192,.95));
+            border-color: rgba(255,79,163,.6);
           }
 
           @media (max-width: 640px) {

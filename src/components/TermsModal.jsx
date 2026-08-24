@@ -18,7 +18,7 @@ const terms = [
     content: (
       <>
         Rule-breaking accounts may be restricted. Contact our{' '}
-        <a href="https://discord.gg/xcDdtcnPP2" target="_blank" rel="noopener noreferrer">Discord Server</a> support.
+        <a href="https://discord.gg/bloxdicecom" target="_blank" rel="noopener noreferrer">Discord Server</a> support.
       </>
     ),
   },
@@ -140,7 +140,7 @@ export default function TermsModal({ isOpen, onClose }) {
           .termsList{display:grid;min-height:0;flex:1;grid-template-rows:repeat(12,minmax(0,1fr));gap:1px}.termsList article{display:grid;grid-template-columns:17px minmax(0,1fr);align-items:center;gap:2px;padding:0 3px}.termsList article>span{color:#e4e7f4;font-size:10.6px;font-weight:700;line-height:1.3;text-align:left}.termsList p{margin:0;color:#8f96b5;font-size:clamp(9px,2.1vw,10.6px);font-weight:500;line-height:1.3;letter-spacing:-.015em;white-space:nowrap}.termsList a{color:#a7adcf;font-weight:650;text-decoration:underline;text-decoration-color:rgba(167,173,207,.45);text-underline-offset:2px}.termsList a:hover{color:#fff}
           .termsFooter{display:flex;flex-shrink:0;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)}
           .termsFooter p{max-width:275px;margin:0;color:#737b9b;font-size:10.5px;font-weight:500;line-height:1.35}
-          .termsFooter button{height:36px;padding:0 16px;border:1px solid rgba(94,85,217,.4);border-radius:8px;background:linear-gradient(180deg,#8079ff 0%,#6c63ff 45%,#5a51e6 100%);color:#fff;font:600 11px Poppins,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(108,99,255,.2);transition:filter .14s ease,transform .14s ease}.termsFooter button:hover{filter:brightness(1.08)}.termsFooter button:active{transform:scale(.98)}
+          .termsFooter button{height:36px;padding:0 16px;border:1px solid rgba(255,79,163,.4);border-radius:8px;background:linear-gradient(180deg,#ff69b0 0%,#ff4fa3 45%,#f43f8f 100%);color:#fff;font:600 11px Poppins,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(255,79,163,.2);transition:filter .14s ease,transform .14s ease}.termsFooter button:hover{filter:brightness(1.08)}.termsFooter button:active{transform:scale(.98)}
           @keyframes termsFadeIn{from{opacity:0}to{opacity:1}}@keyframes termsFadeOut{from{opacity:1}to{opacity:0}}@keyframes termsModalOpen{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes termsModalClose{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.94)}}
           @media(max-width:640px){.termsModal{width:100%;height:min(480px,calc(100dvh - 32px));padding:12px}.termsHeading h1{font-size:19px}.termsScroll{padding-top:8px}.termsList{gap:0}.termsList article{grid-template-columns:17px minmax(0,1fr);gap:2px}.termsList article>span,.termsList p{font-size:9.5px}.termsFooter p{font-size:10px}}
         `}</style>

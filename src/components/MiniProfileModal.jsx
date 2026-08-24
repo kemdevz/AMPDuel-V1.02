@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
-import { isUuidLike, resolveStorageProfileId } from '../lib/supabaseClient'
+import { useNavigate } from '../lib/router'
+import { isUuidLike } from '../lib/supabaseClient'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
-import { notifications } from './Notifications'
-import AnimatedStatNumber from './AnimatedStatNumber'
 import { PROFILE_TIP_OPEN_EVENT } from './ProfileTipManager'
 
 const profileCache = new Map()
 const profilePreloadRequests = new Map()
 const FALLBACK_AVATAR = '/login.png'
+const EMPTY_STATS = { totalBet: 0, totalProfit: 0, totalWon: 0, totalLost: 0 }
+const GAME_OPTIONS = [['all', 'All Games'], ['mm2', 'MM2'], ['adm', 'ADM'], ['ps99', 'PS99']]
 
 function normalizeProfileCacheKey(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -26,31 +27,14 @@ function getCachedProfile(values) {
 
 function cacheProfile(profile, aliases = []) {
   if (!profile) return
-
-  const keys = [
-    profile.id,
-    profile.profile_id,
-    profile.roblox_id,
-    profile.username,
-    profile.name,
-    ...aliases,
-  ]
-
-  keys.forEach((value) => {
+  [profile.id, profile.profile_id, profile.roblox_id, profile.username, profile.name, ...aliases].forEach((value) => {
     const key = normalizeProfileCacheKey(value)
     if (key) profileCache.set(key, profile)
   })
 }
 
 export function preloadMiniProfile(player) {
-  const aliases = [
-    player?.profile_id,
-    player?.id,
-    player?.user_id,
-    player?.uuid,
-    player?.username,
-    player?.name,
-  ].filter(Boolean)
+  const aliases = [player?.profile_id, player?.id, player?.user_id, player?.uuid, player?.username, player?.name].filter(Boolean)
   const cachedProfile = getCachedProfile(aliases)
   if (cachedProfile) return Promise.resolve(cachedProfile)
 
@@ -60,9 +44,7 @@ export function preloadMiniProfile(player) {
   if (!requestKey) return Promise.resolve(null)
   if (profilePreloadRequests.has(requestKey)) return profilePreloadRequests.get(requestKey)
 
-  const query = profileId
-    ? `ids=${encodeURIComponent(profileId)}`
-    : `username=${encodeURIComponent(username)}`
+  const query = profileId ? `ids=${encodeURIComponent(profileId)}` : `username=${encodeURIComponent(username)}`
   const request = apiRequest(`/api/public-profiles?${query}`)
     .then((result) => {
       const loadedProfile = result?.profiles?.[0] || null
@@ -76,23 +58,38 @@ export function preloadMiniProfile(player) {
   return request
 }
 
+function formatStat(value) {
+  return Math.round(Number(value) || 0).toLocaleString('en-US')
+}
+
+function StatCard({ amount, label }) {
+  return (
+    <div className="miniPlayerProfileCard rounded border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.15)] px-6 py-4">
+      <div className="flex items-center gap-1 font-semibold">
+        <img src="/currency.svg" alt="currency" width="18" height="18" className="-mt-[2px] h-[18px] w-[18px] object-contain" />
+        {formatStat(amount)}
+      </div>
+      <div className="text-xs font-medium uppercase opacity-60">{label}</div>
+    </div>
+  )
+}
+
 export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   const currentUser = useAuth((state) => state.user)
-  const toggleIgnoredUser = useAuth((state) => state.toggleIgnoredUser)
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
-  const [ignoreUpdating, setIgnoreUpdating] = useState(false)
+  const [activeGame, setActiveGame] = useState('all')
+  const [statsByGame, setStatsByGame] = useState(null)
+
+  const playerAliases = useMemo(() => [player?.profile_id, player?.id, player?.user_id, player?.uuid, player?.username, player?.name]
+    .map(normalizeProfileCacheKey).filter(Boolean), [player])
 
   useEffect(() => {
     if (!isOpen) return undefined
-
     const previousOverflow = document.body.style.overflow
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose?.()
-    }
-
+    const handleKeyDown = (event) => { if (event.key === 'Escape') onClose?.() }
     document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
-
     return () => {
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
@@ -102,643 +99,140 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   useEffect(() => {
     if (!isOpen) {
       setProfile(null)
+      setStatsByGame(null)
+      setActiveGame('all')
       return undefined
     }
-
-    const rawIdentifiers = [player?.profile_id, player?.id, player?.user_id, player?.uuid].filter(Boolean)
-    const candidateNames = [player?.username, player?.name, player?.display_name]
-      .map((value) => String(value ?? '').trim())
-      .filter(Boolean)
-
-    if (rawIdentifiers.length === 0 && candidateNames.length === 0) {
-      setProfile(null)
-      return undefined
-    }
-
     let active = true
-    const cacheAliases = [...rawIdentifiers, ...candidateNames]
-    const cachedProfile = getCachedProfile(cacheAliases)
-    if (cachedProfile) setProfile(cachedProfile)
+    const cached = getCachedProfile(playerAliases)
+    if (cached) setProfile(cached)
+    void preloadMiniProfile(player).then((loadedProfile) => {
+      if (active) setProfile(loadedProfile || cached || null)
+    })
+    return () => { active = false }
+  }, [isOpen, player, playerAliases])
 
-    const loadProfile = async () => {
-      try {
-        const candidateIds = []
-        for (const identifier of rawIdentifiers) {
-          const trimmed = String(identifier).trim()
-          if (!trimmed) continue
-          if (isUuidLike(trimmed)) candidateIds.push(trimmed)
-
-          const resolvedId = await resolveStorageProfileId(trimmed)
-          if (isUuidLike(resolvedId)) candidateIds.push(resolvedId)
-        }
-
-        const uniqueIds = [...new Set(candidateIds.filter(Boolean))]
-
-        const idRequest = uniqueIds.length > 0
-          ? apiRequest(`/api/public-profiles?ids=${encodeURIComponent(uniqueIds.join(','))}`)
-            .then((result) => ({ data: result?.profiles || [], error: null }))
-            .catch((error) => ({ data: [], error }))
-          : Promise.resolve({ data: [], error: null })
-        const nameRequests = candidateNames.map((candidateName) => (
-          apiRequest(`/api/public-profiles?username=${encodeURIComponent(candidateName)}`)
-            .then((result) => ({ data: result?.profiles?.[0] || null, error: null }))
-            .catch((error) => ({ data: null, error }))
-        ))
-        const [idResponse, ...nameResponses] = await Promise.all([idRequest, ...nameRequests])
-
-        if (!active) return
-
-        if (!idResponse.error && Array.isArray(idResponse.data) && idResponse.data.length > 0) {
-          cacheProfile(idResponse.data[0], cacheAliases)
-          setProfile(idResponse.data[0])
-          return
-        }
-
-        for (const nameResponse of nameResponses) {
-          if (!nameResponse.error && nameResponse.data) {
-            cacheProfile(nameResponse.data, cacheAliases)
-            setProfile(nameResponse.data)
-            return
-          }
-        }
-
-        if (!cachedProfile) setProfile(null)
-      } catch (err) {
-        console.warn('[MiniProfileModal] failed to load profile', err)
-        if (active && !cachedProfile) setProfile(null)
-      }
-    }
-
-    void loadProfile()
-
-    return () => {
-      active = false
-    }
-  }, [
-    isOpen,
-    player?.profile_id,
-    player?.id,
-    player?.user_id,
-    player?.uuid,
-    player?.username,
-    player?.name,
-    player?.display_name,
-  ])
-
-  if (!isOpen || typeof document === 'undefined') return null
-
-  const playerKeys = [
-    player?.profile_id,
-    player?.id,
-    player?.user_id,
-    player?.uuid,
-    player?.username,
-    player?.name,
-  ].map(normalizeProfileCacheKey).filter(Boolean)
-  const profileKeys = [
-    profile?.profile_id,
-    profile?.id,
-    profile?.user_id,
-    profile?.uuid,
-    profile?.username,
-    profile?.name,
-  ].map(normalizeProfileCacheKey).filter(Boolean)
-  const cachedProfile = getCachedProfile(playerKeys)
-  const cachedProfileKeys = [
-    cachedProfile?.profile_id,
-    cachedProfile?.id,
-    cachedProfile?.user_id,
-    cachedProfile?.uuid,
-    cachedProfile?.username,
-    cachedProfile?.name,
-  ].map(normalizeProfileCacheKey).filter(Boolean)
-  const profileMatchesPlayer = profileKeys.some((key) => playerKeys.includes(key))
-  const cachedProfileMatchesPlayer = cachedProfileKeys.some((key) => playerKeys.includes(key))
-  const immediateProfile = profileMatchesPlayer ? profile : cachedProfileMatchesPlayer ? cachedProfile : null
-  const resolvedProfile = {
-    ...player,
-    ...(immediateProfile || {}),
-  }
-
-  const username = resolvedProfile?.username || resolvedProfile?.name || 'aduplayercrazy80'
-  const avatar =
-    resolvedProfile?.avatar_headshot_url ||
-    resolvedProfile?.avatar ||
-    resolvedProfile?.avatar_url ||
-    FALLBACK_AVATAR
-  const roleStyle = getRoleStyle(resolvedProfile?.role)
-  const targetProfileId = String(
-    immediateProfile?.id ||
-    player?.profile_id ||
-    (isUuidLike(String(player?.id || '').trim()) ? player.id : '') ||
-    resolvedProfile?.user_id ||
-    resolvedProfile?.uuid ||
-    '',
-  ).trim()
+  const resolvedProfile = useMemo(() => ({ ...player, ...(profile || {}) }), [player, profile])
+  const targetProfileId = String(profile?.id || player?.profile_id || (isUuidLike(String(player?.id || '').trim()) ? player.id : '') || resolvedProfile?.user_id || resolvedProfile?.uuid || '').trim()
   const currentProfileId = String(currentUser?.profile_id || currentUser?.id || '').trim()
-  const isOwnProfile = Boolean(targetProfileId && targetProfileId === currentProfileId)
-  const isIgnored = Boolean(
-    targetProfileId &&
-    Array.isArray(currentUser?.ignored_users) &&
-    currentUser.ignored_users.includes(targetProfileId),
+  const currentUsername = normalizeProfileCacheKey(currentUser?.username)
+  const targetUsername = normalizeProfileCacheKey(resolvedProfile?.username || resolvedProfile?.name)
+  const isOwnProfile = Boolean(
+    (targetProfileId && currentProfileId && targetProfileId === currentProfileId) ||
+    (!targetProfileId && currentUsername && targetUsername === currentUsername),
   )
-  const stats = {
-    totalPlayed: Number(resolvedProfile?.played ?? resolvedProfile?.totalPlayed ?? 0),
-    won: Number(resolvedProfile?.won ?? 0),
-    lost: Number(resolvedProfile?.lost ?? 0),
+
+  useEffect(() => {
+    if (!isOpen || !isOwnProfile) return
+    onClose?.()
+    navigate('/profile')
+  }, [isOpen, isOwnProfile, navigate, onClose])
+
+  useEffect(() => {
+    if (!isOpen || !targetProfileId || isOwnProfile) return undefined
+    let active = true
+    setStatsByGame(null)
+    apiRequest(`/api/public-profile-stats?id=${encodeURIComponent(targetProfileId)}`, { cache: 'no-store' })
+      .then((result) => { if (active) setStatsByGame(result?.stats || null) })
+      .catch((error) => {
+        console.warn('[MiniProfileModal] failed to load player stats', error)
+        if (active) setStatsByGame(null)
+      })
+    return () => { active = false }
+  }, [isOpen, isOwnProfile, targetProfileId])
+
+  if (!isOpen || isOwnProfile || typeof document === 'undefined') return null
+
+  const username = resolvedProfile?.username || resolvedProfile?.name || 'User'
+  const avatar = resolvedProfile?.avatar_headshot_url || resolvedProfile?.avatar || resolvedProfile?.avatar_url || FALLBACK_AVATAR
+  const roleStyle = getRoleStyle(resolvedProfile?.role)
+  const fallbackStats = {
+    totalBet: Number(resolvedProfile?.played || 0),
+    totalProfit: Number(resolvedProfile?.won || 0) - Number(resolvedProfile?.lost || 0),
+    totalWon: Number(resolvedProfile?.won || 0),
+    totalLost: Number(resolvedProfile?.lost || 0),
   }
-  const handleToggleIgnored = async () => {
-    if (ignoreUpdating) return
-    setIgnoreUpdating(true)
-    const nextIgnored = !isIgnored
-    const updateRequest = toggleIgnoredUser(targetProfileId)
-    notifications.success(`${username} ${nextIgnored ? 'ignored' : 'unignored'}.`)
-    const result = await updateRequest
-    if (result?.error) {
-      notifications.error(
-        result.error.message ||
-        `Unable to ${nextIgnored ? 'ignore' : 'unignore'} ${username}; the change was reverted.`,
-      )
-    }
-    setIgnoreUpdating(false)
-  }
+  const stats = statsByGame?.[activeGame] || (activeGame === 'all' ? fallbackStats : EMPTY_STATS)
 
   const handleTip = () => {
-    if (typeof onTip === 'function') {
-      onTip(resolvedProfile)
-      return
+    if (typeof onTip === 'function') onTip(resolvedProfile)
+    else {
+      window.dispatchEvent(new CustomEvent(PROFILE_TIP_OPEN_EVENT, { detail: { recipient: resolvedProfile } }))
+      onClose?.()
     }
-    window.dispatchEvent(new CustomEvent(PROFILE_TIP_OPEN_EVENT, {
-      detail: { recipient: resolvedProfile },
-    }))
-    onClose?.()
   }
 
   return createPortal(
-    <div
-      className="miniProfileBackdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.()
-      }}
-    >
+    <div className="fixed inset-0 z-[2147483200] bg-[hsl(228_17%_12%/.4)] animate-[miniProfileBackdropIn_200ms_ease-out_forwards]" role="presentation" style={{ pointerEvents: 'auto', zIndex: 2147483200 }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.() }}>
       <style>{`
-        @keyframes miniProfileFadeIn {
-          0% { opacity: 0; }
-          to { opacity: 1; }
+        @keyframes miniProfileBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes miniProfileDialogIn {
+          from { opacity: 0; transform: translate(-50%, -48%); }
+          to { opacity: 1; transform: translate(-50%, -50%); }
         }
-
-        @keyframes miniProfileOpen {
-          0% { opacity: 0; transform: scale(.97) translateY(4px); }
-          to { opacity: 1; transform: scale(1); }
+        .miniPlayerProfileTabs {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
         }
-
-        .miniProfileBackdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 2147483200;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background-color: rgba(0, 0, 0, .5);
-          animation: miniProfileFadeIn .18s ease-out;
-          font-family: Poppins, sans-serif;
+        .miniPlayerProfileCard {
+          border-color: hsl(231 16% 16%);
+          background-color: hsl(230 16% 14% / .15);
         }
-
-        .miniProfileModal,
-        .miniProfileModal * {
-          box-sizing: border-box;
-          font-family: Poppins, sans-serif;
-        }
-
-        .miniProfileModal {
-          position: relative;
-          width: 90%;
-          max-width: 440px;
-          min-height: 450px;
-          height: auto;
-          max-height: none;
-          margin: 20px;
-          padding: 15px;
-          overflow: visible;
-          border: 1.2px solid #181a28;
-          border-radius: 12px;
-          background-color: #131520;
-          box-shadow: 0 0 rgba(108, 99, 255, .25);
-          color: #fff;
-          text-align: center;
-          animation: miniProfileOpen .18s cubic-bezier(.22, 1, .36, 1) forwards;
-        }
-
-        .miniProfileClose {
-          position: absolute;
-          top: 5px;
-          right: 10px;
-          padding: 0;
-          border: none;
-          background: none;
-          color: #fff;
-          font-size: 24px;
-          line-height: normal;
-          opacity: .8;
-          cursor: pointer;
-          transition: opacity .3s ease, transform .2s ease;
-        }
-
-        .miniProfileClose:hover {
-          opacity: 1;
-        }
-
-        .miniProfileHeader {
-          display: flex;
-          align-items: center;
-          margin-bottom: 25px;
-          padding: 0 15px;
-        }
-
-        .miniProfileAvatar {
-          width: 90px;
-          height: 90px;
-          flex-shrink: 0;
-          border: 3px solid #22283f;
-          border-radius: 50%;
-          background-color: #1c1f2e;
-          object-fit: cover;
-          transition: transform .2s ease, box-shadow .2s ease;
-        }
-
-        .miniProfileUserInfo {
-          min-width: 0;
-          margin-left: 20px;
-          text-align: left;
-        }
-
-        .miniProfileUserRow {
-          display: flex;
-          min-width: 0;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .miniProfileUsername {
-          max-width: 220px;
-          margin: 0;
-          overflow: hidden;
-          color: #fff;
-          font-size: 1.4rem;
-          font-weight: 700;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .miniProfileRankRow {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .miniProfileRoleWrapper {
-          position: relative;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .miniProfileRankBackground {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          border-radius: 5px;
-          opacity: .3;
-          filter: blur(0);
-          transition: background .3s ease;
-        }
-
-        .miniProfileRank {
-          position: relative;
-          z-index: 1;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 3px 8px;
-          border-radius: 8px;
-          font-size: .95rem;
-          font-weight: 600;
-          letter-spacing: .8px;
-          text-transform: uppercase;
-          transition: background .3s ease;
-        }
-
-        .miniProfileRankImage {
-          width: 22px;
-          height: 22px;
-          margin: 0;
-          object-fit: contain;
-        }
-
-        .miniProfileIgnoreButton {
-          margin: 0;
-          outline: none;
-          display: inline-flex;
-          width: 28px;
-          height: 28px;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          border: none;
-          border-radius: 6px;
-          background: #2a2e44;
-          color: #e1e4f2;
-          box-shadow: none;
-          cursor: pointer;
-          flex-shrink: 0;
-          font-family: Poppins, sans-serif;
-          transform-origin: center center;
-          transition: background .14s ease, color .14s ease, transform .13s cubic-bezier(.22, 1, .36, 1);
-        }
-
-        .miniProfileIgnoreButton:hover {
-          background: #353d5b;
-          color: #e1e4f2;
-        }
-
-        .miniProfileIgnoreButton[aria-pressed="true"] {
-          background: #2a2e44;
-          color: #e1e4f2;
-        }
-
-        .miniProfileIgnoreButton:active {
-          transform: scale(.98);
-        }
-
-        .miniProfileIgnoreButton:focus,
-        .miniProfileIgnoreButton:focus-visible {
-          outline: none;
-          box-shadow: none;
-        }
-
-        .miniProfileStats {
-          display: flex;
-          margin-top: 20px;
-          padding: 0 15px;
-          flex-direction: column;
-          gap: 15px;
-        }
-
-        .miniProfileStatRow {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
-        .miniProfileStatBox {
-          display: block;
-          min-width: 0;
-          padding: 15px;
-          flex: 1;
-          border-radius: 10px;
-          background: #1c1f2e;
-          color: #ccc;
-          font-size: .9rem;
-          font-weight: 600;
-          letter-spacing: .6px;
-          text-align: center;
-          text-transform: uppercase;
-          transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-        }
-
-        .miniProfileStatBox strong {
-          display: block;
-          font-size: 1.1rem;
-        }
-
-        .miniProfileStatValue {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-        }
-
-        .miniProfileStatValue img {
-          width: 20px;
-          height: 20px;
-          margin-top: 4px;
-          margin-right: 5px;
-        }
-
-        .miniProfileStatValue span {
-          display: block;
-          margin-top: 5px;
-          font-size: 1.4rem;
-          font-weight: 600;
-        }
-
-        .miniProfileTipWrapper {
-          display: flex;
-          margin-top: 25px;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          text-align: center;
-        }
-
-        .miniProfileAction {
-          width: 100%;
-          max-width: 360px;
-          min-height: 42px;
-          padding: 0 20px;
-          border: 1px solid rgba(94, 85, 217, .4);
-          border-radius: 8px;
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
-          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
-          color: #fff;
-          font-size: 1rem;
-          font-weight: 600;
-          cursor: pointer;
-          transform-origin: center;
-          transition: transform .13s cubic-bezier(.22, 1, .36, 1), background .15s ease, opacity .15s ease;
-        }
-
-        .miniProfileAction:hover:not(:disabled) {
-          background: linear-gradient(135deg, #6c63ff, #5147d9);
-          opacity: .95;
-        }
-
-        .miniProfileAction:active:not(:disabled) {
-          transform: scale(.98);
-        }
-
-        .miniProfileAction:focus-visible {
-          outline: 2px solid #8079ff;
-          outline-offset: 2px;
-        }
-
-        @media (max-width: 840px) {
-          .miniProfileBackdrop {
-            padding: 0;
-          }
-
-          .miniProfileModal {
+        @media (min-width: 640px) {
+          .miniPlayerProfileDialog {
             width: 100%;
-            max-width: 100%;
-            min-height: 100%;
-            height: auto;
-            max-height: none;
-            margin: 0;
-            padding: 20px;
-            overflow: visible;
-            border-radius: 0;
-          }
-
-          .miniProfileHeader {
-            margin-top: 10px;
-          }
-
-          .miniProfileAvatar {
-            width: 70px;
-            height: 70px;
-          }
-
-          .miniProfileStats {
-            padding: 0 10px;
-            flex-direction: column;
-            gap: 10px;
-          }
-
-          .miniProfileStatBox {
-            flex: 1 1 48%;
-          }
-
-          .miniProfileAction {
-            width: 100%;
-            max-width: none;
+            max-width: 448px;
+            height: fit-content;
+            min-height: 288px;
+            border-radius: 8px;
           }
         }
       `}</style>
 
-      <div
-        className="miniProfileModal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="mini-profile-username"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          className="miniProfileClose"
-          aria-label="Close profile"
-          onClick={onClose}
-        >
-          ×
-        </button>
-
-        <div className="miniProfileHeader">
-          <img
-            src={avatar}
-            alt={`${username}'s profile`}
-            className="miniProfileAvatar"
-            draggable={false}
-            referrerPolicy="no-referrer"
-          />
-
-          <div className="miniProfileUserInfo">
-            <div className="miniProfileUserRow">
-              <h2 id="mini-profile-username" className="miniProfileUsername">
+      <div role="dialog" aria-modal="true" aria-labelledby="mini-profile-username" className="miniPlayerProfileDialog fixed left-1/2 top-1/2 z-50 flex h-[100dvh] w-full max-w-full -translate-x-1/2 -translate-y-1/2 flex-col items-start gap-4 rounded-none border border-[hsl(231_16%_16%)] bg-[hsl(227_17%_11%)] px-8 py-8 pb-6 text-white shadow-lg animate-[miniProfileDialogIn_200ms_ease-out_forwards] sm:h-fit sm:min-h-72 sm:max-w-md sm:rounded-lg" style={{ pointerEvents: 'auto' }} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex w-full items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="relative flex h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-[#ff4fa3] bg-[#171920]">
+              <img src={avatar} alt={`${username} thumbnail`} className="absolute inset-0 h-full w-full object-cover" draggable={false} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = FALLBACK_AVATAR }} />
+            </span>
+            <div>
+              <div id="mini-profile-username" className="text-lg font-semibold">
                 {username}
-              </h2>
-            </div>
-
-            <div className="miniProfileRankRow">
-              <div className="miniProfileRoleWrapper">
-                <div
-                  className="_rankBackground_8f3xs_118 miniProfileRankBackground"
-                  style={{ backgroundColor: roleStyle.color }}
-                />
-                <p className="_rank_8f3xs_96 miniProfileRank" style={{ color: roleStyle.color }}>
-                  {roleStyle.label}
-                  {roleStyle.image ? (
-                    <img
-                      src={roleStyle.image}
-                      className="_rankImage_8f3xs_145 miniProfileRankImage"
-                      alt="Role Icon"
-                    />
-                  ) : null}
-                </p>
+                <div className="flex items-center gap-1 text-sm font-medium" style={{ color: roleStyle.color }}>
+                  <div className="grid"><span className="col-span-full row-span-full">{roleStyle.label}</span></div>
+                  {roleStyle.image ? <img src={roleStyle.image} alt={`${roleStyle.label} rank`} width="22" height="22" className="h-[22px] w-[22px] object-contain" /> : null}
+                </div>
               </div>
-              {currentUser && targetProfileId && !isOwnProfile ? (
-                <button
-                  type="button"
-                  className="_ignoreBtn_8f3xs_161 miniProfileIgnoreButton"
-                  title={`${isIgnored ? 'Unignore' : 'Ignore'} ${username}`}
-                  aria-label={`${isIgnored ? 'Unignore' : 'Ignore'} ${username}`}
-                  aria-pressed={isIgnored}
-                  disabled={ignoreUpdating}
-                  onClick={() => { void handleToggleIgnored() }}
-                >
-                  <svg
-                    stroke="currentColor"
-                    fill="currentColor"
-                    strokeWidth="0"
-                    viewBox={isIgnored ? '0 0 576 512' : '0 0 640 512'}
-                    height="1em"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d={isIgnored
-                        ? 'M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z'
-                        : 'M320 400c-75.85 0-137.25-58.71-142.9-133.11L72.2 185.82c-13.79 17.3-26.48 35.59-36.72 55.59a32.35 32.35 0 0 0 0 29.19C89.71 376.41 197.07 448 320 448c26.91 0 52.87-4 77.89-10.46L346 397.39a144.13 144.13 0 0 1-26 2.61zm313.82 58.1l-110.55-85.44a331.25 331.25 0 0 0 81.25-102.07 32.35 32.35 0 0 0 0-29.19C550.29 135.59 442.93 64 320 64a308.15 308.15 0 0 0-147.32 37.7L45.46 3.37A16 16 0 0 0 23 6.18L3.37 31.45A16 16 0 0 0 6.18 53.9l588.36 454.73a16 16 0 0 0 22.46-2.81l19.64-25.27a16 16 0 0 0-2.82-22.45zm-183.72-142l-39.3-30.38A94.75 94.75 0 0 0 416 256a94.76 94.76 0 0 0-121.31-92.21A47.65 47.65 0 0 1 304 192a46.64 46.64 0 0 1-1.54 10l-73.61-56.89A142.31 142.31 0 0 1 320 112a143.92 143.92 0 0 1 144 144c0 21.63-5.29 41.79-13.9 60.11z'}
-                    />
-                  </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 w-full">
+          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs grid h-10 w-full grid-cols-4 items-center justify-center rounded-md bg-[hsl(229_17%_13%)] p-1">
+            {GAME_OPTIONS.map(([value, label]) => {
+              const active = activeGame === value
+              return (
+                <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setActiveGame(value)} className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'bg-[#ff4fa3] font-semibold text-black shadow-sm' : 'text-white/60 hover:text-white'}`}>
+                  {label}
                 </button>
-              ) : null}
+              )
+            })}
+          </div>
+          <div role="tabpanel" className="mt-2 w-full focus-visible:outline-none">
+            <div className="grid w-full grid-cols-2 gap-2">
+              <StatCard amount={stats.totalBet} label="Total Bet" />
+              <StatCard amount={stats.totalProfit} label="Total Profit" />
+              <StatCard amount={stats.totalWon} label="Total Won" />
+              <StatCard amount={stats.totalLost} label="Total Lost" />
             </div>
           </div>
         </div>
 
-        <div className="miniProfileStats">
-          <div className="miniProfileStatRow">
-            <div className="miniProfileStatBox">
-              <strong>Total Played</strong>
-              <div className="miniProfileStatValue">
-                <img src="/bobux.png" alt="Total played" draggable={false} />
-                <AnimatedStatNumber value={stats.totalPlayed} compact />
-              </div>
-            </div>
-          </div>
-
-          <div className="miniProfileStatRow">
-            <div className="miniProfileStatBox">
-              <strong>Won</strong>
-              <div className="miniProfileStatValue">
-                <img src="/bobux.png" alt="Won" draggable={false} />
-                <AnimatedStatNumber value={stats.won} compact />
-              </div>
-            </div>
-
-            <div className="miniProfileStatBox">
-              <strong>Lost</strong>
-              <div className="miniProfileStatValue">
-                <img src="/bobux.png" alt="Lost" draggable={false} />
-                <AnimatedStatNumber value={stats.lost} compact />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="miniProfileTipWrapper">
-          <button
-            type="button"
-            className="miniProfileAction"
-            onClick={handleTip}
-          >
-            Tip User
-          </button>
-        </div>
+        <button type="button" className="inline-flex h-10 w-full min-w-16 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2" onClick={handleTip}>Tip</button>
+        <button type="button" aria-label="Close" className="absolute right-4 top-4 rounded-sm bg-transparent p-0 text-white opacity-70 transition-opacity hover:opacity-100 focus:outline-none" onClick={onClose}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          <span className="sr-only">Close</span>
+        </button>
       </div>
     </div>,
     document.body,

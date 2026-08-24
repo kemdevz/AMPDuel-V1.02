@@ -659,9 +659,9 @@ export default function CaseOpeningView({ item, onBack }) {
         }
 
         .case-open-root {
-          --accent: #6c63ff;
-          --accent-light: #8079ff;
-          --accent-dark: #5a51e6;
+          --accent: #ff4fa3;
+          --accent-light: #ff69b0;
+          --accent-dark: #f43f8f;
           --accent-gradient: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 45%, var(--accent-dark) 100%);
           --surface-2: #1f2335;
           --btn-secondary-bg: #2a3048;
@@ -941,7 +941,7 @@ export default function CaseOpeningView({ item, onBack }) {
           left: 50%;
           width: 0;
           height: 0;
-          border-top: 12px solid rgba(108, 99, 255, .9);
+          border-top: 12px solid rgba(255, 79, 163, .9);
           border-right: 10px solid transparent;
           border-left: 10px solid transparent;
           transform: translateX(-50%);
@@ -1124,12 +1124,12 @@ export default function CaseOpeningView({ item, onBack }) {
 
         .case-open-multi-pointer-left {
           left: 6px;
-          border-left: 12px solid rgba(108, 99, 255, .9);
+          border-left: 12px solid rgba(255, 79, 163, .9);
         }
 
         .case-open-multi-pointer-right {
           right: 6px;
-          border-right: 12px solid rgba(108, 99, 255, .9);
+          border-right: 12px solid rgba(255, 79, 163, .9);
         }
 
         .case-open-controls {
@@ -1174,9 +1174,9 @@ export default function CaseOpeningView({ item, onBack }) {
 
         .case-open-qty button:hover:not(:disabled):not(.is-active) { background: rgba(255, 255, 255, .05); color: rgba(225, 228, 242, .95); }
         .case-open-qty button.is-active {
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
           color: #fff;
-          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
         }
         .case-open-qty button:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -1203,9 +1203,9 @@ export default function CaseOpeningView({ item, onBack }) {
           min-width: var(--btn-min-width);
           padding: 0 18px;
           gap: 8px;
-          border: 1px solid rgba(94, 85, 217, .4);
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
-          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+          border: 1px solid rgba(255, 79, 163, .4);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
           letter-spacing: .01em;
           white-space: nowrap;
         }
@@ -1228,7 +1228,7 @@ export default function CaseOpeningView({ item, onBack }) {
           color: #8b92b8;
         }
 
-        .case-open-primary:hover:not(:disabled) { background: linear-gradient(135deg, #6c63ff, #5147d9); }
+        .case-open-primary:hover:not(:disabled) { background: linear-gradient(135deg, #ff4fa3, #f43f8f); }
         .case-open-secondary:hover:not(:disabled) { background: #32385a; }
         .case-open-fast:hover:not(:disabled) { background: #252839; color: #e1e4f2; }
         .case-open-primary:active:not(:disabled), .case-open-secondary:active:not(:disabled), .case-open-fast:active:not(:disabled) { transform: scale(var(--press-scale)); }
@@ -1571,7 +1571,7 @@ export default function CaseOpeningView({ item, onBack }) {
         }
 
         .case-fairness-copy:hover { color: rgba(255, 255, 255, .72); }
-        .case-fairness-copy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+        .case-fairness-copy:focus-visible { outline: 2px solid #ff69b0; outline-offset: 3px; }
 
         .case-fairness-seed-row {
           display: flex;
@@ -1592,7 +1592,7 @@ export default function CaseOpeningView({ item, onBack }) {
 
         .case-fairness-seed-input:focus {
           background: #1f2335;
-          box-shadow: inset 0 0 0 1px rgba(108, 99, 255, .55);
+          box-shadow: inset 0 0 0 1px rgba(255, 79, 163, .55);
         }
 
         .case-fairness-seed-input:disabled,
@@ -1626,13 +1626,13 @@ export default function CaseOpeningView({ item, onBack }) {
           width: 100%;
           margin-top: 22px;
           padding: 0 20px;
-          border: 1px solid rgba(94, 85, 217, .4);
-          background: linear-gradient(135deg, #5b52e2, #4038c0);
-          box-shadow: 0 2px 8px rgba(108, 99, 255, .2);
+          border: 1px solid rgba(255, 79, 163, .4);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
         }
 
         .case-fairness-save:hover:not(:disabled) {
-          background: linear-gradient(135deg, #6c63ff, #5147d9);
+          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
           opacity: .95;
         }
 
@@ -1651,9 +1651,9 @@ export default function CaseOpeningView({ item, onBack }) {
         .case-fairness-reveal-box {
           margin-top: 1.4rem;
           padding: 1rem;
-          border: 0 solid rgba(108, 99, 255, .4);
+          border: 0 solid rgba(255, 79, 163, .4);
           border-radius: 6px;
-          background: rgba(108, 99, 255, .06);
+          background: rgba(255, 79, 163, .06);
           animation: case-fairness-modal-in .24s ease-out both;
         }
 

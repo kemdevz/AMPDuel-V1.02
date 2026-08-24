@@ -705,7 +705,7 @@ export default function Roll() {
 
 const ROLL_STYLES = `
   .rollPage {
-    --accent: #6c63ff; --accent-light: #8079ff; --accent-dark: #5a51e6;
+    --accent: #ff4fa3; --accent-light: #ff69b0; --accent-dark: #f43f8f;
     --accent-gradient: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 45%, var(--accent-dark) 100%);
     --success-gradient: linear-gradient(180deg, #4ade80 0%, #22c55e 45%, #16a34a 100%);
     --surface-1: #1c1f2e; --radius-sm: 6px; --text-primary: #c7cce2;
@@ -719,7 +719,7 @@ const ROLL_STYLES = `
   .rollSpinnerWrap { margin-bottom: 18px; width: 100%; box-sizing: border-box; min-width: 0; }
   .rollTimer { position: relative; width: 100%; margin-bottom: 14px; }
   .rollTimerText { display: block; text-align: center; font-size: 14px; font-weight: 600; color: #fff; letter-spacing: .08em; margin-bottom: 10px; }
-  .rollTimerText span { color: #6c63ff; }
+  .rollTimerText span { color: #ff4fa3; }
   .rollTimerBar { height: 3px; background: var(--accent); border-radius: 2px; }
   .rollSpinner { position: relative; width: 100%; height: 200px; }
   .rollSpinnerSelector { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 0; height: 100%; z-index: 5; pointer-events: none; }
@@ -731,7 +731,7 @@ const ROLL_STYLES = `
   .rollReelIdle { position: absolute; top: 0; left: 0; height: 100%; display: flex; align-items: center; width: max-content; animation: roll-reel-scroll 90s linear infinite; will-change: transform; }
   @keyframes roll-reel-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .rollCard { width: 160px; height: 100%; flex-shrink: 0; margin-right: 8px; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; position: relative; border: none; box-sizing: border-box; overflow: hidden; }
-  .rollCard::before { content: ""; position: absolute; inset: 0; border-radius: 6px; padding: 2px; background: linear-gradient(to bottom, transparent 0%, var(--roll-card-border-side, rgba(108,99,255,.25)) 55%, var(--roll-card-border-bottom, rgba(108,99,255,.7)) 100%); mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); pointer-events: none; z-index: 0; }
+  .rollCard::before { content: ""; position: absolute; inset: 0; border-radius: 6px; padding: 2px; background: linear-gradient(to bottom, transparent 0%, var(--roll-card-border-side, rgba(255,79,163,.25)) 55%, var(--roll-card-border-bottom, rgba(255,79,163,.7)) 100%); mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0); pointer-events: none; z-index: 0; }
   .rollCard.normal { opacity: 1; }
   .rollImageWrapper { position: relative; width: 100%; height: 90px; overflow: hidden; border-radius: 8px; flex-shrink: 0; margin-top: 12px; }
   .rollItemImage { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; position: absolute; inset: 0; z-index: 1; }
@@ -761,8 +761,8 @@ const ROLL_STYLES = `
   .rollQuickBtn:active { transform: scale(.97); }
   .rollMultBetRow { display: flex; gap: 8px; align-items: center; overflow: hidden; }
   .rollMultInput { flex: 1 1 auto; min-width: 0; width: 0; }
-  .rollPlaceBetBtn { position: relative; z-index: 1; flex: 0 0 auto; height: 42px; min-width: 110px; padding: 0 18px; font-size: 12px; letter-spacing: .02em; isolation: isolate; overflow: hidden; border: 1px solid rgba(94,85,217,.4); color: #fff; box-shadow: 0 2px 8px rgba(108,99,255,.2); box-sizing: border-box; border-radius: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#5b52e2,#4038c0); cursor: pointer; transform-origin: center; transition: transform .1s ease, background .25s ease, opacity .2s ease; }
-  .rollPlaceBetBtn:hover { background: linear-gradient(135deg,#6c63ff,#5147d9); opacity: .95; }
+  .rollPlaceBetBtn { position: relative; z-index: 1; flex: 0 0 auto; height: 42px; min-width: 110px; padding: 0 18px; font-size: 12px; letter-spacing: .02em; isolation: isolate; overflow: hidden; border: 1px solid rgba(255,79,163,.4); color: #fff; box-shadow: 0 2px 8px rgba(255,79,163,.2); box-sizing: border-box; border-radius: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#ff4fa3,#f43f8f); cursor: pointer; transform-origin: center; transition: transform .1s ease, background .25s ease, opacity .2s ease; }
+  .rollPlaceBetBtn:hover { background: linear-gradient(135deg,#ff4fa3,#f43f8f); opacity: .95; }
   .rollPlaceBetBtn:active { opacity: 1; transform: scale(.97); }
   .rollPlaceBetBtn:disabled { cursor: not-allowed; opacity: .45; transform: none; }
   .rollFairnessBtn { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: none; outline: none; box-shadow: none; border-radius: var(--radius-sm); color: #e1e4f2; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .15s; width: 100%; margin-top: 4px; }
@@ -808,9 +808,9 @@ const ROLL_STYLES = `
   .rollFairnessCopy svg { width: 18px; height: 18px; }
   .rollFairnessCopy:hover { color: rgba(255,255,255,.72); }
   .rollFairnessCopy:active { transform: scale(.93); }
-  .rollFairnessCopy:focus-visible { outline: 2px solid #8079ff; outline-offset: 3px; }
+  .rollFairnessCopy:focus-visible { outline: 2px solid #ff69b0; outline-offset: 3px; }
   .rollFairnessPending { margin: 12px 0 0; color: #6c7399; font-size: 11px; font-weight: 500; line-height: 1.55; text-align: center; }
-  .rollFairnessReveal { margin-top: 1.4rem; padding: 1rem; border: 0 solid rgba(108,99,255,.4); border-radius: 6px; background: rgba(108,99,255,.06); animation: roll-fairness-modal-in .24s ease-out both; }
+  .rollFairnessReveal { margin-top: 1.4rem; padding: 1rem; border: 0 solid rgba(255,79,163,.4); border-radius: 6px; background: rgba(255,79,163,.06); animation: roll-fairness-modal-in .24s ease-out both; }
   .rollFairnessRevealTitle { display: block; color: #e1e4f2; font-size: 13px; font-weight: 700; }
   .rollFairnessRevealDescription { display: block; margin-top: 5px; color: #a6b2d3; font-size: 11px; font-weight: 500; line-height: 1.55; }
   .rollFairnessRevealSection { margin-top: .6rem; margin-bottom: 0; }

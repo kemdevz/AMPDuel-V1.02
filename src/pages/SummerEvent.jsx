@@ -437,7 +437,7 @@ function EventCasesPanel() {
             <div className="relative flex flex-col items-center overflow-hidden rounded-[6px] bg-[#171925] p-3.5">
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_95%_95%,rgba(108,99,255,.16)_0%,rgba(108,99,255,.08)_22%,transparent_58%)] opacity-90"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_95%_95%,rgba(255,79,163,.16)_0%,rgba(255,79,163,.08)_22%,transparent_58%)] opacity-90"
               />
               <img
                 src={item.image}
@@ -697,7 +697,7 @@ function RafflePanel() {
             When the Raffle Ends, Winning Ticket Numbers will be Rolled Live on our{" "}
             <a
               className="font-bold text-[#60a5fa] underline underline-offset-2 transition-colors hover:text-[#93c5fd]"
-              href="https://discord.gg/bloxypot"
+              href="https://discord.gg/bloxdicecom"
               rel="noopener noreferrer"
               target="_blank"
             >
@@ -707,7 +707,7 @@ function RafflePanel() {
 
           <button
             type="button"
-            className="inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[rgba(94,85,217,.4)] bg-[linear-gradient(135deg,#6c63ff,#5147d9)] text-sm font-semibold text-white shadow-[0_2px_12px_rgba(108,99,255,.3)] transition-opacity hover:opacity-90"
+            className="inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-[rgba(255,79,163,.4)] bg-[linear-gradient(135deg,#ff4fa3,#f43f8f)] text-sm font-semibold text-white shadow-[0_2px_12px_rgba(255,79,163,.3)] transition-opacity hover:opacity-90"
             onClick={() => setTicketModalOpen(true)}
           >
             View your Tickets
@@ -731,7 +731,7 @@ function RafflePanel() {
                   <img
                     src={user.avatar}
                     alt=""
-                    className="h-[30px] w-[30px] shrink-0 cursor-pointer rounded-full border-2 border-white/[.06] bg-[#1c1f2e] object-cover transition duration-150 hover:scale-105 hover:border-[#6c63ffa6] hover:brightness-110"
+                    className="h-[30px] w-[30px] shrink-0 cursor-pointer rounded-full border-2 border-white/[.06] bg-[#1c1f2e] object-cover transition duration-150 hover:scale-105 hover:border-[#ff4fa3a6] hover:brightness-110"
                     draggable={false}
                   />
                 ) : (
