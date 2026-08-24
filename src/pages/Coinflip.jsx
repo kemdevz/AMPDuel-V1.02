@@ -20,6 +20,7 @@ const RESOLVED_ROOM_LIFETIME_MS = 40_000
 const ROOM_EXIT_ANIMATION_MS = 500
 const RECENT_RESULT_LIMIT = 100
 const CREATOR_VIEW_OPEN_DELAY_MS = 140
+const COINFLIP_GAME_STORAGE_KEY = 'bloxdice:coinflip-game'
 const COINFLIP_GAME_OPTIONS = [
   ['mm2', 'MM2'],
   ['adm', 'AMP'],
@@ -140,7 +141,15 @@ export default function Coinflip() {
   const walletSelection = useAuth((state) => state.walletSelection)
   const setAuthModalOpen = useAuth((state) => state.setAuthModalOpen)
   const [sortBy, setSortBy] = useState('Highest to Lowest')
-  const [gameMode, setGameMode] = useState('mm2')
+  const [gameMode, setGameMode] = useState(() => {
+    if (typeof window === 'undefined') return 'mm2'
+    try {
+      const savedGame = window.localStorage.getItem(COINFLIP_GAME_STORAGE_KEY)
+      return COINFLIP_GAME_OPTIONS.some(([value]) => value === savedGame) ? savedGame : 'mm2'
+    } catch {
+      return 'mm2'
+    }
+  })
   const gameModeIndex = Math.max(0, COINFLIP_GAME_OPTIONS.findIndex(([value]) => value === gameMode))
   const [createOpen, setCreateOpen] = useState(false)
   const [joinRoom, setJoinRoom] = useState(null)
@@ -158,6 +167,14 @@ export default function Coinflip() {
   const viewOpenTimerRef = useRef(null)
   const handledResolvedRoomIdsRef = useRef(new Set())
   const dismissedViewRoomIdsRef = useRef(new Set())
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COINFLIP_GAME_STORAGE_KEY, gameMode)
+    } catch {
+      // Browsers can disable storage; the selected game still works for this session.
+    }
+  }, [gameMode])
 
   const openViewRoom = useCallback((room, delayMs = 0) => {
     if (viewOpenTimerRef.current) {
@@ -873,18 +890,6 @@ export default function Coinflip() {
 
         {/* Game controls */}
         <div className="mb-3 mt-4 flex flex-col justify-between gap-2 sm:flex-row">
-          <div className="flex items-center justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-            >
-              Create
-            </button>
-            <button type="button" onClick={() => setRecentOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-              History
-            </button>
-          </div>
           <div role="tablist" aria-label="CoinFlip game" className="relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
             <span
               aria-hidden="true"
@@ -906,6 +911,18 @@ export default function Coinflip() {
                 </button>
               )
             })}
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            >
+              Create
+            </button>
+            <button type="button" onClick={() => setRecentOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+              History
+            </button>
           </div>
         </div>
 
