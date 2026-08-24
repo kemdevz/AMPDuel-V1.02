@@ -17,7 +17,6 @@ import { notifications } from './Notifications'
 const HEADS_ICON = '/heads.webp'
 const TAILS_ICON = '/tails.webp'
 const MAX_ITEMS = 20
-const JOIN_LIMITS = [1, 5, 10, 15]
 
 export default function CoinflipCreateModal({ onClose, onCreate }) {
   const user = useAuth((state) => state.user)
@@ -26,7 +25,6 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortAscending, setSortAscending] = useState(false)
   const [selectedCoin, setSelectedCoin] = useState('heads')
-  const [maxJoinItems, setMaxJoinItems] = useState(null)
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState('')
   const [depositOpen, setDepositOpen] = useState(false)
@@ -154,7 +152,6 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
       creator_avatar: creatorAvatarUrl,
       item_ids: selectedRows.map((item) => item.id),
       game_mode: null,
-      max_join_items: maxJoinItems,
     }
 
     try {
@@ -206,10 +203,6 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                 <AmpSearch value={searchQuery} onChange={setSearchQuery} />
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
-            </div>
-
-            <div className="amp-limit-row" aria-label="Maximum join items">
-              {JOIN_LIMITS.map((limit) => <button type="button" key={limit} className={`amp-limit-button${maxJoinItems === limit ? ' is-active' : ''}`} aria-pressed={maxJoinItems === limit} onClick={() => setMaxJoinItems((current) => current === limit ? null : limit)}>{limit}x</button>)}
             </div>
 
             {inventoryLoading ? <div className="amp-inventory-loading"><span className="amp-spinner" /><p className="amp-loading-copy">Loading inventory</p></div>

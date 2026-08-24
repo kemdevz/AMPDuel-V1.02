@@ -169,12 +169,6 @@ export const AMP_MODAL_STYLES = `
   .amp-action-muted { color: #c4c8d0; background: #252932; }
   .amp-action-muted:hover { background: #292e39; }
 
-  .amp-limit-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .amp-limit-button { min-width: 44px; height: 30px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 7px; color: #b8bfcc; background: #20242e; font: 700 12px/18px Poppins, sans-serif; cursor: pointer; }
-  .amp-limit-button:hover { background: #292e39; }
-  .amp-limit-button.is-active { color: #111319; background: #ff4fa3; }
-  .amp-limit-button.is-active:hover { background: #ff69b0; }
-
   .amp-inventory-loading,
   .amp-inventory-empty { display: flex; min-height: 300px; align-items: center; justify-content: center; }
   .amp-inventory-loading { flex-direction: column; gap: 12px; }
