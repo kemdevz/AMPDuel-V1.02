@@ -56,7 +56,7 @@ export default function WalletModal({
     let inventoryChannel = null
 
     const loadInventory = async () => {
-      setInventoryLoading(true)
+      if (inventoryItems.length === 0) setInventoryLoading(true)
       setInventoryError('')
       const resolvedProfileId = profileId || user?.profile_id
       if (!resolvedProfileId) {

@@ -1353,7 +1353,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
   return (
     <>
-      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] box-border flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible border-r border-white/[.07] bg-[#151820] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[22rem] xl:min-w-[22rem] xl:bg-[#151820] xl:px-3 xl:pt-3 xl:pb-0 ${
+      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] box-border flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible border-r border-white/[.07] bg-[#151820] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[380px] xl:min-w-[380px] xl:bg-[#151820] xl:px-3 xl:pt-3 xl:pb-0 ${
         mobileChatOpen ? "right-0" : "-right-full"
       } ${className}`}>
       <style>{`
@@ -1985,7 +1985,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         <div className="relative box-border flex h-full min-w-0 flex-grow flex-col gap-2">
           <div className="h-0 shrink-0" aria-hidden="true" />
           <div className="flex shrink-0 items-center justify-between rounded border border-white/[.07] bg-[#191c24] px-6 py-3">
-            <div className="text-sm font-semibold opacity-50">Messages</div>
+            <div className="text-sm font-semibold opacity-50">Chat</div>
             <div className="flex items-center gap-2.5">
               <div className="flex items-center gap-2" aria-label={`${onlineCount ?? 0} online`}>
                 <div className="text-sm font-semibold opacity-50">{onlineCount ?? 0}</div>

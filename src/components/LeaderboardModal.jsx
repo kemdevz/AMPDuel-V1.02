@@ -85,7 +85,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
   }, [gameMenuOpen, isOpen, onClose])
 
   useEffect(() => {
-    if (!isOpen || rowsByQuery[queryKey]) return undefined
+    if (rowsByQuery[queryKey]) return undefined
     const controller = new AbortController()
     setLoading(true)
     setError('')
@@ -100,7 +100,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [activeGame, activeTab, isOpen, queryKey, rowsByQuery])
+  }, [activeGame, activeTab, queryKey, rowsByQuery])
 
   if (!isMounted) return null
 

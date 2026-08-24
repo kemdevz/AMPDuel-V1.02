@@ -12,6 +12,7 @@ import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
 import { FairnessModal } from '../pages/Upgrader'
 import HeaderUtilityBar from './HeaderUtilityBar'
+import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
 
 export default function Layout({ children }) {
   const user = useAuth((s) => s.user)
@@ -77,6 +78,29 @@ export default function Layout({ children }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [touchSessionActivity, user])
+
+  useEffect(() => {
+    if (!user) {
+      clearPrefetchedApiResponses()
+      return undefined
+    }
+
+    const warmCommonViews = () => {
+      void Promise.allSettled([
+        prefetchApiRequest('/api/inventory'),
+        prefetchApiRequest('/api/profile'),
+        prefetchApiRequest('/api/sessions'),
+      ])
+    }
+    const idleId = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(warmCommonViews, { timeout: 500 })
+      : window.setTimeout(warmCommonViews, 0)
+
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
+      else window.clearTimeout(idleId)
+    }
+  }, [user?.id, user?.profile_id])
 
   useEffect(() => {
     if (!mobileNavOpen) return undefined

@@ -1,4 +1,6 @@
 const pendingGetRequests = new Map()
+const prefetchedGetResponses = new Map()
+const PREFETCH_TTL_MS = 30_000
 
 function getClientTimezone() {
   try {
@@ -40,9 +42,20 @@ async function executeRequest(path, options) {
 
 export function apiRequest(path, options = {}) {
   const method = String(options.method || 'GET').toUpperCase()
-  if (method !== 'GET' || options.signal) return executeRequest(path, options)
+  if (method !== 'GET') {
+    prefetchedGetResponses.clear()
+    return executeRequest(path, options)
+  }
+  if (options.signal) return executeRequest(path, options)
 
   const requestKey = String(path)
+  if (options.cache !== 'no-store') {
+    const prefetched = prefetchedGetResponses.get(requestKey)
+    if (prefetched) {
+      prefetchedGetResponses.delete(requestKey)
+      if (prefetched.expiresAt > Date.now()) return Promise.resolve(prefetched.payload)
+    }
+  }
   const pendingRequest = pendingGetRequests.get(requestKey)
   if (pendingRequest) return pendingRequest
 
@@ -54,4 +67,23 @@ export function apiRequest(path, options = {}) {
     })
   pendingGetRequests.set(requestKey, request)
   return request
+}
+
+export function prefetchApiRequest(path, options = {}) {
+  const requestKey = String(path)
+  const cached = prefetchedGetResponses.get(requestKey)
+  if (cached?.expiresAt > Date.now()) return Promise.resolve(cached.payload)
+
+  return apiRequest(path, { ...options, cache: 'no-store' })
+    .then((payload) => {
+      prefetchedGetResponses.set(requestKey, {
+        payload,
+        expiresAt: Date.now() + Math.max(1_000, Number(options.ttlMs) || PREFETCH_TTL_MS),
+      })
+      return payload
+    })
+}
+
+export function clearPrefetchedApiResponses() {
+  prefetchedGetResponses.clear()
 }

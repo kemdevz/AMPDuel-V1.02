@@ -449,7 +449,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
 
   return (
     <header 
-      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7"
+      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7 xl:pl-[398px]"
     >
       <style>{`
         @keyframes summerShimmer {
