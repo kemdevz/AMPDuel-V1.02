@@ -114,7 +114,7 @@ export default function Profile() {
   if (authLoading || !user) return null
 
   return (
-    <div className="w-full overflow-auto text-white">
+    <div className="w-full text-white">
       <div className="flex w-full flex-col px-4 pb-32 pt-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-8">

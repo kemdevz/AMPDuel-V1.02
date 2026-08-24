@@ -229,14 +229,6 @@ function formatCountdown(seconds) {
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-function formatGiveawayTimer(seconds) {
-  const total = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const remainderSeconds = total % 60;
-  return `${hours}h ${minutes}m ${remainderSeconds}s`;
-}
-
 function getEmojiTrigger(text, cursorIndex) {
   const beforeCursor = text.slice(0, cursorIndex);
   const match = beforeCursor.match(/(?:^|\s):([a-zA-Z0-9_]*)$/);
@@ -609,61 +601,6 @@ function ChatRulesModal({ onClose }) {
   );
 }
 
-function GiveawayAnnouncement({ giveaway }) {
-  const items = Array.isArray(giveaway?.items) ? giveaway.items : [];
-  const firstItem = items[0] || null;
-  const entryCount = items.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity ?? 1)), 0);
-  const remainingSeconds = Math.max(0, Math.floor((new Date(giveaway?.ends_at || Date.now()).getTime() - Date.now()) / 1000));
-  const timerLabel = formatGiveawayTimer(remainingSeconds);
-
-  return (
-    <div className="_giveawayBar_ars74_1">
-      <div className="_slideViewport_ars74_8">
-        <div
-          className="_giveawayWrapper_ars74_15"
-          style={{
-            background: "linear-gradient(rgba(54, 123, 255, 0.12), transparent)",
-            "--border-bottom": "rgba(54,123,255,0.60)",
-            "--border-side": "rgba(54,123,255,0.20)",
-          }}
-        >
-          <div className="_topRow_ars74_111">
-            <span className="_username_ars74_118" role="button" tabIndex={0}>
-              {giveaway?.user_name || "Guest"}
-            </span>
-            <span className="_hostText_ars74_127">created a giveaway</span>
-            <span className="_entries_ars74_136">
-              <span className="_playersIcon_ars74_148" />
-              {entryCount}
-            </span>
-          </div>
-          <div className="_itemSection_ars74_158">
-            <img
-              src={firstItem?.image_url || COIN_ICON}
-              alt={firstItem?.name || "Giveaway item"}
-              className="_itemImage_ars74_165"
-              draggable={false}
-            />
-            <div className="_itemInfo_ars74_173">
-              <span className="_itemName_ars74_180">{firstItem?.name || "Mystery item"}</span>
-              <div className="_itemValueWrapper_ars74_189">
-                <img src={COIN_ICON} alt="bobux" className="_bobuxImage_ars74_197" draggable={false} />
-                <span className="_itemValue_ars74_189">{Number(firstItem?.value || 0).toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-          <div className="_bottomRow_ars74_252">
-            <span className="_timerText_ars74_267">{timerLabel}</span>
-            <button className="_joinButton_ars74_321" type="button">
-              Join
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -848,7 +785,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   const [chatSessionId, setChatSessionId] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [chatRulesOpen, setChatRulesOpen] = useState(false);
-  const [giveaways, setGiveaways] = useState([]);
   const [rainCountdown, setRainCountdown] = useState(30 * 60);
   const [rainPool, setRainPool] = useState(10000);
   const [isRainJoinModalOpen, setIsRainJoinModalOpen] = useState(false);
@@ -963,26 +899,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   }, [isTipModalOpen])
 
   useEffect(() => {
-    const loadGiveaways = async () => {
-      try {
-        const { data, error } = await supabase.from('giveaways').select('*').eq('status', 'active').order('created_at', { ascending: false }).limit(5)
-        if (!error) {
-          setGiveaways(data ?? [])
-        }
-      } catch (err) {
-        console.warn('[ChatPanel] failed to load giveaways', err)
-      }
-    }
-
-    const handleGiveawayCreated = (event) => {
-      const nextGiveaway = event?.detail
-      if (!nextGiveaway?.id) return
-      setGiveaways((current) => [nextGiveaway, ...current.filter((item) => item.id !== nextGiveaway.id)].slice(0, 5))
-    }
-
-    void loadGiveaways()
-    window.addEventListener('giveaway:created', handleGiveawayCreated)
-
     const socket = connectSocket();
     if (!socket) return undefined;
 
@@ -1044,7 +960,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     socket.emit("online:count:get", handleOnlineCount);
     socket.emit("chat:session:get", handleChatSession);
     return () => {
-      window.removeEventListener('giveaway:created', handleGiveawayCreated)
       socket.off("online:count", handleOnlineCount);
       socket.off("rain:pool", handleRainPool);
       socket.off("rain:countdown", handleRainCountdown);
@@ -1438,7 +1353,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
   return (
     <>
-      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible box-border bg-[hsl(227_17%_11%)] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[22rem] xl:min-w-[22rem] xl:bg-[hsl(227_17%_11%)] xl:px-3 xl:pt-3 xl:pb-0 ${
+      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] box-border flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible border-r border-white/[.07] bg-[#151820] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[22rem] xl:min-w-[22rem] xl:bg-[#151820] xl:px-3 xl:pt-3 xl:pb-0 ${
         mobileChatOpen ? "right-0" : "-right-full"
       } ${className}`}>
       <style>{`
@@ -1662,48 +1577,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
           opacity: .9;
         }
 
-        ._giveawayBar_ars74_1{width:100%;padding:0;box-sizing:border-box}
-        ._slideViewport_ars74_8{width:100%;overflow:hidden;border-radius:6px}
-        ._giveawayWrapper_ars74_15{border-radius:6px;padding:10px 12px;width:100%;min-width:0;color:#fff;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;transition:background .25s ease;position:relative;border:none}
-        ._giveawayWrapper_ars74_15:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:6px;padding:2px;background:linear-gradient(to bottom,transparent 0%,var(--border-side, rgba(255,79,163,.18)) 55%,var(--border-bottom, rgba(255,79,163,.55)) 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;z-index:0}
-        ._giveawayWrapper_ars74_15>*{position:relative;z-index:1}
-        @keyframes _slideFromTop_ars74_1{0%{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes _slideToTop_ars74_1{0%{transform:translateY(0);opacity:1}to{transform:translateY(-100%);opacity:0}}
-        @keyframes _slideFromRight_ars74_1{0%{transform:translate(100%);opacity:0}to{transform:translate(0);opacity:1}}
-        @keyframes _slideFromLeft_ars74_1{0%{transform:translate(-100%);opacity:0}to{transform:translate(0);opacity:1}}
-        ._slideInTop_ars74_92{animation:_slideFromTop_ars74_1 .4s cubic-bezier(.25,.46,.45,.94) both}
-        ._slideOutTop_ars74_97{animation:_slideToTop_ars74_1 .5s cubic-bezier(.55,.06,.68,.19) both}
-        ._slideInLeft_ars74_102{animation:_slideFromRight_ars74_1 .28s cubic-bezier(.25,.46,.45,.94) both}
-        ._slideInRight_ars74_106{animation:_slideFromLeft_ars74_1 .28s cubic-bezier(.25,.46,.45,.94) both}
-        ._topRow_ars74_111{display:flex;align-items:center;gap:5px;min-width:0}
-        ._username_ars74_118{color:#8a81ff;font-weight:600;font-size:12.5px;white-space:nowrap;cursor:pointer;flex-shrink:0}
-        ._hostText_ars74_127{color:#b9bac3;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0}
-        ._entries_ars74_136{margin-left:auto;display:flex;align-items:center;gap:4px;color:#b9bac3;font-size:12px;font-weight:500;white-space:nowrap}
-        ._playersIcon_ars74_148{width:13px;height:13px;display:inline-block;background-color:#b9bac3e6;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5S5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V20h14v-3.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05c1.16.84 1.97 1.97 1.97 3.45V20h7v-3.5C24 14.17 19.33 13 16 13Z'/%3E%3C/svg%3E") no-repeat center / contain;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3s1.34 3 3 3Zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5S5 6.34 5 8s1.34 3 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V20h14v-3.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05c1.16.84 1.97 1.97 1.97 3.45V20h7v-3.5C24 14.17 19.33 13 16 13Z'/%3E%3C/svg%3E") no-repeat center / contain}
-        ._itemSection_ars74_158{display:flex;align-items:center;gap:10px;min-width:0}
-        ._itemImage_ars74_165{width:42px;height:42px;border-radius:7px;object-fit:contain;flex-shrink:0}
-        ._itemInfo_ars74_173{display:flex;flex-direction:column;gap:3px;min-width:0}
-        ._itemName_ars74_180{font-size:13.5px;font-weight:600;color:#e1e4f2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        ._itemValueWrapper_ars74_189{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-width:0}
-        ._bobuxImage_ars74_197{width:14px;height:14px;flex-shrink:0}
-        ._itemValue_ars74_189{font-weight:600;font-size:13px;color:#fff;white-space:nowrap}
-        ._levelBadgeRow_ars74_213{display:none}
-        ._navGroup_ars74_218{display:flex;flex-direction:row;align-items:center;gap:4px;flex-shrink:0}
-        ._navCenter_ars74_227{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:28px}
-        ._levelBadge_ars74_213{display:inline-flex;align-items:center;background:#dc26262e;border:1px solid rgba(220,38,38,.35);border-radius:4px;padding:1px 6px;font-size:10.5px;font-weight:700;color:#ff7070;letter-spacing:.2px;white-space:nowrap;user-select:none;flex-shrink:0}
-        ._bottomRow_ars74_252{display:flex;align-items:center;gap:6px;min-width:0}
-        ._bottomRow_ars74_252>._winnerText_ars74_259{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        ._timerText_ars74_267{font-size:13px;font-weight:600;color:#e1e4f2;white-space:nowrap}
-        ._giveawayCounter_ars74_274{font-size:12px;font-weight:500;color:#9ca9d6;white-space:nowrap;margin:0 2px}
-        ._navBtn_ars74_283{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;border:none;background:#ffffff14;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#cfd6ff;cursor:pointer;user-select:none;flex-shrink:0;padding:0;transition:background .15s ease}
-        ._navBtn_ars74_283:hover{background:#ff4fa347}
-        ._navBtn_ars74_283:active{transform:scale(.9)}
-        ._navBtnIcon_ars74_305{display:flex;align-items:center;justify-content:center;width:14px;height:14px;flex-shrink:0}
-        ._navBtnIcon_ars74_305 svg{width:14px;height:14px;display:block}
-        ._joinButton_ars74_321{background-color:#ff4fa3;border:none;border-radius:8px;padding:0 16px;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0;height:28px;display:flex;align-items:center;margin-left:auto}
-        ._joinButton_ars74_321:disabled{opacity:.6;cursor:not-allowed}
-        ._winnerText_ars74_259{font-size:13px;font-weight:600;color:#f4f4f4}
-        @media (max-width: 480px){._giveawayWrapper_ars74_15{padding:9px 10px}._itemImage_ars74_165{width:38px;height:38px}._itemName_ars74_180{font-size:12.5px}._levelBadge_ars74_213{font-size:10.5px;padding:2px 6px}}
       `}</style>
 
       <style>{`
@@ -2111,7 +1984,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
       <div className="min-h-0 flex-1 overflow-hidden">
         <div className="relative box-border flex h-full min-w-0 flex-grow flex-col gap-2">
           <div className="h-0 shrink-0" aria-hidden="true" />
-          <div className="flex shrink-0 items-center justify-between rounded border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.6)] px-6 py-3">
+          <div className="flex shrink-0 items-center justify-between rounded border border-white/[.07] bg-[#191c24] px-6 py-3">
             <div className="text-sm font-semibold opacity-50">Messages</div>
             <div className="flex items-center gap-2.5">
               <div className="flex items-center gap-2" aria-label={`${onlineCount ?? 0} online`}>
@@ -2137,13 +2010,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
           <div className="chat-scroll mb-2 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-2 pr-2">
             <div className="contents">
-              {giveaways.length ? (
-                <div className="space-y-[10px]">
-                  {giveaways.map((giveaway) => (
-                    <GiveawayAnnouncement key={giveaway.id} giveaway={giveaway} />
-                  ))}
-                </div>
-              ) : null}
               {visibleMessages.map((message) => (
                 message.type === "tip" ? (
                   <TipNotification key={message.id} message={message} />

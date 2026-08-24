@@ -42,7 +42,7 @@ function HistoryAvatar({ avatar, username, side, winner, onClick }) {
       aria-label={`Open ${username || 'player'} profile`}
     >
       <span className="recentFlipPlayerCoin">
-        <img src={side === 'tails' ? '/tails.png' : '/heads.png'} alt="coin" className="recentFlipCoinIndicator" />
+        <img src={side === 'tails' ? '/tails.webp' : '/heads.webp'} alt="coin" className="recentFlipCoinIndicator" />
       </span>
       <img
         src={avatar || DEFAULT_AVATAR}
@@ -127,7 +127,7 @@ function HistoryRow({ game, onView, onProfileOpen }) {
         />
       </div>
 
-      <img src={result === 'tails' ? '/tails.png' : '/heads.png'} alt="Winner Coin" className="recentFlipWinnerCoin" />
+      <img src={result === 'tails' ? '/tails.webp' : '/heads.webp'} alt="Winner Coin" className="recentFlipWinnerCoin" />
 
       <div className="recentFlipItemColumn">
         <div className="recentFlipItemStack">

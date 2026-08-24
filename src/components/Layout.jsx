@@ -11,6 +11,7 @@ import { NavLink } from '../lib/router'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
 import { FairnessModal } from '../pages/Upgrader'
+import HeaderUtilityBar from './HeaderUtilityBar'
 
 export default function Layout({ children }) {
   const user = useAuth((s) => s.user)
@@ -115,11 +116,18 @@ export default function Layout({ children }) {
       <div className="mt-[72px] flex min-h-0 flex-1 overflow-hidden">
           <ChatPanel mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
 
-          <main
-            className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-w-0 flex-[1_1_auto] overscroll-contain overflow-x-hidden overflow-y-auto bg-[hsl(228_17%_12%)] pb-[calc(5rem+env(safe-area-inset-bottom))] xl:pb-0"
-          >
-            {children}
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-[1_1_auto] flex-col">
+            <HeaderUtilityBar
+              onOpenFairness={() => setFairnessModalOpen(true)}
+              onOpenTerms={() => setTermsModalOpen(true)}
+            />
+            <main
+              className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-h-0 min-w-0 flex-[1_1_auto] touch-pan-y overscroll-contain overflow-x-hidden overflow-y-auto bg-[hsl(228_17%_12%)] pb-[calc(5rem+env(safe-area-inset-bottom))] xl:pb-0"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {children}
+            </main>
+          </div>
       </div>
 
       <nav

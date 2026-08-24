@@ -4,14 +4,13 @@ import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
 import InventoryModal from "./InventoryModal";
 import DepositModal from "./DepositModal";
-import GiveawayCreateModal from "./GiveawayCreateModal";
 import PromoCodeModal from "./PromoCodeModal";
 import { apiRequest } from "../lib/apiClient";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
 import { DiscordIcon } from "./icons";
-import { CoinStackIcon, MedalIcon, RocketIcon, ScalesIcon } from "./ReferenceNavIcons";
+import { CoinStackIcon, MedalIcon, RocketIcon } from "./ReferenceNavIcons";
 
 const COIN_ICON = "/currency.svg";
 const SUMMER_EVENT_ENABLED = false;
@@ -189,7 +188,6 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
   const [volumeLevel, setVolumeLevel] = useState(100)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [withdrawalDepositOpen, setWithdrawalDepositOpen] = useState(false)
-  const [giveawayOpen, setGiveawayOpen] = useState(false)
   const [promoCodeOpen, setPromoCodeOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsPosition, setNotificationsPosition] = useState({ x: 0, y: 0 })
@@ -452,7 +450,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
 
   return (
     <header 
-      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-7"
+      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7"
     >
       <style>{`
         @keyframes summerShimmer {
@@ -519,7 +517,6 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
               </NavLink>
             </li>
             <li><button type="button" onClick={onOpenLeaderboardModal} className="group relative flex h-[71px] items-center border-0 border-b-2 border-b-transparent bg-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] text-white/[0.48] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 hover:text-white"><MedalIcon className="mr-2 h-4 w-4 shrink-0 text-white/[0.36]" />Leaderboard</button></li>
-            <li className="h-[71px]"><button type="button" onClick={() => window.dispatchEvent(new CustomEvent('upgrader-fairness:open'))} className="h-[71px] border-0 border-b-2 border-b-transparent bg-transparent px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" aria-label="Fairness"><ScalesIcon className="h-4 w-4" /></button></li>
             <li><a target="_blank" rel="noreferrer" className="flex h-[71px] items-center px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" href="https://discord.gg/bloxdicecom" aria-label="Discord"><DiscordIcon className="h-4 w-4" /></a></li>
           </ul>
         </nav>
@@ -827,36 +824,6 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
                     <div role="separator" aria-orientation="horizontal" className="mx-1 my-1 h-px bg-[hsl(231_16%_17%)]" />
                     <div
                       role="menuitem"
-                      className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-medium text-white outline-none transition-opacity hover:bg-[hsl(231_16%_17%/.5)] focus:bg-[hsl(231_16%_17%/.5)] [&>svg]:hidden cursor-pointer"
-                      tabIndex={-1}
-                      data-orientation="vertical"
-                      data-radix-collection-item=""
-                      onClick={() => {
-                        setMenuOpen(false)
-                        setGiveawayOpen(true)
-                      }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-package h-4 w-4 text-[#ff4fa3]"
-                      >
-                        <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path>
-                        <path d="M12 22V12"></path>
-                        <polyline points="3.29 7 12 12 20.71 7"></polyline>
-                        <path d="m7.5 4.27 9 5.15"></path>
-                      </svg>
-                      <span>Create Giveaway</span>
-                    </div>
-                    <div
-                      role="menuitem"
                       className="hidden"
                       tabIndex={-1}
                       data-orientation="vertical"
@@ -937,7 +904,6 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
       </div>
 
       <LoginModal isOpen={loginOpen && !user} onClose={() => setLoginOpen(false)} />
-      <GiveawayCreateModal isOpen={giveawayOpen} onClose={() => setGiveawayOpen(false)} />
       <PromoCodeModal isOpen={promoCodeOpen} onClose={() => setPromoCodeOpen(false)} />
     </header>
   );

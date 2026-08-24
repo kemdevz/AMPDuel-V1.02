@@ -248,7 +248,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
           <div className="wallet-reference-summary">
             <div className="wallet-reference-summary-top">
               <div className="wallet-reference-stats">
-                <div className="wallet-reference-stat"><img src={COIN_ICON} alt="Gem" /><div><div className="wallet-reference-stat-label">Worth</div><div className="wallet-reference-stat-value">{formatNumber(totalInventoryValue)}</div></div></div>
+                <div className="wallet-reference-stat"><img src={COIN_ICON} alt="Gem" /><div><div className="wallet-reference-stat-label">Value</div><div className="wallet-reference-stat-value">{formatNumber(totalInventoryValue)}</div></div></div>
                 <div className="wallet-reference-stat wallet-reference-items-stat"><ItemsIcon /><div><div className="wallet-reference-stat-label">Items</div><div className="wallet-reference-stat-value">{formatNumber(totalInventoryCount)}</div></div></div>
               </div>
               {!readOnly ? <LoadingButton className="wallet-reference-plus" onClick={() => setDepositOpen(true)}>+</LoadingButton> : null}
@@ -278,22 +278,25 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
 
           @keyframes walletReferenceOverlayIn { from { opacity: 0; } to { opacity: 1; } }
           @keyframes walletReferenceDialogIn {
-            from { opacity: 0; transform: translate(-50%, -48%) scale(.96); }
-            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            from { opacity: 0; transform: translateY(6px) scale(.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
           }
 
           .wallet-reference-overlay {
             position: fixed;
             inset: 0;
             z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            padding: 0;
             background: hsl(228 17% 12% / .4);
             animation: walletReferenceOverlayIn .2s ease-out;
           }
 
           .wallet-reference-dialog {
-            position: fixed;
-            left: 50%;
-            top: 50%;
+            position: relative;
             z-index: 10001;
             display: flex;
             width: 100%;
@@ -305,7 +308,6 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
             gap: 16px;
             padding: 24px 16px 16px;
             overflow: hidden;
-            transform: translate(-50%, -50%);
             border: 1px solid hsl(231 16% 16%);
             border-radius: 0;
             background: hsl(227 17% 11%);
@@ -375,6 +377,7 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
           .wallet-reference-dialog ._buttonSpinnerWrap_cpcgp_410 { display: none; }
 
           @media (min-width: 640px) {
+            .wallet-reference-overlay { padding: 16px; }
             .wallet-reference-dialog { width: 100%; max-width: 672px; height: auto; max-height: calc(100dvh - 32px); border-radius: 8px; overflow: visible; }
             .wallet-reference-heading { text-align: left; }
             .wallet-reference-scroll { max-height: 400px; }
@@ -389,6 +392,9 @@ export default function WalletModal({ isOpen, onClose, onOpenWithdrawalDeposit, 
           }
           @media (min-width: 1024px) { .wallet-reference-dialog { max-width: 896px; } }
           @media (min-width: 1280px) { .wallet-reference-dialog { max-width: 1024px; } }
+          @media (max-width: 639px) {
+            .wallet-reference-overlay { align-items: flex-end; justify-content: flex-end; padding: 0; }
+          }
 
           ._blurbg_cpcgp_1 {
             position: fixed;

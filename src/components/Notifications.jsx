@@ -78,9 +78,6 @@ export const notifications = Object.freeze({
   exchangeFailed: (message) =>
     showNotification(message || 'Failed to exchange items.', { type: 'error' }),
 
-  giveawayCreateFailed: (message) =>
-    showNotification(message || 'Failed to create giveaway.', { type: 'error' }),
-
   coinflipCreateFailed: (message) =>
     showNotification(message || 'Failed to create coinflip.', { type: 'error' }),
 

@@ -18,18 +18,8 @@ import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const RESOLVED_ROOM_LIFETIME_MS = 40_000
 const ROOM_EXIT_ANIMATION_MS = 500
-const ROW_RESULT_COUNTDOWN_MS = 5_000
-const ROW_RESULT_REVEAL_LEAD_MS = 500
 const RECENT_RESULT_LIMIT = 100
 const CREATOR_VIEW_OPEN_DELAY_MS = 140
-
-function getRowResultRemainingMs(room) {
-  if (room?._skipResultCountdown && room?.result) return 0
-  const resolvedAt = new Date(room?.resolved_at || '').getTime()
-  if (!Number.isFinite(resolvedAt)) return room?.result ? 0 : ROW_RESULT_COUNTDOWN_MS
-  const elapsed = Math.max(0, Date.now() - resolvedAt)
-  return Math.min(ROW_RESULT_COUNTDOWN_MS, Math.max(0, ROW_RESULT_COUNTDOWN_MS - elapsed))
-}
 
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
@@ -586,7 +576,7 @@ export default function Coinflip() {
   }
 
   return (
-    <div className="reference-coinflip flex-1 overflow-x-hidden overflow-y-auto bg-transparent">
+    <div className="reference-coinflip flex-1 overflow-x-hidden bg-transparent">
       <style>{`
         @keyframes coinflip-slide-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes coinflip-resolved-out {
@@ -601,21 +591,29 @@ export default function Coinflip() {
             transform: scale(.985);
           }
         }
-        @keyframes coinflip-row-countdown {
-          from { stroke-dashoffset: var(--coinflip-countdown-start, 0); }
-          to { stroke-dashoffset: 100; }
-        }
         @keyframes coinflip-row-winner-in {
           from { opacity: 0; transform: scale(0); }
           to { opacity: 1; transform: scale(1); }
         }
-        .coinflip-row-countdown-stroke {
-          animation: coinflip-row-countdown var(--coinflip-countdown-duration, 5000ms) forwards linear;
-        }
         .coinflip-row-winner-coin {
+          display: block;
+          width: 68px;
+          height: 68px;
+          object-fit: contain;
           animation: coinflip-row-winner-in 150ms forwards;
         }
         .coinflip-row-avatar {
+          position: relative;
+          display: block;
+          width: 50px;
+          height: 50px;
+          flex: 0 0 50px;
+          padding: 0;
+          overflow: hidden;
+          border: 2px solid hsl(231 16% 16%);
+          border-radius: 50%;
+          background: #151820;
+          cursor: pointer;
           box-shadow: 0 0 0 0 rgba(255, 79, 163, 0);
           transition:
             border-color 560ms cubic-bezier(.22, 1, .36, 1),
@@ -623,6 +621,10 @@ export default function Coinflip() {
             filter 560ms cubic-bezier(.22, 1, .36, 1);
           will-change: border-color, box-shadow, filter;
         }
+        .coinflip-row-avatar:disabled { cursor: default; }
+        .coinflip-row-avatar:not(:disabled):hover { border-color: #ff4fa3; }
+        .coinflip-row-avatar:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
+        .coinflip-row-avatar-image { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
         .coinflip-row-avatar--winner {
           border-color: #ff4fa3;
           box-shadow: 0 0 0 1px rgba(255, 79, 163, .18), 0 0 12px rgba(255, 79, 163, .14);
@@ -635,16 +637,201 @@ export default function Coinflip() {
           transition: color .2s ease;
         }
         .coinflip-room-row:hover .coinflip-row-battle-icon { color: #ff4fa3; }
+        .game-preview-shell { width: 100%; container-type: inline-size; }
+        .coinflip-room-row {
+          display: grid;
+          min-height: 102px;
+          box-sizing: border-box;
+          grid-template-columns: auto minmax(190px, 1fr) 86px minmax(120px, 145px) auto;
+          align-items: center;
+          gap: clamp(10px, 1.25vw, 20px);
+          padding: 10px 16px;
+          overflow: visible;
+          border: 1px solid rgba(255, 255, 255, .07);
+          border-radius: 6px;
+          background: #191c24;
+          box-shadow: none;
+          font-family: Poppins, sans-serif;
+        }
+        .game-preview-players {
+          display: flex;
+          min-width: 150px;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 11px;
+        }
+        .game-preview-player { position: relative; flex: 0 0 50px; width: 50px; height: 50px; }
+        .game-preview-side-coin {
+          position: absolute;
+          right: -5px;
+          bottom: -4px;
+          z-index: 2;
+          display: block;
+          width: 22px;
+          height: 22px;
+          object-fit: contain;
+          filter: drop-shadow(0 2px 3px rgba(0,0,0,.42));
+          pointer-events: none;
+        }
+        .game-preview-versus { margin: 0; color: rgba(255,255,255,.36); font-size: 12px; font-weight: 700; }
+        .game-preview-waiting {
+          display: grid;
+          width: 100%;
+          height: 100%;
+          place-items: center;
+          border-radius: 50%;
+          color: #777d8c;
+          background: #151820;
+          font-size: 20px;
+          font-weight: 700;
+        }
+        .game-preview-items {
+          display: flex;
+          min-width: 0;
+          align-items: center;
+          gap: 7px;
+          overflow: visible;
+        }
+        .game-preview-item {
+          position: relative;
+          display: block;
+          width: 52px;
+          height: 52px;
+          flex: 0 0 52px;
+          box-sizing: border-box;
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 50%;
+          background: #151820;
+          cursor: pointer;
+          transition: border-color .15s ease, transform .15s ease;
+        }
+        .game-preview-item:hover { z-index: 5; border-color: #ff4fa3; transform: translateY(-1px); }
+        .game-preview-item-image { display: block; width: 100%; height: 100%; box-sizing: border-box; padding: 5px; border-radius: 50%; object-fit: contain; }
+        .game-preview-tooltip {
+          position: absolute;
+          bottom: calc(100% + 7px);
+          left: 50%;
+          z-index: 40;
+          max-width: 176px;
+          padding: 4px 8px;
+          overflow: hidden;
+          border-radius: 4px;
+          background: #0f1119;
+          color: #e1e4f2;
+          box-shadow: 0 4px 12px rgba(0,0,0,.35);
+          font-size: 10px;
+          font-weight: 600;
+          line-height: 1.2;
+          opacity: 0;
+          transform: translateX(-50%);
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          pointer-events: none;
+          transition: opacity .15s ease;
+        }
+        .game-preview-item:hover .game-preview-tooltip { opacity: 1; }
+        .game-preview-more {
+          position: absolute;
+          inset: 0;
+          z-index: 3;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          background: rgba(15,18,30,.84);
+          color: #fff;
+          backdrop-filter: blur(2px);
+          font-size: 13px;
+          font-weight: 600;
+          pointer-events: none;
+        }
+        .game-preview-result { display: flex; width: 86px; height: 76px; align-items: center; justify-content: center; overflow: visible; }
+        .coinflip-row-result-video {
+          display: block;
+          width: 86px;
+          height: 86px;
+          object-fit: contain;
+          mix-blend-mode: screen;
+          transform: scale(1.32);
+          pointer-events: none;
+        }
+        .game-preview-mode {
+          display: grid;
+          width: 54px;
+          height: 54px;
+          place-items: center;
+          border: 1px solid rgba(255,79,163,.5);
+          border-radius: 50%;
+          background: rgba(255,79,163,.08);
+          font-size: 23px;
+        }
+        .game-preview-value { min-width: 0; text-align: center; }
+        .game-preview-value-total { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; color: #f4f5f8; font-size: 16px; font-weight: 700; line-height: 1.35; }
+        .game-preview-value-total svg { width: 17px; height: 17px; flex: 0 0 17px; }
+        .game-preview-range { margin: 2px 0 0; color: rgba(255,255,255,.48); font-size: 11px; font-weight: 600; line-height: 1.35; white-space: nowrap; }
+        .game-preview-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        .game-preview-join,
+        .game-preview-view {
+          display: inline-flex;
+          height: 36px;
+          box-sizing: border-box;
+          align-items: center;
+          justify-content: center;
+          border: 0;
+          border-radius: 6px;
+          box-shadow: none;
+          font-family: Poppins, sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity .15s ease, background-color .15s ease;
+        }
+        .game-preview-join { min-width: 72px; padding: 0 16px; background: #ff4fa3; color: #1a0711; }
+        .game-preview-view { width: 38px; min-width: 38px; padding: 0; background: #2a2e3a; color: #fff; }
+        .game-preview-view svg { width: 15px; height: 15px; }
+        .game-preview-join:hover:not(:disabled), .game-preview-view:hover { opacity: .88; }
+        .game-preview-join:disabled { cursor: not-allowed; opacity: .5; }
+        .game-preview-join:focus-visible, .game-preview-view:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
         .coinflip-top-counter { height: 40px; border-radius: 8px; }
         .coinflip-sort-trigger { height: 48px; border-radius: 8px; }
+        @container (min-width: 560px) and (max-width: 819px) {
+          .coinflip-room-row {
+            grid-template-columns: auto minmax(120px, 1fr) auto;
+            grid-template-areas: "players value actions" "items items items";
+            gap: 12px 16px;
+          }
+          .game-preview-players { grid-area: players; }
+          .game-preview-items { grid-area: items; }
+          .game-preview-result { display: none; }
+          .game-preview-value { grid-area: value; }
+          .game-preview-actions { grid-area: actions; }
+        }
+        @container (max-width: 559px) {
+          .coinflip-room-row {
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas: "players actions" "items items" "value value";
+            gap: 13px 10px;
+            padding: 12px;
+          }
+          .game-preview-players { grid-area: players; min-width: 0; }
+          .game-preview-items { grid-area: items; overflow-x: auto; padding-bottom: 2px; }
+          .game-preview-result { display: none; }
+          .game-preview-value { grid-area: value; text-align: left; }
+          .game-preview-value-total { justify-content: flex-start; }
+          .game-preview-range { text-align: left; }
+          .game-preview-actions { grid-area: actions; }
+          .game-preview-join { min-width: 62px; padding: 0 12px; }
+          .game-preview-item { width: 48px; height: 48px; flex-basis: 48px; }
+        }
         @media (max-width: 640px) {
           .coinflip-top-counter { height: 40px; }
           .coinflip-sort-trigger { height: 48px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .coinflip-row-avatar {
+          .coinflip-row-avatar, .game-preview-item {
             transition-duration: 0ms;
           }
+          .coinflip-row-result-video { display: none; }
+          .coinflip-row-winner-coin { animation-duration: 1ms; }
         }
       `}</style>
       <div className="relative z-10 flex w-full flex-col px-4 pb-32 pt-3">
@@ -721,13 +908,14 @@ export default function Coinflip() {
                 return 0
               })
               .map((room) => (
-                <RoomCard
-                  key={room.id}
-                  room={room}
-                  onJoin={() => setJoinRoom(room)}
-                  onView={() => openViewRoom(room)}
-                  onProfileOpen={setSelectedProfile}
-                />
+                <div className="game-preview-shell" key={room.id}>
+                  <RoomCard
+                    room={room}
+                    onJoin={() => setJoinRoom(room)}
+                    onView={() => openViewRoom(room)}
+                    onProfileOpen={setSelectedProfile}
+                  />
+                </div>
               ))
           }
         </div>
@@ -863,102 +1051,41 @@ function StatCard({ icon, value, label, showIcon = true }) {
 }
 
 function CoinflipRowResult({ room, side, onReveal }) {
-  const getRemainingMs = () => getRowResultRemainingMs(room)
-  const [initialRemainingMs, setInitialRemainingMs] = useState(getRemainingMs)
-  const [remainingSeconds, setRemainingSeconds] = useState(() => Math.max(1, Math.ceil(getRemainingMs() / 1000)))
-  const [revealed, setRevealed] = useState(() => getRemainingMs() <= ROW_RESULT_REVEAL_LEAD_MS)
+  const [revealed, setRevealed] = useState(false)
 
   useEffect(() => {
-    const remainingMs = getRemainingMs()
-    setInitialRemainingMs(remainingMs)
-    const revealDelayMs = Math.max(0, remainingMs - ROW_RESULT_REVEAL_LEAD_MS)
-
-    if (revealDelayMs <= 0) {
-      setRevealed(true)
-      onReveal?.()
-      return undefined
-    }
-
-    const deadline = performance.now() + remainingMs
     setRevealed(false)
-    setRemainingSeconds(Math.max(1, Math.ceil(remainingMs / 1000)))
-    const interval = window.setInterval(() => {
-      const seconds = Math.ceil((deadline - performance.now()) / 1000)
-      setRemainingSeconds(Math.min(5, Math.max(1, seconds)))
-    }, 100)
-    const timeout = window.setTimeout(() => {
-      window.clearInterval(interval)
-      setRevealed(true)
-      onReveal?.()
-    }, revealDelayMs)
+  }, [room?.id, room?.result])
 
-    return () => {
-      window.clearInterval(interval)
-      window.clearTimeout(timeout)
-    }
-  }, [room?.id, room?.resolved_at, room?.result])
+  const revealWinner = () => {
+    setRevealed(true)
+    onReveal?.()
+  }
 
   if (revealed) {
     return (
-      <svg
-        className="h-full w-full"
-        viewBox="-50 -50 100 100"
-        fill="none"
-        role="img"
-        aria-label={`${side} won the coinflip`}
-      >
-        <circle
-          r="49"
-          fill="#171925"
-          strokeWidth="2"
-          stroke="#ff4fa3"
-          pathLength="100"
-          strokeDasharray="100"
-          transform="rotate(-90)"
-        />
-        <image
-          x="-50"
-          y="-50"
-          width="100"
-          height="100"
-          href={side === 'heads' ? '/heads.png' : '/tails.png'}
-          className="coinflip-row-winner-coin"
-        />
-      </svg>
+      <img
+        src={side === 'heads' ? '/heads.webp' : '/tails.webp'}
+        className="coinflip-row-winner-coin"
+        alt={`${side} won`}
+        draggable={false}
+      />
     )
   }
 
-  const elapsedPercent = 100 - ((initialRemainingMs / ROW_RESULT_COUNTDOWN_MS) * 100)
-  const countdownAnimationMs = Math.max(1, initialRemainingMs - ROW_RESULT_REVEAL_LEAD_MS)
   return (
-    <div className="relative h-16 w-16" role="timer" aria-label={`${remainingSeconds} seconds until result`}>
-      <svg viewBox="-50 -50 100 100" fill="none" className="h-full w-full" aria-hidden="true">
-        <circle
-          r="49"
-          fill="#171925"
-          strokeWidth="2"
-          stroke="#ff4fa3"
-          pathLength="100"
-          strokeDasharray="100"
-          transform="rotate(-90)"
-          className="coinflip-row-countdown-stroke"
-          style={{
-            '--coinflip-countdown-start': elapsedPercent,
-            '--coinflip-countdown-duration': `${countdownAnimationMs}ms`,
-          }}
-        />
-        <text
-          fontSize="32"
-          fontWeight="bold"
-          fill="white"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          style={{ fontFamily: 'Poppins' }}
-        >
-          {remainingSeconds}
-        </text>
-      </svg>
-    </div>
+    <video
+      className="coinflip-row-result-video"
+      src={side === 'heads' ? '/heads.webm' : '/tails.webm'}
+      autoPlay
+      muted
+      playsInline
+      preload="auto"
+      disablePictureInPicture
+      onEnded={revealWinner}
+      onError={revealWinner}
+      aria-label={`${side} coinflip result`}
+    />
   )
 }
 
@@ -986,7 +1113,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
     ...(player1.items || []),
     ...(player2.items || []),
   ].sort((left, right) => Number(right?.value || 0) - Number(left?.value || 0))
-  const displayItems = combinedItems.slice(0, 5)
+  const displayItems = combinedItems.slice(0, 4)
   const hiddenItemCount = Math.max(combinedItems.length - displayItems.length, 0)
   const canJoin = !room.opponent_uuid && !room.canceled
   const currentUserId = String(user?.profile_id || user?.id || '')
@@ -997,15 +1124,11 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const gameMode = String(room.game_mode || '').trim().toLowerCase()
   const gameModeIcon = gameMode === 'gems_only' || gameMode === 'titanics_only' ? '💎' : null
   const gameModeLabel = gameMode === 'gems_only' ? 'Gems Only' : gameMode === 'titanics_only' ? 'Titanic + Gems' : ''
-  const [rowResultVisible, setRowResultVisible] = useState(
-    () => isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS,
-  )
+  const [rowResultVisible, setRowResultVisible] = useState(false)
 
   useEffect(() => {
-    setRowResultVisible(Boolean(
-      isCompleted && getRowResultRemainingMs(room) <= ROW_RESULT_REVEAL_LEAD_MS
-    ))
-  }, [isCompleted, room.id, room.resolved_at, room.result])
+    setRowResultVisible(false)
+  }, [isCompleted, room.id, room.result])
 
   const creatorWon = rowResultVisible && (room.winner_uuid
     ? String(room.winner_uuid) === String(room.creator_uuid)
@@ -1043,7 +1166,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
 
   return (
     <div
-      className="coinflip-room-row relative grid grid-cols-1 items-center gap-4 overflow-visible rounded-lg border border-solid border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-4 md:grid-cols-[auto_minmax(0,1fr)_3.75rem_9rem_auto] md:gap-2 md:py-2 [&>*]:min-w-0"
+      className="coinflip-room-row game-preview-card"
       style={
         room.isExiting
           ? {
@@ -1055,45 +1178,18 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
       }
     >
       {/* Player VS Display */}
-      <div className="flex items-center gap-4 justify-self-center md:justify-self-start">
-        <button
-          type="button"
-          aria-label={`Open ${room.creator_username || 'creator'} profile`}
-          onClick={openCreatorProfile}
-          className={`coinflip-row-avatar relative box-border h-14 w-14 flex-[0_0_auto] cursor-pointer rounded-full border-2 border-[hsl(231_16%_16%)] bg-[hsl(228_17%_12%)] p-0 transition hover:border-[#ff4fa3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4fa3] ${creatorWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !creatorWon ? 'coinflip-row-avatar--loser' : ''}`}
-        >
-          <img
-            src={player1.avatar || DEFAULT_AVATAR}
-            alt={room.creator_username || 'Creator'}
-            className="w-full h-full object-cover rounded-full"
-            loading="lazy"
-            draggable={false}
-            referrerPolicy="no-referrer"
-            onError={(event) => {
-              event.currentTarget.src = DEFAULT_AVATAR
-            }}
-          />
-          <div className="hidden">
-            <img className="block w-full h-full object-contain" alt={player1.side || 'coin'} src={player1.side === 'tails' ? '/tails.png' : '/heads.png'} />
-          </div>
-        </button>
-        <img
-          className="h-14 w-14 shrink-0 rounded-full object-contain"
-          alt={`${player1.side || 'coin'} image`}
-          src={player1.side === 'tails' ? '/tails.png' : '/heads.png'}
-        />
-        <button
-          type="button"
-          aria-label={room.opponent_uuid ? `Open ${room.opponent_username || 'opponent'} profile` : 'Waiting for opponent'}
-          onClick={openOpponentProfile}
-          disabled={!room.opponent_uuid}
-          className={`coinflip-row-avatar relative box-border h-14 w-14 flex-[0_0_auto] rounded-full border-2 border-[hsl(231_16%_16%)] bg-[hsl(228_17%_12%)] p-0 transition hover:border-[#ff4fa3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4fa3] ${room.opponent_uuid ? 'cursor-pointer' : 'hidden cursor-default'} ${opponentWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !opponentWon ? 'coinflip-row-avatar--loser' : ''}`}
-        >
-          {player2.avatar ? (
+      <div className="game-preview-players">
+        <div className="game-preview-player">
+          <button
+            type="button"
+            aria-label={`Open ${room.creator_username || 'creator'} profile`}
+            onClick={openCreatorProfile}
+            className={`coinflip-row-avatar ${creatorWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !creatorWon ? 'coinflip-row-avatar--loser' : ''}`}
+          >
             <img
-              src={player2.avatar}
-              alt={room.opponent_username || 'Opponent'}
-              className="box-border block w-full h-full object-cover rounded-full"
+              src={player1.avatar || DEFAULT_AVATAR}
+              alt={room.creator_username || 'Creator'}
+              className="coinflip-row-avatar-image"
               loading="lazy"
               draggable={false}
               referrerPolicy="no-referrer"
@@ -1101,53 +1197,62 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
                 event.currentTarget.src = DEFAULT_AVATAR
               }}
             />
-          ) : (
-            <div className="box-border flex h-full w-full items-center justify-center rounded-full bg-[#171925]">
-              <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
-                <circle cx="32" cy="32" r="32" fill="#1c1f2e" />
-                <circle cx="22" cy="32" r="4" fill="#ff4fa3">
-                  <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0s" />
-                </circle>
-                <circle cx="32" cy="32" r="4" fill="#ff4fa3">
-                  <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.4s" />
-                </circle>
-                <circle cx="42" cy="32" r="4" fill="#ff4fa3">
-                  <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" begin="0.8s" />
-                </circle>
-              </svg>
-            </div>
-          )}
-          <div className="hidden">
-            <img className="block w-full h-full object-contain" alt={player2.side || 'coin'} src={player2.side === 'tails' ? '/tails.png' : '/heads.png'} />
-          </div>
-        </button>
+          </button>
+          <img className="game-preview-side-coin" alt="" src={player1.side === 'tails' ? '/tails.webp' : '/heads.webp'} draggable={false} />
+        </div>
+
+        <p className="game-preview-versus">VS</p>
+
+        <div className="game-preview-player">
+          <button
+            type="button"
+            aria-label={room.opponent_uuid ? `Open ${room.opponent_username || 'opponent'} profile` : 'Waiting for opponent'}
+            onClick={openOpponentProfile}
+            disabled={!room.opponent_uuid}
+            className={`coinflip-row-avatar ${opponentWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !opponentWon ? 'coinflip-row-avatar--loser' : ''}`}
+          >
+            {player2.avatar ? (
+              <img
+                src={player2.avatar}
+                alt={room.opponent_username || 'Opponent'}
+                className="coinflip-row-avatar-image"
+                loading="lazy"
+                draggable={false}
+                referrerPolicy="no-referrer"
+                onError={(event) => {
+                  event.currentTarget.src = DEFAULT_AVATAR
+                }}
+              />
+            ) : (
+              <span className="game-preview-waiting" aria-hidden="true">?</span>
+            )}
+          </button>
+          <img className="game-preview-side-coin" alt="" src={player2.side === 'tails' ? '/tails.webp' : '/heads.webp'} draggable={false} />
+        </div>
       </div>
 
       {/* Items Display */}
-      <div className="flex w-52 justify-self-center -space-x-4 overflow-hidden md:justify-self-start">
+      <div className="game-preview-items">
         {displayItems.map((item, idx) => {
           const isLastVisibleItem = idx === displayItems.length - 1 && hiddenItemCount > 0
 
           return (
             <div
               key={item.id || `items-${idx}`}
-              className="group relative box-border block h-16 w-16 flex-[0_0_auto] cursor-pointer overflow-visible rounded-full border-2 border-solid border-[hsl(231_16%_16%)] bg-[hsl(228_17%_12%)] transition-colors duration-200 hover:border-[#ff4fa3]"
+              className="game-preview-item group"
               aria-label={item.name}
               style={getInventoryItemCardStyle(item)}
             >
               <span
                 role="tooltip"
-                className="pointer-events-none absolute bottom-[calc(100%+7px)] left-1/2 z-40 max-w-44 -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded bg-[#0f1119] px-2 py-1 text-[10px] font-semibold leading-tight text-[#e1e4f2] opacity-0 shadow-[0_4px_12px_rgba(0,0,0,.35)] transition-opacity duration-150 group-hover:opacity-100"
+                className="game-preview-tooltip"
               >
                 {item.name}
               </span>
-              <img src={item.image} alt="" className="relative block h-full w-full rounded-full object-contain p-1" />
+              <img src={item.image} alt="" className="game-preview-item-image" />
 
               {isLastVisibleItem && (
-                <div
-                  className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-full text-sm font-semibold text-white"
-                  style={{ backdropFilter: 'blur(2px)', background: 'rgba(15, 18, 30, 0.82)' }}
-                >
+                <div className="game-preview-more">
                   +{hiddenItemCount}
                 </div>
               )}
@@ -1156,17 +1261,8 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
         })}
       </div>
 
-      {/* Value Display */}
-      <div className="w-36 place-self-center text-center font-semibold">
-        <p className="inline-flex items-center gap-2 text-base leading-normal text-white">
-          <img src="/bobux.png" className="w-5 text-[#ff4fa3]" alt="bobux" />
-          <span>{room.value ?? room.total_value ?? ''}</span>
-        </p>
-        <p className="text-base leading-normal text-white opacity-50">{room.range ?? room.value_range ?? ''}</p>
-      </div>
-
       {/* Winner Indicator */}
-      <div className="relative h-16 w-16 justify-self-center xl:h-16 xl:w-16">
+      <div className="game-preview-result">
         {isCompleted ? (
           <CoinflipRowResult
             room={room}
@@ -1174,38 +1270,26 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             onReveal={() => setRowResultVisible(true)}
           />
         ) : gameModeIcon ? (
-          <div
-            className="relative h-full w-full"
-            role="img"
-            aria-label={`${gameModeLabel} game mode`}
-            title={gameModeLabel}
-          >
-            <svg className="h-full w-full" viewBox="-50 -50 100 100" fill="none" aria-hidden="true">
-              <circle
-                r="49"
-                fill="#171925"
-                strokeWidth="2"
-                stroke="#ff4fa3"
-                pathLength="100"
-                strokeDasharray="100"
-                transform="rotate(-90)"
-              />
-            </svg>
-            <span
-              className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl leading-none"
-              aria-hidden="true"
-            >
-              {gameModeIcon}
-            </span>
+          <div className="game-preview-mode" role="img" aria-label={`${gameModeLabel} game mode`} title={gameModeLabel}>
+            <span aria-hidden="true">{gameModeIcon}</span>
           </div>
         ) : null}
       </div>
 
+      {/* Value Display */}
+      <div className="game-preview-value">
+        <p className="game-preview-value-total">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z" /></svg>
+          <span>{room.value ?? room.total_value ?? ''}</span>
+        </p>
+        <p className="game-preview-range">({room.range ?? room.value_range ?? ''})</p>
+      </div>
+
       {/* Action Buttons */}
-      <div className="flex justify-center gap-2 justify-self-center md:ml-auto md:flex-col md:justify-self-end">
+      <div className="game-preview-actions">
         {canJoin && (
           <button
-            className="h-8 min-w-24 cursor-pointer rounded-md border-0 bg-[#ff4fa3] px-4 py-0 text-sm font-medium leading-8 text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="game-preview-join"
             type="button"
             onClick={() => { if (!joinDisabled && typeof onJoin === 'function') onJoin() }}
             disabled={joinDisabled}
@@ -1216,9 +1300,10 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
         <button
           type="button"
           onClick={onView}
-          className="h-8 min-w-24 cursor-pointer rounded-md border-0 bg-[hsl(233_16%_22%)] px-4 py-0 text-sm font-medium leading-8 text-white shadow-none hover:opacity-90"
+          className="game-preview-view"
+          aria-label="View game"
         >
-          View
+          <svg viewBox="0 0 576 512" aria-hidden="true"><path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z" /></svg>
         </button>
       </div>
     </div>

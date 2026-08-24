@@ -13,8 +13,8 @@ export const VIEW_MODAL_CONFIG = Object.freeze({
     logo: '/whitelogo-Dvdx1F_Q.png',
     currency: '/bobux.png',
     coin: {
-      heads: '/heads.png',
-      tails: '/tails.png',
+      heads: '/heads.webp',
+      tails: '/tails.webp',
     },
     coinAnimation: {
       heads: '/heads.webm',

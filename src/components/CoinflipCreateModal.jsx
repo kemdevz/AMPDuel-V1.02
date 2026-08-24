@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 import DepositModal from './DepositModal'
 import InventoryItemCard from './InventoryItemCard'
-import SortDirectionIcon from './SortDirectionIcon'
 import { notifications } from './Notifications'
 
-const BOBUX_ICON = '/bobux.png'
-const HEADS_ICON = '/heads.png'
-const TAILS_ICON = '/tails.png'
+const HEADS_ICON = '/heads.webp'
+const TAILS_ICON = '/tails.webp'
 const SEARCH_ICON =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAASDSURBVGhD7ZnJbh1FFIa76ibECSuww6BcJglCJthkCwRWCCkIIR4hXDACiUeI8gAskDLbeYpEUVhBYMEGkBIRxwTEEBkwg80KE7i5Xfx/53fLPdzurh7gLvxJ1j2n5K6qv+vUqaGDTSYMo99WeOeIm5cZcfyceV1m5zQS8tYgvOSC4KB1wT3WmZ6KE4TGjfC3agLz+ak5+5KKW6eWkNlBuNgLzW487PU8RLvbNlw8M9fbp6LW8OrI7GD08ZbQPgOz0UhS0Mi6T07P2UMqakzlDmEUlreE5n65rXDbumWIeVBuIyoJwVxYQyhtl5thZNyt0LqbxpnfMF9+ZFlogr4zbsaG5uGeM1PRP+aAkVnD3Llbbm1KhRSJwBv9Cm90j9xCEJZXEZZPyU3QhphCIePCCQJWTp81OwNjEO4eOGdm33C/o857VRKDJIAw69UOM6vfDHcmdlbE0IYLGIUZbxEEz+DZadRxXSUxGK0H8OI+kuvNWCHKTgkoAqlzv9zaMP2irkW5MQjh52R6kyuE6wR+EmHHcGpDxDqoay/qXJUbgQbNm4PRNble5ArhYiczJpoTLYM6Z2TGIBL2yvQiI4TbDr4ZuRFRGNSZE2WgTmY+eRFsG324KLcyGSHo7UGZMQwDma2Tl77z+lBGRgg3gDIjuNjJ7Ix0G+jDtMzK5AhJ7mK5YsvsDLSxJDNi3E66iISQ9HmCcNshszPQxi8yY/L6UkRmRNJgmH+S2RlttFEqBCQyWEd4h1KaUiHYxbayzS4CbTQ+HiSE5J2xsRVvfSFMgzYyQnzP+5kR4RlbZgTPEzI7A208JDMCfRjKrEyOkOAPmRFFh6I2YHZCG9vkRqAPmSxWRkYIZvZnMmO0ieyEYS98VmYMstgXMiuTEcIrG2wREvsqnEue5KFIbnugzq0jm9igMrRPzttX5FYmI4TwykZmDE92MlsDda7IjIGQKzK9GPuW3z7iEKqZXfB1HorkNoLhGo30BjDm4Yl5/+0JyR0RwnsnmTFbcVbAwSdzTPUlTwQJA+e9fV9nrBBsrw/hrLAsNwZi9qAjK7XmDC8fBuFqnghyedfCazK9Ke0MDjl/4sS4Q26CoXU3zszZ3E5thCmW2Sk9sdMwyVzof7/jh2OPeR8dKr3VIjFEF3RL2MX+itS5fkG3Cyv2fVzs0utEERTzYf/a1MKxA/+oqBKVw2N2MPqZVzZyO4ViPnj66+3fvLv7bxWVMnaOpOHlGebM5fQaUwdmJ/7c8bLg7ZoXrz7x1+Pv36g8kpWFECSA50+cM5b3W3UEUQDm1RWm2POYC0V1+IqpHFp58LYDPeGHnumCDz1DzJdV44JPT83bV1Uc8cjR76YOLz26xk6rKAPFVgmzRkLS1Pn0tu/ol3e9sLT/VpmYsmzWqpC6VBEDHMNxnJiJEEKaipkYIaSJGK+s1TVcBLkYFmUzYF5Ggui/dzPx8WmihBCK4cQuE3N4sf+t7IiJE0IYNkUjw091WNMStzsTNUfS5M2Zcd8bJ1oI2SimrS/A/xvcAXDTKneTTf47guBfRB/4oi5eINMAAAAASUVORK5CYII='
 
@@ -24,45 +22,14 @@ function SearchIcon() {
 
 function BagIcon() {
   return (
-    <svg viewBox="0 0 260 320" width="20" height="20" aria-hidden="true">
-      <path fill="#ff4fa3" d="M50 110c0-40 30-90 80-90s80 50 80 90v150c0 25-20 45-45 45H95c-25 0-45-20-45-45V110z" />
-      <path fill="#5A55E6" d="M60 120c0-35 28-80 70-80s70 45 70 80v20H60v-20z" />
-      <path fill="#4A43C9" d="M110 40h40c8 0 12 10 12 20v10H98V60c0-10 4-20 12-20z" />
-      <path fill="#7A72FF" d="M60 180h140v75c0 20-15 35-35 35H95c-20 0-35-15-35-35v-75z" />
-      <path fill="#ff4fa3" d="M60 180h140v25H60v-25z" />
-      <path stroke="#3A33A8" strokeWidth="3" d="M60 205h140" />
-      <path stroke="#443CB5" strokeWidth="2" d="M130 120v140" />
-      <path fill="#5850E6" d="M50 130c-10 5-20 25-20 45s10 40 20 45V130zM210 130c10 5 20 25 20 45s-10 40-20 45V130z" />
-      <ellipse cx="130" cy="290" rx="90" ry="18" fill="#3B36A6" opacity=".35" />
-      <path fill="#8A83FF" d="M80 230h100v30H80v-30z" />
-      <path stroke="#363092" strokeWidth="3" d="M80 245h100" />
-      <path fill="#5049D6" d="M70 80c-20 25-25 55-25 80s5 55 25 80V80z" />
-      <path fill="#5049D6" d="M190 80c20 25 25 55 25 80s-5 55-25 80V80z" />
-      <path fill="#332F80" opacity=".4" d="M70 100c-12 25-15 45-15 60s3 35 15 60V100z" />
-      <path fill="#332F80" opacity=".4" d="M190 100c12 25 15 45 15 60s-3 35-15 60V100z" />
+    <svg viewBox="0 0 30 30" width="30" height="30" fill="none" aria-hidden="true">
+      <path d="M6.33953 0 0 23.66 23.6605 30 30 6.34 6.33953 0Zm11.08147 19.1925-6.6119-1.7713 1.7724-6.6124 6.6132 1.7724-1.7737 6.6113Z" fill="currentColor" />
     </svg>
   )
 }
 
-function SortStackIcon({ ascending = false }) {
-  return <SortDirectionIcon ascending={ascending} />
-}
-
-function AutoSelectIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }} aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  )
-}
-
-function isGemItem(item) {
-  return /\bgems?\b/i.test(String(item?.name || ''))
-}
-
-function isTitanicLockItem(item) {
-  return /\b(?:gargantuan|titanic)\b/i.test(String(item?.name || ''))
+function ChevronIcon() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
 }
 
 export default function CoinflipCreateModal({ onClose, onCreate }) {
@@ -75,36 +42,16 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState(null)
   const [depositOpen, setDepositOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [gameModes, setGameModes] = useState({
-    titanicsGems: false,
-  })
-  const settingsRef = useRef(null)
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return
-      if (settingsOpen) {
-        setSettingsOpen(false)
-        return
-      }
       if (!depositOpen) onClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [depositOpen, onClose, settingsOpen])
-
-  useEffect(() => {
-    if (!settingsOpen) return undefined
-
-    const handlePointerDown = (event) => {
-      if (!settingsRef.current?.contains(event.target)) setSettingsOpen(false)
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [settingsOpen])
+  }, [depositOpen, onClose])
 
   useEffect(() => {
     let isMounted = true
@@ -195,39 +142,9 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
   const selectedValue = inventoryRows
     .filter((item) => selectedItems.includes(item.displayKey))
     .reduce((sum, item) => sum + Number(item.value ?? 0), 0)
-  const selectedInventoryRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
-  const titanicsGemsEligible = selectedInventoryRows.length > 0
-    && selectedInventoryRows.every((item) => isTitanicLockItem(item) || isGemItem(item))
-
-  useEffect(() => {
-    setGameModes((current) => {
-      const next = {
-        titanicsGems: current.titanicsGems && titanicsGemsEligible,
-      }
-      return next.titanicsGems === current.titanicsGems
-        ? current
-        : next
-    })
-  }, [titanicsGemsEligible])
-
   const allInventoryKeys = inventoryRows.map((item) => item.displayKey)
-  const onToggleSelectAll = () => {
-    if (selectedAmount === inventoryRows.length) {
-      setSelectedItems([])
-      return
-    }
+  const onSelectAll = () => {
     setSelectedItems(allInventoryKeys)
-  }
-
-  const toggleGameMode = () => {
-    if (!titanicsGemsEligible) {
-      notifications.error('Select only Gargantuan or Titanic pets and Gems to enable Titanic + Gems.')
-      return
-    }
-
-    setGameModes((current) => ({
-      titanicsGems: !current.titanicsGems,
-    }))
   }
 
   if (typeof document === 'undefined') {
@@ -268,7 +185,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     const selectedRows = inventoryRows.filter((item) => selectedItems.includes(item.displayKey))
     const creator_uuid = String(user?.profile_id || user?.id || '')
     const creatorAvatarUrl = user?.avatar_headshot_url || user?.avatar_url || null
-    const gameMode = gameModes.titanicsGems ? 'titanics_only' : null
+    const gameMode = null
     const payload = {
       creator_uuid,
       creator_username: user?.username || user?.email || 'user',
@@ -326,59 +243,47 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
           if (event.target === event.currentTarget) onClose()
         }}
       >
-        <div className="_modalbackgroundinventory_2jqwz_14" role="dialog" aria-modal="true" aria-label="Create coinflip">
+        <div className="_modalbackgroundinventory_2jqwz_14 cf-create-dialog" role="dialog" aria-modal="true" aria-labelledby="create-coinflip-title">
           <button type="button" className="_closeButton_2jqwz_28" onClick={onClose} aria-label="Close">
-            &times;
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
-          <div className="_headerinventory_2jqwz_38">
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <div className="_inputWrapper_2jqwz_49">
-                <input
-                  type="text"
-                  placeholder="Search for an item..."
-                  className="_inputv3_2jqwz_51"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                />
-                <SearchIcon />
-              </div>
-              <button
-                type="button"
-                className="_sortToggle_2jqwz_323"
-                aria-label={`Sort items: ${sortBy}`}
-                title={sortBy}
-                onClick={() => setSortBy((current) => current === 'Highest to Lowest' ? 'Lowest to Highest' : 'Highest to Lowest')}
-              >
-                <SortStackIcon ascending={sortBy === 'Lowest to Highest'} />
-              </button>
+          <div className="cf-create-heading">
+            <h2 id="create-coinflip-title">Create Coinflip</h2>
+          </div>
+          <div className="_headerinventory_2jqwz_38 cf-create-controls">
+            <div className="cf-create-search-field">
+              <label htmlFor="coinflip-inventory-search">Select Item</label>
+              <input id="coinflip-inventory-search" type="text" placeholder="Search for an item.." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+            </div>
+            <div className="cf-create-selects">
+              <label className="cf-create-select-field">
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort inventory">
+                  <option value="Highest to Lowest">High - Low</option>
+                  <option value="Lowest to Highest">Low - High</option>
+                </select><ChevronIcon />
+              </label>
             </div>
           </div>
 
           <div className="_itemsWrapper_2jqwz_165">
-            <div className="_stats_2jqwz_111">
-              <div className="_statItem_2jqwz_113">
-                <img src={BOBUX_ICON} alt="Bobux" style={{ width: 20, height: 20, flexShrink: 0 }} />
-                <div className="_statCol_2jqwz_120">
-                  <span className="_statLabel_2jqwz_127">VALUE</span>
-                  <span className="_statValue_2jqwz_137">
-                    <span className="_pcvalue_2jqwz_317">{formatNumber(totalInventoryValue)}</span>
-                    <span className="_mobilevalue_2jqwz_318">{formatNumber(totalInventoryValue)}</span>
-                  </span>
+            <div className="wallet-reference-summary-top">
+              <div className="wallet-reference-stats">
+                <div className="wallet-reference-stat">
+                  <img src="/currency.svg" alt="Gem" />
+                  <div>
+                    <div className="wallet-reference-stat-label">Value</div>
+                    <div className="wallet-reference-stat-value">{formatNumber(totalInventoryValue)}</div>
+                  </div>
+                </div>
+                <div className="wallet-reference-stat wallet-reference-items-stat">
+                  <BagIcon />
+                  <div>
+                    <div className="wallet-reference-stat-label">Items</div>
+                    <div className="wallet-reference-stat-value">{formatNumber(totalInventoryCount)}</div>
+                  </div>
                 </div>
               </div>
-              <div className="_statItem_2jqwz_113">
-                <BagIcon />
-                <div className="_statCol_2jqwz_120">
-                  <span className="_statLabel_2jqwz_127">ITEMS</span>
-                  <span className="_statValue_2jqwz_137">{formatNumber(totalInventoryCount)}</span>
-                </div>
-              </div>
-              <button className="_plusbutton_2jqwz_139 _loadingButtonBase_2jqwz_298" type="button" onClick={() => setDepositOpen(true)}>
-                <span className="_buttonLabel_2jqwz_299 ">+</span>
-                <span className="_buttonSpinnerWrap_2jqwz_301 ">
-                  <span className="_loaderSmall_2jqwz_303" />
-                </span>
-              </button>
+              <button className="wallet-reference-plus" type="button" onClick={() => setDepositOpen(true)}>+</button>
             </div>
 
             <div className="_itemsGrid_2jqwz_171">
@@ -394,10 +299,10 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                 </div>
               ) : sortedRows.length === 0 ? (
                 <div className="_emptyState_2jqwz_309">
-                  <h1>No items found</h1>
-                  <p>No items were found in your inventory.</p>
+                  <h1>No Items!</h1>
+                  <p>Your inventory seems to be empty...</p>
                   <button className="_depositbutton_2jqwz_152 _loadingButtonBase_2jqwz_298" type="button" onClick={() => setDepositOpen(true)}>
-                    <span className="_buttonLabel_2jqwz_299 ">Deposit</span>
+                    <span className="_buttonLabel_2jqwz_299 ">Deposit Items</span>
                     <span className="_buttonSpinnerWrap_2jqwz_301 ">
                       <span className="_loaderSmall_2jqwz_303" />
                     </span>
@@ -423,6 +328,7 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
           </div>
 
           <div className="_buttonWrapper_2jqwz_268">
+            <div className="cf-create-footer-actions">
             <div className="_coins_2jqwz_305" role="group" aria-label="Choose coin side">
               <button
                 type="button"
@@ -441,50 +347,14 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
                 <img src={TAILS_ICON} alt="tails" />
               </button>
             </div>
-            <div className="_settingsWrap_2jqwz_526" ref={settingsRef}>
-              <button
-                className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298 _autoSelectBtn_2jqwz_320"
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                type="button"
-                aria-label="Game settings"
-                aria-expanded={settingsOpen}
-                title="Game Settings"
-                onClick={() => setSettingsOpen((open) => !open)}
-              >
-                <AutoSelectIcon />
-              </button>
-              {settingsOpen ? (
-                <div className="_settingsDropdown_2jqwz_552">
-                  <p className="_settingsTitle_2jqwz_568">Game Modes</p>
-                  <button
-                    type="button"
-                    className="_settingsItem_2jqwz_578"
-                    aria-pressed={gameModes.titanicsGems}
-                    title="Titanic + Gems"
-                    onClick={toggleGameMode}
-                  >
-                    <span className="_settingsEmoji_2jqwz_593" aria-hidden="true">💎</span>
-                    <span className="_settingsItemText_2jqwz_599">
-                      <span className="_settingsItemName_2jqwz_606">Titanic + Gems</span>
-                      <span className="_settingsItemDesc_2jqwz_612">Only Gargantuans, Titanics, and Gems can be used</span>
-                    </span>
-                    <span className={`_settingsToggle_2jqwz_619 ${gameModes.titanicsGems ? '_settingsToggleOn_2jqwz_628' : ''}`} aria-hidden="true">
-                      <span className="_settingsToggleThumb_2jqwz_629" />
-                    </span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
             <button
-              className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298"
-              disabled={inventoryRows.length === 0}
+              className="_flatActionBtn_2jqwz_278 _loadingButtonBase_2jqwz_298 cf-create-select-all"
+              disabled={inventoryRows.length === 0 || selectedAmount === inventoryRows.length}
               type="button"
-              onClick={onToggleSelectAll}
+              onClick={onSelectAll}
             >
-              <span className="_buttonLabel_2jqwz_299 ">
-                {selectedAmount === inventoryRows.length ? 'Unselect All' : 'Select all'}
-              </span>
-              <span className="_buttonSpinnerWrap_2jqwz_301 ">
+              <span className="_buttonLabel_2jqwz_299">Select All</span>
+              <span className="_buttonSpinnerWrap_2jqwz_301">
                 <span className="_loaderSmall_2jqwz_303" />
               </span>
             </button>
@@ -494,24 +364,10 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
               type="button"
               onClick={handleCreate}
             >
-              <span className="_buttonLabel_2jqwz_299 ">
-                <strong className="_pcvalue_2jqwz_317">
-                  {'Create\u00A0|\u00A0'}
-                  <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-                    <img src={BOBUX_ICON} alt="Bobux" style={{ width: 15, height: 15, marginRight: 6, flexShrink: 0 }} />
-                    <span>{formatNumber(selectedValue)}</span>
-                  </span>
-                </strong>
-                <strong className="_mobilevalue_2jqwz_318">
-                  {'Create\u00A0|\u00A0'}
-                  <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-                    <img src={BOBUX_ICON} alt="Bobux" style={{ width: 15, height: 15, marginRight: 6, flexShrink: 0 }} />
-                    <span>{formatNumber(selectedValue)}</span>
-                  </span>
-                </strong>
-              </span>
+              <span className="_buttonLabel_2jqwz_299">Create</span>
               {/* spinner removed: do not show loader while creating to avoid persistent spinner */}
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1533,6 +1389,491 @@ export default function CoinflipCreateModal({ onClose, onCreate }) {
     transform: scale(.8);
     opacity: 0;
   }
+}
+`}</style>
+      <style>{`
+/* Create Coinflip — wallet modal visual system */
+._blurbg_2jqwz_3 {
+  z-index: 10000;
+  padding: 0;
+  box-sizing: border-box;
+  background: hsl(228 17% 12% / .4);
+  backdrop-filter: none;
+  animation: cfCreateOverlayIn .2s ease-out;
+}
+
+._modalbackgroundinventory_2jqwz_14.cf-create-dialog {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 24px 16px 16px;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  overflow: hidden;
+  border: 1px solid hsl(231 16% 16%);
+  border-radius: 0;
+  background: hsl(227 17% 11%);
+  color: #fff;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+  font-family: Poppins, sans-serif;
+  animation: cfCreateDialogIn .2s ease-out;
+}
+
+.cf-create-heading {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.cf-create-heading h2 {
+  margin: 0;
+  color: #fff;
+  font: 600 18px/18px Poppins, sans-serif;
+  letter-spacing: -.025em;
+}
+
+._closeButton_2jqwz_28 {
+  top: 16px;
+  right: 16px;
+  z-index: 4;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  opacity: .7;
+  font-size: 0;
+  transition: color .15s ease, background-color .15s ease;
+}
+
+._closeButton_2jqwz_28:hover {
+  background: rgb(255 255 255 / .06);
+  color: #fff;
+  opacity: 1;
+}
+
+._headerinventory_2jqwz_38.cf-create-controls {
+  position: static;
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cf-create-search-field {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.cf-create-search-field > label {
+  opacity: .8;
+  color: #fff;
+  font: 500 14px/14px Poppins, sans-serif;
+}
+
+.cf-create-search-field input,
+.cf-create-select-field {
+  width: 100%;
+  height: 48px;
+  box-sizing: border-box;
+  margin: 0;
+  border: 2px solid rgb(255 255 255 / .25);
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(255 255 255 / .5);
+  box-shadow: none;
+  font: 600 14px/20px Poppins, sans-serif;
+  transition: border-color .15s ease;
+}
+
+.cf-create-search-field input { padding: 8px 12px; outline: none; }
+.cf-create-search-field input::placeholder {
+  color: rgb(255 255 255 / .5);
+  opacity: 1;
+}
+
+.cf-create-search-field input:focus,
+.cf-create-select-field:focus-within {
+  border-color: rgb(255 255 255 / .6);
+}
+
+.cf-create-selects { display: flex; width: 100%; flex-direction: row; gap: 8px; }
+.cf-create-select-field { position: relative; display: flex; min-width: 0; align-items: center; flex: 1 1 0; overflow: hidden; }
+.cf-create-select-field select {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  padding: 8px 36px 8px 12px;
+  cursor: pointer;
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.cf-create-select-field > svg { position: absolute; right: 12px; opacity: .5; pointer-events: none; }
+
+.cf-create-select-field option {
+  background: hsl(227 17% 11%);
+  color: #fff;
+}
+
+.cf-create-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+._itemsWrapper_2jqwz_165 {
+  display: flex;
+  width: 100%;
+  min-height: 190px;
+  height: auto;
+  margin: 0;
+  padding: 8px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: hsl(228 17% 12%);
+}
+
+.wallet-reference-summary-top { display: flex; align-items: center; gap: 24px; }
+.wallet-reference-stats { display: flex; align-items: center; gap: 32px; }
+.wallet-reference-stat { display: flex; align-items: center; gap: 8px; }
+.wallet-reference-stat > img { width: 35px; height: 35px; object-fit: contain; }
+.wallet-reference-items-stat > svg { width: 30px; height: 30px; color: #fff; }
+.wallet-reference-stat-label { opacity: .5; font-size: 12px; font-weight: 500; line-height: 16px; text-transform: uppercase; }
+.wallet-reference-stat-value { margin-top: -4px; font-size: 20px; font-weight: 700; line-height: 28px; }
+.wallet-reference-plus { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: hsl(331 100% 65%); color: #000; font-size: 20px; font-weight: 600; line-height: 28px; cursor: pointer; }
+
+._stats_2jqwz_111 {
+  display: flex;
+  width: 100%;
+  min-height: 35px;
+  padding: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 24px;
+  border: 0;
+  background: transparent;
+}
+
+.cf-create-stats-group {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+._statItem_2jqwz_113 { display: flex; align-items: center; gap: 8px; }
+._statItem_2jqwz_113 > img { width: 35px; height: 35px; object-fit: contain; }
+._statItem_2jqwz_113 > svg { width: 30px; height: 30px; color: #fff; }
+._statCol_2jqwz_120 { display: block; }
+
+._statLabel_2jqwz_127 {
+  color: #fff;
+  opacity: .5;
+  font-family: Poppins, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+._statValue_2jqwz_137 {
+  color: #fff;
+  font-family: Poppins, sans-serif;
+  margin-top: -4px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+._plusbutton_2jqwz_139 {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: hsl(331 100% 65%);
+  color: #000;
+  box-shadow: none;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  margin-left: 0;
+}
+
+._itemsGrid_2jqwz_171 {
+  width: 100%;
+  min-height: 100%;
+  height: 100vh;
+  max-height: calc(100dvh - 375px);
+  margin-top: 16px;
+  padding: 0;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / .14) transparent;
+}
+
+._emptyState_2jqwz_309 {
+  min-height: 210px;
+  padding: 24px;
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+  color: #fff;
+  font-family: Poppins, sans-serif;
+}
+
+._emptyState_2jqwz_309 h1 {
+  margin: 0;
+  color: #fff;
+  font: 500 30px/36px Poppins, sans-serif;
+}
+
+._emptyState_2jqwz_309 p {
+  margin: 8px 0 0;
+  color: #fff;
+  opacity: .8;
+  font: 500 16px/24px Poppins, sans-serif;
+}
+
+._depositbutton_2jqwz_152,
+._flatActionBtn_2jqwz_278,
+._withdrawButton_2jqwz_287 {
+  height: 44px;
+  min-height: 44px;
+  border-radius: 6px;
+  box-shadow: none;
+  font: 600 14px/20px Poppins, sans-serif;
+  transition: filter .15s ease, border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+
+._depositbutton_2jqwz_152,
+._withdrawButton_2jqwz_287 {
+  border: 1px solid #ff4fa3;
+  background: #ff4fa3;
+  color: #090a0f;
+}
+
+._depositbutton_2jqwz_152 { margin-top: 24px; padding: 0 32px; }
+
+._flatActionBtn_2jqwz_278 {
+  border: 1px solid rgb(255 79 163 / .55);
+  background: rgb(255 79 163 / .1);
+  color: #ff4fa3;
+}
+
+.cf-create-select-all {
+  min-width: 132px !important;
+  height: 44px !important;
+  padding: 0 32px !important;
+  border: 1px solid #ff4fa3 !important;
+  background: rgb(255 79 163 / .1) !important;
+  color: #ff4fa3 !important;
+  font: 600 14px/20px Poppins, sans-serif !important;
+}
+
+._depositbutton_2jqwz_152:hover:not(:disabled),
+._flatActionBtn_2jqwz_278:hover:not(:disabled),
+._withdrawButton_2jqwz_287:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+._buttonWrapper_2jqwz_268 {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+}
+
+.cf-create-footer-actions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+._coins_2jqwz_305 {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+._coin_2jqwz_305 {
+  display: grid;
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  padding: 0;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  opacity: .6;
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+._coin_2jqwz_305:hover {
+  opacity: .85;
+  transform: translateY(-1px);
+}
+
+._coin_2jqwz_305._selectedcoin_2jqwz_307 {
+  opacity: 1;
+}
+
+._coin_2jqwz_305 img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+._autoSelectBtn_2jqwz_320 {
+  width: 44px !important;
+  min-width: 44px !important;
+  padding: 0 !important;
+}
+
+._settingsDropdown_2jqwz_552 {
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 290px;
+  border: 1px solid hsl(231 16% 16%);
+  border-radius: 8px;
+  background: hsl(227 17% 11%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / .28);
+}
+
+._settingsToggle_2jqwz_619 {
+  transition: background-color .18s ease;
+}
+
+._settingsToggleThumb_2jqwz_629 {
+  transition: transform .18s cubic-bezier(.22, 1, .36, 1);
+}
+
+._withdrawButton_2jqwz_287 {
+  min-width: 170px;
+}
+
+._withdrawButton_2jqwz_287:disabled,
+._flatActionBtn_2jqwz_278:disabled,
+._depositbutton_2jqwz_152:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+@media (min-width: 640px) {
+  ._blurbg_2jqwz_3 { padding: 16px; }
+
+  ._modalbackgroundinventory_2jqwz_14.cf-create-dialog {
+    max-width: 672px;
+    height: auto;
+    max-height: calc(100dvh - 32px);
+    border-radius: 8px;
+    overflow: visible;
+  }
+
+  .cf-create-heading { text-align: left; }
+  ._itemsWrapper_2jqwz_165 { padding: 16px; }
+  ._itemsGrid_2jqwz_171 { height: 400px; min-height: 400px; max-height: 400px; padding: 0; }
+  .cf-create-footer-actions { gap: 16px; }
+}
+
+@media (min-width: 768px) {
+  ._modalbackgroundinventory_2jqwz_14.cf-create-dialog { max-width: 768px; }
+
+  ._headerinventory_2jqwz_38.cf-create-controls {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .cf-create-search-field {
+    max-width: 384px;
+    flex: 1 1 384px;
+  }
+
+  .cf-create-selects { width: auto; }
+  .cf-create-select-field {
+    width: 180px;
+    flex: 0 0 180px;
+  }
+
+  ._buttonWrapper_2jqwz_268 { gap: 16px; }
+}
+
+@media (min-width: 1024px) {
+  ._modalbackgroundinventory_2jqwz_14.cf-create-dialog { max-width: 896px; }
+}
+
+@media (min-width: 1280px) {
+  ._modalbackgroundinventory_2jqwz_14.cf-create-dialog { max-width: 1024px; }
+}
+
+@media (max-width: 639px) {
+  ._buttonWrapper_2jqwz_268 { gap: 8px; }
+  .cf-create-footer-actions { flex-wrap: wrap; }
+  ._coins_2jqwz_305 { width: auto; order: 1; }
+  .cf-create-select-all { min-width: 0 !important; flex: 1 1 120px !important; order: 2; }
+  ._flatActionBtn_2jqwz_278 { min-width: 0 !important; }
+  ._withdrawButton_2jqwz_287 { min-width: 160px; flex: 1 1 160px; order: 3; }
+}
+
+@keyframes cfCreateOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cfCreateDialogIn {
+  from { opacity: 0; transform: translateY(6px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 `}</style>
     </>,
