@@ -198,7 +198,7 @@ export default function WalletModal({
               : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable={selectionEnabled} selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
 
             {customFooter ? <div className="amp-sticky-footer"><div className="amp-custom-footer">{customFooter}</div></div> : null}
-            {!footer && !readOnly ? <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-action amp-action-muted" onClick={() => setSelectedItems([])}>Cancel</button><button type="button" className="amp-create-button" disabled={selectedItems.length === 0 || withdrawing} onClick={handleWithdraw}>{withdrawing ? 'Withdrawing' : 'Withdraw'}</button></div></div> : null}
+            {!footer && !readOnly ? <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-create-button" disabled={selectedItems.length === 0 || withdrawing} onClick={handleWithdraw}>{withdrawing ? 'Withdrawing' : 'Withdraw'}</button></div></div> : null}
           </div>
         </div>
         <style>{AMP_MODAL_STYLES}</style>
