@@ -31,7 +31,6 @@ export default function WalletModal({
   const [inventoryLoading, setInventoryLoading] = useState(false)
   const [inventoryError, setInventoryError] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
-  const [withdrawMode, setWithdrawMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortAscending, setSortAscending] = useState(false)
 
@@ -39,22 +38,16 @@ export default function WalletModal({
     if (!isOpen) return undefined
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape' || depositOpen) return
-      if (withdrawMode) {
-        setWithdrawMode(false)
-        setSelectedItems([])
-      } else {
-        onClose()
-      }
+      onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [depositOpen, isOpen, onClose, withdrawMode])
+  }, [depositOpen, isOpen, onClose])
 
   useEffect(() => {
     if (!isOpen) {
       setDepositOpen(false)
       setSelectedItems([])
-      setWithdrawMode(false)
       setSearchQuery('')
       return undefined
     }
@@ -129,7 +122,7 @@ export default function WalletModal({
     return inventoryRows.filter((item) => selected.has(item.displayKey))
   }, [inventoryRows, selectedItems])
   const selectedValue = useMemo(() => selectedInventoryItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0), [selectedInventoryItems])
-  const selectionEnabled = !readOnly && (Boolean(footer) || withdrawMode)
+  const selectionEnabled = !readOnly
 
   const toggleItem = (displayKey) => {
     if (!selectionEnabled) return
@@ -155,7 +148,6 @@ export default function WalletModal({
         body: JSON.stringify({ item_ids: inventoryIds }),
       })
       setSelectedItems([])
-      setWithdrawMode(false)
       setInventoryItems((current) => current.filter((item) => !inventoryIds.includes(item.id)))
       notifications.success('Withdrawal request created successfully!')
       window.dispatchEvent(new CustomEvent('wallet:updated'))
@@ -195,7 +187,6 @@ export default function WalletModal({
               <div className="amp-modal-controls">
                 <AmpSearch value={searchQuery} onChange={setSearchQuery} />
                 {!readOnly ? <button type="button" className="amp-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button> : null}
-                {!readOnly && !footer && inventoryRows.length > 0 ? <button type="button" className="amp-action amp-action-green" onClick={() => { setWithdrawMode(true); setSelectedItems([]) }}>Withdraw</button> : null}
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>
@@ -207,7 +198,7 @@ export default function WalletModal({
               : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable={selectionEnabled} selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
 
             {customFooter ? <div className="amp-sticky-footer"><div className="amp-custom-footer">{customFooter}</div></div> : null}
-            {!footer && withdrawMode ? <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-action amp-action-muted" onClick={() => { setWithdrawMode(false); setSelectedItems([]) }}>Cancel</button><button type="button" className="amp-create-button" disabled={selectedItems.length === 0 || withdrawing} onClick={handleWithdraw}>{withdrawing ? 'Withdrawing' : `Withdraw ${selectedItems.length || ''} ${selectedItems.length === 1 ? 'item' : 'items'}`}</button></div></div> : null}
+            {!footer && !readOnly ? <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-action amp-action-muted" onClick={() => setSelectedItems([])}>Cancel</button><button type="button" className="amp-create-button" disabled={selectedItems.length === 0 || withdrawing} onClick={handleWithdraw}>{withdrawing ? 'Withdrawing' : 'Withdraw'}</button></div></div> : null}
           </div>
         </div>
         <style>{AMP_MODAL_STYLES}</style>
