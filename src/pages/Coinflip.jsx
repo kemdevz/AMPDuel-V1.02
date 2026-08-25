@@ -126,6 +126,12 @@ function normalizeCoinflipPreviewItem(item) {
   }
 }
 
+function isCoinflipGemItem(item) {
+  const name = String(item?.name || '').trim()
+  const type = String(item?.type || item?.item_type || item?.game || '').trim()
+  return /\bgems?\b/i.test(name) || /^(?:gems?|diamonds?)$/i.test(type)
+}
+
 export default function Coinflip() {
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
@@ -622,7 +628,8 @@ export default function Coinflip() {
           box-shadow: none;
           transition: border-color .2s ease, opacity .2s ease;
         }
-        .game-preview-player:nth-child(3) .coinflip-row-avatar { border-color: #1f6fff; }
+        .coinflip-row-avatar--heads { border-color: #ff4fa3; }
+        .coinflip-row-avatar--tails { border-color: #1f6fff; }
         .coinflip-row-avatar:disabled { cursor: default; }
         .coinflip-row-avatar:not(:disabled):hover { opacity: .9; }
         .coinflip-row-avatar:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
@@ -708,6 +715,7 @@ export default function Coinflip() {
           box-sizing: border-box;
           align-items: center;
           justify-content: center;
+          overflow: hidden;
           border: 1px solid rgba(255,255,255,.05);
           border-radius: 9999px;
           background: #12151c;
@@ -715,7 +723,8 @@ export default function Coinflip() {
           transition: border-color .15s ease;
         }
         .game-preview-item:hover { z-index: 5; border-color: rgba(255,255,255,.12); }
-        .game-preview-item-image { display: block; width: 56px; height: 56px; padding: 0; border-radius: 0; object-fit: contain; }
+        .game-preview-item-image { display: block; width: calc(100% - 6px); height: calc(100% - 6px); padding: 0; border-radius: 9999px; object-fit: cover; }
+        .game-preview-item-image--gem { width: 78%; height: 78%; object-fit: contain; }
         .game-preview-tooltip {
           position: absolute;
           bottom: calc(100% + 7px);
@@ -1206,7 +1215,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             type="button"
             aria-label={`Open ${room.creator_username || 'creator'} profile`}
             onClick={openCreatorProfile}
-            className={`coinflip-row-avatar ${creatorWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !creatorWon ? 'coinflip-row-avatar--loser' : ''}`}
+            className={`coinflip-row-avatar coinflip-row-avatar--${player1.side === 'tails' ? 'tails' : 'heads'} ${creatorWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !creatorWon ? 'coinflip-row-avatar--loser' : ''}`}
           >
             <img
               src={player1.avatar || DEFAULT_AVATAR}
@@ -1231,7 +1240,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
             aria-label={room.opponent_uuid ? `Open ${room.opponent_username || 'opponent'} profile` : 'Waiting for opponent'}
             onClick={openOpponentProfile}
             disabled={!room.opponent_uuid}
-            className={`coinflip-row-avatar ${opponentWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !opponentWon ? 'coinflip-row-avatar--loser' : ''}`}
+            className={`coinflip-row-avatar coinflip-row-avatar--${player2.side === 'tails' ? 'tails' : 'heads'} ${opponentWon ? 'coinflip-row-avatar--winner' : ''} ${rowResultVisible && !opponentWon ? 'coinflip-row-avatar--loser' : ''}`}
           >
             {player2.avatar ? (
               <img
@@ -1274,7 +1283,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
               >
                 {item.name}
               </span>
-              <img src={item.image} alt="" className="game-preview-item-image" />
+              <img src={item.image} alt="" className={`game-preview-item-image${isCoinflipGemItem(item) ? ' game-preview-item-image--gem' : ''}`} />
 
               {isLastVisibleItem && (
                 <div className="game-preview-more">

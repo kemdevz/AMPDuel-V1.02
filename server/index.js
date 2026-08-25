@@ -5258,16 +5258,24 @@ app.post('/api/coinflip/create', express.json({ limit: '24kb' }), requireAuthent
       game_mode,
     }]
 
-    const response = await fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
+    const insertCoinflipGame = (rows) => fetch(`${supabaseUrl}/rest/v1/coinflip_games?select=*`, {
       method: 'POST',
       headers: getSupabaseAdminHeaders(supabaseKey, {
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       }),
-      body: JSON.stringify(insertPayload),
+      body: JSON.stringify(rows),
     })
 
-    const text = await response.text()
+    let response = await insertCoinflipGame(insertPayload)
+    let text = await response.text()
+    const legacyGameModeConstraint = !response.ok
+      && ['mm2', 'adm', 'ps99'].includes(game_mode)
+      && text.includes('coinflip_games_game_mode_check')
+    if (legacyGameModeConstraint) {
+      response = await insertCoinflipGame([{ ...insertPayload[0], game_mode: null }])
+      text = await response.text()
+    }
     if (!response.ok) {
       res.status(response.status).json({ ok: false, status: response.status, error: text })
       return
