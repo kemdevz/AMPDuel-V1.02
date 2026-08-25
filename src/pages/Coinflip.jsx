@@ -9,6 +9,7 @@ import CoinflipJoinModal from '../components/CoinflipJoinModal'
 import CoinflipViewModal from '../components/CoinflipViewModal'
 import RecentCoinflipsModal from '../components/RecentCoinflipsModal'
 import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileModal'
+import AnimatedNumber from '../components/AnimatedNumber'
 import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
@@ -866,18 +867,18 @@ export default function Coinflip() {
         <div className="grid gap-2 md:grid-cols-3">
           <StatCard
             icon="/assets/items-icon.png"
-            value={String(totalItemsCount)}
+            value={totalItemsCount}
             label="Total Items"
             showIcon={false}
           />
           <StatCard
             icon="/currency.svg"
-            value={String(totalValueSum.toLocaleString('en-US'))}
+            value={totalValueSum}
             label="Total Value"
           />
           <StatCard
             icon="/assets/room-icon.png"
-            value={String(activeRoomsCount)}
+            value={activeRoomsCount}
             label="Active Games"
             showIcon={false}
           />
@@ -1036,6 +1037,7 @@ export default function Coinflip() {
       <MiniProfileModal
         isOpen={Boolean(selectedProfile)}
         player={selectedProfile}
+        allowOwnProfile
         onClose={() => setSelectedProfile(null)}
         onTip={openTipModal}
       />
@@ -1075,7 +1077,7 @@ function StatCard({ icon, value, label, showIcon = true }) {
       <div className="flex w-full flex-col items-start justify-center text-left">
         <span className="flex items-center justify-start gap-2 text-left text-xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
-          {value}
+          <AnimatedNumber value={value} duration={650} fastThreshold={100_000_000} fastDuration={300} animateOnMount />
         </span>
         <span className="text-left text-base font-semibold leading-tight text-white opacity-60">{label}</span>
       </div>

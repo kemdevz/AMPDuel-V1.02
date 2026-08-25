@@ -1868,6 +1868,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
       <MiniProfileModal
         isOpen={Boolean(selectedProfile)}
         player={selectedProfile}
+        allowOwnProfile
         onClose={() => setSelectedProfile(null)}
         onTip={(player) => {
           if (!user) {

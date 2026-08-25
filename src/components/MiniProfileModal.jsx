@@ -4,13 +4,16 @@ import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
 import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
+import AnimatedNumber from './AnimatedNumber'
 import { PROFILE_TIP_OPEN_EVENT } from './ProfileTipManager'
 
 const profileCache = new Map()
 const profilePreloadRequests = new Map()
+const profileStatsCache = new Map()
 const FALLBACK_AVATAR = '/login.png'
 const EMPTY_STATS = { totalBet: 0, totalProfit: 0, totalWon: 0, totalLost: 0 }
 const GAME_OPTIONS = [['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
+const MINI_PROFILE_GAME_STORAGE_KEY = 'bloxdice:mini-profile-game'
 
 function normalizeProfileCacheKey(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -29,6 +32,22 @@ function cacheProfile(profile, aliases = []) {
   [profile.id, profile.profile_id, profile.roblox_id, profile.username, profile.name, ...aliases].forEach((value) => {
     const key = normalizeProfileCacheKey(value)
     if (key) profileCache.set(key, profile)
+  })
+}
+
+function getCachedProfileStats(values) {
+  for (const value of values) {
+    const cachedStats = profileStatsCache.get(normalizeProfileCacheKey(value))
+    if (cachedStats) return cachedStats
+  }
+  return null
+}
+
+function cacheProfileStats(stats, aliases = []) {
+  if (!stats) return
+  aliases.forEach((value) => {
+    const key = normalizeProfileCacheKey(value)
+    if (key) profileStatsCache.set(key, stats)
   })
 }
 
@@ -57,28 +76,29 @@ export function preloadMiniProfile(player) {
   return request
 }
 
-function formatStat(value) {
-  return Math.round(Number(value) || 0).toLocaleString('en-US')
-}
-
 function StatCard({ amount, label }) {
   return (
     <div className="miniPlayerProfileCard rounded border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.15)] px-6 py-4">
       <div className="flex items-center gap-1 font-semibold">
         <img src="/currency.svg" alt="currency" width="18" height="18" className="-mt-[2px] h-[18px] w-[18px] object-contain" />
-        {formatStat(amount)}
+        <AnimatedNumber value={amount} duration={650} fastThreshold={100_000_000} fastDuration={300} animateOnMount />
       </div>
       <div className="text-xs font-medium uppercase opacity-60">{label}</div>
     </div>
   )
 }
 
-export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
+export default function MiniProfileModal({ isOpen, player, onClose, onTip, allowOwnProfile = false }) {
   const currentUser = useAuth((state) => state.user)
   const [profile, setProfile] = useState(null)
-  const [activeGame, setActiveGame] = useState('mm2')
+  const [activeGame, setActiveGame] = useState(() => {
+    if (typeof window === 'undefined') return 'mm2'
+    const savedGame = window.localStorage.getItem(MINI_PROFILE_GAME_STORAGE_KEY)
+    return GAME_OPTIONS.some(([value]) => value === savedGame) ? savedGame : 'mm2'
+  })
   const activeGameIndex = Math.max(0, GAME_OPTIONS.findIndex(([value]) => value === activeGame))
   const [statsByGame, setStatsByGame] = useState(null)
+  const [statsOwnerKey, setStatsOwnerKey] = useState('')
 
   const playerAliases = useMemo(() => [player?.profile_id, player?.id, player?.user_id, player?.uuid, player?.username, player?.name]
     .map(normalizeProfileCacheKey).filter(Boolean), [player])
@@ -99,7 +119,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
     if (!isOpen) {
       setProfile(null)
       setStatsByGame(null)
-      setActiveGame('mm2')
+      setStatsOwnerKey('')
       return undefined
     }
     let active = true
@@ -116,42 +136,49 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
   const currentProfileId = String(currentUser?.profile_id || currentUser?.id || '').trim()
   const currentUsername = normalizeProfileCacheKey(currentUser?.username)
   const targetUsername = normalizeProfileCacheKey(resolvedProfile?.username || resolvedProfile?.name)
+  const statsRequestKey = normalizeProfileCacheKey(targetProfileId || targetUsername)
   const isOwnProfile = Boolean(
     (targetProfileId && currentProfileId && targetProfileId === currentProfileId) ||
     (!targetProfileId && currentUsername && targetUsername === currentUsername),
   )
 
   useEffect(() => {
-    if (!isOpen || !isOwnProfile) return
+    if (!isOpen || !isOwnProfile || allowOwnProfile) return
     onClose?.()
     window.dispatchEvent(new CustomEvent('profile:open'))
-  }, [isOpen, isOwnProfile, onClose])
+  }, [allowOwnProfile, isOpen, isOwnProfile, onClose])
 
   useEffect(() => {
-    if (!isOpen || !targetProfileId || isOwnProfile) return undefined
+    if (!isOpen || !targetProfileId || (isOwnProfile && !allowOwnProfile)) return undefined
     let active = true
-    setStatsByGame(null)
+    const statsAliases = [targetProfileId, targetUsername, ...playerAliases]
+    const cachedStats = getCachedProfileStats(statsAliases)
+    setStatsOwnerKey(statsRequestKey)
+    setStatsByGame(cachedStats)
     apiRequest(`/api/public-profile-stats?id=${encodeURIComponent(targetProfileId)}`, { cache: 'no-store' })
-      .then((result) => { if (active) setStatsByGame(result?.stats || null) })
+      .then((result) => {
+        const nextStats = result?.stats || null
+        if (nextStats) cacheProfileStats(nextStats, statsAliases)
+        if (active) setStatsByGame(nextStats)
+      })
       .catch((error) => {
         console.warn('[MiniProfileModal] failed to load player stats', error)
         if (active) setStatsByGame(null)
       })
     return () => { active = false }
-  }, [isOpen, isOwnProfile, targetProfileId])
+  }, [allowOwnProfile, isOpen, isOwnProfile, playerAliases, statsRequestKey, targetProfileId, targetUsername])
 
-  if (!isOpen || isOwnProfile || typeof document === 'undefined') return null
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(MINI_PROFILE_GAME_STORAGE_KEY, activeGame)
+  }, [activeGame])
+
+  if (!isOpen || (isOwnProfile && !allowOwnProfile) || typeof document === 'undefined') return null
 
   const username = resolvedProfile?.username || resolvedProfile?.name || 'User'
   const avatar = resolvedProfile?.avatar_headshot_url || resolvedProfile?.avatar || resolvedProfile?.avatar_url || FALLBACK_AVATAR
   const roleStyle = getRoleStyle(resolvedProfile?.role)
-  const fallbackStats = {
-    totalBet: Number(resolvedProfile?.played || 0),
-    totalProfit: Number(resolvedProfile?.won || 0) - Number(resolvedProfile?.lost || 0),
-    totalWon: Number(resolvedProfile?.won || 0),
-    totalLost: Number(resolvedProfile?.lost || 0),
-  }
-  const stats = statsByGame?.[activeGame] || (activeGame === 'mm2' ? fallbackStats : EMPTY_STATS)
+  const currentProfileStats = statsOwnerKey === statsRequestKey ? statsByGame : null
+  const stats = currentProfileStats?.[activeGame] || EMPTY_STATS
 
   const handleTip = () => {
     if (typeof onTip === 'function') onTip(resolvedProfile)
@@ -228,7 +255,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip }) {
           </div>
         </div>
 
-        <button type="button" className="inline-flex h-10 w-full min-w-16 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2" onClick={handleTip}>Tip</button>
+        {!isOwnProfile ? <button type="button" className="inline-flex h-10 w-full min-w-16 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2" onClick={handleTip}>Tip</button> : null}
         <button type="button" aria-label="Close" className="absolute right-4 top-4 rounded-sm bg-transparent p-0 text-white opacity-70 transition-opacity hover:opacity-100 focus:outline-none" onClick={onClose}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           <span className="sr-only">Close</span>
