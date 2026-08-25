@@ -7,27 +7,11 @@ const SUCCESS_SOUND_URL = '/success-jgkLyONA.mp3'
 const ERROR_SOUND_URL = '/error-DccXaKyU.mp3'
 
 function playNotificationSound(type) {
-  if (typeof window === 'undefined') return
-  const soundUrl = type === 'success'
-    ? SUCCESS_SOUND_URL
-    : type === 'error'
-      ? ERROR_SOUND_URL
-      : null
-  if (!soundUrl) return
-
-  try {
-    const audio = new Audio(soundUrl)
-    audio.volume = 0.35
-    void audio.play().catch(() => undefined)
-  } catch {
-    // ignore autoplay restrictions
-  }
+  void type
 }
 
 function publish(notification) {
-  playNotificationSound(notification?.type)
-
-  subscribers.forEach((subscriber) => subscriber(notification))
+  void notification
 }
 
 export function showNotification(message, options = {}) {

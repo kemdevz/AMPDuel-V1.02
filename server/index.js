@@ -13,6 +13,17 @@ function isUuidLike(value) {
 }
 
 const app = express()
+const ENABLED_GAME_SERVICES = new Set(['coinflip', 'mines'])
+const DISABLED_GAME_API_PREFIXES = [
+  '/api/blackjack',
+  '/api/case-battles',
+  '/api/cases',
+  '/api/jackpot',
+  '/api/live-casino',
+  '/api/roll',
+  '/api/summer',
+  '/api/upgrader',
+]
 for (const method of ['get', 'post', 'patch', 'delete']) {
   const registerRoute = app[method].bind(app)
   app[method] = (routePath, ...handlers) => registerRoute(
@@ -94,6 +105,12 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   next()
+})
+app.use((req, res, next) => {
+  const route = String(req.path || '')
+  const disabledGameRoute = DISABLED_GAME_API_PREFIXES.some((prefix) => route === prefix || route.startsWith(`${prefix}/`))
+  if (disabledGameRoute) return res.status(404).json({ ok: false, error: 'This game is currently disabled.' })
+  return next()
 })
 
 const FEED = [
@@ -1016,6 +1033,44 @@ async function verifyCaptchaToken(token, ipAddress) {
       String(result.hostname || '').toLowerCase() === expectedHostname
 
     if (!response.ok || !result.success || !hostnameMatches) {
+      return { ok: false, status: 403, error: 'Security verification failed. Please try again.' }
+    }
+
+    return { ok: true }
+  } catch {
+    return { ok: false, status: 503, error: 'Security verification is temporarily unavailable.' }
+  }
+}
+
+async function verifyHcaptchaToken(token, ipAddress) {
+  const isTestMode = process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
+  const secret = isTestMode
+    ? '0x0000000000000000000000000000000000000000'
+    : String(process.env.HCAPTCHA_SECRET_KEY || '').trim()
+  const expectedSitekey = isTestMode
+    ? '10000000-ffff-ffff-ffff-000000000001'
+    : String(process.env.HCAPTCHA_SITE_KEY || process.env.VITE_HCAPTCHA_SITE_KEY || '').trim()
+  const normalizedToken = typeof token === 'string' ? token.trim() : ''
+
+  if (!secret) return { ok: false, status: 503, error: 'hCaptcha is not configured on the server.' }
+  if (!normalizedToken) return { ok: false, status: 400, error: 'Complete the security check before continuing.' }
+  if (normalizedToken.length > 16_384) {
+    return { ok: false, status: 400, error: 'The security check response is invalid. Please try again.' }
+  }
+
+  try {
+    const verificationBody = new URLSearchParams({ secret, response: normalizedToken })
+    if (ipAddress && ipAddress !== 'unknown') verificationBody.set('remoteip', ipAddress)
+    if (expectedSitekey) verificationBody.set('sitekey', expectedSitekey)
+
+    const response = await fetch('https://api.hcaptcha.com/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: verificationBody,
+      signal: AbortSignal.timeout(8_000),
+    })
+    const result = await response.json().catch(() => null)
+    if (!response.ok || !result?.success) {
       return { ok: false, status: 403, error: 'Security verification failed. Please try again.' }
     }
 
@@ -2173,6 +2228,15 @@ app.post('/api/auth/roblox/challenge', express.json({ limit: '8kb' }), async (re
   const ipAddress = getRequestIp(req) || 'unknown'
   if (isRateLimited(authAttempts, `challenge:${ipAddress}`, 10, 60_000)) {
     res.status(429).json({ ok: false, error: 'Too many verification attempts. Please wait a moment.' })
+    return
+  }
+
+  const captchaVerification = await verifyHcaptchaToken(req.body?.captcha_token, ipAddress)
+  if (!captchaVerification.ok) {
+    res.status(captchaVerification.status || 403).json({
+      ok: false,
+      error: captchaVerification.error || 'Complete the security check before continuing.',
+    })
     return
   }
 
@@ -6951,14 +7015,18 @@ startServer(PORT)
 // can legitimately take longer than the development launcher's readiness
 // window, and delaying listen() caused the launcher to kill the process before
 // an unreadable Roll round could be cancelled and refunded.
-try {
-  await rollGame.initialize()
-} catch (error) {
-  console.error('[roll] initialisation failed; the state route will retry', error)
+if (ENABLED_GAME_SERVICES.has('roll')) {
+  try {
+    await rollGame.initialize()
+  } catch (error) {
+    console.error('[roll] initialisation failed; the state route will retry', error)
+  }
 }
 
-try {
-  await initializeCaseBattles()
-} catch (error) {
-  console.error('[case-battles] initialisation failed; API requests will retry', error)
+if (ENABLED_GAME_SERVICES.has('case-battles')) {
+  try {
+    await initializeCaseBattles()
+  } catch (error) {
+    console.error('[case-battles] initialisation failed; API requests will retry', error)
+  }
 }

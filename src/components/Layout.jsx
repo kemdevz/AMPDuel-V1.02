@@ -5,7 +5,6 @@ import Sidebar from './Sidebar'
 import ChatPanel from './ChatPanel'
 import ProfileModal from './ProfileModal'
 import LeaderboardModal from './LeaderboardModal'
-import Notifications from './Notifications'
 import { useAuth } from '../store/auth'
 import { NavLink } from '../lib/router'
 import ProfileTipManager from './ProfileTipManager'
@@ -214,7 +213,6 @@ export default function Layout({ children }) {
       {fairnessModalOpen ? <CoinflipFairnessModal onClose={() => setFairnessModalOpen(false)} /> : null}
 
       <ProfileTipManager />
-      <Notifications />
     </div>
   )
 }

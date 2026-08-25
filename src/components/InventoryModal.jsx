@@ -183,7 +183,6 @@ export default function WalletModal({
             <div className="amp-wallet-top">
               <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-modal-controls">
-                {!readOnly ? <button type="button" className="amp-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button> : null}
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>

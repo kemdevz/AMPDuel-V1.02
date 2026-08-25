@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
-import { getRoleStyle } from '../lib/roleStyles'
 import { useAuth } from '../store/auth'
 import AnimatedNumber from './AnimatedNumber'
 import { PROFILE_TIP_OPEN_EVENT } from './ProfileTipManager'
@@ -176,7 +175,6 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip, allow
 
   const username = resolvedProfile?.username || resolvedProfile?.name || 'User'
   const avatar = resolvedProfile?.avatar_headshot_url || resolvedProfile?.avatar || resolvedProfile?.avatar_url || FALLBACK_AVATAR
-  const roleStyle = getRoleStyle(resolvedProfile?.role)
   const currentProfileStats = statsOwnerKey === statsRequestKey ? statsByGame : null
   const stats = currentProfileStats?.[activeGame] || EMPTY_STATS
 
@@ -224,10 +222,6 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip, allow
             <div>
               <div id="mini-profile-username" className="text-lg font-semibold">
                 {username}
-                <div className="flex items-center gap-1 text-sm font-medium" style={{ color: roleStyle.color }}>
-                  <div className="grid"><span className="col-span-full row-span-full">{roleStyle.label}</span></div>
-                  {roleStyle.image ? <img src={roleStyle.image} alt={`${roleStyle.label} rank`} width="22" height="22" className="h-[22px] w-[22px] object-contain" /> : null}
-                </div>
               </div>
             </div>
           </div>

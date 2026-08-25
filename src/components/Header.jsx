@@ -9,8 +9,8 @@ import { apiRequest } from "../lib/apiClient";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
-import { DiscordIcon } from "./icons";
-import { CoinStackIcon, MedalIcon, RocketIcon } from "./ReferenceNavIcons";
+import { DiscordIcon, MinesIcon } from "./icons";
+import { CoinStackIcon, MedalIcon } from "./ReferenceNavIcons";
 
 const COIN_ICON = "/currency.svg";
 const SUMMER_EVENT_ENABLED = false;
@@ -504,13 +504,13 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
             </li>
             <li>
               <NavLink
-                to="/upgrader"
+                to="/mines"
                 className={({ isActive }) => `group relative flex h-[71px] items-center border-b-2 px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? 'border-b-[#ff4fa3] text-white' : 'border-b-transparent text-white/[0.48] hover:text-white'}`}
               >
                 {({ isActive }) => (
                   <>
-                    <RocketIcon className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? 'text-[#ff4fa3]' : 'text-white/[0.36]'}`} />
-                    UPGRADER
+                    <MinesIcon className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? 'text-[#ff4fa3]' : 'text-white/[0.36]'}`} />
+                    MINES
                   </>
                 )}
               </NavLink>

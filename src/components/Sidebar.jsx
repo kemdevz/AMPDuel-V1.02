@@ -162,7 +162,7 @@ export default function Sidebar({ isLoggedIn, mobileOpen = false, onMobileClose,
             <ul>
               {section.items
                 .filter((item) => item.enabled !== false)
-                .filter((item) => section.label !== 'Games' || ['coinflip', 'upgrader'].includes(item.path))
+                .filter((item) => section.label !== 'Games' || ['coinflip', 'mines'].includes(item.path))
                 .map((item) => (
                 <NavItem
                   key={item.name}

@@ -27,6 +27,7 @@ const COINFLIP_GAME_OPTIONS = [
   ['adm', 'ADM'],
   ['ps99', 'PS99'],
 ]
+let cachedCoinflipRooms = []
 
 function mergeRecentCoinflipResults(current, incoming) {
   const byId = new Map(current.map((game) => [game.id, game]))
@@ -133,7 +134,8 @@ function isCoinflipGemItem(item) {
   return /\bgems?\b/i.test(name) || /^(?:gems?|diamonds?)$/i.test(type)
 }
 
-export default function Coinflip() {
+export default function Coinflip({ isMinesPage = false }) {
+  const hasWarmRoomCache = !isMinesPage && cachedCoinflipRooms.length > 0
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
   const setBalance = useAuth((state) => state.setBalance)
@@ -143,7 +145,7 @@ export default function Coinflip() {
   const [gameMode, setGameMode] = useState(() => {
     if (typeof window === 'undefined') return 'mm2'
     try {
-      const savedGame = window.localStorage.getItem(COINFLIP_GAME_STORAGE_KEY)
+      const savedGame = window.localStorage.getItem(isMinesPage ? 'bloxdice:mines-game' : COINFLIP_GAME_STORAGE_KEY)
       return COINFLIP_GAME_OPTIONS.some(([value]) => value === savedGame) ? savedGame : 'mm2'
     } catch {
       return 'mm2'
@@ -159,7 +161,7 @@ export default function Coinflip() {
   const [isUserTipSubmitting, setIsUserTipSubmitting] = useState(false)
   const [userCoinTipAmount, setUserCoinTipAmount] = useState('')
   const [showUserCoinTipInChat, setShowUserCoinTipInChat] = useState(false)
-  const [rooms, setRooms] = useState([])
+  const [rooms, setRooms] = useState(() => (isMinesPage ? [] : cachedCoinflipRooms))
   const [recentPlayerResults, setRecentPlayerResults] = useState([])
   const [recentPlayerResultsLoading, setRecentPlayerResultsLoading] = useState(false)
   const socketRef = useRef(null)
@@ -169,11 +171,15 @@ export default function Coinflip() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(COINFLIP_GAME_STORAGE_KEY, gameMode)
+      window.localStorage.setItem(isMinesPage ? 'bloxdice:mines-game' : COINFLIP_GAME_STORAGE_KEY, gameMode)
     } catch {
       // Browsers can disable storage; the selected game still works for this session.
     }
-  }, [gameMode])
+  }, [gameMode, isMinesPage])
+
+  useEffect(() => {
+    if (!isMinesPage) cachedCoinflipRooms = rooms
+  }, [isMinesPage, rooms])
 
   const openViewRoom = useCallback((room, delayMs = 0) => {
     if (viewOpenTimerRef.current) {
@@ -210,6 +216,7 @@ export default function Coinflip() {
   }, [])
 
   useEffect(() => {
+    if (isMinesPage) return undefined
     rooms.slice(0, 30).forEach((room) => {
       void preloadMiniProfile({
         profile_id: room.creator_uuid,
@@ -222,7 +229,8 @@ export default function Coinflip() {
         })
       }
     })
-  }, [rooms])
+    return undefined
+  }, [isMinesPage, rooms])
 
   const applyRoomUpdate = useCallback((incomingRoom) => {
     const normalized = normalizeRoom(incomingRoom)
@@ -285,6 +293,7 @@ export default function Coinflip() {
   }, [openViewRoom])
 
   useEffect(() => {
+    if (isMinesPage) return undefined
     const socket = connectSocket()
     socketRef.current = socket
 
@@ -341,9 +350,18 @@ export default function Coinflip() {
       socket.off('coinflip:created', handleCreated)
       socket.off('coinflip:updated', handleUpdated)
     }
-  }, [applyRoomUpdate])
+  }, [applyRoomUpdate, isMinesPage])
 
   useEffect(() => {
+    if (isMinesPage) {
+      setRecentPlayerResults([])
+      setRecentPlayerResultsLoading(false)
+      return undefined
+    }
+    if (!recentOpen) {
+      setRecentPlayerResultsLoading(false)
+      return undefined
+    }
     let isMounted = true
     const activeProfileId = String(user?.profile_id || user?.id || '').trim()
 
@@ -383,17 +401,19 @@ export default function Coinflip() {
       isMounted = false
       supabase.removeChannel(channel)
     }
-  }, [applyRoomUpdate, gameMode, recentOpen, user?.id, user?.profile_id])
+  }, [applyRoomUpdate, gameMode, isMinesPage, recentOpen, user?.id, user?.profile_id])
 
   // Derived stats for the stat cards
-  const gameRooms = rooms.filter((room) => getCoinflipRoomGame(room) === gameMode)
+  const gameRooms = isMinesPage ? [] : rooms.filter((room) => getCoinflipRoomGame(room) === gameMode)
   const activeRoomsCount = gameRooms.filter((room) => !room.canceled && !room.result).length
   const totalValueSum = gameRooms.reduce((sum, room) => sum + Number(room.total_value ?? room.numericValue ?? 0), 0)
   const totalItemsCount = gameRooms.reduce((sum, room) => sum + (Array.isArray(room.creator_items) ? room.creator_items.length : 0) + (Array.isArray(room.opponent_items) ? room.opponent_items.length : 0), 0)
 
   useEffect(() => {
+    if (isMinesPage) return undefined
     window.dispatchEvent(new CustomEvent('coinflip:nav-value', { detail: { value: totalValueSum } }))
-  }, [totalValueSum])
+    return undefined
+  }, [isMinesPage, totalValueSum])
   useEffect(() => {
     const timers = []
 
@@ -424,6 +444,7 @@ export default function Coinflip() {
 
   // Load active coinflip rooms from Supabase on initial load so state persists across refreshes
   useEffect(() => {
+    if (isMinesPage) return undefined
     let isMounted = true
     const loadRooms = async () => {
       try {
@@ -466,7 +487,7 @@ export default function Coinflip() {
 
     void loadRooms()
     return () => { isMounted = false }
-  }, [])
+  }, [isMinesPage])
 
   const getTipRecipientId = (recipient) => String(
     recipient?.profile_id ||
@@ -857,7 +878,7 @@ export default function Coinflip() {
           from { opacity: 0; transform: translateY(4px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .coinflip-game-list { animation: coinflipGameListIn .22s cubic-bezier(.22,1,.36,1); }
+        .coinflip-game-list { animation: none; }
         @media (prefers-reduced-motion: reduce) {
           .coinflip-game-list { animation: none; }
         }
@@ -870,23 +891,26 @@ export default function Coinflip() {
             value={totalItemsCount}
             label="Total Items"
             showIcon={false}
+            animateOnMount={!hasWarmRoomCache}
           />
           <StatCard
             icon="/currency.svg"
             value={totalValueSum}
             label="Total Value"
+            animateOnMount={!hasWarmRoomCache}
           />
           <StatCard
             icon="/assets/room-icon.png"
             value={activeRoomsCount}
             label="Active Games"
             showIcon={false}
+            animateOnMount={!hasWarmRoomCache}
           />
         </div>
 
         {/* Game controls */}
         <div className="mb-3 mt-4 flex flex-col justify-between gap-2 sm:flex-row">
-          <div role="tablist" aria-label="CoinFlip game" className="relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
+          <div role="tablist" aria-label={isMinesPage ? 'Mines game' : 'CoinFlip game'} className="relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
@@ -911,19 +935,31 @@ export default function Coinflip() {
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
-              onClick={() => setCreateOpen(true)}
+              onClick={() => {
+                if (!user) {
+                  setAuthModalOpen(true)
+                  return
+                }
+                if (!isMinesPage) setCreateOpen(true)
+              }}
               className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
               Create
             </button>
-            <button type="button" onClick={() => setRecentOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+            <button type="button" onClick={() => {
+              if (!user) {
+                setAuthModalOpen(true)
+                return
+              }
+              if (!isMinesPage) setRecentOpen(true)
+            }} className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
               History
             </button>
           </div>
         </div>
 
         {/* Room Cards */}
-        <div key={gameMode} className="coinflip-game-list flex flex-col gap-2">
+        <div className="coinflip-game-list flex flex-col gap-2">
           {gameRooms.length > 0 &&
             gameRooms
               .slice()
@@ -948,7 +984,7 @@ export default function Coinflip() {
           }
         </div>
       </div>
-      {createOpen && <CoinflipCreateModal gameMode={gameMode} onClose={() => setCreateOpen(false)} onCreate={(room) => {
+      {!isMinesPage && createOpen && <CoinflipCreateModal gameMode={gameMode} onClose={() => setCreateOpen(false)} onCreate={(room) => {
         const normalized = normalizeRoom(room)
         if (!normalized) return
         setRooms((prev) => {
@@ -981,7 +1017,7 @@ export default function Coinflip() {
         })
         openViewRoom(normalized, CREATOR_VIEW_OPEN_DELAY_MS)
       }} />}
-      {joinRoom && (
+      {!isMinesPage && joinRoom && (
         <CoinflipJoinModal
           room={joinRoom}
           gameMode={gameMode}
@@ -996,7 +1032,7 @@ export default function Coinflip() {
           }}
         />
       )}
-      <RecentCoinflipsModal
+      {!isMinesPage && <RecentCoinflipsModal
         isOpen={recentOpen}
         games={recentPlayerResults.filter((game) => getCoinflipRoomGame(game) === gameMode)}
         loading={recentPlayerResultsLoading}
@@ -1011,8 +1047,8 @@ export default function Coinflip() {
             setSelectedProfile({ ...player, ...(loadedProfile || {}) })
           })
         }}
-      />
-      {viewRoom && (
+      />}
+      {!isMinesPage && viewRoom && (
         <CoinflipViewModal
           room={viewRoom}
           onClose={() => closeViewRoom(viewRoom)}
@@ -1071,13 +1107,13 @@ export default function Coinflip() {
   )
 }
 
-function StatCard({ icon, value, label, showIcon = true }) {
+function StatCard({ icon, value, label, showIcon = true, animateOnMount = true }) {
   return (
     <div className="flex min-h-[64px] items-center justify-start gap-3 rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-2">
       <div className="flex w-full flex-col items-start justify-center text-left">
         <span className="flex items-center justify-start gap-2 text-left text-xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
-          <AnimatedNumber value={value} duration={650} fastThreshold={100_000_000} fastDuration={300} animateOnMount />
+          <AnimatedNumber value={value} duration={260} fastThreshold={100_000_000} fastDuration={160} animateOnMount={animateOnMount} />
         </span>
         <span className="text-left text-base font-semibold leading-tight text-white opacity-60">{label}</span>
       </div>
