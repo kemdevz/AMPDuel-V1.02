@@ -667,7 +667,8 @@ export default function Coinflip() {
           justify-content: center;
           gap: 12px;
         }
-        .game-preview-player { position: relative; flex: 0 0 58px; width: 58px; height: 58px; }
+        .game-preview-player { position: relative; flex: 0 0 58px; width: 58px; height: 58px; opacity: 1; transition: opacity .22s ease, filter .22s ease; }
+        .game-preview-player--loser { opacity: .42; filter: saturate(.65) brightness(.78); }
         .game-preview-side-coin {
           position: absolute;
           top: -7px;
@@ -1211,7 +1212,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
     >
       {/* Player VS Display */}
       <div className="game-preview-players">
-        <div className="game-preview-player">
+        <div className={`game-preview-player${rowResultVisible && !creatorWon ? ' game-preview-player--loser' : ''}`}>
           <button
             type="button"
             aria-label={`Open ${room.creator_username || 'creator'} profile`}
@@ -1235,7 +1236,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
 
         <p className="game-preview-versus">VS</p>
 
-        <div className="game-preview-player">
+        <div className={`game-preview-player${rowResultVisible && !opponentWon ? ' game-preview-player--loser' : ''}`}>
           <button
             type="button"
             aria-label={room.opponent_uuid ? `Open ${room.opponent_username || 'opponent'} profile` : 'Waiting for opponent'}
