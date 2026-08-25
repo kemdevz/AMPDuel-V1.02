@@ -887,7 +887,6 @@ export default function Coinflip({ isMinesPage = false }) {
         {/* Stats Cards */}
         <div className="grid gap-2 md:grid-cols-3">
           <StatCard
-            icon="/assets/items-icon.png"
             value={totalItemsCount}
             label="Total Items"
             showIcon={false}
@@ -900,7 +899,6 @@ export default function Coinflip({ isMinesPage = false }) {
             animateOnMount={!hasWarmRoomCache}
           />
           <StatCard
-            icon="/assets/room-icon.png"
             value={activeRoomsCount}
             label="Active Games"
             showIcon={false}
