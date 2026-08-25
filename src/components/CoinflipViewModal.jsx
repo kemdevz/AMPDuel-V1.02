@@ -110,12 +110,13 @@ function CoinAnimation({ side, onComplete }) {
 
 function Player({ player, completed, winnerSide, winnerVisible, waiting = false, onProfileOpen }) {
   const isWinner = completed && winnerVisible && player.side === winnerSide
+  const isLoser = completed && winnerVisible && !waiting && player.side !== winnerSide
 
   return (
-    <div className="view-modal__player">
+    <div className={`view-modal__player${isWinner ? ' view-modal__player--winner' : ''}${isLoser ? ' view-modal__player--loser' : ''}`}>
       <button
         type="button"
-        className="view-modal__avatar-wrapper"
+        className={`view-modal__avatar-wrapper view-modal__avatar-wrapper--${player.side === 'tails' ? 'tails' : 'heads'}`}
         onClick={() => {
           if (!waiting) {
             onProfileOpen?.({
@@ -905,7 +906,10 @@ const VIEW_MODAL_STYLES = `
     min-width: 0;
     flex-shrink: 1;
     gap: 8px;
+    opacity: 1;
+    transition: opacity .24s ease, filter .24s ease;
   }
+  .view-modal__player--loser { opacity: .34; filter: saturate(.62) brightness(.74); }
   .view-modal__avatar-wrapper {
     position: relative;
     display: block;
@@ -916,6 +920,8 @@ const VIEW_MODAL_STYLES = `
     border-radius: 9999px;
     background: #303540;
   }
+  .view-modal__avatar-wrapper--heads { background: #ff4fa3; }
+  .view-modal__avatar-wrapper--tails { background: #1f6fff; }
   .view-modal__avatar {
     display: inline-flex;
     width: 92px;
@@ -933,8 +939,8 @@ const VIEW_MODAL_STYLES = `
   .view-modal__avatar:hover { border-color: transparent; filter: none; }
   .view-modal__avatar--waiting svg { width: 24px; height: 24px; }
   .view-modal__avatar.view-modal__winner {
-    border: 3px solid #ff4fa3;
-    box-shadow: 0 0 0 5px rgba(255,79,163,.1), 0 0 26px rgba(255,79,163,.22);
+    border: 0;
+    box-shadow: none;
   }
   .view-modal__coin {
     top: -8px;
@@ -1053,23 +1059,23 @@ const VIEW_MODAL_STYLES = `
     justify-content: normal;
     gap: 32px;
     margin: 0;
-    padding: 0 6px 0 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #3a3e47 transparent;
+    padding: 0;
+    overflow: hidden;
   }
-  .view-modal__items::-webkit-scrollbar { width: 5px; }
-  .view-modal__items::-webkit-scrollbar-track { background: transparent; }
-  .view-modal__items::-webkit-scrollbar-thumb { border-radius: 999px; background: #3a3e47; }
   .view-modal__surface--cancelable .view-modal__items { padding-bottom: 0; }
   .view-modal__player-items {
     display: flex;
     width: 100%;
+    height: 80px;
     min-width: 0;
     flex-direction: column;
     padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
   }
+  .view-modal__player-items::-webkit-scrollbar { display: none; }
   .view-modal__item-row {
     display: flex;
     width: 100%;
@@ -1154,7 +1160,8 @@ const VIEW_MODAL_STYLES = `
   @media (max-width: 520px) {
     .view-modal__players { grid-template-columns: 1fr 86px 1fr; }
     .view-modal__middle-action { min-width: 76px; padding: 0 10px; }
-    .view-modal__items { height: 128px; flex-basis: 128px; grid-template-columns: 1fr; gap: 8px; }
+    .view-modal__items { height: 256px; flex-basis: 256px; grid-template-columns: 1fr; gap: 0; }
+    .view-modal__player-items { height: 128px; }
     .view-modal__totals { grid-template-columns: 1fr; height: auto; }
     .view-modal__item-name { font-size: 12px; }
   }
