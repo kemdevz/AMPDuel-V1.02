@@ -4,113 +4,18 @@ import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
 import { isUuidLike, supabase } from "../lib/supabaseClient";
 import LoginModal from "./LoginModal";
-import AnimatedNumber from "./AnimatedNumber";
 import MiniProfileModal from "./MiniProfileModal";
 import TipUserModal from "./TipUserModal";
 import CoinTipModal from "./CoinTipModal";
 import { notifications } from "./Notifications";
 import { DiscordIcon, XIcon } from "./icons";
 import { getRoleStyle } from "../lib/roleStyles";
-import { loadRecaptcha, RECAPTCHA_TEST_SITE_KEY } from "../lib/recaptcha";
 
 const COIN_ICON = "/bobux.png";
 const LEGACY_CHAT_MESSAGES_STORAGE_KEY = "bloxy_chat_messages_v1";
 const CHAT_SESSION_STORAGE_KEY = "bloxy_chat_session_v2";
 const MAX_STORED_CHAT_MESSAGES = 20;
 const MAX_CHAT_MESSAGE_LENGTH = 100;
-function RainCaptchaOverlay({ isOpen, isSubmitting, error, onClose, onVerify }) {
-  const containerRef = useRef(null);
-  const widgetIdRef = useRef(null);
-  const verifyRef = useRef(onVerify);
-  const closeRef = useRef(onClose);
-  verifyRef.current = onVerify;
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape" && !isSubmitting) closeRef.current?.();
-    };
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, isSubmitting]);
-
-  useEffect(() => {
-    if (!isOpen || !containerRef.current) return undefined;
-
-    let cancelled = false;
-    const sitekey = import.meta.env.DEV
-      ? RECAPTCHA_TEST_SITE_KEY
-      : import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
-
-    if (!sitekey) {
-      notifications.error("reCAPTCHA is not configured.");
-      closeRef.current?.();
-      return undefined;
-    }
-
-    void loadRecaptcha()
-      .then((grecaptcha) => {
-        if (cancelled || !containerRef.current) return;
-        widgetIdRef.current = grecaptcha.render(containerRef.current, {
-          sitekey,
-          theme: "dark",
-          size: window.innerWidth < 380 ? "compact" : "normal",
-          callback: (token) => verifyRef.current?.(token),
-          "error-callback": () => notifications.error("Verification failed. Please try again."),
-          "expired-callback": () => {
-            if (widgetIdRef.current != null) grecaptcha.reset(widgetIdRef.current);
-          },
-        });
-      })
-      .catch((loadError) => {
-        if (!cancelled) {
-          notifications.error(loadError?.message || "Google reCAPTCHA failed to load.");
-          closeRef.current?.();
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      if (window.grecaptcha && widgetIdRef.current != null) {
-        window.grecaptcha.reset(widgetIdRef.current);
-      }
-      if (containerRef.current) containerRef.current.replaceChildren();
-      widgetIdRef.current = null;
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!error || !window.grecaptcha || widgetIdRef.current == null) return;
-    window.grecaptcha.reset(widgetIdRef.current);
-  }, [error]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[999] flex animate-[rainCaptchaFadeIn_.5s_ease-out] items-center justify-center bg-black/50"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isSubmitting) onClose?.();
-      }}
-    >
-      <style>{`
-        @keyframes rainCaptchaFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `}</style>
-      <div ref={containerRef} className="flex max-w-[calc(100vw-32px)] items-center justify-center" />
-    </div>
-  );
-}
 
 function normalizeStoredMessages(messages) {
   if (!Array.isArray(messages)) return [];
@@ -143,10 +48,8 @@ const CUSTOM_EMOJIS = [
   { name: "pepehooray", token: ":pepehooray:", src: "https://media.tenor.com/ag481yU1Fq8AAAAm/pepe-hooray.webp" },
   { name: "peepodance", token: ":peepodance:", src: "https://media.tenor.com/BJRtqNO-VWAAAAAm/fortnite-pepe-the-frog.webp" },
   { name: "peepomoney", token: ":peepomoney:", src: "https://media.tenor.com/Ampe7OGwvq8AAAAm/peepo-money.webp" },
-  { name: "peepomoneyrain", token: ":peepomoneyrain:", src: "https://media.tenor.com/dl3I6S8ATI8AAAAm/pepe.webp" },
   { name: "peepoban", token: ":peepoban:", src: "https://media.tenor.com/c92qA2SXFnAAAAAm/pepe-ban.webp" },
   { name: "smoge", token: ":smoge:", src: "https://media.tenor.com/aRbyq_LPNfoAAAAm/smoge.webp" },
-  { name: "peeporain", token: ":peeporain:", src: "https://media.tenor.com/8DMto4GzC7MAAAAm/peeporain.webp" },
   { name: "peeporiot", token: ":peeporiot:", src: "https://media.tenor.com/aMbizWxQ8BQAAAAm/peepo-riot-peepo.webp" },
   { name: "peepogun", token: ":peepogun:", src: "https://media.tenor.com/dwRrfPj_HG8AAAAm/1.webp" },
   { name: "nopers", token: ":nopers:", src: "https://media.tenor.com/t4tEcFOYT-EAAAAi/nopers-peepo.gif" },
@@ -223,11 +126,6 @@ function getNotificationTime(date = new Date()) {
   return `${hours}:${minutes} ${period}`;
 }
 
-function formatCountdown(seconds) {
-  const minutes = Math.max(0, Math.floor(seconds / 60));
-  const remainder = Math.max(0, seconds % 60);
-  return `${minutes}:${String(remainder).padStart(2, "0")}`;
-}
 
 function getEmojiTrigger(text, cursorIndex) {
   const beforeCursor = text.slice(0, cursorIndex);
@@ -323,18 +221,6 @@ function TwitchIcon({ className = "" }) {
   );
 }
 
-function TipIcon() {
-  return (
-    <svg width="21" height="21" xmlns="http://www.w3.org/2000/svg" viewBox="0.08 0.5 19.83 17" aria-hidden="true" className="text-white">
-      <path
-        d="M19.3823 0.5L0.617671 0.5C0.475984 0.500077 0.340129 0.544337 0.239941 0.623059C0.139754 0.701781 0.0834259 0.80853 0.0833282 0.91986L0.0833282 5.74681C0.0834259 5.85814 0.139754 5.96489 0.239941 6.04361C0.340129 6.12233 0.475984 6.16659 0.617671 6.16667L3.72423 6.16667C3.90317 5.67178 4.21057 5.21137 4.62709 4.81443L2.45655 4.81443C2.28806 4.81454 2.12637 4.7622 2.00689 4.66886C1.8874 4.57551 1.81985 4.44877 1.81902 4.31639L1.81902 2.35028C1.81908 2.21744 1.88626 2.09005 2.00581 1.99611C2.12536 1.90218 2.28748 1.84939 2.45655 1.84934L17.4771 1.84934C17.6462 1.84939 17.8083 1.90218 17.9278 1.99611C18.0474 2.09005 18.1146 2.21744 18.1146 2.35028V4.31639C18.1138 4.44877 18.0463 4.57551 17.9268 4.66886C17.8073 4.7622 17.6456 4.81454 17.4771 4.81443H15.3729C15.7892 5.21194 16.0977 5.6721 16.2794 6.16667H19.3823C19.524 6.16659 19.6599 6.12233 19.76 6.04361C19.8602 5.96489 19.9166 5.85814 19.9167 5.74681V0.91986C19.9166 0.80853 19.8602 0.701781 19.76 0.623059C19.6599 0.544337 19.524 0.500077 19.3823 0.5Z"
-        fill="currentColor"
-      />
-      <path d="M10 15.0431C13.7916 15.0431 16.8654 13.0561 16.8654 10.6049C16.8654 8.15372 13.7916 6.16666 10 6.16666C6.20835 6.16666 3.13461 8.15372 3.13461 10.6049C3.13461 13.0561 6.20835 15.0431 10 15.0431Z" fill="currentColor" />
-      <path d="M16.8654 12.9969V13.0618C16.8654 15.515 13.7939 17.5 10 17.5C6.20609 17.5 3.13461 15.515 3.13461 13.0618V12.9969C4.43323 14.6396 7.02603 15.7636 10 15.7636C12.974 15.7636 15.5668 14.6396 16.8654 12.9969Z" fill="currentColor" />
-    </svg>
-  );
-}
 
 function RulesIcon() {
   return (
@@ -347,67 +233,6 @@ function RulesIcon() {
   );
 }
 
-function RainBar({ rainSeconds, rainPool, onRainJoin, onTipOpen, hasJoined = false, joinWindowSeconds = 300, totalDurationSeconds = 1800 }) {
-  const isJoinWindow = rainSeconds <= joinWindowSeconds
-  const progressPercent = Math.max(0, Math.min(100, (rainSeconds / totalDurationSeconds) * 100))
-  const formattedPool = Number(rainPool || 0).toLocaleString()
-
-  return (
-    <div className="flex w-full justify-center ">
-      <div className="rain-card relative z-[1] w-full overflow-hidden rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.6)]">
-        <div className="relative z-[2] px-[14px] pb-3 pt-[14px]">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-[14px]">
-              <div className="flex min-h-[35px] min-w-[35px] items-center justify-center">
-                <img src={COIN_ICON} alt="coin" className="h-[35px] w-[35px] min-w-[35px] select-none object-contain" draggable={false} />
-              </div>
-
-              <div className="flex min-w-0 flex-col">
-                <div className="flex items-center">
-                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[23px] font-bold tracking-[.2px] text-white/90">
-                    <AnimatedNumber value={Number(rainPool || 0)} />
-                  </span>
-                </div>
-                <div className="-mt-1 flex min-w-0 items-center gap-[7px]">
-                  <span className="select-none whitespace-nowrap text-base font-bold text-[#ff4fa3]">
-                    Rain Pool
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-[12px]">
-              <button
-                type="button"
-                aria-label="Tip Rain"
-                onClick={onTipOpen}
-                className="inline-flex h-[39px] cursor-pointer select-none items-center justify-center rounded-[7px] border-0 bg-[#2a2e44] px-[14px] text-white transition-none hover:opacity-90"
-              >
-                <TipIcon />
-              </button>
-
-              <button
-                type="button"
-                disabled={rainSeconds > joinWindowSeconds || hasJoined}
-                onClick={onRainJoin}
-                className={`h-[39px] select-none whitespace-nowrap rounded-[7px] border-0 bg-[#ff4fa3] px-4 text-base font-bold leading-[39px] text-black shadow-none ${rainSeconds > joinWindowSeconds ? "opacity-55" : "opacity-100"}`}
-              >
-                {hasJoined ? "JOINED" : isJoinWindow ? "JOIN" : formatCountdown(rainSeconds)}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="absolute bottom-0 left-0 z-[3] h-[3px] w-full bg-white/[.05]">
-          <div
-            className="h-full bg-[#ff4fa3] transition-[width] duration-1000"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ReplyPreview({ reply }) {
   if (!reply) return null;
@@ -499,17 +324,7 @@ function TipNotification({ message }) {
               <span>{amount.toLocaleString()}</span>
             </span>
           </div>
-        ) : (
-          <div className="inline-flex max-w-full items-center gap-x-1 overflow-hidden whitespace-nowrap text-[0.8rem] font-medium text-[#C7CCE2]">
-            <span className="truncate font-semibold">{message.name || 'Guest'}</span>
-            <span className="opacity-70">tipped</span>
-            <span className="inline-flex items-center gap-1 font-semibold">
-              <img src={COIN_ICON} alt="Bobux" className="h-[18px] w-[18px] select-none" draggable={false} />
-              <span>{amount.toLocaleString()}</span>
-            </span>
-            <span className="opacity-70">into the rain</span>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -785,15 +600,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   const [chatSessionId, setChatSessionId] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [chatRulesOpen, setChatRulesOpen] = useState(false);
-  const [rainCountdown, setRainCountdown] = useState(30 * 60);
-  const [rainPool, setRainPool] = useState(10000);
-  const [isRainJoinModalOpen, setIsRainJoinModalOpen] = useState(false);
-  const [isRainJoinSubmitting, setIsRainJoinSubmitting] = useState(false);
-  const [rainJoinError, setRainJoinError] = useState("");
-  const [hasJoinedRain, setHasJoinedRain] = useState(false);
-  const [isTipModalOpen, setIsTipModalOpen] = useState(false);
-  const [isRainTipSubmitting, setIsRainTipSubmitting] = useState(false);
-  const [tipAmount, setTipAmount] = useState("");
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [tipRecipient, setTipRecipient] = useState(null);
   const [isUserTipSubmitting, setIsUserTipSubmitting] = useState(false);
@@ -801,8 +607,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   const [showUserCoinTipInChat, setShowUserCoinTipInChat] = useState(false);
   const mobileChatOpen = Boolean(mobileOpen);
   const setMobileChatOpen = (open) => onMobileOpenChange?.(Boolean(open));
-  const RAIN_DURATION_SECONDS = 30 * 60;
-  const JOIN_WINDOW_SECONDS = 5 * 60;
   const messagesEndRef = useRef(null);
   const chatSessionIdRef = useRef(null);
 
@@ -881,40 +685,12 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     } catch {}
   }, [chatSessionId, messages]);
 
-  useEffect(() => {
-    if (!isTipModalOpen) return undefined
-
-    const previousOverflow = document.body.style.overflow
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") setIsTipModalOpen(false)
-    }
-
-    document.body.style.overflow = "hidden"
-    document.addEventListener("keydown", handleKeyDown)
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-      document.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [isTipModalOpen])
 
   useEffect(() => {
     const socket = connectSocket();
     if (!socket) return undefined;
 
     const handleOnlineCount = (count) => setOnlineCount(typeof count === "number" ? count : Number(count) || 0);
-    const handleRainPool = (pool) => setRainPool(typeof pool === "number" ? pool : Number(pool) || 0);
-    const handleRainCountdown = (seconds) => {
-      const nextSeconds = typeof seconds === "number" ? seconds : Number(seconds) || 0;
-      setRainCountdown((currentSeconds) => {
-        if (nextSeconds > currentSeconds + 5) {
-          setHasJoinedRain(false);
-          setIsRainJoinModalOpen(false);
-          setRainJoinError("");
-        }
-        return nextSeconds;
-      });
-    };
     const handleIncomingChatMessage = (message) => {
       if (!message?.id) return;
       const normalizedMessage = {
@@ -953,16 +729,12 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     };
 
     socket.on("online:count", handleOnlineCount);
-    socket.on("rain:pool", handleRainPool);
-    socket.on("rain:countdown", handleRainCountdown);
     socket.on("chat:message", handleIncomingChatMessage);
     socket.on("chat:session", handleChatSession);
     socket.emit("online:count:get", handleOnlineCount);
     socket.emit("chat:session:get", handleChatSession);
     return () => {
       socket.off("online:count", handleOnlineCount);
-      socket.off("rain:pool", handleRainPool);
-      socket.off("rain:countdown", handleRainCountdown);
       socket.off("chat:message", handleIncomingChatMessage);
       socket.off("chat:session", handleChatSession);
     };
@@ -986,106 +758,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     };
   }, [user?.id, user?.profile_id]);
 
-  useEffect(() => {
-    if (!hasJoinedRain || !user) return undefined;
-
-    const socket = connectSocket();
-    if (!socket) return undefined;
-
-    const handleRainSettled = async () => {
-      const profileId = String(user?.profile_id || user?.id || "").trim();
-      if (profileId) {
-        const result = await apiRequest("/api/profile");
-        if (result?.profile?.balance != null) setBalance(Number(result.profile.balance));
-      }
-      window.dispatchEvent(new CustomEvent("wallet:updated"));
-      notifications.success("Your rain payout has been added to your balance.");
-      setHasJoinedRain(false);
-    };
-
-    socket.on("rain:settled", handleRainSettled);
-    return () => socket.off("rain:settled", handleRainSettled);
-  }, [hasJoinedRain, setBalance, user]);
-
-  async function handleRainJoinVerification(captchaToken) {
-    if (isRainJoinSubmitting || !captchaToken) return;
-    if (!user) {
-      setIsRainJoinModalOpen(false);
-      setAuthModalOpen(true);
-      return;
-    }
-
-    // The CAPTCHA has been completed, so remove it while the join is confirmed.
-    setIsRainJoinModalOpen(false);
-    setIsRainJoinSubmitting(true);
-    setRainJoinError("");
-
-    try {
-      const response = await fetch("/api/rain/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          captcha_token: captchaToken,
-        }),
-      });
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || "Unable to join the rain.");
-      }
-
-    setHasJoinedRain(true);
-    notifications.success(result.already_joined ? "You already joined this rain." : "Successfully joined the rain!");
-  } catch (error) {
-    const message = error?.message || "Unable to join the rain.";
-    setRainJoinError(message);
-    notifications.error(message);
-  } finally {
-      setIsRainJoinSubmitting(false);
-    }
-  }
-
-  async function handleTipSubmit() {
-    if (!user || isRainTipSubmitting) return
-
-    const amount = Number(tipAmount)
-    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
-      notifications.invalidTipAmount()
-      return
-    }
-
-    if (amount > (balance || 0)) {
-      notifications.insufficientCoins()
-      return
-    }
-
-    setIsRainTipSubmitting(true)
-    try {
-      const response = await fetch('/api/rain/tip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-        }),
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Unable to tip the rain.')
-      }
-
-      setBalance(Number(result.balance ?? balance))
-      setRainPool(Number(result.pool_amount ?? rainPool))
-      window.dispatchEvent(new CustomEvent('wallet:updated'))
-      setTipAmount("")
-      setIsTipModalOpen(false)
-      notifications.success('Successfully tipped the rain!')
-    } catch (error) {
-      notifications.error(error?.message || 'Unable to tip the rain.')
-    } finally {
-      setIsRainTipSubmitting(false)
-    }
-  }
 
   async function handleUserItemTip(items) {
     if (isUserTipSubmitting || !tipRecipient || !Array.isArray(items) || items.length === 0) return
@@ -1256,18 +928,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
       return;
     }
 
-    if (normalized.toLowerCase() === "!rain") {
-      setMessages((current) => normalizeStoredMessages([
-        ...current,
-        {
-          id: `rain-${Date.now()}-${current.length}`,
-          type: "rain",
-          time: getNotificationTime(),
-        },
-      ]));
-      setReplyTo(null);
-      return;
-    }
 
     const clientMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const outgoingMessage = {
@@ -1553,318 +1213,11 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
           object-fit: contain;
           user-select: none;
         }
-        .rain-card::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          pointer-events: none;
-          background:
-            radial-gradient(circle at 100% 100%, rgba(255,79,163,.22) 0%, rgba(255,79,163,.16) 24%, rgba(255,79,163,.09) 52%, rgba(255,79,163,.04) 68%, transparent 82%),
-            radial-gradient(circle at 12% 0%, rgba(81,71,217,.18) 0%, rgba(81,71,217,.1) 26%, transparent 58%);
-        }
-
-        .rain-card::after {
-          content: "";
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: -1px;
-          height: 71px;
-          z-index: 1;
-          pointer-events: none;
-          background: linear-gradient(to bottom, rgba(27,31,46,0), rgba(27,31,46,.55) 55%, rgba(27,31,46,0));
-          opacity: .9;
-        }
 
       `}</style>
 
-      <style>{`
-        @keyframes tipRainFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes tipRainModalOpen {
-          from { opacity: 0; transform: scale(.8); }
-          to { opacity: 1; transform: scale(1); }
-        }
-
-        .tipRainOverlay {
-          position: fixed;
-          inset: 0;
-          z-index: 999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background-color: rgba(0, 0, 0, .5);
-          animation: tipRainFadeIn .5s ease-out;
-        }
-
-        .tipRainModal,
-        .tipRainModal * {
-          box-sizing: border-box;
-          font-family: Poppins, sans-serif;
-        }
-
-        .tipRainModal {
-          position: relative;
-          display: flex;
-          width: 90%;
-          max-width: 380px;
-          max-height: calc(100dvh - 40px);
-          margin: 20px;
-          padding: 28px 24px 24px;
-          flex-direction: column;
-          overflow-y: auto;
-          border: 1px solid #1e2235;
-          border-radius: 12px;
-          background-color: #171925;
-          color: #e1e4f2;
-          scrollbar-width: none;
-          animation: tipRainModalOpen .3s forwards;
-        }
-
-        .tipRainModal::-webkit-scrollbar {
-          display: none;
-        }
-
-        .tipRainClose {
-          position: absolute;
-          top: 14px;
-          right: 16px;
-          z-index: 1;
-          padding: 0;
-          border: none;
-          background: none;
-          color: rgba(255, 255, 255, .5);
-          font-size: 22px;
-          font-weight: 400;
-          line-height: 1;
-          cursor: pointer;
-          transition: color .2s ease;
-        }
-
-        .tipRainClose:hover {
-          color: rgba(255, 255, 255, .9);
-        }
-
-        .tipRainClose:focus-visible {
-          outline: 2px solid #ff69b0;
-          outline-offset: 2px;
-        }
-
-        .tipRainIconHeader {
-          position: relative;
-          z-index: 0;
-          display: flex;
-          margin-bottom: 24px;
-          flex-direction: column;
-          align-items: center;
-          gap: 10px;
-          text-align: center;
-        }
-
-        .tipRainIconBg {
-          display: flex;
-          width: 60px;
-          height: 60px;
-          flex-shrink: 0;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          background: rgba(255, 79, 163, .12);
-          color: #ff4fa3;
-        }
-
-        .tipRainIconBg svg {
-          display: block;
-          width: 28px;
-          height: 28px;
-          flex-shrink: 0;
-        }
-
-        .tipRainTitle {
-          margin: 0;
-          color: #fff;
-          font-size: 17.6px;
-          font-weight: 700;
-          line-height: 22px;
-          letter-spacing: .2px;
-          white-space: nowrap;
-        }
-
-        .tipRainSubtitle {
-          margin: 0;
-          color: rgba(255, 255, 255, .4);
-          font-size: 12px;
-          font-weight: 500;
-          line-height: 18px;
-          letter-spacing: .2px;
-          white-space: nowrap;
-        }
-
-        .tipRainForm {
-          display: flex;
-          min-height: 0;
-          margin: 0;
-          flex: 1;
-          flex-direction: column;
-        }
-
-        .tipRainSection {
-          position: relative;
-          z-index: 0;
-          margin: 0;
-        }
-
-        .tipRainSectionTitle {
-          display: block;
-          margin: 0 0 6px;
-          color: rgba(255, 255, 255, .45);
-          font-size: 11px;
-          font-weight: 700;
-          line-height: 16px;
-          letter-spacing: .7px;
-          text-transform: uppercase;
-        }
-
-        .tipRainInputHolder {
-          display: flex;
-          width: 100%;
-          max-width: 100%;
-          height: 40px;
-          padding: 0 14px;
-          align-items: center;
-          gap: 8px;
-          border: none;
-          border-radius: 6px;
-          background: #1c1f2e;
-          transition: background .15s;
-        }
-
-        .tipRainInput {
-          display: block;
-          width: 100%;
-          max-width: 100%;
-          height: 100%;
-          min-width: 0;
-          padding: 0;
-          overflow: hidden;
-          border: none;
-          outline: none;
-          background: transparent;
-          color: #fff;
-          font-size: 16px;
-          font-weight: 400;
-          line-height: 40px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          word-break: break-word;
-          appearance: textfield;
-        }
-
-        .tipRainInput::placeholder {
-          color: #6b7280;
-          opacity: 1;
-        }
-
-        .tipRainInput::-webkit-outer-spin-button,
-        .tipRainInput::-webkit-inner-spin-button {
-          margin: 0;
-          -webkit-appearance: none;
-        }
-
-        .tipRainFeedback {
-          margin: 7px 0 0;
-          overflow: hidden;
-          color: #f87171;
-          font-size: 12px;
-          font-weight: 500;
-          line-height: 17px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .tipRainButtonContainer {
-          position: relative;
-          z-index: 0;
-          margin-top: 14px;
-        }
-
-        .tipRainButton {
-          position: relative;
-          isolation: isolate;
-          display: flex;
-          width: 100%;
-          min-width: 120px;
-          min-height: 42px;
-          padding: 0 20px;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          border: 1px solid rgba(255, 79, 163, .4);
-          border-radius: 8px;
-          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
-          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
-          color: #fff;
-          font-size: 14.4px;
-          font-weight: 600;
-          line-height: 1;
-          letter-spacing: .01em;
-          cursor: pointer;
-          transform-origin: center;
-          transition: transform .13s cubic-bezier(.22, 1, .36, 1), background .15s ease, opacity .15s ease;
-        }
-
-        .tipRainButton:hover:not(:disabled) {
-          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
-          opacity: .95;
-        }
-
-        .tipRainButton:active:not(:disabled) {
-          transform: scale(.98);
-        }
-
-        .tipRainButton:focus-visible {
-          outline: 2px solid #ff69b0;
-          outline-offset: 2px;
-        }
-
-        .tipRainButton:disabled {
-          opacity: .6;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        @media (max-width: 640px) {
-          .tipRainModal {
-            width: 92%;
-            max-width: 380px;
-            max-height: calc(100dvh - 32px);
-            margin: 16px;
-            padding: 24px 20px 20px;
-          }
-
-          .tipRainInput {
-            font-size: 15.2px;
-          }
-        }
-      `}</style>
 
       <LoginModal isOpen={isAuthModalOpen && !user} onClose={() => setAuthModalOpen(false)} />
-      <RainCaptchaOverlay
-        isOpen={isRainJoinModalOpen}
-        isSubmitting={isRainJoinSubmitting}
-        error={rainJoinError}
-        onClose={() => {
-          if (!isRainJoinSubmitting) {
-            setIsRainJoinModalOpen(false);
-            setRainJoinError("");
-          }
-        }}
-        onVerify={handleRainJoinVerification}
-      />
       <MiniProfileModal
         isOpen={Boolean(selectedProfile)}
         player={selectedProfile}
@@ -1907,78 +1260,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         onSubmit={handleUserCoinTip}
       />
 
-      {isTipModalOpen ? (
-        <div
-          className="tipRainOverlay"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isRainTipSubmitting) setIsTipModalOpen(false)
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Tip rain"
-            aria-labelledby="tip-rain-title"
-            className="tipRainModal"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              aria-label="Close"
-              className="tipRainClose"
-              disabled={isRainTipSubmitting}
-              onClick={() => setIsTipModalOpen(false)}
-            >
-              &times;
-            </button>
-
-            <div className="tipRainIconHeader">
-              <div className="tipRainIconBg">
-                <svg fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M17.726 13.02 14 16H9v-1h4.065a.5.5 0 0 0 .416-.777l-.888-1.332A1.995 1.995 0 0 0 10.93 12H3a1 1 0 0 0-1 1v6a2 2 0 0 0 2 2h9.639a3 3 0 0 0 2.258-1.024L22 13l-1.452-.484a2.998 2.998 0 0 0-2.822.504zm1.532-5.63c.451-.465.73-1.108.73-1.818s-.279-1.353-.73-1.818A2.447 2.447 0 0 0 17.494 3S16.25 2.997 15 4.286C13.75 2.997 12.506 3 12.506 3a2.45 2.45 0 0 0-1.764.753c-.451.466-.73 1.108-.73 1.818s.279 1.354.73 1.818L15 12l4.258-4.61z" />
-                </svg>
-              </div>
-              <h2 id="tip-rain-title" className="tipRainTitle">Tip Rain</h2>
-              <p className="tipRainSubtitle">Enter an amount to add to the rain</p>
-            </div>
-
-            <form
-              className="tipRainForm"
-              onSubmit={(event) => {
-                event.preventDefault()
-                handleTipSubmit()
-              }}
-            >
-              <div className="tipRainSection">
-                <label className="tipRainSectionTitle" htmlFor="tip-rain-amount">
-                  Amount
-                </label>
-                <div className="tipRainInputHolder">
-                  <input
-                    id="tip-rain-amount"
-                    className="tipRainInput"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min="1"
-                    step="1"
-                    placeholder="Enter amount"
-                    autoComplete="off"
-                    value={tipAmount}
-                    onChange={(event) => setTipAmount(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="tipRainButtonContainer">
-                <button type="submit" className="tipRainButton" disabled={isRainTipSubmitting}>
-                  {isRainTipSubmitting ? 'Sending...' : 'Send Tip'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
 
       {chatRulesOpen ? <ChatRulesModal onClose={() => setChatRulesOpen(false)} /> : null}
 
@@ -2014,8 +1295,6 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
               {visibleMessages.map((message) => (
                 message.type === "tip" ? (
                   <TipNotification key={message.id} message={message} />
-                ) : message.type === "rain" ? (
-                  null
                 ) : (
                   <ChatMessage
                     key={message._renderKey || message.id}

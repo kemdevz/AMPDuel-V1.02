@@ -4,15 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react'
 import { apiRequest } from '../lib/apiClient'
 import { isUuidLike } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
-import {
-  BattlesIcon,
-  CasesIcon,
-  CoinflipIcon,
-  UpgraderIcon,
-  MinesIcon,
-  RollIcon,
-  BlackjackIcon,
-} from './icons'
+import { CoinflipIcon } from './icons'
 import { notifications } from './Notifications'
 import AnimatedStatNumber from './AnimatedStatNumber'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
@@ -25,9 +17,6 @@ import { ADMIN_PRIMARY_BUTTON, SESSION_DANGER_SURFACE } from './AdminControlStyl
 import {
   AdminGeneral,
   AdminPlayers,
-  AdminPrivateServers,
-  AdminRewards,
-  AdminStock,
   prefetchAdminGeneral,
 } from './AdminSections'
 
@@ -55,45 +44,23 @@ const adminSections = [
   { id: 'general', label: 'General', Icon: AdminGeneralIcon },
   { id: 'players', label: 'Players', Icon: AdminPlayersIcon },
   {
-    id: 'private-servers',
-    label: 'Private Servers',
-    Icon: AdminPrivateServersIcon,
-  },
-  { id: 'stock', label: 'Stock', Icon: AdminStockIcon },
-  {
     id: 'items',
     label: 'Item Database',
     image: PS99_CAT_ICON,
     iconClassName: 'h-3 w-3',
   },
-  {
-    id: 'rewards',
-    label: 'Rewards',
-    Icon: AdminRewardsIcon,
-    iconClassName: 'h-3.5 w-3.5',
-  },
 ]
 
 const gameFilters = [
   { id: 'all', label: 'All', Icon: AllGamesIcon },
-  { id: 'battles', label: 'Battles', Icon: BattlesIcon },
-  { id: 'cases', label: 'Cases', Icon: CasesIcon },
   { id: 'coinflip', label: 'Coinflip', Icon: CoinflipIcon },
-  { id: 'upgrader', label: 'Upgrader', Icon: UpgraderIcon },
-  { id: 'mines', label: 'Mines', Icon: MinesIcon },
-  { id: 'roll', label: 'Roll', Icon: RollIcon },
-  { id: 'blackjack', label: 'Blackjack', Icon: BlackjackIcon },
 ]
 
 const transactionFilters = [
   { id: 'all', label: 'All' },
-  { id: 'rain-payout', label: 'Rain Payout' },
-  { id: 'item-exchange', label: 'Item Exchange' },
   { id: 'deposit', label: 'Deposit' },
   { id: 'cancelled-withdrawal', label: 'Cancelled Withdrawal' },
   { id: 'withdrawal', label: 'Withdrawal' },
-  { id: 'coin-exchange', label: 'Coin Exchange' },
-  { id: 'commission-claim', label: 'Commission Claim' },
 ]
 
 const scrollClasses =
@@ -582,10 +549,7 @@ function AdminPanel({ section, onSectionChange }) {
       </div>
       {section.id === 'general' ? <AdminGeneral /> : null}
       {section.id === 'players' ? <AdminPlayers /> : null}
-      {section.id === 'private-servers' ? <AdminPrivateServers /> : null}
-      {section.id === 'stock' ? <AdminStock /> : null}
       {section.id === 'items' ? <AdminItemsDatabase /> : null}
-      {section.id === 'rewards' ? <AdminRewards /> : null}
     </div>
   )
 }

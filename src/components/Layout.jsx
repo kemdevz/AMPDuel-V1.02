@@ -9,7 +9,6 @@ import { useAuth } from '../store/auth'
 import { NavLink } from '../lib/router'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
-import CoinflipFairnessModal from './CoinflipFairnessModal'
 import HeaderUtilityBar from './HeaderUtilityBar'
 import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
 
@@ -22,7 +21,6 @@ export default function Layout({ children }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
-  const [fairnessModalOpen, setFairnessModalOpen] = useState(false)
 
   useEffect(() => {
     const handleOpenProfileModal = () => {
@@ -33,12 +31,6 @@ export default function Layout({ children }) {
     return () => {
       window.removeEventListener('profile:open', handleOpenProfileModal)
     }
-  }, [])
-
-  useEffect(() => {
-    const openFairness = () => setFairnessModalOpen(true)
-    window.addEventListener('upgrader-fairness:open', openFairness)
-    return () => window.removeEventListener('upgrader-fairness:open', openFairness)
   }, [])
 
   useEffect(() => {
@@ -210,7 +202,6 @@ export default function Layout({ children }) {
         isOpen={termsModalOpen}
         onClose={() => setTermsModalOpen(false)}
       />
-      {fairnessModalOpen ? <CoinflipFairnessModal onClose={() => setFairnessModalOpen(false)} /> : null}
 
       <ProfileTipManager />
     </div>

@@ -2,28 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
-  CloudRain,
-  Gift,
   MessageSquare,
-  Package,
-  Pencil,
-  Play,
-  Plus,
-  Power,
-  RefreshCw,
-  Trash2,
-  Wallet,
 } from 'lucide-react'
-import {
-  BattlesIcon,
-  CasesIcon,
-  CoinflipIcon,
-  UpgraderIcon,
-  MinesIcon,
-  RollIcon,
-  BlackjackIcon,
-} from './icons'
+import { CoinflipIcon } from './icons'
 import { notifications } from './Notifications'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
 import InventoryModal from './InventoryModal'
@@ -40,9 +21,6 @@ const PANEL = 'rounded-md bg-[#1c1f2e]'
 const INNER = 'rounded-md border border-white/[.035] bg-[#171925]'
 const LABEL = 'text-[10px] font-semibold uppercase tracking-[.04em] text-[rgba(225,228,242,.35)]'
 const INPUT = 'h-8 w-full rounded-[5px] border border-[#323240] bg-[#171925] px-2.5 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#f43f8f]'
-const PRIMARY = 'inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[rgba(255,79,163,.4)] bg-[linear-gradient(135deg,#ff4fa3,#f43f8f)] px-3 text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(255,79,163,.16)] transition-[transform,filter,opacity] duration-[140ms] hover:brightness-110 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-40'
-const SECONDARY = 'inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-white/[.04] bg-[#252839] px-3 text-[11px] font-semibold text-[#d6daf0] transition-[transform,background,color] duration-[140ms] hover:bg-[#303448] hover:text-white active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-40'
-const DANGER = 'inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-red-400/10 bg-red-500/10 px-3 text-[11px] font-semibold text-[#ff7b87] transition-[transform,background,color] duration-[140ms] hover:bg-red-500/20 hover:text-[#ff9ca5] active:scale-[.97]'
 
 let adminGeneralClientCache = null
 let adminGeneralPendingRequest = null
@@ -62,62 +40,14 @@ export function prefetchAdminGeneral({ force = false } = {}) {
   return adminGeneralPendingRequest
 }
 
-const petImages = [
-  'https://biggamesapi.io/image/14976374906',
-  'https://biggamesapi.io/image/14976529226',
-  'https://biggamesapi.io/image/14976542836',
-  'https://biggamesapi.io/image/14976545749',
-  'https://biggamesapi.io/image/14976551601',
-  'https://biggamesapi.io/image/14976555825',
-]
-
-const games = ['Case Battles', 'Cases', 'Coinflip', 'Upgrader', 'Mines', 'Roll', 'Blackjack']
+const games = ['Coinflip']
 const serviceKeys = {
-  'Case Battles': 'case_battles',
-  Cases: 'cases',
   Coinflip: 'coinflip',
-  Upgrader: 'upgrader',
-  Mines: 'mines',
-  Roll: 'roll',
-  Blackjack: 'blackjack',
   Chat: 'chat',
-  Rain: 'rain',
 }
 const gameIcons = {
-  'Case Battles': BattlesIcon,
-  Cases: CasesIcon,
   Coinflip: CoinflipIcon,
-  Upgrader: UpgraderIcon,
-  Mines: MinesIcon,
-  Roll: RollIcon,
-  Blackjack: BlackjackIcon,
 }
-const bots = [
-  { id: 'ps-01', name: 'BloxyBot One', status: 'Online', players: '4/10', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter' },
-  { id: 'ps-02', name: 'BloxyBot Two', status: 'Online', players: '7/10', avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter' },
-  { id: 'ps-03', name: 'BloxyBot Three', status: 'Restarting', players: '0/10', avatar: '/ps99-cat.png' },
-  { id: 'ps-04', name: 'BloxyBot Four', status: 'Offline', players: '0/10', avatar: '/ps99-cat.png' },
-]
-
-const inventory = Array.from({ length: 14 }, (_, index) => ({
-  id: `item-${index}`,
-  name: ['Huge Cat', 'Huge Pumpkin Cat', 'Huge Santa Paws', 'Huge Dragon', 'Huge Unicorn', 'Huge Happy Rock'][index % 6],
-  value: [14000000, 695000, 1950000, 3400000, 2650000, 820000][index % 6],
-  image: petImages[index % petImages.length],
-}))
-
-const initialStocks = {
-  exchange: inventory.slice(0, 7),
-  upgrader: inventory.slice(3, 11),
-  tax: inventory.slice(6, 14),
-}
-
-const initialCodes = [
-  { id: 1, name: 'WELCOME', reward: '25,000 Coins', uses: 842, maxUses: 1000, requirement: 'New players', enabled: true },
-  { id: 2, name: 'BLOXY10', reward: 'Huge Happy Rock', uses: 34, maxUses: 100, requirement: 'Level 10+', enabled: true },
-  { id: 3, name: 'SUMMER', reward: '100,000 Coins', uses: 500, maxUses: 500, requirement: 'None', enabled: false },
-]
-
 function CoinValue({ value, compact = false }) {
   return <span className="inline-flex items-center gap-1 font-semibold text-white"><img src={COIN_ICON} alt="" className="h-3.5 w-3.5" />{formatPriceValue(value, { compactNumbers: compact })}</span>
 }
@@ -343,9 +273,9 @@ export function AdminGeneral() {
         </div>
         <p className={`${LABEL} mb-1.5 mt-3 px-2.5`}>Community</p>
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          {[['Chat', MessageSquare], ['Rain', CloudRain]].map(([name, Icon]) => {
+          {[['Chat', MessageSquare]].map(([name, Icon]) => {
             const serviceKey = serviceKeys[name]
-            return <div key={name} className="flex h-9 items-center justify-between rounded-md bg-[#171925] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#cdd2e8]"><Icon className="h-3.5 w-3.5 text-[#777fb0]" />{name === 'Rain' ? 'Rain Pool' : 'Site chat'}</span><Toggle label={name} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(name, value)} /></div>
+            return <div key={name} className="flex h-9 items-center justify-between rounded-md bg-[#171925] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#cdd2e8]"><Icon className="h-3.5 w-3.5 text-[#777fb0]" />Site chat</span><Toggle label={name} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(name, value)} /></div>
           })}
         </div>
         {loadError ? <p className="mt-2 px-2.5 text-[10px] font-semibold text-[#f87171]">{loadError}</p> : null}
@@ -446,102 +376,6 @@ export function AdminPlayers() {
         </div> : null}
       </div>
       {selectedPlayer ? <InventoryModal isOpen={inventoryOpen} onClose={() => setInventoryOpen(false)} profileId={selectedPlayer.id} readOnly ariaLabel={`${selectedPlayer.username}'s inventory`} /> : null}
-    </div>
-  )
-}
-
-export function AdminPrivateServers() {
-  return <div className="min-h-0 flex-1" />
-
-  const [selectedId, setSelectedId] = useState(bots[0].id)
-  const [page, setPage] = useState(0)
-  const selected = bots.find((bot) => bot.id === selectedId) || bots[0]
-  const pages = Math.ceil(inventory.length / 6)
-  const pageItems = inventory.slice(page * 6, page * 6 + 6)
-  const command = (verb) => notifications.success(`${selected.name} ${verb}.`)
-
-  return (
-    <div className="grid min-h-0 flex-1 gap-2.5 overflow-y-auto sm:grid-cols-[190px_minmax(0,1fr)] sm:overflow-hidden">
-      <div className={`${PANEL} flex min-h-0 flex-col p-2`}><div className="mb-2 flex items-center justify-between px-1"><div><p className="text-[11px] font-bold text-white">Deposit Bots</p><p className="text-[8px] text-white/30">{bots.filter((bot) => bot.status === 'Online').length} of {bots.length} online</p></div><span className="h-2 w-2 animate-pulse rounded-full bg-[#22c55e]" /></div><div className="min-h-0 space-y-1 overflow-y-auto">{bots.map((bot) => <button key={bot.id} onClick={() => { setSelectedId(bot.id); setPage(0) }} className={`flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all ${selectedId === bot.id ? 'border-[#f43f8f]/40 bg-[rgba(255,79,163,.13)]' : 'border-transparent bg-[#171925] hover:bg-[#202332]'}`}><div className="relative"><img src={bot.avatar} alt="" className="h-7 w-7 rounded-full border border-[#2b3047] bg-[#202435] object-cover" /><span className={`absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border-2 border-[#171925] ${bot.status === 'Online' ? 'bg-[#22c55e]' : bot.status === 'Restarting' ? 'bg-[#f59e0b]' : 'bg-[#5c627d]'}`} /></div><span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-semibold text-white">{bot.name}</span><span className="block text-[8px] text-white/30">{bot.status} • {bot.players}</span></span><ChevronRight className="h-3 w-3 text-white/20" /></button>)}</div></div>
-      <div className="flex min-h-0 flex-col gap-2.5 overflow-visible sm:overflow-y-auto">
-        <div className={`${PANEL} flex flex-wrap items-center gap-2 p-2.5`}><img src={selected.avatar} alt="" className="h-9 w-9 rounded-full border border-[#2b3047] object-cover" /><div className="mr-auto min-w-0"><p className="truncate text-[12px] font-bold text-white">{selected.name}</p><p className="text-[9px] text-white/30">Server {selected.id.toUpperCase()} • {selected.players} players</p></div><button className={SECONDARY} onClick={() => command('launched')}><Play className="h-3 w-3" />Launch</button><button className={SECONDARY} onClick={() => command('is restarting')}><RefreshCw className="h-3 w-3" />Restart</button><button className={DANGER} onClick={() => command('shut down')}><Power className="h-3 w-3" />Shutdown</button></div>
-        <div className={`${PANEL} flex min-h-[300px] flex-1 flex-col p-2.5`}><div className="mb-2 flex items-center justify-between"><div><p className="text-[11px] font-bold text-white">Bot Inventory</p><p className="text-[9px] text-white/30">{inventory.length} items held by this bot</p></div><div className="flex items-center gap-1.5"><button className="flex h-6 w-6 items-center justify-center rounded bg-[#252839] text-white/55 hover:text-white disabled:opacity-30" disabled={page === 0} onClick={() => setPage((value) => value - 1)}><ChevronLeft className="h-3 w-3" /></button><span className="min-w-[36px] text-center text-[9px] text-white/35">{page + 1}/{pages}</span><button className="flex h-6 w-6 items-center justify-center rounded bg-[#252839] text-white/55 hover:text-white disabled:opacity-30" disabled={page === pages - 1} onClick={() => setPage((value) => value + 1)}><ChevronRight className="h-3 w-3" /></button></div></div><div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3">{pageItems.map((item) => <div key={item.id} className="group relative flex min-h-[118px] flex-col overflow-hidden rounded-md border border-white/[.04] bg-[#202538] p-1.5 transition-transform hover:scale-[1.02]"><div className="min-h-0 flex-1 overflow-hidden rounded bg-[radial-gradient(circle,rgba(255,79,163,.16),transparent_68%)]"><img src={item.image} alt={item.name} className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105" /></div><div className="pt-1 text-center"><p className="truncate text-[9px] font-semibold text-[#d6ddf5]">{item.name}</p><span className="text-[9px]"><CoinValue value={item.value} compact /></span></div></div>)}</div></div>
-      </div>
-    </div>
-  )
-}
-
-export function AdminStock() {
-  return <div className="min-h-0 flex-1" />
-
-  const [active, setActive] = useState('exchange')
-  const [stocks, setStocks] = useState(initialStocks)
-  const [query, setQuery] = useState('')
-  const [selectedIds, setSelectedIds] = useState([])
-  const stock = stocks[active]
-  const visible = stock.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
-  const totalValue = stock.reduce((sum, item) => sum + item.value, 0)
-  const labels = { exchange: 'Exchange Stock', upgrader: 'Upgrader Stock', tax: 'Tax Stock' }
-  const removeSelected = (verb) => {
-    if (!selectedIds.length) return
-    setStocks((current) => ({ ...current, [active]: current[active].filter((item) => !selectedIds.includes(item.id)) }))
-    notifications.success(`${selectedIds.length} ${selectedIds.length === 1 ? 'item' : 'items'} ${verb}.`)
-    setSelectedIds([])
-  }
-  const addItem = () => {
-    const source = inventory.find((item) => !stock.some((current) => current.id === item.id)) || { ...inventory[0], id: `${active}-${Date.now()}` }
-    setStocks((current) => ({ ...current, [active]: [...current[active], source] }))
-    notifications.success(`Item added to ${labels[active].toLowerCase()}.`)
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-      <div className="flex shrink-0 gap-1.5">{Object.entries(labels).map(([id, label]) => <button key={id} onClick={() => { setActive(id); setSelectedIds([]) }} className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md text-[10px] font-semibold transition-colors ${active === id ? 'bg-[rgba(255,79,163,.16)] text-white' : 'bg-[#1c1f2e] text-white/40 hover:bg-[#252839] hover:text-white/70'}`}><Package className="h-3 w-3" />{label}</button>)}</div>
-      <div className={`${PANEL} flex min-h-0 flex-1 flex-col p-2.5`}>
-        <div className="mb-2.5 flex flex-wrap items-center gap-2"><div className="min-w-[150px] flex-1"><SearchField value={query} onChange={setQuery} placeholder={`Search ${labels[active].toLowerCase()}...`} /></div><div className="flex items-center gap-2 rounded-md bg-[#171925] px-2.5 py-1.5 text-[9px] text-white/35"><span>{stock.length} items</span><span className="h-3 w-px bg-white/[.06]" /><CoinValue value={totalValue} compact /></div><button className={PRIMARY} onClick={addItem}><Plus className="h-3 w-3" />Add item</button></div>
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-md bg-[#171925] p-2"><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{visible.map((item) => { const selected = selectedIds.includes(item.id); return <button key={item.id} onClick={() => setSelectedIds((current) => selected ? current.filter((id) => id !== item.id) : [...current, item.id])} className={`group relative flex min-h-[132px] flex-col overflow-hidden rounded-md border p-1.5 text-left transition-[transform,border,box-shadow] hover:scale-[1.02] ${selected ? 'border-[#ff4fa3] bg-[#282c44] shadow-[0_0_0_1px_rgba(255,79,163,.2)]' : 'border-white/[.04] bg-[#22263a]'}`}><span className={`absolute right-2 top-2 z-10 h-2 w-2 rounded-[3px] bg-[#ff4fa3] transition-opacity ${selected ? 'opacity-100' : 'opacity-0'}`} /><div className="min-h-0 flex-1 overflow-hidden rounded bg-[radial-gradient(circle,rgba(255,79,163,.12),transparent_68%)]"><img src={item.image} alt={item.name} className="h-full w-full object-contain" /></div><div className="pt-1 text-center"><p className="truncate text-[9px] font-semibold text-[#d6ddf5]">{item.name}</p><span className="text-[9px]"><CoinValue value={item.value} compact /></span></div></button> })}</div>{!visible.length ? <EmptyState>No stock items found.</EmptyState> : null}</div>
-        <div className="mt-2.5 flex items-center justify-between gap-2"><p className="text-[9px] text-white/30">{selectedIds.length ? `${selectedIds.length} selected` : 'Select items to manage stock'}</p><div className="flex gap-2"><button className={DANGER} disabled={!selectedIds.length} onClick={() => removeSelected('removed')}><Trash2 className="h-3 w-3" />Remove</button><button className={SECONDARY} disabled={!selectedIds.length} onClick={() => removeSelected('withdrawn')}><Wallet className="h-3 w-3" />Withdraw</button></div></div>
-      </div>
-    </div>
-  )
-}
-
-export function AdminRewards() {
-  return <div className="min-h-0 flex-1" />
-
-  const [codes, setCodes] = useState(initialCodes)
-  const [editingId, setEditingId] = useState(null)
-  const [name, setName] = useState('')
-  const [uses, setUses] = useState('100')
-  const [rewardType, setRewardType] = useState('coins')
-  const [reward, setReward] = useState('')
-  const [requirementEnabled, setRequirementEnabled] = useState(false)
-  const [requirement, setRequirement] = useState('')
-  const [enabled, setEnabled] = useState(true)
-
-  const reset = () => { setEditingId(null); setName(''); setUses('100'); setRewardType('coins'); setReward(''); setRequirementEnabled(false); setRequirement(''); setEnabled(true) }
-  const save = () => {
-    if (!name.trim() || !reward.trim() || !uses) return
-    const entry = { id: editingId || Date.now(), name: name.trim().toUpperCase(), uses: editingId ? codes.find((code) => code.id === editingId)?.uses || 0 : 0, maxUses: Number(uses), reward: rewardType === 'coins' ? `${Number(reward).toLocaleString()} Coins` : reward, requirement: requirementEnabled && requirement.trim() ? requirement : 'None', enabled }
-    setCodes((current) => editingId ? current.map((code) => code.id === editingId ? entry : code) : [entry, ...current])
-    notifications.success(`Promocode ${editingId ? 'updated' : 'created'}.`)
-    reset()
-  }
-  const edit = (code) => { setEditingId(code.id); setName(code.name); setUses(String(code.maxUses)); setRewardType(code.reward.includes('Coins') ? 'coins' : 'item'); setReward(code.reward.replace(/\s*Coins$/, '').replace(/,/g, '')); setRequirementEnabled(code.requirement !== 'None'); setRequirement(code.requirement === 'None' ? '' : code.requirement); setEnabled(code.enabled) }
-
-  return (
-    <div className="grid min-h-0 flex-1 gap-2.5 overflow-y-auto lg:grid-cols-[minmax(230px,.8fr)_minmax(0,1.2fr)] lg:overflow-hidden">
-      <div className={`${PANEL} min-h-0 overflow-y-auto p-3`}>
-        <div className="mb-2.5 flex items-center justify-between"><div><p className="text-[12px] font-bold text-white">{editingId ? 'Edit Promocode' : 'Create Promocode'}</p><p className="text-[9px] text-white/30">Configure usage and reward details</p></div><Gift className="h-5 w-5 text-[#ff69b0]" /></div>
-        <div className="space-y-2.5"><div className="grid grid-cols-[1fr_82px] gap-2"><label><span className={LABEL}>Code name</span><input className={`${INPUT} mt-1 uppercase`} value={name} onChange={(event) => setName(event.target.value.replace(/\s/g, ''))} placeholder="BLOXY10" /></label><label><span className={LABEL}>Max uses</span><input className={`${INPUT} mt-1`} inputMode="numeric" value={uses} onChange={(event) => setUses(event.target.value.replace(/\D/g, ''))} placeholder="100" /></label></div>
-          <div><span className={LABEL}>Reward type</span><div className="mt-1 grid grid-cols-2 gap-1 rounded-md bg-[#171925] p-1"><button onClick={() => setRewardType('coins')} className={`h-7 rounded text-[10px] font-semibold transition-colors ${rewardType === 'coins' ? 'bg-[#252839] text-white' : 'text-white/35 hover:text-white/60'}`}><CircleDollarSign className="mr-1 inline h-3 w-3" />Coins</button><button onClick={() => setRewardType('item')} className={`h-7 rounded text-[10px] font-semibold transition-colors ${rewardType === 'item' ? 'bg-[#252839] text-white' : 'text-white/35 hover:text-white/60'}`}><Package className="mr-1 inline h-3 w-3" />Item</button></div></div>
-          <label className="block"><span className={LABEL}>{rewardType === 'coins' ? 'Coin amount' : 'Reward item'}</span>{rewardType === 'coins' ? <div className="relative mt-1"><img src={COIN_ICON} alt="" className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" /><input className={`${INPUT} pl-8`} inputMode="numeric" value={reward} onChange={(event) => setReward(event.target.value.replace(/\D/g, ''))} placeholder="25,000" /></div> : <select className={`${INPUT} mt-1`} value={reward} onChange={(event) => setReward(event.target.value)}><option value="">Select an item...</option>{[...new Set(inventory.map((item) => item.name))].map((item) => <option key={item}>{item}</option>)}</select>}</label>
-          <div className={`${INNER} p-2.5`}><div className="flex items-center justify-between"><div><p className="text-[10px] font-semibold text-[#d6daf0]">Requirements</p><p className="text-[8px] text-white/25">Optional redemption rule</p></div><Toggle label="Requirements" checked={requirementEnabled} onChange={setRequirementEnabled} /></div>{requirementEnabled ? <input className={`${INPUT} mt-2`} value={requirement} onChange={(event) => setRequirement(event.target.value)} placeholder="e.g. Level 10+" /> : null}</div>
-          <div className={`${INNER} flex items-center justify-between p-2.5`}><div><p className="text-[10px] font-semibold text-[#d6daf0]">Code enabled</p><p className="text-[8px] text-white/25">Allow players to redeem</p></div><Toggle label="Code enabled" checked={enabled} onChange={setEnabled} /></div>
-          <div className="grid grid-cols-[1fr_auto] gap-2"><button className={PRIMARY} disabled={!name.trim() || !reward.trim() || !uses} onClick={save}>{editingId ? 'Save changes' : 'Create code'}</button>{editingId ? <button className={SECONDARY} onClick={reset}>Cancel</button> : null}</div>
-        </div>
-      </div>
-      <div className={`${PANEL} flex min-h-0 flex-col p-2.5`}><div className="mb-2 flex items-center justify-between"><div><p className="text-[12px] font-bold text-white">Existing Codes</p><p className="text-[9px] text-white/30">{codes.length} promocodes configured</p></div></div><div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">{codes.map((code) => <div key={code.id} className={`${INNER} p-2.5 transition-colors hover:bg-[#1a1c29]`}><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><p className="truncate text-[11px] font-bold tracking-[.03em] text-white">{code.name}</p><span className={`h-1.5 w-1.5 rounded-full ${code.enabled ? 'bg-[#22c55e]' : 'bg-[#5c627d]'}`} /></div><p className="mt-0.5 truncate text-[9px] text-white/40">{code.reward} • {code.requirement}</p></div><button className="flex h-6 w-6 items-center justify-center rounded bg-[#252839] text-white/40 hover:text-white" onClick={() => edit(code)} aria-label={`Edit ${code.name}`}><Pencil className="h-3 w-3" /></button><button className="flex h-6 w-6 items-center justify-center rounded bg-red-500/10 text-[#ff7b87] hover:bg-red-500/20" onClick={() => { setCodes((current) => current.filter((item) => item.id !== code.id)); if (editingId === code.id) reset(); notifications.success(`${code.name} deleted.`) }} aria-label={`Delete ${code.name}`}><Trash2 className="h-3 w-3" /></button></div><div className="mt-2"><div className="mb-1 flex justify-between text-[8px] text-white/25"><span>{code.uses.toLocaleString()} used</span><span>{code.maxUses.toLocaleString()} max</span></div><div className="h-1 overflow-hidden rounded-full bg-[#252839]"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#f43f8f,#ff69b0)]" style={{ width: `${Math.min(100, code.uses / code.maxUses * 100)}%` }} /></div></div></div>)}</div></div>
     </div>
   )
 }

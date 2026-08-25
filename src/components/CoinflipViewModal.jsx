@@ -338,7 +338,7 @@ export default function CoinflipViewModal({
               <div className="view-modal__totals">
                 {[state.playerOne.column, state.playerTwo.column].map((column, index) => {
                   const unavailable = index === 1 && !hasOpponent
-                  return <div className="view-modal__total" key={index}><strong>{unavailable ? '—' : column.chance}</strong><span><CurrencyIcon />{unavailable ? '—' : column.total}</span></div>
+                  return <div className="view-modal__total" key={index}><strong>{unavailable ? '0%' : column.chance}</strong><span><CurrencyIcon />{unavailable ? '—' : column.total}</span></div>
                 })}
               </div>
 

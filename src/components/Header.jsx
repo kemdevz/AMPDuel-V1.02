@@ -13,7 +13,6 @@ import { DiscordIcon, MinesIcon } from "./icons";
 import { CoinStackIcon, MedalIcon } from "./ReferenceNavIcons";
 
 const COIN_ICON = "/currency.svg";
-const SUMMER_EVENT_ENABLED = false;
 const AVATAR =
   "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter";
 
@@ -91,82 +90,6 @@ function VolumeIcon() {
       <path d="M16 9a5 5 0 0 1 0 6" />
       <path d="M19.364 18.364a9 9 0 0 0 0-12.728" />
     </svg>
-  );
-}
-
-function SummerEventLink() {
-  return (
-    <NavLink
-      to="/events"
-      className="relative ml-3 hidden shrink-0 items-center overflow-hidden md:flex"
-      style={{
-        background:
-          'linear-gradient(rgba(29, 32, 47, 0.88), rgba(29, 32, 47, 0.9)), url("https://i.ibb.co/Fk4DpnMQ/summer-background.webp") center center / cover',
-        borderRadius: "0px",
-        padding: "8px 21px",
-        textDecoration: "none",
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: "0px",
-          left: "0px",
-          width: "40%",
-          height: "100%",
-          background:
-            "linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.22) 50%, transparent 100%)",
-          animation: "summerShimmer 2.4s ease-in-out infinite",
-          pointerEvents: "none",
-        }}
-      />
-
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: "0px",
-          background: "radial-gradient(rgba(124, 232, 247, 0.25) 0%, transparent 65%)",
-          animation: "summerGlow 2.6s ease-in-out infinite",
-          pointerEvents: "none",
-        }}
-      />
-
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: "0px",
-          padding: "1px",
-          background: "linear-gradient(rgb(124, 232, 247) 0%, rgba(124, 232, 247, 0) 100%)",
-          WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-          WebkitMaskComposite: "xor",
-          maskComposite: "exclude",
-          pointerEvents: "none",
-        }}
-      />
-
-      <span
-        style={{
-          fontSize: "16px",
-          fontWeight: 800,
-          fontStyle: "italic",
-          letterSpacing: "1px",
-          textTransform: "uppercase",
-          position: "relative",
-          backgroundImage:
-            "linear-gradient(rgb(251, 191, 36) 0%, rgb(253, 224, 71) 38%, rgb(125, 211, 252) 100%)",
-          backgroundClip: "text",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          color: "transparent",
-          filter: "drop-shadow(rgba(124, 232, 247, 0.5) 0px 0px 9px)",
-        }}
-      >
-        Summer Event
-      </span>
-    </NavLink>
   );
 }
 
@@ -452,16 +375,6 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
       className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7 xl:pl-[242px]"
     >
       <style>{`
-        @keyframes summerShimmer {
-          0% { transform: translateX(-100%) skewX(-15deg); }
-          100% { transform: translateX(300%) skewX(-15deg); }
-        }
-
-        @keyframes summerGlow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-
         @keyframes menuPopupIn {
           from {
             opacity: 0;

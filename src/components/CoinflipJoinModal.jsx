@@ -258,7 +258,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
 
             {inventoryLoading ? <div className="amp-inventory-loading"><span className="amp-spinner" /><p className="amp-loading-copy">Loading inventory</p></div>
               : inventoryError ? <div className="amp-inventory-empty"><div className="amp-empty-inner"><p className="amp-empty-copy">{inventoryError}</p><button type="button" className="amp-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button></div></div>
-              : eligibleRows.length === 0 ? <div className="amp-inventory-empty"><div className="amp-empty-inner"><p className="amp-empty-copy">You do not have any available items.</p><button type="button" className="amp-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button></div></div>
+              : eligibleRows.length === 0 ? <div className="amp-inventory-empty"><div className="amp-empty-inner"><p className="amp-empty-copy">Your inventory is empty.</p><button type="button" className="amp-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button></div></div>
               : visibleRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">No items match “{searchQuery.trim()}”.</p></div>
               : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
 

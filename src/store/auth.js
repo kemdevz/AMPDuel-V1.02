@@ -33,8 +33,6 @@ const normalizeUser = (row) => {
     ignored_users: Array.isArray(row.ignored_users)
       ? [...new Set(row.ignored_users.map((value) => String(value).trim()).filter(Boolean))]
       : [],
-    pearls: Number(row.pearls ?? 0),
-    summer_tickets: Number(row.summer_tickets ?? 0),
     avatar_url: row.avatar_url || null,
     avatar_headshot_url: row.avatar_headshot_url || null,
     discord_linked: row.discord_linked ?? false,
