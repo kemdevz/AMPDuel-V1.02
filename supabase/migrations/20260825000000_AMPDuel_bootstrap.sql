@@ -593,7 +593,7 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
   id text PRIMARY KEY,
   user_id text NOT NULL,
   ip_address text,
-  ip_addresses text[] NOT NULL DEFAULT ARRAY[]::text[],
+  ip_addresses jsonb NOT NULL DEFAULT '[]'::jsonb,
   user_agent text,
   location text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -607,7 +607,7 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
 
 ALTER TABLE public.user_sessions
   ADD COLUMN IF NOT EXISTS ip_address text,
-  ADD COLUMN IF NOT EXISTS ip_addresses text[] DEFAULT ARRAY[]::text[],
+  ADD COLUMN IF NOT EXISTS ip_addresses jsonb DEFAULT '[]'::jsonb,
   ADD COLUMN IF NOT EXISTS user_agent text,
   ADD COLUMN IF NOT EXISTS location text,
   ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now(),
@@ -618,9 +618,32 @@ ALTER TABLE public.user_sessions
   ADD COLUMN IF NOT EXISTS is_current boolean DEFAULT true,
   ADD COLUMN IF NOT EXISTS "current" boolean DEFAULT true;
 
+-- Older deployments used text[] for this field while newer deployments use a
+-- JSON array. Normalize either shape before applying defaults and constraints.
+DO $$
+DECLARE
+  v_ip_addresses_type text;
+BEGIN
+  SELECT udt_name
+  INTO v_ip_addresses_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = 'user_sessions'
+    AND column_name = 'ip_addresses';
+
+  IF v_ip_addresses_type IS NOT NULL AND v_ip_addresses_type <> 'jsonb' THEN
+    ALTER TABLE public.user_sessions
+      ALTER COLUMN ip_addresses DROP DEFAULT;
+
+    ALTER TABLE public.user_sessions
+      ALTER COLUMN ip_addresses TYPE jsonb
+      USING to_jsonb(ip_addresses);
+  END IF;
+END $$;
+
 UPDATE public.user_sessions
 SET
-  ip_addresses = COALESCE(ip_addresses, ARRAY[]::text[]),
+  ip_addresses = COALESCE(ip_addresses, '[]'::jsonb),
   created_at = COALESCE(created_at, now()),
   updated_at = COALESCE(updated_at, created_at, now()),
   last_seen_at = COALESCE(last_seen_at, updated_at, created_at, now()),
@@ -630,7 +653,7 @@ SET
   "current" = COALESCE("current", is_current, true);
 
 ALTER TABLE public.user_sessions
-  ALTER COLUMN ip_addresses SET DEFAULT ARRAY[]::text[],
+  ALTER COLUMN ip_addresses SET DEFAULT '[]'::jsonb,
   ALTER COLUMN ip_addresses SET NOT NULL,
   ALTER COLUMN created_at SET DEFAULT now(),
   ALTER COLUMN created_at SET NOT NULL,
