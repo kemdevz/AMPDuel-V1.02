@@ -1,7 +1,7 @@
 ﻿
-# bloxybattles
+# AMPDuel
 
-## PS99 withdrawal bot setup
+## PS99 Bot setup
 
 1. Apply `supabase/migrations/20260825000000_AMPDuel_bootstrap.sql` before
    deploying the server. Back up an existing database first because this is the
