@@ -170,7 +170,7 @@ export default function Layout({ children }) {
         </button>
 
         <NavLink
-          to="/"
+          to="/coinflip"
           end
           onClick={() => {
             setMobileNavOpen(false)

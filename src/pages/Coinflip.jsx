@@ -666,7 +666,7 @@ export default function Coinflip({ isMinesPage = false }) {
         .game-preview-shell { width: 100%; container-type: inline-size; }
         .coinflip-room-row {
           display: grid;
-          min-height: 102px;
+          min-height: 105px;
           box-sizing: border-box;
           grid-template-columns: auto minmax(190px, 1fr) 86px minmax(120px, 145px) auto;
           align-items: center;
@@ -883,7 +883,7 @@ export default function Coinflip({ isMinesPage = false }) {
           .coinflip-game-list { animation: none; }
         }
       `}</style>
-      <div className="relative z-10 flex w-full flex-col px-4 pb-32 pt-3">
+      <div className="relative z-10 flex w-full flex-col px-[18px] pb-32 pt-5">
         {/* Stats Cards */}
         <div className="grid gap-2 md:grid-cols-3">
           <StatCard
@@ -909,8 +909,8 @@ export default function Coinflip({ isMinesPage = false }) {
         </div>
 
         {/* Game controls */}
-        <div className="mb-3 mt-4 flex flex-col justify-between gap-2 sm:flex-row">
-          <div role="tablist" aria-label={isMinesPage ? 'Mines game' : 'CoinFlip game'} className="relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
+        <div className="mb-[10px] mt-3 flex flex-col justify-between gap-2 sm:flex-row">
+          <div role="tablist" aria-label={isMinesPage ? 'Mines game' : 'CoinFlip game'} className="relative grid h-[43px] w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
@@ -942,7 +942,7 @@ export default function Coinflip({ isMinesPage = false }) {
                 }
                 if (!isMinesPage) setCreateOpen(true)
               }}
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-[43px] min-w-[98px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
               Create
             </button>
@@ -952,7 +952,7 @@ export default function Coinflip({ isMinesPage = false }) {
                 return
               }
               if (!isMinesPage) setRecentOpen(true)
-            }} className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+            }} className="inline-flex h-[43px] min-w-[92px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
               History
             </button>
           </div>
@@ -1109,9 +1109,9 @@ export default function Coinflip({ isMinesPage = false }) {
 
 function StatCard({ icon, value, label, showIcon = true, animateOnMount = true }) {
   return (
-    <div className="flex min-h-[64px] items-center justify-start gap-3 rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-2">
+    <div className="flex min-h-[76px] items-center justify-start gap-3 rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-2">
       <div className="flex w-full flex-col items-start justify-center text-left">
-        <span className="flex items-center justify-start gap-2 text-left text-xl font-bold leading-tight text-white">
+        <span className="flex items-center justify-start gap-2 text-left text-2xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
           <AnimatedNumber value={value} duration={260} fastThreshold={100_000_000} fastDuration={160} animateOnMount={animateOnMount} />
         </span>

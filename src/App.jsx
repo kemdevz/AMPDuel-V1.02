@@ -10,14 +10,13 @@ function AppRoutes() {
   const navigate = useNavigate()
   const routeName = pathname.replace(/^\/+|\/+$/g, '')
   const pages = {
-    '': <Coinflip />,
     coinflip: <Coinflip />,
     mines: <Mines />,
   }
   const page = pages[routeName]
 
   useEffect(() => {
-    if (!page) navigate('/', { replace: true })
+    if (!page) navigate('/coinflip', { replace: true })
   }, [navigate, page])
 
   return <Layout>{page || <Coinflip />}</Layout>

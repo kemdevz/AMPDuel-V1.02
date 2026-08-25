@@ -255,7 +255,7 @@ export default function LoginModal({ isOpen, onClose }) {
       <style>{`
         @keyframes loginOverlayIn {
           from { opacity: 0; backdrop-filter: blur(0px); }
-          to { opacity: 1; backdrop-filter: blur(5px); }
+          to { opacity: 1; backdrop-filter: blur(8px); }
         }
         @keyframes loginModalIn {
           from { opacity: 0; transform: translateY(10px) scale(0.97); }
@@ -264,7 +264,7 @@ export default function LoginModal({ isOpen, onClose }) {
       `}</style>
 
       <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-[hsl(228_17%_12%/.72)] p-4 animate-[loginOverlayIn_180ms_ease-out_forwards]"
+        className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-[rgba(3,5,9,.84)] p-4 animate-[loginOverlayIn_180ms_ease-out_forwards]"
         onClick={handleBackdropClick}
       >
         <div

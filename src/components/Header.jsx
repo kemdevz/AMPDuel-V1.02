@@ -449,7 +449,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
 
   return (
     <header 
-      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7 xl:pl-[398px]"
+      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7 xl:pl-[242px]"
     >
       <style>{`
         @keyframes summerShimmer {
@@ -485,12 +485,20 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
         }
       `}</style>
 
+      <NavLink
+        to="/coinflip"
+        aria-label="AMPDUEL home"
+        className="absolute left-[14px] top-1/2 z-10 block w-[132px] -translate-y-1/2 sm:left-[29px] sm:w-[172px]"
+      >
+        <img src="/Logo.svg" alt="AMPDUEL" className="block h-auto w-full select-none" draggable={false} />
+      </NavLink>
+
       <div className="hidden min-w-0 flex-1 items-center gap-16 xl:flex">
         <nav className="min-w-0" aria-label="Game navigation">
           <ul className="flex h-[71px] items-center gap-3">
             <li className="relative">
               <NavLink
-                to="/"
+                to="/coinflip"
                 end
                 className={({ isActive }) => `group relative flex h-[71px] items-center border-b-2 px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? 'border-b-[#ff4fa3] text-white' : 'border-b-transparent text-white/[0.48] hover:text-white'}`}
               >
