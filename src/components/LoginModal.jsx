@@ -89,18 +89,21 @@ export default function LoginModal({ isOpen, onClose }) {
     if (!isOpen || step !== 1 || !captchaContainerRef.current) return undefined;
 
     let cancelled = false;
-    const sitekey = import.meta.env.DEV
+    const bundledSitekey = import.meta.env.DEV
       ? HCAPTCHA_TEST_SITE_KEY
       : import.meta.env.VITE_HCAPTCHA_SITE_KEY || "";
 
-    if (!sitekey) {
-      setError("hCaptcha is not configured.");
-      return undefined;
-    }
+    const sitekeyPromise = bundledSitekey
+      ? Promise.resolve(bundledSitekey)
+      : apiRequest("/api/public-config").then((config) => config?.hcaptcha_site_key || "");
 
-    void loadHcaptcha()
-      .then((hcaptcha) => {
+    void Promise.all([sitekeyPromise, loadHcaptcha()])
+      .then(([sitekey, hcaptcha]) => {
         if (cancelled || !captchaContainerRef.current) return;
+        if (!sitekey) {
+          setError("hCaptcha is not configured.");
+          return;
+        }
         captchaWidgetIdRef.current = hcaptcha.render(captchaContainerRef.current, {
           sitekey,
           theme: "dark",

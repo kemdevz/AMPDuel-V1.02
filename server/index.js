@@ -1080,6 +1080,16 @@ async function verifyHcaptchaToken(token, ipAddress) {
   }
 }
 
+app.get('/api/public-config', (_req, res) => {
+  const isTestMode = process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
+  const hcaptchaSiteKey = isTestMode
+    ? '10000000-ffff-ffff-ffff-000000000001'
+    : String(process.env.HCAPTCHA_SITE_KEY || process.env.VITE_HCAPTCHA_SITE_KEY || '').trim()
+
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({ hcaptcha_site_key: hcaptchaSiteKey })
+})
+
 async function callRainRpc(functionName, payload) {
   const { supabaseUrl, supabaseKey } = getSupabaseAdminConfig()
   if (!supabaseUrl || !supabaseKey) {
