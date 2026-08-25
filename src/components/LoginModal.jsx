@@ -368,7 +368,7 @@ export default function LoginModal({ isOpen, onClose }) {
                   <button
                     type="submit"
                     disabled={!canStart || loading}
-                    className="h-11 w-full rounded-lg bg-[#ff4fa3] text-sm font-semibold text-[#111319] transition-colors hover:bg-[#ff4fa3] disabled:opacity-50"
+                    className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#ff4fa3] text-sm font-semibold text-[#111319] transition-colors hover:bg-[#ff4fa3] disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Continue"}
                   </button>

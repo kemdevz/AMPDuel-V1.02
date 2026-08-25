@@ -703,7 +703,20 @@ function parseCookies(cookieHeader) {
   return cookies
 }
 
+function isLocalDevelopmentRequest(req) {
+  if (process.env.RENDER === 'true') return false
+
+  const rawHostname = String(req?.hostname || req?.headers?.host || '').trim().toLowerCase()
+  const closingBracketIndex = rawHostname.indexOf(']')
+  const hostname = rawHostname.startsWith('[') && closingBracketIndex > 0
+    ? rawHostname.slice(1, closingBracketIndex)
+    : rawHostname.replace(/:\d+$/, '')
+
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
 function isSecureRequest(req) {
+  if (isLocalDevelopmentRequest(req)) return false
   const forwardedProtocol = String(req?.headers?.['x-forwarded-proto'] || '')
     .split(',')[0]
     .trim()
@@ -1042,8 +1055,8 @@ async function verifyCaptchaToken(token, ipAddress) {
   }
 }
 
-async function verifyHcaptchaToken(token, ipAddress) {
-  const isTestMode = process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
+async function verifyHcaptchaToken(token, ipAddress, req) {
+  const isTestMode = isLocalDevelopmentRequest(req) || process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
   const secret = isTestMode
     ? '0x0000000000000000000000000000000000000000'
     : String(process.env.HCAPTCHA_SECRET_KEY || '').trim()
@@ -1080,8 +1093,8 @@ async function verifyHcaptchaToken(token, ipAddress) {
   }
 }
 
-app.get('/api/public-config', (_req, res) => {
-  const isTestMode = process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
+app.get('/api/public-config', (req, res) => {
+  const isTestMode = isLocalDevelopmentRequest(req) || process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
   const hcaptchaSiteKey = isTestMode
     ? '10000000-ffff-ffff-ffff-000000000001'
     : String(process.env.HCAPTCHA_SITE_KEY || process.env.VITE_HCAPTCHA_SITE_KEY || '').trim()
@@ -2241,7 +2254,7 @@ app.post('/api/auth/roblox/challenge', express.json({ limit: '8kb' }), async (re
     return
   }
 
-  const captchaVerification = await verifyHcaptchaToken(req.body?.captcha_token, ipAddress)
+  const captchaVerification = await verifyHcaptchaToken(req.body?.captcha_token, ipAddress, req)
   if (!captchaVerification.ok) {
     res.status(captchaVerification.status || 403).json({
       ok: false,
