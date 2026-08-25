@@ -1984,7 +1984,7 @@ app.get('/api/public-profile-stats', async (req, res) => {
     ][0]
     const type = String(item?.type || item?.game || item?.item_type || game?.item_type || '').toLowerCase()
     if (type.includes('murder') || type.includes('mm2')) return 'mm2'
-    if (type.includes('adopt') || type === 'adm') return 'adm'
+    if (type.includes('adopt') || type === 'adm' || type === 'amp') return 'adm'
     return 'ps99'
   }
 
@@ -2385,7 +2385,7 @@ function getCoinflipWagerValue(items) {
   if (!Array.isArray(items)) return 0
   return items.reduce((total, item) => {
     const value = Number(item?.value)
-    return total + (Number.isSafeInteger(value) && value > 0 ? value : 0)
+    return total + (Number.isFinite(value) && value > 0 ? value : 0)
   }, 0)
 }
 
@@ -2397,7 +2397,7 @@ function normalizeCoinflipGameMode(value) {
 function getCoinflipItemGame(item) {
   const type = String(item?.type || item?.game || item?.item_type || item?.game_mode || '').trim().toLowerCase()
   if (type.includes('murder') || type.includes('mm2')) return 'mm2'
-  if (type.includes('adopt') || type === 'adm') return 'adm'
+  if (type.includes('adopt') || type === 'adm' || type === 'amp') return 'adm'
   if (type.includes('pet sim') || type.includes('ps99')) return 'ps99'
   return null
 }

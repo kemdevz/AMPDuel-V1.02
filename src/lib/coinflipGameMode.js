@@ -8,7 +8,7 @@ export function normalizeCoinflipGameMode(value, fallback = null) {
 function getInventoryItemGame(item, fallback = null) {
   const type = String(item?.type || item?.game || item?.item_type || item?.game_mode || '').trim().toLowerCase()
   if (type.includes('murder') || type.includes('mm2')) return 'mm2'
-  if (type.includes('adopt') || type === 'adm') return 'adm'
+  if (type.includes('adopt') || type === 'adm' || type === 'amp') return 'adm'
   if (type.includes('pet sim') || type.includes('ps99')) return 'ps99'
   return fallback
 }

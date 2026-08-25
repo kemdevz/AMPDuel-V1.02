@@ -76,6 +76,7 @@ ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view own user_profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can insert own user_profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can update own user_profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Allow public read/write user_profiles" ON public.user_profiles;
 
 CREATE POLICY "Allow public read/write user_profiles"
   ON public.user_profiles
@@ -97,7 +98,7 @@ ALTER TABLE public.user_profiles
 CREATE TABLE IF NOT EXISTS public.items (
   id uuid DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  value integer NOT NULL DEFAULT 0,
+  value numeric(20, 4) NOT NULL DEFAULT 0,
   image_url text,
   type text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -136,7 +137,7 @@ CREATE TABLE IF NOT EXISTS public.inventory_items (
   item_id uuid,
   user_id text NOT NULL,
   name text NOT NULL,
-  value integer NOT NULL DEFAULT 0,
+  value numeric(20, 4) NOT NULL DEFAULT 0,
   image_url text,
   type text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -3888,7 +3889,7 @@ SET game_mode = CASE
   WHEN lower(COALESCE(creator_items -> 0 ->> 'type', creator_items -> 0 ->> 'game', creator_items -> 0 ->> 'item_type', '')) LIKE '%mm2%'
     OR lower(COALESCE(creator_items -> 0 ->> 'type', creator_items -> 0 ->> 'game', creator_items -> 0 ->> 'item_type', '')) LIKE '%murder%'
     THEN 'mm2'
-  WHEN lower(COALESCE(creator_items -> 0 ->> 'type', creator_items -> 0 ->> 'game', creator_items -> 0 ->> 'item_type', '')) = 'adm'
+  WHEN lower(COALESCE(creator_items -> 0 ->> 'type', creator_items -> 0 ->> 'game', creator_items -> 0 ->> 'item_type', '')) IN ('adm', 'amp')
     OR lower(COALESCE(creator_items -> 0 ->> 'type', creator_items -> 0 ->> 'game', creator_items -> 0 ->> 'item_type', '')) LIKE '%adopt%'
     THEN 'adm'
   WHEN lower(COALESCE(creator_items -> 0 ->> 'type', creator_items -> 0 ->> 'game', creator_items -> 0 ->> 'item_type', '')) LIKE '%ps99%'
@@ -3914,6 +3915,13 @@ CREATE TABLE public.site_service_settings (
   updated_by text,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- MM2 and AMP catalogs contain legitimate sub-unit values. Keep four decimal
+-- places so catalog imports and owned-item snapshots never round them to zero.
+ALTER TABLE public.items
+  ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
+ALTER TABLE public.inventory_items
+  ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
 INSERT INTO public.site_service_settings (service_key, enabled)
 VALUES ('coinflip', true), ('chat', true);
 ALTER TABLE public.site_service_settings ENABLE ROW LEVEL SECURITY;
