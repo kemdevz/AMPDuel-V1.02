@@ -264,7 +264,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
 
             <div className="amp-sticky-footer">
               <div className="amp-footer-row amp-join-footer-row">
-                <span className="amp-join-range"><RobuxIcon /><span>{displayNumber(minValue)}&ndash;{displayNumber(maxValue)}</span></span>
+                <span className="amp-join-range"><RobuxIcon /><span>{displayNumber(minValue)} &ndash; {displayNumber(maxValue)}</span></span>
                 <div className="amp-join-actions">
                   <img className="amp-join-coin" src={joinSide === 'heads' ? HEADS_ICON : TAILS_ICON} alt={joinSide} draggable="false" />
                   <button type="button" className="amp-create-button" disabled={inventoryLoading || !canJoin || joining} onClick={handleJoin}>{joining ? 'Joining' : 'Join'}</button>

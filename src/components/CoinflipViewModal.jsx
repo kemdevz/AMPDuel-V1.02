@@ -302,19 +302,16 @@ export default function CoinflipViewModal({
           aria-modal="true"
           aria-label={completed ? 'Completed coinflip' : 'Open coinflip'}
         >
-          <header className="view-modal__header">
-            <button
-              type="button"
-              className="view-modal__close"
-              onClick={close}
-              aria-label="Close coinflip"
-            >
-              <CloseIcon />
-            </button>
-          </header>
-
           <div className="view-modal__body">
             <div className="view-modal__content">
+              <button
+                type="button"
+                className="view-modal__close"
+                onClick={close}
+                aria-label="Close coinflip"
+              >
+                <CloseIcon />
+              </button>
               <div className="view-modal__players">
                 <Player player={state.playerOne} completed={completed} winnerSide={winnerSide} winnerVisible={winnerVisible} onProfileOpen={onProfileOpen} />
 
@@ -323,7 +320,7 @@ export default function CoinflipViewModal({
                     ? <img className="view-modal__winner-coin" src={VIEW_MODAL_CONFIG.assets.coin[winnerSide]} alt={`${winnerSide} won`} draggable={false} />
                     : <CoinAnimation key={`${room?.id || room?.room_id || 'coinflip'}:${winnerSide}`} side={winnerSide} onComplete={() => setWinnerVisible(true)} />)
                     : !hasOpponent ? (canCancel
-                      ? <button type="button" className="view-modal__middle-action view-modal__middle-action--cancel" disabled={canceling} onClick={() => { void cancelCoinflip() }}>{canceling ? 'Canceling' : 'Cancel'}</button>
+                      ? null
                       : <button type="button" className="view-modal__middle-action" onClick={() => onJoin?.(room)}>Join</button>)
                       : <p className="view-modal__versus">VS</p>}
                 </div>
@@ -353,6 +350,7 @@ export default function CoinflipViewModal({
               <footer className="view-modal__footer">
                 <button type="button" className="view-modal__fairness" onClick={() => setFairnessOpen(true)}><ShieldIcon />Fairness</button>
                 <p>{relativeGameTime(room, completed)}</p>
+                {canCancel ? <button type="button" className="view-modal__middle-action view-modal__middle-action--cancel view-modal__footer-cancel" disabled={canceling} onClick={() => { void cancelCoinflip() }}>{canceling ? 'Canceling' : 'Cancel'}</button> : null}
               </footer>
             </div>
           </div>
@@ -825,12 +823,12 @@ const VIEW_MODAL_STYLES = `
     backdrop-filter: blur(9px);
   }
   .view-modal__surface {
-    width: calc(100% - 32px);
-    max-width: 1024px;
-    height: calc(100dvh - 24px);
-    max-height: calc(100dvh - 24px);
+    width: calc(100% - 48px);
+    max-width: 900px;
+    height: min(600px, calc(100dvh - 48px));
+    max-height: calc(100dvh - 48px);
     min-height: 0;
-    margin: 12px 16px;
+    margin: auto;
     overflow: visible;
     border: 0;
     border-radius: 0;
@@ -856,7 +854,7 @@ const VIEW_MODAL_STYLES = `
   }
   .view-modal__close {
     top: 12px;
-    right: 14px;
+    right: 12px;
     width: 30px;
     height: 30px;
     padding: 0;
@@ -875,28 +873,26 @@ const VIEW_MODAL_STYLES = `
     min-height: 0;
     flex: 1 1 auto;
     overflow-x: hidden;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #3a3e47 transparent;
+    overflow-y: hidden;
   }
-  .view-modal__body::-webkit-scrollbar { display: block; width: 5px; }
-  .view-modal__body::-webkit-scrollbar-track { background: transparent; }
-  .view-modal__body::-webkit-scrollbar-thumb { border-radius: 999px; background: #3a3e47; }
+  .view-modal__body::-webkit-scrollbar { display: none; }
   .view-modal__content {
+    position: relative;
     display: flex;
+    height: 100%;
     min-width: 0;
     min-height: 0;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     box-sizing: border-box;
-    padding: 20px;
+    padding: 16px;
     border: 1px solid rgba(255,255,255,.06);
     border-radius: 11px;
     background: #171a22;
   }
   .view-modal__players {
     display: grid;
-    min-height: 370px;
+    min-height: 280px;
     grid-template-columns: minmax(0,270px) minmax(0,360px) minmax(0,270px);
     align-items: center;
     justify-content: center;
@@ -960,7 +956,7 @@ const VIEW_MODAL_STYLES = `
   }
   .view-modal__game-info {
     width: 100%;
-    min-height: 350px;
+    min-height: 280px;
     flex-shrink: 1;
     justify-content: center;
   }
@@ -1051,14 +1047,21 @@ const VIEW_MODAL_STYLES = `
   .view-modal__items {
     display: grid;
     width: 100%;
-    flex: 0 0 auto;
+    height: 80px;
+    flex: 0 0 80px;
     grid-template-columns: repeat(2,minmax(0,1fr));
     justify-content: normal;
     gap: 32px;
     margin: 0;
-    padding: 0;
-    overflow: visible;
+    padding: 0 6px 0 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3e47 transparent;
   }
+  .view-modal__items::-webkit-scrollbar { width: 5px; }
+  .view-modal__items::-webkit-scrollbar-track { background: transparent; }
+  .view-modal__items::-webkit-scrollbar-thumb { border-radius: 999px; background: #3a3e47; }
   .view-modal__surface--cancelable .view-modal__items { padding-bottom: 0; }
   .view-modal__player-items {
     display: flex;
@@ -1100,15 +1103,15 @@ const VIEW_MODAL_STYLES = `
   .view-modal__item-value svg { width: 11px; height: 11px; color: #ff69b0; }
   .view-modal__waiting-items { display: flex; min-height: 80px; align-items: center; justify-content: center; color: #777e8d; font-size: 13px; line-height: 19.5px; }
   .view-modal__divider { width: 100%; height: 1px; background: rgba(255,255,255,.16); opacity: .6; }
-  .view-modal__footer { position: relative; display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: center; gap: 8px; }
+  .view-modal__footer { position: relative; display: flex; width: 100%; min-height: 50px; align-items: center; justify-content: center; gap: 8px; }
   .view-modal__footer p { margin: 0; color: #8b919e; font-size: 12px; font-weight: 600; line-height: 18px; }
   .view-modal__fairness {
     position: absolute;
-    top: 2px;
+    top: 5px;
     left: 0;
     display: flex;
     min-width: 40px;
-    height: 34px;
+    height: 40px;
     align-items: center;
     justify-content: center;
     gap: 8px;
@@ -1122,12 +1125,19 @@ const VIEW_MODAL_STYLES = `
   }
   .view-modal__fairness:hover { color: #ff4fa3; background: #282c37; }
   .view-modal__fairness svg { width: 13px; height: 13px; }
+  .view-modal__footer-cancel {
+    position: absolute;
+    top: 5px;
+    right: 0;
+    min-width: 96px;
+    height: 40px;
+    padding: 0 16px;
+  }
 
   @media (max-width: 760px) {
     .view-modal__surface { width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; }
-    .view-modal__header { flex-basis: 56px; }
-    .view-modal__body { padding: 0 8px 8px; }
-    .view-modal__content { padding: 14px; gap: 12px; }
+    .view-modal__body { padding: 0 8px 8px; overflow-y: auto; scrollbar-width: none; }
+    .view-modal__content { height: auto; min-height: 100%; padding: 14px; gap: 12px; }
     .view-modal__players { min-height: 260px; grid-template-columns: minmax(0,1fr) 110px minmax(0,1fr); padding: 8px 0; gap: 8px; }
     .view-modal__game-info { min-height: 240px; }
     .view-modal__avatar-wrapper { width: 82px; height: 82px; }
@@ -1144,7 +1154,7 @@ const VIEW_MODAL_STYLES = `
   @media (max-width: 520px) {
     .view-modal__players { grid-template-columns: 1fr 86px 1fr; }
     .view-modal__middle-action { min-width: 76px; padding: 0 10px; }
-    .view-modal__items { grid-template-columns: 1fr; gap: 8px; }
+    .view-modal__items { height: 128px; flex-basis: 128px; grid-template-columns: 1fr; gap: 8px; }
     .view-modal__totals { grid-template-columns: 1fr; height: auto; }
     .view-modal__item-name { font-size: 12px; }
   }

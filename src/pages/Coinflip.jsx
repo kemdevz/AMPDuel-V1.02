@@ -699,13 +699,14 @@ export default function Coinflip() {
           flex: 0 0 auto;
           align-items: center;
           justify-content: flex-start;
-          gap: 8px;
+          gap: 0;
           padding: 4px 0 8px;
           overflow-x: auto;
           overflow-y: hidden;
           scrollbar-width: none;
         }
         .game-preview-items::-webkit-scrollbar { display: none; }
+        .game-preview-item + .game-preview-item { margin-left: -18px; }
         .game-preview-item {
           position: relative;
           display: flex;
@@ -722,8 +723,8 @@ export default function Coinflip() {
           cursor: pointer;
           transition: border-color .15s ease;
         }
-        .game-preview-item:hover { z-index: 5; border-color: rgba(255,255,255,.12); }
-        .game-preview-item-image { display: block; width: calc(100% - 6px); height: calc(100% - 6px); padding: 0; border-radius: 9999px; object-fit: cover; }
+        .game-preview-item:hover { border-color: rgba(255,255,255,.12); }
+        .game-preview-item-image { display: block; width: calc(100% - 6px); height: calc(100% - 6px); padding: 0; border-radius: 9999px; object-fit: cover; pointer-events: none; }
         .game-preview-item-image--gem { width: 78%; height: 78%; object-fit: contain; }
         .game-preview-tooltip {
           position: absolute;
