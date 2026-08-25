@@ -8,7 +8,7 @@ import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 // All coin animation assets and timing live here so the mockup can be retuned
 // without touching the component markup.
-export const VIEW_MODAL_CONFIG = Object.freeze({
+const VIEW_MODAL_CONFIG = Object.freeze({
   assets: {
     currency: '/bobux.png',
     coin: {

@@ -3,7 +3,7 @@
 
 const BASE = '/api'
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(message, status, data) {
     super(typeof message === 'string' ? message : 'Request failed')
     this.name = 'ApiError'
@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api(path, options = {}) {
+async function api(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
     headers: {
@@ -32,9 +32,4 @@ export async function api(path, options = {}) {
   return data
 }
 
-// Convenience verbs
 export const get = (path) => api(path)
-export const post = (path, body) =>
-  api(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
-export const patch = (path, body) =>
-  api(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) })

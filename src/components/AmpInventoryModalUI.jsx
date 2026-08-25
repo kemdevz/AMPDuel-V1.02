@@ -307,7 +307,7 @@ export function RobuxIcon({ className = '' }) {
   return <svg className={className} role="img" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z" /></svg>
 }
 
-export function SearchIcon() {
+function SearchIcon() {
   return <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M505 442.7 405.3 343c-4.5-4.5-10.6-7-17-7H372c27.6-35.3 44-79.7 44-128C416 93.1 322.9 0 208 0S0 93.1 0 208s93.1 208 208 208c48.3 0 92.7-16.4 128-44v16.3c0 6.4 2.5 12.5 7 17l99.7 99.7c9.4 9.4 24.6 9.4 33.9 0l28.3-28.3c9.4-9.4 9.4-24.6.1-34zM208 336c-70.7 0-128-57.2-128-128 0-70.7 57.2-128 128-128 70.7 0 128 57.2 128 128 0 70.7-57.2 128-128 128z" /></svg>
 }
 
@@ -319,11 +319,11 @@ export function CloseIcon() {
   return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M.439 21.44a1.5 1.5 0 0 0 2.122 2.121l9.262-9.262a.25.25 0 0 1 .354 0l9.262 9.263a1.5 1.5 0 1 0 2.122-2.121l-9.262-9.263a.25.25 0 0 1 0-.354l9.263-9.262A1.5 1.5 0 0 0 21.439.44l-9.262 9.262a.25.25 0 0 1-.354 0L2.561.44A1.5 1.5 0 0 0 .439 2.561l9.262 9.262a.25.25 0 0 1 0 .354z" /></svg>
 }
 
-export function ChevronIcon() {
+function ChevronIcon() {
   return <svg viewBox="0 0 448 512" fill="currentColor" aria-hidden="true"><path d="M207.029 381.476 12.686 187.132c-9.373-9.373-9.373-24.569 0-33.941l22.667-22.667c9.357-9.357 24.522-9.375 33.901-.04L224 284.505l154.745-154.021c9.379-9.335 24.544-9.317 33.901.04l22.667 22.667c9.373 9.373 9.373 24.569 0 33.941L240.971 381.476c-9.373 9.372-24.569 9.372-33.942 0z" /></svg>
 }
 
-export function CheckIcon() {
+function CheckIcon() {
   return <svg viewBox="0 0 448 512" fill="currentColor" aria-hidden="true"><path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.2 0z" /></svg>
 }
 

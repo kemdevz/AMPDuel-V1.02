@@ -3,15 +3,15 @@ import { X } from 'lucide-react'
 import { TermsIcon } from './icons'
 
 const terms = [
-  { text: 'You must be 18+, legally eligible to use BloxDice, and comply with local laws.' },
+  { text: 'You must be 18+, legally eligible to use AMPDuel, and comply with local laws.' },
   { text: 'Secure your account and all activity performed on it.' },
-  { text: 'BloxDice is entertainment, not real-money gambling.' },
+  { text: 'AMPDuel is entertainment, not real-money gambling.' },
   { text: 'Coins and items have no real-world cash value.' },
   { text: 'No exploits, automation, abusive alts, or reward farming.' },
   { text: 'Check trades carefully; completed transactions are generally final.' },
-  { text: 'BloxDice is independent from Roblox and its services.' },
+  { text: 'AMPDuel is independent from Roblox and its services.' },
   { text: 'Games, balances, features, and these Terms may change.' },
-  { text: 'BloxDice is not liable for indirect losses where lawful.' },
+  { text: 'AMPDuel is not liable for indirect losses where lawful.' },
   { text: 'Do not harass users or share private or personal information.' },
   { text: 'Do not impersonate users, staff, bots, or official accounts.' },
   {
@@ -108,7 +108,7 @@ export default function TermsModal({ isOpen, onClose }) {
 
         <div className="termsScroll">
           <div className="termsWelcome">
-            <p id="terms-modal-summary"><strong>Welcome to BloxDice.</strong> Using this platform confirms that you accept these Terms.</p>
+            <p id="terms-modal-summary"><strong>Welcome to AMPDuel.</strong> Using this platform confirms that you accept these Terms.</p>
           </div>
           <div className="termsList">
             {terms.map((term, index) => (
@@ -121,7 +121,7 @@ export default function TermsModal({ isOpen, onClose }) {
         </div>
 
         <footer className="termsFooter">
-          <p>By using BloxDice, you confirm that you have read, understood, and accept these Terms.</p>
+          <p>By using AMPDuel, you confirm that you have read, understood, and accept these Terms.</p>
           <button type="button" onClick={requestClose}>I understand</button>
         </footer>
 

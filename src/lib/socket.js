@@ -5,10 +5,6 @@ const CONFIGURED_SERVER_URL = (import.meta.env.VITE_SOCKET_URL || import.meta.en
 
 let socket = null
 
-export function getSocket() {
-  return socket
-}
-
 /** Connect (idempotent). Safe to call after login or on app bootstrap. */
 export function connectSocket() {
   if (socket) {
@@ -32,54 +28,10 @@ export function connectSocket() {
   return socket
 }
 
-export function disconnectSocket() {
-  if (socket) {
-    socket.disconnect()
-    socket = null
-  }
-}
-
 /** Reconnect the existing socket so its handshake picks up a changed session cookie. */
 export function refreshSocketAuthentication() {
   if (!socket) return connectSocket()
   socket.disconnect()
   socket.connect()
   return socket
-}
-
-import { useEffect, useState } from 'react'
-
-export function useSocket() {
-  const [socketInstance, setSocketInstance] = useState(socket)
-
-  useEffect(() => {
-    if (!socket) {
-      const newSocket = connectSocket()
-      setSocketInstance(newSocket)
-    } else {
-      setSocketInstance(socket)
-    }
-
-    const handleConnect = () => {
-      setSocketInstance(socket)
-    }
-
-    const handleDisconnect = () => {
-      setSocketInstance(null)
-    }
-
-    if (socket) {
-      socket.on('connect', handleConnect)
-      socket.on('disconnect', handleDisconnect)
-    }
-
-    return () => {
-      if (socket) {
-        socket.off('connect', handleConnect)
-        socket.off('disconnect', handleDisconnect)
-      }
-    }
-  }, [])
-
-  return socketInstance
 }

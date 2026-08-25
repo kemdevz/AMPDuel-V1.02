@@ -1,14 +1,12 @@
 // Notifications are intentionally disabled. Keep this small compatibility
 // surface so feature code can report outcomes without rendering toast UI.
-export function showNotification() {
+function showNotification() {
   return null
 }
 
 showNotification.error = showNotification
 showNotification.success = showNotification
 showNotification.info = showNotification
-
-export const notify = showNotification
 
 export const notifications = Object.freeze({
   insufficientCoins: showNotification,

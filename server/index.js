@@ -1127,7 +1127,7 @@ async function fetchRobloxProfileForVerification(robloxId, phrase) {
         {
           headers: {
             'Cache-Control': 'no-cache',
-            'User-Agent': 'Mozilla/5.0 (compatible; BloxyBattlesVerification/1.0)',
+            'User-Agent': 'Mozilla/5.0 (compatible; AMPDuelVerification/1.02)',
           },
           cache: 'no-store',
           signal: AbortSignal.timeout(10_000),

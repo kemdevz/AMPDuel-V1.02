@@ -898,7 +898,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         const result = await apiRequest(`/api/public-profiles?roblox_id=${encodeURIComponent(robloxId)}`);
         const recipient = Array.isArray(result?.profiles) ? result.profiles[0] || null : null;
         if (!recipient) {
-          notifications.error("No BloxDice account was found for that Roblox user ID.");
+          notifications.error("No AMPDuel account was found for that Roblox user ID.");
           return;
         }
 

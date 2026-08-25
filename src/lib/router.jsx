@@ -43,7 +43,7 @@ export function useNavigate() {
   return router.navigate
 }
 
-export function Link({ to = '/', replace = false, onClick, children, ...props }) {
+function Link({ to = '/', replace = false, onClick, children, ...props }) {
   const navigate = useNavigate()
   const safePath = normalizePath(to)
 

@@ -1,11 +1,11 @@
-export const COINFLIP_GAME_MODES = Object.freeze(['mm2', 'adm', 'ps99'])
+const COINFLIP_GAME_MODES = Object.freeze(['mm2', 'adm', 'ps99'])
 
 export function normalizeCoinflipGameMode(value, fallback = null) {
   const mode = String(value || '').trim().toLowerCase()
   return COINFLIP_GAME_MODES.includes(mode) ? mode : fallback
 }
 
-export function getInventoryItemGame(item, fallback = null) {
+function getInventoryItemGame(item, fallback = null) {
   const type = String(item?.type || item?.game || item?.item_type || item?.game_mode || '').trim().toLowerCase()
   if (type.includes('murder') || type.includes('mm2')) return 'mm2'
   if (type.includes('adopt') || type === 'adm') return 'adm'
