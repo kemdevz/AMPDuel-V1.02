@@ -236,7 +236,7 @@ export const AMP_MODAL_STYLES = `
   .amp-side-button.is-active:hover { opacity: 1; }
   .amp-side-button:focus-visible { outline: 2px solid rgba(255, 255, 255, .25); outline-offset: 0; }
   .amp-side-button img { width: 42px; height: 42px; object-fit: contain; }
-  .amp-create-button { width: 190px; min-width: 190px; height: 44px; padding: 0 24px; border: 0; border-radius: 8px; color: #111319; background: #ff4fa3; font: 700 14px/20px Poppins, sans-serif; cursor: pointer; }
+  .amp-create-button { width: 145px; min-width: 145px; height: 44px; padding: 0 18px; border: 0; border-radius: 8px; color: #111319; background: #ff4fa3; font: 700 14px/20px Poppins, sans-serif; cursor: pointer; }
   .amp-create-button:hover { background: #ff69b0; }
   .amp-create-button:active { background: #f33f94; }
   .amp-create-button:disabled { cursor: not-allowed; opacity: .5; }
@@ -293,7 +293,7 @@ export const AMP_MODAL_STYLES = `
     .amp-join-actions { width: 100%; justify-content: flex-end; gap: 8px; }
     .amp-side-button { width: 42px; min-width: 42px; height: 42px; }
     .amp-side-button img { width: 38px; height: 38px; }
-    .amp-create-button { width: auto; min-width: 150px; flex: 1 1 150px; }
+    .amp-create-button { width: 140px; min-width: 140px; flex: 0 0 140px; }
     .amp-item-card { padding: 10px; }
     .amp-item-image-wrap { height: 104px; }
     .amp-item-image { width: 94px; height: 94px; }
