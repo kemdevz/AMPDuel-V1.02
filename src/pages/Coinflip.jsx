@@ -24,7 +24,7 @@ const CREATOR_VIEW_OPEN_DELAY_MS = 140
 const COINFLIP_GAME_STORAGE_KEY = 'bloxdice:coinflip-game'
 const COINFLIP_GAME_OPTIONS = [
   ['mm2', 'MM2'],
-  ['adm', 'ADM'],
+  ['adm', 'AMP'],
   ['ps99', 'PS99'],
 ]
 let cachedCoinflipRooms = []
@@ -940,7 +940,7 @@ export default function Coinflip({ isMinesPage = false }) {
                   setAuthModalOpen(true)
                   return
                 }
-                if (!isMinesPage) setCreateOpen(true)
+                setCreateOpen(true)
               }}
               className="inline-flex h-[43px] min-w-[98px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
@@ -984,7 +984,13 @@ export default function Coinflip({ isMinesPage = false }) {
           }
         </div>
       </div>
-      {!isMinesPage && createOpen && <CoinflipCreateModal gameMode={gameMode} onClose={() => setCreateOpen(false)} onCreate={(room) => {
+      {createOpen && <CoinflipCreateModal
+        gameMode={gameMode}
+        title={isMinesPage ? 'Create Mines' : 'Create Coinflip'}
+        showCoinSelection={!isMinesPage}
+        creationEnabled={!isMinesPage}
+        onClose={() => setCreateOpen(false)}
+        onCreate={(room) => {
         const normalized = normalizeRoom(room)
         if (!normalized) return
         setRooms((prev) => {
@@ -1016,7 +1022,8 @@ export default function Coinflip({ isMinesPage = false }) {
           return [newRoom, ...prev]
         })
         openViewRoom(normalized, CREATOR_VIEW_OPEN_DELAY_MS)
-      }} />}
+        }}
+      />}
       {!isMinesPage && joinRoom && (
         <CoinflipJoinModal
           room={joinRoom}

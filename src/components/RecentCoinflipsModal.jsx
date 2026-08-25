@@ -31,10 +31,10 @@ function formatNumber(value) {
   return Math.max(0, Number(value) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })
 }
 
-function itemTags(name = '') {
-  const prefix = String(name).trim().split(/\s+/)[0]?.toUpperCase() || ''
-  if (!/^[MFRN]+$/.test(prefix)) return []
-  return ['M', 'N', 'F', 'R'].filter((tag) => prefix.includes(tag))
+function isGemItem(item) {
+  const name = String(item?.name || '').trim()
+  const type = String(item?.type || item?.item_type || item?.game || '').trim()
+  return /\bgems?\b/i.test(name) || /^(?:gems?|diamonds?)$/i.test(type)
 }
 
 function EyeIcon() {
@@ -63,9 +63,8 @@ function HistoryPlayer({ game, creator, winner, onProfileOpen }) {
   return <button type="button" className={`history-player side-${side}${winner ? ' is-winner' : ' is-loser'}`} onClick={openProfile} disabled={!id} aria-label={id ? `Open ${username || 'player'} profile` : 'Player'}><img className="history-player-avatar" src={avatar || DEFAULT_AVATAR} alt="Player" draggable="false" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }} /><img className="history-player-coin" src={side === 'tails' ? '/tails.webp' : '/heads.webp'} alt="" draggable="false" /></button>
 }
 
-function HistoryItem({ item }) {
-  const tags = itemTags(item.name)
-  return <div className="history-item" title={item.name}>{item.image ? <img src={item.image} alt={item.name} draggable="false" /> : null}{tags.length ? <span className="history-item-tags">{tags.map((tag) => <span key={tag} className={`history-item-tag tag-${tag.toLowerCase()}`}>{tag}</span>)}</span> : null}</div>
+function HistoryItem({ item, hiddenItemCount = 0 }) {
+  return <div className="history-item" title={item.name} aria-label={item.name}>{item.image ? <img className={isGemItem(item) ? 'is-gem' : ''} src={item.image} alt="" draggable="false" /> : null}{hiddenItemCount > 0 ? <span className="history-item-more">+{hiddenItemCount}</span> : null}</div>
 }
 
 function HistoryRow({ game, index, onView, onProfileOpen }) {
@@ -76,14 +75,17 @@ function HistoryRow({ game, index, onView, onProfileOpen }) {
   const opponentWon = game?.winner_uuid ? String(game.winner_uuid) === String(game.opponent_uuid) : result === opponentSide
   const creatorItems = Array.isArray(game?.creator_items) ? game.creator_items : []
   const opponentItems = Array.isArray(game?.opponent_items) ? game.opponent_items : []
-  const items = [...creatorItems, ...opponentItems].map(normalizeItem)
+  const items = [...creatorItems, ...opponentItems]
+    .map(normalizeItem)
+    .sort((left, right) => Number(right?.value || 0) - Number(left?.value || 0))
   const visibleItems = items.slice(0, 4)
+  const hiddenItemCount = Math.max(0, items.length - visibleItems.length)
   const total = itemValue(items) || Number(game?.total_value ?? game?.numericValue ?? game?.value ?? 0) || 0
   const wager = itemValue(creatorItems) || total / 2
   const low = Number(game?.join_requirements?.min ?? game?.joinRequirements?.min ?? wager * .8)
   const high = Number(game?.join_requirements?.max ?? game?.joinRequirements?.max ?? wager * 1.2)
 
-  return <article className="history-game-card" style={{ '--history-row-index': index }}><div className="history-game-players"><HistoryPlayer game={game} creator winner={creatorWon} onProfileOpen={onProfileOpen} /><span className="history-game-vs">VS</span><HistoryPlayer game={game} winner={opponentWon} onProfileOpen={onProfileOpen} /></div><div className="history-game-items">{visibleItems.map((item) => <HistoryItem key={item.id} item={item} />)}{items.length > 4 ? <button type="button" className="history-extra-items" onClick={() => onView?.(game)}>+{items.length - 4}</button> : null}</div><div className="history-game-result">{result === 'heads' || result === 'tails' ? <img src={result === 'tails' ? '/tails.webp' : '/heads.webp'} alt={`${result} won`} draggable="false" /> : null}</div><div className="history-game-value"><span className="history-game-total"><RobuxIcon /><span>{formatNumber(total)}</span></span><span className="history-game-range">({formatNumber(low)} -&nbsp; {formatNumber(high)})</span></div><div className="history-game-actions"><button type="button" className="history-view-button" aria-label="View game" onClick={() => onView?.(game)}><EyeIcon /></button></div></article>
+  return <article className="history-game-card" style={{ '--history-row-index': index }}><div className="history-game-players"><HistoryPlayer game={game} creator winner={creatorWon} onProfileOpen={onProfileOpen} /><span className="history-game-vs">VS</span><HistoryPlayer game={game} winner={opponentWon} onProfileOpen={onProfileOpen} /></div><div className="history-game-items">{visibleItems.map((item, itemIndex) => <HistoryItem key={`${item.id}-${itemIndex}`} item={item} hiddenItemCount={itemIndex === visibleItems.length - 1 ? hiddenItemCount : 0} />)}</div><div className="history-game-result">{result === 'heads' || result === 'tails' ? <img src={result === 'tails' ? '/tails.webp' : '/heads.webp'} alt={`${result} won`} draggable="false" /> : null}</div><div className="history-game-value"><span className="history-game-total"><RobuxIcon /><span>{formatNumber(total)}</span></span><span className="history-game-range">({formatNumber(low)} -&nbsp; {formatNumber(high)})</span></div><div className="history-game-actions"><button type="button" className="history-view-button" aria-label="View game" onClick={() => onView?.(game)}><EyeIcon /></button></div></article>
 }
 
 export default function RecentCoinflipsModal({ isOpen, games = [], loading = false, isAuthenticated, onClose, onView, onProfileOpen }) {
@@ -124,41 +126,41 @@ export default function RecentCoinflipsModal({ isOpen, games = [], loading = fal
 const HISTORY_STYLES = `
   @keyframes historyRowIn { from { opacity: 0; transform: translateX(-100px) scale(.8); } to { opacity: 1; transform: translateX(0) scale(1); } }
   @keyframes historyModalOut { to { opacity: 0; transform: translateY(15px) scale(.95); } }
-  .history-modal-dialog { max-width: 1152px; outline: none; }
+  .history-modal-dialog { max-width: 896px; outline: none; }
   .history-modal-dialog.is-closing { animation: historyModalOut .2s ease-in both; }
   .history-modal-overlay.is-closing { opacity: 0; transition: opacity .2s ease; }
   .history-modal-body { min-height: 400px; }
   .history-modal-body:has(.history-state) { height: 400px; flex: 0 0 400px; }
-  .history-list { display: flex; flex-direction: column; gap: 12px; }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
   .history-state { display: flex; min-height: 360px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #a2a7b2; font-size: 14px; font-weight: 600; }
   .history-empty { border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: #14171e; }
   .history-empty-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; color: #ff4fa3; background: rgba(255,79,163,.09); }
   .history-empty-icon svg { width: 17px; height: 17px; }
   .history-loading-copy { color: #858c99; font-size: 13px; font-weight: 400; }
-  .history-game-card { display: flex; width: 100%; min-height: 102px; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 20px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; background: #191c24; box-shadow: 0 8px 24px rgba(0,0,0,.14); animation: historyRowIn .45s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--history-row-index) * 35ms); }
+  .history-game-card { display: flex; width: 100%; min-height: 96px; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; background: #191c24; box-shadow: 0 8px 24px rgba(0,0,0,.14); animation: historyRowIn .45s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--history-row-index) * 35ms); }
   .history-game-players { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 12px; }
   .history-player { position: relative; display: block; width: 58px; height: 58px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
   .history-player:disabled { cursor: default; }
   .history-player-avatar { display: block; width: 58px; height: 58px; border: 2px solid #ff4fa3; border-radius: 50%; background: #111319; object-fit: cover; }
   .history-player.side-tails .history-player-avatar { border-color: #1f6fff; }
-  .history-player.is-loser { opacity: .35; }
+  .history-player.is-loser { opacity: .42; filter: saturate(.65) brightness(.78); }
   .history-player-coin { position: absolute; top: -7px; right: -7px; width: 28px; height: 28px; object-fit: contain; }
   .history-game-vs { color: #717784; font-size: 11px; font-weight: 700; }
-  .history-game-items { display: flex; width: 352px; min-width: 0; flex: 0 0 352px; align-items: center; justify-content: flex-start; gap: 8px; padding: 4px 0 8px; overflow-x: auto; overflow-y: visible; scrollbar-width: none; }
+  .history-game-items { display: flex; width: 220px; min-width: 0; flex: 0 0 220px; align-items: center; justify-content: flex-start; gap: 0; padding: 4px 0 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .history-game-items::-webkit-scrollbar { display: none; }
-  .history-item, .history-extra-items { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #12151c; }
-  .history-item img { width: 56px; height: 56px; object-fit: contain; }
-  .history-item-tags { position: absolute; bottom: -7px; left: 50%; z-index: 2; display: flex; gap: 2px; transform: translateX(-50%); }
-  .history-item-tag { display: flex; width: 17px; height: 17px; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-size: 9px; font-weight: 700; line-height: 1; }
-  .tag-m { background: linear-gradient(135deg,#a855f7,#6d28d9); } .tag-n { background: #84cc16; } .tag-f { background: #3478f6; } .tag-r { background: #e83f65; }
-  .history-extra-items { border: 0; color: #a2a7b2; font: 600 14px/20px Poppins,sans-serif; cursor: pointer; }
-  .history-game-result { position: relative; display: flex; width: 120px; min-width: 120px; height: 78px; flex: 0 0 120px; align-items: center; justify-content: center; }
+  .history-item + .history-item { margin-left: -18px; }
+  .history-item { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #12151c; transition: border-color .15s ease; }
+  .history-item:hover { border-color: rgba(255,255,255,.12); }
+  .history-item img { display: block; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; pointer-events: none; }
+  .history-item img.is-gem { width: 78%; height: 78%; object-fit: contain; }
+  .history-item-more { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; border-radius: 50%; color: #fff; background: rgba(15,18,30,.84); backdrop-filter: blur(2px); font-size: 13px; font-weight: 600; pointer-events: none; }
+  .history-game-result { position: relative; display: flex; width: 72px; min-width: 72px; height: 72px; flex: 0 0 72px; align-items: center; justify-content: center; }
   .history-game-result img { width: 58px; height: 58px; object-fit: contain; }
   .history-game-value { min-width: 150px; flex: 0 0 auto; text-align: center; }
   .history-game-total { display: flex; align-items: center; justify-content: center; gap: 6px; color: #f4f5f8; font-size: 15px; font-weight: 700; }
   .history-game-total svg { width: 1em; height: 1em; }
   .history-game-range { display: block; margin-top: 4px; color: #777e8d; font-size: 11px; font-weight: 600; white-space: nowrap; }
-  .history-game-actions { display: flex; min-width: 120px; flex: 0 0 120px; align-items: center; justify-content: flex-start; }
+  .history-game-actions { display: flex; min-width: 42px; flex: 0 0 42px; align-items: center; justify-content: flex-start; }
   .history-view-button { display: flex; width: 42px; min-width: 42px; height: 42px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; color: #f1f2f5; background: #2b303c; cursor: pointer; }
   .history-view-button:hover { background: #343a47; } .history-view-button:active { background: #252a34; }
   .history-view-button svg { width: 1em; height: 1em; }
@@ -167,7 +169,7 @@ const HISTORY_STYLES = `
   .history-pagination button:hover { color: #ff4fa3; background: #2b303b; } .history-pagination button:disabled { cursor: not-allowed; opacity: .4; }
   .history-pagination button svg { width: 10px; height: 10px; }
   .history-pagination > span { min-width: 92px; color: #a1a6b2; font-size: 12px; font-weight: 600; text-align: center; }
-  @media (max-width: 1535px) {
+  @media (max-width: 959px) {
     .history-game-card { display: grid; grid-template-areas: 'players value actions' 'items items items'; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 16px; padding: 12px 16px; }
     .history-game-players { grid-area: players; justify-content: flex-start; }
     .history-game-items { grid-area: items; width: 100%; flex-basis: 100%; }
@@ -179,8 +181,7 @@ const HISTORY_STYLES = `
   @media (max-width: 767px) {
     .history-modal-body { min-height: 0; }
     .history-game-card { grid-template-areas: 'players actions' 'value value' 'items items'; grid-template-columns: minmax(0,1fr) auto; }
-    .history-item, .history-extra-items { width: 54px; height: 54px; flex-basis: 54px; }
-    .history-item img { width: 46px; height: 46px; }
+    .history-item { width: 54px; height: 54px; flex-basis: 54px; }
   }
   @media (prefers-reduced-motion: reduce) { .history-game-card, .history-modal-dialog.is-closing { animation-duration: 1ms; animation-delay: 0ms; } }
 `

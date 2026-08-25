@@ -1056,7 +1056,9 @@ async function verifyCaptchaToken(token, ipAddress) {
 }
 
 async function verifyHcaptchaToken(token, ipAddress, req) {
-  const isTestMode = isLocalDevelopmentRequest(req) || process.env.NODE_ENV !== 'production' || process.env.HCAPTCHA_TEST_MODE === 'true'
+  const isLocalRequest = isLocalDevelopmentRequest(req)
+  const isDevelopmentRuntime = process.env.RENDER !== 'true' && process.env.NODE_ENV !== 'production'
+  const isTestMode = isLocalRequest || isDevelopmentRuntime || process.env.HCAPTCHA_TEST_MODE === 'true'
   const secret = isTestMode
     ? '0x0000000000000000000000000000000000000000'
     : String(process.env.HCAPTCHA_SECRET_KEY || '').trim()
@@ -1071,9 +1073,15 @@ async function verifyHcaptchaToken(token, ipAddress, req) {
     return { ok: false, status: 400, error: 'The security check response is invalid. Please try again.' }
   }
 
+  // hCaptcha's localhost widget uses its documented test key. Once that
+  // widget has supplied a non-empty token, keep local development independent
+  // from the external verification endpoint. Production always continues
+  // through server-side verification with the configured secret.
+  if (isLocalRequest || isDevelopmentRuntime) return { ok: true }
+
   try {
     const verificationBody = new URLSearchParams({ secret, response: normalizedToken })
-    if (ipAddress && ipAddress !== 'unknown') verificationBody.set('remoteip', ipAddress)
+    if (!isTestMode && ipAddress && ipAddress !== 'unknown') verificationBody.set('remoteip', ipAddress)
     if (expectedSitekey) verificationBody.set('sitekey', expectedSitekey)
 
     const response = await fetch('https://api.hcaptcha.com/siteverify', {
@@ -2011,6 +2019,7 @@ const ROBLOX_PHRASE_WORDS = [
   'relic', 'foam', 'tracker', 'brave', 'rose', 'moss', 'monk', 'neat', 'swimmer',
   'fox', 'legend', 'apple', 'moon', 'crystal', 'wolf', 'shadow', 'neon', 'blaze',
 ]
+const ROBLOX_PHRASE_WORD_COUNT = 6
 const authAttempts = new Map()
 const chatMessageReceipts = new Map()
 const chatMessageWindows = new Map()
@@ -2059,7 +2068,7 @@ function generateRobloxPhrase() {
     const randomIndex = crypto.randomInt(index + 1)
     ;[words[index], words[randomIndex]] = [words[randomIndex], words[index]]
   }
-  return words.slice(0, 10).join(' ')
+  return words.slice(0, ROBLOX_PHRASE_WORD_COUNT).join(' ')
 }
 
 function isUnsafeHttpMethod(method) {

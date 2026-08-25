@@ -18,7 +18,14 @@ const HEADS_ICON = '/heads.webp'
 const TAILS_ICON = '/tails.webp'
 const MAX_ITEMS = 20
 
-export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCreate }) {
+export default function CoinflipCreateModal({
+  gameMode = 'ps99',
+  onClose,
+  onCreate,
+  showCoinSelection = true,
+  creationEnabled = true,
+  title = 'Create Coinflip',
+}) {
   const user = useAuth((state) => state.user)
   const [inventoryItems, setInventoryItems] = useState([])
   const [selectedItems, setSelectedItems] = useState([])
@@ -130,7 +137,7 @@ export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCrea
   }
 
   const handleCreate = async () => {
-    if (selectedItems.length === 0 || creating) return
+    if (!creationEnabled || selectedItems.length === 0 || creating) return
     setCreating(true)
     const selected = new Set(selectedItems)
     const selectedRows = inventoryRows.filter((item) => selected.has(item.displayKey))
@@ -189,7 +196,7 @@ export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCrea
     <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} />
     <div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="coinflip-create-title">
-        <h2 className="amp-modal-header" id="coinflip-create-title">Create</h2>
+        <h2 className="amp-modal-header" id="coinflip-create-title">{title}</h2>
         <button type="button" className="amp-modal-close" aria-label="Close" onClick={onClose}><CloseIcon /></button>
         <div className="amp-modal-body">
           <div className="amp-modal-stack">
@@ -208,10 +215,10 @@ export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCrea
 
             <div className="amp-sticky-footer">
               <div className="amp-footer-row">
-                <div className="amp-side-options" role="group" aria-label="Choose coin side">
+                {showCoinSelection ? <div className="amp-side-options" role="group" aria-label="Choose coin side">
                   {['heads', 'tails'].map((side) => <button type="button" key={side} className={`amp-side-button${selectedCoin === side ? ' is-active' : ''}`} aria-label={`Select ${side}`} aria-pressed={selectedCoin === side} onClick={() => setSelectedCoin(side)}><img src={side === 'heads' ? HEADS_ICON : TAILS_ICON} alt="" /></button>)}
-                </div>
-                <button type="button" className="amp-create-button" disabled={inventoryLoading || selectedItems.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button>
+                </div> : <div aria-hidden="true" />}
+                <button type="button" className="amp-create-button" disabled={!creationEnabled || inventoryLoading || selectedItems.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button>
               </div>
             </div>
           </div>
