@@ -2332,6 +2332,23 @@ app.post('/api/promocode/redeem', express.json({ limit: '24kb' }), requireAuthen
   }
 })
 
+function getCoinflipSeedEncryptionKey(supabaseKey) {
+  const jwtKey = getJwtGameSeedEncryptionKey('coinflip')
+  if (jwtKey) return jwtKey
+
+  const secret = process.env.COINFLIP_SEED_SECRET || supabaseKey
+  if (!secret) throw new Error('JWT_SECRET is required for Coinflip fairness.')
+  return crypto.createHash('sha256').update(String(secret)).digest()
+}
+
+function getCoinflipSeedDecryptionKeys(supabaseKey) {
+  return uniqueEncryptionKeys([
+    getJwtGameSeedEncryptionKey('coinflip'),
+    ...uniqueSecrets([process.env.COINFLIP_SEED_SECRET, supabaseKey])
+      .map((secret) => crypto.createHash('sha256').update(secret).digest()),
+  ])
+}
+
 function encryptCoinflipServerSeed(serverSeed, supabaseKey) {
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', getCoinflipSeedEncryptionKey(supabaseKey), iv)
