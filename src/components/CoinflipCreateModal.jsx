@@ -8,7 +8,6 @@ import {
   AmpItemCard,
   AmpSearch,
   AmpSort,
-  AmpValuePill,
   CloseIcon,
   PlusIcon,
 } from './AmpInventoryModalUI'
@@ -105,11 +104,6 @@ export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCrea
       .sort((a, b) => (Number(a.value ?? 0) - Number(b.value ?? 0)) * direction)
   }, [inventoryRows, searchQuery, sortAscending])
 
-  const selectedValue = useMemo(() => {
-    const selected = new Set(selectedItems)
-    return inventoryRows.reduce((total, item) => selected.has(item.displayKey) ? total + Number(item.value ?? 0) : total, 0)
-  }, [inventoryRows, selectedItems])
-
   const toggleItem = (displayKey) => {
     setSelectedItems((current) => {
       if (current.includes(displayKey)) return current.filter((key) => key !== displayKey)
@@ -200,12 +194,8 @@ export default function CoinflipCreateModal({ gameMode = 'ps99', onClose, onCrea
         <div className="amp-modal-body">
           <div className="amp-modal-stack">
             <div className="amp-create-top">
-              <div className="amp-create-summary">
-                <AmpValuePill label="Selected value" value={selectedValue} />
-                <span className="amp-count-badge">{selectedItems.length}/{MAX_ITEMS} items</span>
-              </div>
+              <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-modal-controls">
-                <AmpSearch value={searchQuery} onChange={setSearchQuery} />
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>

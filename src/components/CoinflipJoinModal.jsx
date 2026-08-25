@@ -240,7 +240,8 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
         <div className="amp-modal-body">
           <div className="amp-modal-stack">
             <div className="amp-create-top">
-              <div className="amp-create-summary">
+              <AmpSearch value={searchQuery} onChange={setSearchQuery} />
+              <div className="amp-create-summary amp-join-summary-hidden">
                 <AmpValuePill label="Selected value" value={selectedValue} valid={valueIsValid} />
                 <span className="amp-count-badge">{selectedItems.length}/{MAX_ITEMS} items</span>
                 <span className="amp-join-required">
@@ -251,7 +252,6 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
                 {configuredMaxItems > 0 ? <span className="amp-join-max-items">Max {configuredMaxItems} join items</span> : null}
               </div>
               <div className="amp-modal-controls">
-                <AmpSearch value={searchQuery} onChange={setSearchQuery} />
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>
@@ -263,9 +263,12 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
               : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
 
             <div className="amp-sticky-footer">
-              <div className="amp-footer-row">
-                <img className="amp-join-coin" src={joinSide === 'heads' ? HEADS_ICON : TAILS_ICON} alt={joinSide} draggable="false" />
-                <button type="button" className="amp-create-button" disabled={inventoryLoading || !canJoin || joining} onClick={handleJoin}>{joining ? 'Joining' : 'Join'}</button>
+              <div className="amp-footer-row amp-join-footer-row">
+                <span className="amp-join-range"><RobuxIcon /><span>{displayNumber(minValue)}&ndash;{displayNumber(maxValue)}</span></span>
+                <div className="amp-join-actions">
+                  <img className="amp-join-coin" src={joinSide === 'heads' ? HEADS_ICON : TAILS_ICON} alt={joinSide} draggable="false" />
+                  <button type="button" className="amp-create-button" disabled={inventoryLoading || !canJoin || joining} onClick={handleJoin}>{joining ? 'Joining' : 'Join'}</button>
+                </div>
               </div>
             </div>
           </div>

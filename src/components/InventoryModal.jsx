@@ -9,7 +9,6 @@ import {
   AmpItemCard,
   AmpSearch,
   AmpSort,
-  AmpValuePill,
   CloseIcon,
   PlusIcon,
 } from './AmpInventoryModalUI'
@@ -116,7 +115,6 @@ export default function WalletModal({
       .sort((a, b) => (Number(a.value ?? 0) - Number(b.value ?? 0)) * direction)
   }, [inventoryRows, searchQuery, sortAscending])
 
-  const totalInventoryValue = useMemo(() => inventoryRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0), [inventoryRows])
   const selectedInventoryItems = useMemo(() => {
     const selected = new Set(selectedItems)
     return inventoryRows.filter((item) => selected.has(item.displayKey))
@@ -183,9 +181,8 @@ export default function WalletModal({
         <div className="amp-modal-body">
           <div className="amp-modal-stack">
             <div className="amp-wallet-top">
-              <AmpValuePill label="Total value" value={totalInventoryValue} />
+              <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-modal-controls">
-                <AmpSearch value={searchQuery} onChange={setSearchQuery} />
                 {!readOnly ? <button type="button" className="amp-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button> : null}
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
