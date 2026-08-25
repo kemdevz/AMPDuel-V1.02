@@ -11,22 +11,6 @@ function isUuidLike(value) {
 }
 
 const app = express()
-const DISABLED_GAME_API_PREFIXES = [
-  '/api/blackjack',
-  '/api/case-battles',
-  '/api/cases',
-  '/api/exchange',
-  '/api/jackpot',
-  '/api/live-casino',
-  '/api/mines/fairness',
-  '/api/mines/state',
-  '/api/mines/reveal',
-  '/api/mines/cashout',
-  '/api/rain',
-  '/api/roll',
-  '/api/summer',
-  '/api/upgrader',
-]
 for (const method of ['get', 'post', 'patch', 'delete']) {
   const registerRoute = app[method].bind(app)
   app[method] = (routePath, ...handlers) => registerRoute(
@@ -109,13 +93,6 @@ app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   next()
 })
-app.use((req, res, next) => {
-  const route = String(req.path || '')
-  const disabledGameRoute = DISABLED_GAME_API_PREFIXES.some((prefix) => route === prefix || route.startsWith(`${prefix}/`))
-  if (disabledGameRoute) return res.status(404).json({ ok: false, error: 'This game is currently disabled.' })
-  return next()
-})
-
 const USER_COIN_TIP_CHAT_THRESHOLD = 10000
 const USER_ITEM_TIP_CHAT_THRESHOLD = 100000
 const RECAPTCHA_TEST_SECRET_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'

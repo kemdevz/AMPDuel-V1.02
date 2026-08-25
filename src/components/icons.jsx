@@ -1,53 +1,5 @@
 // Lightweight inline SVG / emoji art used across the UI.
 
-export function CoinIcon({ size = 18, className = '' }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      className={className}
-      aria-hidden="true"
-    >
-      <defs>
-        <radialGradient id="coinGold" cx="38%" cy="32%" r="75%">
-          <stop offset="0%" stopColor="#fff3b0" />
-          <stop offset="42%" stopColor="#f6df51" />
-          <stop offset="100%" stopColor="#e0a106" />
-        </radialGradient>
-      </defs>
-      <circle cx="12" cy="12" r="11" fill="url(#coinGold)" />
-      <circle cx="12" cy="12" r="11" fill="none" stroke="#b97e04" strokeWidth="1" opacity=".6" />
-      <circle cx="12" cy="12" r="7.4" fill="none" stroke="#fff6c2" strokeWidth="1.4" opacity=".7" />
-      <path d="M9 8.2c1.8-1.2 4.2-.7 4.9 1 .4 1-.1 1.9-1 2.4 1.3.2 2.2 1 2.2 2.2 0 1.8-2.1 2.9-4.4 2.1" fill="none" stroke="#9a6a02" strokeWidth="1.4" strokeLinecap="round" opacity=".55" />
-      <ellipse cx="9" cy="8" rx="2.4" ry="1.4" fill="#fffbe6" opacity=".5" />
-    </svg>
-  )
-}
-
-export function FlameLogo({ size = 30, className = '' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <defs>
-        <linearGradient id="flameg" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#b3adff" />
-          <stop offset="0.55" stopColor="#7a73ff" />
-          <stop offset="1" stopColor="#5b54d6" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M13.7 2c.5 3.1-1.2 4.9-2.8 6.4C9.1 10.1 7.4 11.9 7.4 14.8a5.6 5.6 0 0 0 11.2.2c0-2.4-1-4-2.1-5.4-.3 1.1-1 1.8-2 2.1.8-2.7-.1-7-.8-9.7Z"
-        fill="url(#flameg)"
-      />
-      <path
-        d="M10.9 13.4c-.7.8-1.1 1.8-1.1 2.9a2.85 2.85 0 0 0 5.7.2c0-1-.4-1.9-1-2.6-.2.6-.7 1.1-1.4 1.2.3-1.5-.5-3-2.2-1.7Z"
-        fill="#fef08a"
-        opacity=".85"
-      />
-    </svg>
-  )
-}
-
 export function XIcon({ size = 16, className = '' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -106,23 +58,6 @@ export function TermsIcon({ className = '' }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <path d="M4 4H20V20H4V4Z" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M8 8H16M8 12H16M8 16H12" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-export function FairnessIcon({ className = '' }) {
-  return (
-    <svg className={className} viewBox="0 0 640 512" fill="currentColor" aria-hidden="true">
-      <path d="M256 336h-.02c0-16.18 1.34-8.73-85.05-181.51-17.65-35.29-68.19-35.36-85.87 0C-2.06 328.75.02 320.33.02 336H0c0 44.18 57.31 80 128 80s128-35.82 128-80zM128 176l72 144H56l72-144zm511.98 160c0-16.18 1.34-8.73-85.05-181.51-17.65-35.29-68.19-35.36-85.87 0-87.12 174.26-85.04 165.84-85.04 181.51H384c0 44.18 57.31 80 128 80s128-35.82 128-80h-.02zM440 320l72-144 72 144H440zm88 128H352V153.25c23.51-10.29 41.16-31.48 46.39-57.25H528c8.84 0 16-7.16 16-16V48c0-8.84-7.16-16-16-16H383.64C369.04 12.68 346.09 0 320 0s-49.04 12.68-63.64 32H112c-8.84 0-16 7.16-16 16v32c0 8.84 7.16 16 16 16h129.61c5.23 25.76 22.87 46.96 46.39 57.25V448H112c-8.84 0-16 7.16-16 16v32c0 8.84 7.16 16 16 16h416c8.84 0 16-7.16 16-16v-32c0-8.84-7.16-16-16-16z" />
-    </svg>
-  )
-}
-
-export function SessionsIcon({ className = '' }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <path d="M8 21h8M12 17v4" />
     </svg>
   )
 }

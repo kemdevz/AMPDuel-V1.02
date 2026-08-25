@@ -133,7 +133,6 @@ export default function Layout({ children }) {
 
           <div className="flex min-h-0 min-w-0 flex-[1_1_auto] flex-col">
             <HeaderUtilityBar
-              onOpenFairness={() => setFairnessModalOpen(true)}
               onOpenTerms={() => setTermsModalOpen(true)}
             />
             <main

@@ -3,7 +3,7 @@
 
 ## PS99 withdrawal bot setup
 
-1. Apply `supabase/migrations/20260825000000_bloxdice_bootstrap.sql` before
+1. Apply `supabase/migrations/20260825000000_AMPDuel_bootstrap.sql` before
    deploying the server. Back up an existing database first because this is the
    consolidated schema for the retained systems.
 2. Generate a long random secret and set `PS99_BOT_API_SECRET` in the server
