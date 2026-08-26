@@ -812,6 +812,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           transform: none;
         }
         .game-preview-item-image { display: block; width: calc(100% - 6px); height: calc(100% - 6px); padding: 0; border-radius: 9999px; object-fit: cover; pointer-events: none; }
+        .game-preview-item-image--mm2 { width: calc(100% - 10px); height: calc(100% - 10px); }
         .game-preview-item-image--gem { width: 78%; height: 78%; object-fit: contain; }
         .game-preview-item .adopt-me-traits {
           bottom: -5px;
@@ -1284,6 +1285,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
   const joinDisabled = !canJoin || isCreator
   const isCompleted = Boolean(room.opponent_uuid && room.result)
   const winner = isCompleted ? room.result || room.winner || null : null
+  const isMm2Game = getCoinflipRoomGame(room) === 'mm2'
   const gameMode = String(room.game_mode || '').trim().toLowerCase()
   const gameModeIcon = gameMode === 'gems_only' || gameMode === 'titanics_only' ? '💎' : null
   const gameModeLabel = gameMode === 'gems_only' ? 'Gems Only' : gameMode === 'titanics_only' ? 'Titanic + Gems' : ''
@@ -1415,7 +1417,11 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
               >
                 {item.name}
               </span>
-              <img src={item.image} alt="" className={`game-preview-item-image${isCoinflipGemItem(item) ? ' game-preview-item-image--gem' : ''}`} />
+              <img
+                src={item.image}
+                alt=""
+                className={`game-preview-item-image${isMm2Game ? ' game-preview-item-image--mm2' : ''}${isCoinflipGemItem(item) ? ' game-preview-item-image--gem' : ''}`}
+              />
               {!isLastVisibleItem && <AdoptMeTraitBadges item={item} />}
 
               {isLastVisibleItem && (
