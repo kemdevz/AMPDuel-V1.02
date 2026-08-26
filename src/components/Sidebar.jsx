@@ -4,7 +4,7 @@ import { navSections } from '../data'
 
 function NavItem({ icon: Icon, name, path, isCollapsed, isLoggedIn, onNavigate, onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
   const requiresLogin = path === 'sessions' || path === 'profile'
-  const itemClass = `group relative flex w-full items-center gap-3 rounded-[7px] px-1 py-2.5 text-sm font-medium leading-[18px] transition-colors duration-100 before:absolute before:-left-3 before:top-0 before:h-full before:w-[2px] before:bg-[#ff4fa3] before:opacity-0 before:transition-opacity before:duration-100 hover:before:opacity-100 ${
+  const itemClass = `group relative flex w-full items-center gap-3 rounded-[7px] px-1 py-2.5 text-sm font-medium leading-[18px] transition-colors duration-100 before:absolute before:-left-3 before:top-0 before:h-full before:w-[2px] before:bg-[#ff4fa3] before:opacity-0 before:transition-opacity before:duration-100 ${
     isCollapsed ? 'justify-center' : ''
   }`
   const iconClass = 'h-[18px] w-[18px] shrink-0 transition-colors duration-100'

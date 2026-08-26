@@ -166,7 +166,7 @@ const HISTORY_STYLES = `
   .history-view-button svg { width: 1em; height: 1em; }
   .history-pagination { display: flex; align-items: center; justify-content: center; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
   .history-pagination button { display: flex; width: 34px; min-width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 7px; color: #9aa0ac; background: #242833; cursor: pointer; }
-  .history-pagination button:hover { color: #ff4fa3; background: #2b303b; } .history-pagination button:disabled { cursor: not-allowed; opacity: .4; }
+  .history-pagination button:hover { color: #c1c6d0; background: #2b303b; } .history-pagination button:disabled { cursor: not-allowed; opacity: .4; }
   .history-pagination button svg { width: 10px; height: 10px; }
   .history-pagination > span { min-width: 92px; color: #a1a6b2; font-size: 12px; font-weight: 600; text-align: center; }
   @media (max-width: 959px) {

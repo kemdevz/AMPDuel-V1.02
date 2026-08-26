@@ -261,7 +261,7 @@ function ChatMessage({ message, onProfileOpen }) {
         <button
           type="button"
           aria-label={`Open ${message.name || "user"} profile`}
-          className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[hsl(231_16%_16%)] transition hover:border-[#ff4fa3] focus-visible:border-[#ff4fa3] focus-visible:outline-none"
+          className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[hsl(231_16%_16%)] transition hover:border-white/20 focus-visible:border-[#ff4fa3] focus-visible:outline-none"
           onClick={() => onProfileOpen(message)}
         >
           {message.avatar ? (
@@ -1277,7 +1277,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
               </div>
               <button
                 type="button"
-                className="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-white/45 transition-colors hover:text-[#ff4fa3] focus-visible:text-[#ff4fa3] focus-visible:outline-none"
+                className="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-white/45 transition-colors hover:text-white/75 focus-visible:text-[#ff4fa3] focus-visible:outline-none"
                 aria-label="View chat rules"
                 title="Chat rules"
                 aria-expanded={chatRulesOpen}

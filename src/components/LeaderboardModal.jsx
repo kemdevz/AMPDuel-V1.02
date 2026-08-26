@@ -172,6 +172,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
         @keyframes referenceLeaderboardFadeIn{from{opacity:0}to{opacity:1}}@keyframes referenceLeaderboardFadeOut{from{opacity:1}to{opacity:0}}@keyframes referenceLeaderboardOpen{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}@keyframes referenceLeaderboardCloseModal{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,-50%)}}@keyframes referenceLeaderboardMenu{from{opacity:0;transform:translateY(-8px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
         @media(min-width:640px){.referenceLeaderboardModal{width:100%;height:auto;max-width:576px;border-radius:8px}.referenceLeaderboardHeading{text-align:left}.referenceLeaderboardTableWrap{max-height:384px}.referenceLeaderboardSelect{width:180px}}
         @media(min-width:768px){.referenceLeaderboardModal{max-width:768px}.referenceLeaderboardTableWrap{max-height:none}.referenceLeaderboardMobileNote{display:none}.referenceLeaderboardName{max-width:none}.referenceLeaderboardValue .mobileValue{display:none}.referenceLeaderboardValue .desktopValue{display:inline}}
+        .referenceLeaderboardAvatar:hover{border-color:rgba(255,255,255,.2);outline:0}
       `}</style>
     </div>
   )

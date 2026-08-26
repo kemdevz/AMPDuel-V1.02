@@ -69,7 +69,7 @@ export const AMP_MODAL_STYLES = `
     cursor: pointer;
     transition: color .15s ease, background .15s ease;
   }
-  .amp-modal-close:hover { color: #ff4fa3; background: #282c37; }
+  .amp-modal-close:hover { color: #b3b8c3; background: #282c37; }
   .amp-modal-close:focus-visible { outline: 2px solid rgba(255, 79, 163, .4); outline-offset: 0; }
   .amp-modal-close svg { width: 14px; height: 14px; }
 

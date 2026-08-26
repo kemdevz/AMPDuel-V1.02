@@ -1588,7 +1588,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                     className={`flex w-full items-center gap-2.5 border-x-0 border-t-0 border-b border-solid border-white/[.04] px-3.5 py-[11px] text-left text-[13px] font-semibold transition-colors last:border-b-0 ${
                       tab.id === activeTab
                         ? 'bg-[rgba(255,79,163,.12)] text-white'
-                        : 'bg-transparent text-[rgba(225,228,242,.6)] hover:bg-[rgba(255,79,163,.08)] hover:text-[#e1e4f2]'
+                        : 'bg-transparent text-[rgba(225,228,242,.6)] hover:bg-[#1c1f2e] hover:text-[#e1e4f2]'
                     }`}
                     onClick={() => selectTab(tab.id)}
                   >
@@ -1654,7 +1654,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                       <span className="font-mono text-[9px] text-[rgba(225,228,242,.4)] sm:text-[11px]">{userId}</span>
                       <button
                         type="button"
-                        className="inline-flex items-center border-none bg-transparent p-0.5 text-[rgba(225,228,242,.4)] transition-colors hover:text-[#ff4fa3]"
+                        className="inline-flex items-center border-none bg-transparent p-0.5 text-[rgba(225,228,242,.4)] transition-colors hover:text-[#e1e4f2]"
                         title={copied ? 'Copied' : 'Copy User ID'}
                         aria-label={copied ? 'User ID copied' : 'Copy User ID'}
                         onClick={copyUserId}

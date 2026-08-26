@@ -15,6 +15,7 @@ import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
 import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
 import { getCoinflipRoomGame } from '../lib/coinflipGameMode'
+import AdoptMeTraitBadges from '../components/AdoptMeTraitBadges'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const RESOLVED_ROOM_LIFETIME_MS = 40_000
@@ -729,7 +730,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           justify-content: space-between;
           gap: clamp(10px, 1.25cqw, 20px);
           padding: 12px 20px;
-          overflow: hidden;
+          overflow: visible;
           border: 1px solid rgba(255, 255, 255, .07);
           border-radius: 9px;
           background: #191c24;
@@ -780,8 +781,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           justify-content: flex-start;
           gap: 0;
           padding: 4px 0 8px;
-          overflow-x: auto;
-          overflow-y: hidden;
+          overflow: visible;
           scrollbar-width: none;
         }
         .game-preview-items::-webkit-scrollbar { display: none; }
@@ -795,39 +795,67 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           box-sizing: border-box;
           align-items: center;
           justify-content: center;
-          overflow: hidden;
+          overflow: visible;
           border: 1px solid rgba(255,255,255,.05);
           border-radius: 9999px;
           background: #12151c;
-          cursor: pointer;
-          transition: border-color .15s ease;
+          cursor: default;
+          box-shadow: none;
+          filter: none;
+          transition: none;
         }
-        .game-preview-item:hover { border-color: rgba(255,255,255,.12); }
+        .game-preview-item:hover {
+          border-color: rgba(255,255,255,.05);
+          background: #12151c;
+          box-shadow: none;
+          filter: none;
+          transform: none;
+        }
         .game-preview-item-image { display: block; width: calc(100% - 6px); height: calc(100% - 6px); padding: 0; border-radius: 9999px; object-fit: cover; pointer-events: none; }
         .game-preview-item-image--gem { width: 78%; height: 78%; object-fit: contain; }
+        .game-preview-item .adopt-me-traits {
+          bottom: -5px;
+          gap: 1px;
+        }
+        .game-preview-item .adopt-me-trait {
+          width: 13px;
+          height: 13px;
+          flex-basis: 13px;
+          font-size: 7px;
+        }
         .game-preview-tooltip {
           position: absolute;
-          bottom: calc(100% + 7px);
+          bottom: calc(100% + 8px);
           left: 50%;
           z-index: 40;
-          max-width: 176px;
-          padding: 4px 8px;
+          width: max-content;
+          max-width: 180px;
+          padding: 5px 9px;
           overflow: hidden;
-          border-radius: 4px;
-          background: #0f1119;
-          color: #e1e4f2;
-          box-shadow: 0 4px 12px rgba(0,0,0,.35);
-          font-size: 10px;
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 5px;
+          background: #191c24;
+          color: #f4f5f8;
+          box-shadow: none;
+          font-family: Poppins, sans-serif;
+          font-size: 11px;
           font-weight: 600;
-          line-height: 1.2;
+          line-height: 16px;
+          letter-spacing: 0;
           opacity: 0;
-          transform: translateX(-50%);
+          visibility: hidden;
+          transform: translate(-50%, 3px);
           white-space: nowrap;
           text-overflow: ellipsis;
           pointer-events: none;
-          transition: opacity .15s ease;
+          transition: opacity .12s ease, transform .12s ease, visibility 0s linear .12s;
         }
-        .game-preview-item:hover .game-preview-tooltip { opacity: 1; }
+        .game-preview-item:hover .game-preview-tooltip {
+          opacity: 1;
+          visibility: visible;
+          transform: translate(-50%, 0);
+          transition-delay: 0s;
+        }
         .game-preview-more {
           position: absolute;
           inset: 0;
@@ -910,7 +938,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
             padding: 12px;
           }
           .game-preview-players { grid-area: players; min-width: 0; }
-          .game-preview-items { grid-area: items; overflow-x: auto; padding-bottom: 2px; }
+          .game-preview-items { grid-area: items; overflow: visible; padding-bottom: 2px; }
           .game-preview-result { display: none; }
           .game-preview-value { grid-area: value; text-align: left; }
           .game-preview-value-total { justify-content: flex-start; }
@@ -918,6 +946,8 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           .game-preview-actions { grid-area: actions; }
           .game-preview-join { min-width: 62px; padding: 0 12px; }
           .game-preview-item { width: 48px; height: 48px; flex-basis: 48px; }
+          .game-preview-item .adopt-me-traits { bottom: -4px; }
+          .game-preview-item .adopt-me-trait { width: 9px; height: 9px; flex-basis: 9px; font-size: 6px; }
         }
         @media (max-width: 640px) {
           .coinflip-top-counter { height: 40px; }
@@ -1386,6 +1416,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
                 {item.name}
               </span>
               <img src={item.image} alt="" className={`game-preview-item-image${isCoinflipGemItem(item) ? ' game-preview-item-image--gem' : ''}`} />
+              {!isLastVisibleItem && <AdoptMeTraitBadges item={item} />}
 
               {isLastVisibleItem && (
                 <div className="game-preview-more">

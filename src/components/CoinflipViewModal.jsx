@@ -868,7 +868,7 @@ const VIEW_MODAL_STYLES = `
     transition: color .2s, background-color .2s, box-shadow .2s;
   }
   .view-modal__close svg { width: 14px; height: 14px; }
-  .view-modal__close:hover { color: #ff4fa3; background: #282c37; opacity: 1; }
+  .view-modal__close:hover { color: #b3b8c3; background: #282c37; opacity: 1; }
   .view-modal__close:focus-visible { outline: 0; box-shadow: 0 0 0 2px rgba(255,79,163,.4); }
   .view-modal__body {
     min-height: 0;
@@ -1129,7 +1129,7 @@ const VIEW_MODAL_STYLES = `
     font: 600 12px/14.4px Poppins,sans-serif;
     cursor: pointer;
   }
-  .view-modal__fairness:hover { color: #ff4fa3; background: #282c37; }
+  .view-modal__fairness:hover { color: #c1c6d0; background: #282c37; }
   .view-modal__fairness svg { width: 13px; height: 13px; }
   .view-modal__footer-cancel {
     position: absolute;
