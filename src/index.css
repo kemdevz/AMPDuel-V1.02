@@ -50,6 +50,89 @@
   }
 }
 
+.loading-screen {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at center, rgba(255, 79, 163, .055), transparent 28rem), #111319;
+}
+
+.loading-screen-content {
+  display: flex;
+  width: min(230px, 58vw);
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.loading-screen-logo {
+  display: block;
+  width: 100%;
+  min-height: 54px;
+  max-height: 76px;
+  object-fit: contain;
+  animation: loading-logo-breathe 1.8s ease-in-out infinite;
+}
+
+.loading-screen-track {
+  position: relative;
+  width: 112px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ffffff14;
+}
+
+.loading-screen-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: 42%;
+  border-radius: inherit;
+  background: #ff4fa3;
+  box-shadow: 0 0 10px #ff4fa373;
+  animation: loading-progress 1.15s ease-in-out infinite;
+}
+
+@keyframes loading-logo-breathe {
+  0%,
+  100% {
+    opacity: .82;
+    transform: scale(.985);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes loading-progress {
+  from {
+    transform: translate(-115%);
+  }
+
+  to {
+    transform: translate(350%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen-logo,
+  .loading-screen-progress {
+    animation: none;
+  }
+
+  .loading-screen-progress {
+    width: 100%;
+  }
+}
+
 @keyframes adminActivityRowIn {
   from {
     opacity: 0;

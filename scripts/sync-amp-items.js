@@ -306,6 +306,31 @@ if (!supabaseUrl || !supabaseKey) {
 
 const existingItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name,value,image_url,type', { type: 'eq.AMP' })
 const existingByKey = new Map(existingItems.map((item) => [catalogKey(item), item]))
+const existingById = new Map(existingItems.map((item) => [String(item.id), item]))
+const sourceByKey = new Map(sourceItems.map((item) => [catalogKey(item), item]))
+const ownedItems = await fetchAll(
+  supabaseUrl,
+  supabaseKey,
+  'inventory_items',
+  'id,item_id,name,value,image_url,type',
+  { type: 'eq.AMP' },
+)
+const ownedItemRepairs = ownedItems.flatMap((ownedItem) => {
+  const linkedCatalogItem = existingById.get(String(ownedItem.item_id || ''))
+  const sourceItem = sourceByKey.get(catalogKey(linkedCatalogItem || ownedItem))
+  if (!sourceItem) return []
+  const catalogItem = existingByKey.get(catalogKey(sourceItem))
+  const needsRepair = Number(ownedItem.value) !== sourceItem.value
+    || (!ownedItem.item_id && catalogItem?.id)
+    || String(ownedItem.image_url || '') !== String(sourceItem.image_url || '')
+  if (!needsRepair) return []
+  return [{
+    id: ownedItem.id,
+    item_id: catalogItem?.id || ownedItem.item_id || null,
+    value: sourceItem.value,
+    image_url: sourceItem.image_url,
+  }]
+})
 const updatedAt = new Date().toISOString()
 const rows = sourceItems.map((item) => ({
   id: existingByKey.get(catalogKey(item))?.id || crypto.randomUUID(),
@@ -319,8 +344,9 @@ const updated = rows.length - inserted
 
 console.log(`Live AMP catalog: ${existingItems.length.toLocaleString('en-US')} items.`)
 console.log(`Will add ${inserted.toLocaleString('en-US')}, update ${updated.toLocaleString('en-US')}, and ${pruneStale ? 'remove' : 'leave'} ${staleRows.length.toLocaleString('en-US')} stale AMP rows.`)
+console.log(`AMP inventory snapshots needing repair: ${ownedItemRepairs.length.toLocaleString('en-US')} of ${ownedItems.length.toLocaleString('en-US')}.`)
 if (!applyChanges) {
-  console.log('Preflight passed. Re-run with --apply to synchronize only type=AMP rows.')
+  console.log('Preflight passed. Re-run with --apply to synchronize AMP catalog and inventory values.')
   process.exit(0)
 }
 
@@ -330,6 +356,24 @@ for (const batch of chunks(rows, batchSize)) {
     headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
     body: batch,
   })
+}
+
+// Owned inventory rows deliberately snapshot catalog details so games remain
+// deterministic. Refresh existing AMP snapshots when catalog values change;
+// item_id is preferred and the unique variation name repairs older unlinked
+// inventory rows.
+for (const batch of chunks(ownedItemRepairs, 25)) {
+  await Promise.all(batch.map((repair) => supabaseRequest(supabaseUrl, supabaseKey, 'inventory_items', {
+    method: 'PATCH',
+    query: { id: `eq.${repair.id}`, type: 'eq.AMP' },
+    headers: { Prefer: 'return=minimal' },
+    body: {
+      item_id: repair.item_id,
+      value: repair.value,
+      image_url: repair.image_url,
+      updated_at: updatedAt,
+    },
+  })))
 }
 
 if (pruneStale) {
@@ -351,5 +395,5 @@ if (missingNames.length || duplicateCount) {
   throw new Error(`AMP verification failed: missing=${missingNames.join(', ') || 'none'}, duplicate names=${duplicateCount}.`)
 }
 
-console.log(`AMP sync complete: added ${inserted}, updated ${updated}.`)
+console.log(`AMP sync complete: added ${inserted}, updated ${updated}, repaired ${ownedItemRepairs.length} inventory snapshots.`)
 console.log(`Verified ${sourceItems.length} current AMP names in Supabase.`)

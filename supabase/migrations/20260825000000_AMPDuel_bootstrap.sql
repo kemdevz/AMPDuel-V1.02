@@ -3321,7 +3321,9 @@ ALTER TABLE public.coinflip_games
 
 ALTER TABLE public.coinflip_games
   ADD CONSTRAINT coinflip_games_game_mode_check
-  CHECK (game_mode IS NULL OR game_mode IN ('gems_only', 'titanics_only'));
+  CHECK (game_mode IS NULL OR game_mode IN (
+    'mm2', 'adm', 'ps99', 'gems_only', 'titanics_only'
+  )) NOT VALID;
 
 -- ===== 20260814010000_expand_ps99_deposit_audit.sql =====
 ALTER TABLE public.deposits
@@ -3717,7 +3719,9 @@ ALTER TABLE public.coinflip_games
 
 ALTER TABLE public.coinflip_games
   ADD CONSTRAINT coinflip_games_game_mode_check
-  CHECK (game_mode IS NULL OR game_mode IN ('gems_only', 'titanics_only'));
+  CHECK (game_mode IS NULL OR game_mode IN (
+    'mm2', 'adm', 'ps99', 'gems_only', 'titanics_only'
+  )) NOT VALID;
 
 NOTIFY pgrst, 'reload schema';
 
@@ -3882,7 +3886,23 @@ ALTER TABLE public.coinflip_games
     'ps99',
     'gems_only',
     'titanics_only'
-  ));
+  )) NOT VALID;
+
+-- Normalize values written by older builds before validating the final
+-- constraint. Unknown legacy labels are inferred from their wager items below.
+UPDATE public.coinflip_games
+SET game_mode = CASE
+  WHEN game_mode IS NULL OR btrim(game_mode) = '' THEN NULL
+  WHEN lower(btrim(game_mode)) IN ('mm2', 'murder mystery 2', 'murder_mystery_2') THEN 'mm2'
+  WHEN lower(btrim(game_mode)) IN ('adm', 'amp', 'adopt me', 'adopt_me') THEN 'adm'
+  WHEN lower(btrim(game_mode)) IN ('ps99', 'pet simulator 99', 'pet_simulator_99') THEN 'ps99'
+  WHEN lower(btrim(game_mode)) IN ('gems', 'gem_only', 'gems-only', 'gems_only') THEN 'gems_only'
+  WHEN lower(btrim(game_mode)) IN (
+    'titanic', 'titanics', 'titanic_only', 'titanics-only',
+    'titanics_only', 'titanic_gems', 'titanic+gems'
+  ) THEN 'titanics_only'
+  ELSE NULL
+END;
 
 UPDATE public.coinflip_games
 SET game_mode = CASE
@@ -3901,6 +3921,9 @@ WHERE game_mode IS NULL
   AND jsonb_typeof(creator_items) = 'array'
   AND jsonb_array_length(creator_items) > 0;
 
+ALTER TABLE public.coinflip_games
+  VALIDATE CONSTRAINT coinflip_games_game_mode_check;
+
 CREATE INDEX IF NOT EXISTS coinflip_games_game_mode_resolved_idx
   ON public.coinflip_games (game_mode, resolved_at DESC)
   WHERE canceled = false AND result IS NOT NULL;
@@ -3918,10 +3941,90 @@ CREATE TABLE public.site_service_settings (
 
 -- MM2 and AMP catalogs contain legitimate sub-unit values. Keep four decimal
 -- places so catalog imports and owned-item snapshots never round them to zero.
+-- MM2 also has distinct knife/gun records that intentionally share a cleaned
+-- display name and are identified by their UUID/image instead.
+ALTER TABLE public.items
+  DROP CONSTRAINT IF EXISTS items_name_type_key;
+
 ALTER TABLE public.items
   ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
-ALTER TABLE public.inventory_items
-  ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
+
+-- Older databases may still have this trigger. PostgreSQL will not change the
+-- value column's type while its trigger definition references that column, so
+-- preserve the exact definition, recreate it after the conversion, and leave
+-- fresh databases (where the legacy trigger is absent) untouched.
+DO $fractional_inventory_values$
+DECLARE
+  saved_trigger_definition text;
+BEGIN
+  SELECT pg_get_triggerdef(t.oid, true)
+    INTO saved_trigger_definition
+  FROM pg_trigger AS t
+  JOIN pg_class AS c ON c.oid = t.tgrelid
+  JOIN pg_namespace AS n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relname = 'inventory_items'
+    AND t.tgname = 'inventory_items_assign_item_id'
+    AND NOT t.tgisinternal
+  LIMIT 1;
+
+  IF saved_trigger_definition IS NOT NULL THEN
+    DROP TRIGGER inventory_items_assign_item_id ON public.inventory_items;
+  END IF;
+
+  ALTER TABLE public.inventory_items
+    ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
+
+  IF saved_trigger_definition IS NOT NULL THEN
+    EXECUTE saved_trigger_definition;
+  END IF;
+END;
+$fractional_inventory_values$;
+
+-- Refresh stale AMP inventory snapshots created while inventory_items.value
+-- was still an integer. Prefer the immutable catalog UUID, then repair older
+-- unlinked rows by AMP's unique variation name.
+UPDATE public.inventory_items AS owned
+SET value = catalog.value,
+    image_url = catalog.image_url,
+    type = 'AMP',
+    updated_at = now()
+FROM public.items AS catalog
+WHERE upper(COALESCE(owned.type, '')) = 'AMP'
+  AND upper(COALESCE(catalog.type, '')) = 'AMP'
+  AND owned.item_id = catalog.id
+  AND (
+    owned.value IS DISTINCT FROM catalog.value
+    OR owned.image_url IS DISTINCT FROM catalog.image_url
+  );
+
+WITH catalog_matches AS (
+  SELECT DISTINCT ON (owned.id)
+    owned.id AS inventory_id,
+    catalog.id AS catalog_id,
+    catalog.value,
+    catalog.image_url
+  FROM public.inventory_items AS owned
+  JOIN public.items AS catalog
+    ON upper(COALESCE(catalog.type, '')) = 'AMP'
+   AND lower(btrim(catalog.name)) = lower(btrim(owned.name))
+  WHERE upper(COALESCE(owned.type, '')) = 'AMP'
+    AND owned.item_id IS NULL
+  ORDER BY
+    owned.id,
+    (NULLIF(owned.image_url, '') IS NOT DISTINCT FROM NULLIF(catalog.image_url, '')) DESC,
+    catalog.updated_at DESC NULLS LAST,
+    catalog.id
+)
+UPDATE public.inventory_items AS owned
+SET item_id = match.catalog_id,
+    value = match.value,
+    image_url = match.image_url,
+    type = 'AMP',
+    updated_at = now()
+FROM catalog_matches AS match
+WHERE owned.id = match.inventory_id;
+
 INSERT INTO public.site_service_settings (service_key, enabled)
 VALUES ('coinflip', true), ('chat', true);
 ALTER TABLE public.site_service_settings ENABLE ROW LEVEL SECURITY;

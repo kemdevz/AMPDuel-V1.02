@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
+import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import DepositModal from './DepositModal'
 import {
   AMP_MODAL_STYLES,
@@ -22,6 +23,7 @@ export default function WalletModal({
   ariaLabel = 'Wallet inventory',
   profileId = null,
   readOnly = false,
+  gameMode = null,
 }) {
   const user = useAuth((state) => state.user)
   const [depositOpen, setDepositOpen] = useState(false)
@@ -102,10 +104,18 @@ export default function WalletModal({
     }
   }, [isOpen, profileId, user?.id, user?.profile_id])
 
-  const inventoryRows = useMemo(() => inventoryItems.map((item, index) => ({
-    ...item,
-    displayKey: item.id || `${item.name || 'inventory'}-${index}`,
-  })), [inventoryItems])
+  const normalizedGameMode = normalizeCoinflipGameMode(gameMode)
+  const inventoryRows = useMemo(() => inventoryItems
+    .filter((item) => inventoryItemMatchesGame(item, normalizedGameMode))
+    .map((item, index) => ({
+      ...item,
+      displayKey: item.id || `${item.name || 'inventory'}-${index}`,
+    })), [inventoryItems, normalizedGameMode])
+
+  useEffect(() => {
+    const visibleKeys = new Set(inventoryRows.map((item) => item.displayKey))
+    setSelectedItems((current) => current.filter((itemKey) => visibleKeys.has(itemKey)))
+  }, [inventoryRows])
 
   const visibleRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()

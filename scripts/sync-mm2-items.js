@@ -98,7 +98,13 @@ function chunks(values, size) {
 }
 
 function catalogKey(item) {
-  return `${String(item.type || '').trim().toLowerCase()}\u0000${String(item.name || '').trim().toLowerCase()}`
+  return [item.type, item.name, item.image_url]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .join('\u0000')
+}
+
+function normalizeMm2Name(value) {
+  return String(value || '').replace(/\s+\((?:knife|gun)\)\s*$/i, '').trim()
 }
 
 function encodePath(pathname) {
@@ -141,12 +147,13 @@ async function loadUpstreamItems() {
 
     const itemsByName = new Map()
     for (const row of latestRows) {
-      const name = String(row.name || '').trim()
-      const nameKey = name.toLowerCase()
+      const sourceName = String(row.name || '').trim()
+      const sourceNameKey = sourceName.toLowerCase()
+      const name = normalizeMm2Name(sourceName)
       const value = Number(row.value)
-      if (!name || !Number.isFinite(value) || value <= 0 || excludedPlaceholderNames.has(nameKey)) continue
+      if (!name || !Number.isFinite(value) || value <= 0 || excludedPlaceholderNames.has(sourceNameKey)) continue
 
-      const iconPath = iconPaths.get(nameKey)
+      const iconPath = iconPaths.get(sourceNameKey) || iconPaths.get(name.toLowerCase())
       const item = {
         name,
         value,
@@ -154,9 +161,10 @@ async function loadUpstreamItems() {
           ? `https://raw.githubusercontent.com/${upstreamOwner}/${upstreamRepo}/${commitSha}/${encodePath(iconPath)}`
           : null,
         type: 'MM2',
+        _source_name: sourceName,
       }
-      const existing = itemsByName.get(nameKey)
-      if (!existing || (existing.value >= 1_000_000 && value < existing.value)) itemsByName.set(nameKey, item)
+      const existing = itemsByName.get(sourceNameKey)
+      if (!existing || (existing.value >= 1_000_000 && value < existing.value)) itemsByName.set(sourceNameKey, item)
     }
 
     return {
@@ -179,8 +187,10 @@ for (const item of sourceItems) {
 }
 
 const missingImages = sourceItems.filter((item) => !item.image_url)
+const normalizedWeaponLabels = sourceItems.filter((item) => item._source_name !== item.name).length
 console.log(`Upstream commit: ${commitSha}`)
 console.log(`Validated ${sourceItems.length.toLocaleString('en-US')} current MM2 items.`)
+console.log(`Removed trailing (Knife)/(Gun) labels from ${normalizedWeaponLabels} item names.`)
 console.log(`Exact fractional values preserved: ${sourceItems.filter((item) => !Number.isInteger(item.value)).length}.`)
 console.log(`Items without an upstream icon: ${missingImages.length}${missingImages.length ? ` (${missingImages.map((item) => item.name).join(', ')})` : ''}.`)
 
@@ -196,14 +206,45 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const existingItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name,value,image_url,type', { type: 'eq.MM2' })
-const existingByKey = new Map(existingItems.map((item) => [catalogKey(item), item]))
+const existingByImage = new Map()
+const existingByName = new Map()
+for (const item of existingItems) {
+  const imageKey = String(item.image_url || '').trim().toLowerCase()
+  if (imageKey) existingByImage.set(imageKey, item)
+  const nameKey = String(item.name || '').trim().toLowerCase()
+  if (!existingByName.has(nameKey)) existingByName.set(nameKey, [])
+  existingByName.get(nameKey).push(item)
+}
+const claimedExistingIds = new Set()
+const claimExistingItem = (item) => {
+  const imageMatch = existingByImage.get(String(item.image_url || '').trim().toLowerCase())
+  if (imageMatch && !claimedExistingIds.has(imageMatch.id)) {
+    claimedExistingIds.add(imageMatch.id)
+    return imageMatch
+  }
+  for (const name of [item._source_name, item.name]) {
+    const available = (existingByName.get(String(name || '').trim().toLowerCase()) || [])
+      .find((candidate) => !claimedExistingIds.has(candidate.id))
+    if (available) {
+      claimedExistingIds.add(available.id)
+      return available
+    }
+  }
+  return null
+}
 const timestamp = new Date().toISOString()
-const rows = sourceItems.map((item) => ({
-  id: existingByKey.get(catalogKey(item))?.id || crypto.randomUUID(),
-  ...item,
-  updated_at: timestamp,
-}))
-const inserted = sourceItems.filter((item) => !existingByKey.has(catalogKey(item))).length
+let inserted = 0
+const rows = sourceItems.map((item) => {
+  const existing = claimExistingItem(item)
+  if (!existing) inserted += 1
+  const databaseItem = { ...item }
+  delete databaseItem._source_name
+  return {
+    id: existing?.id || crypto.randomUUID(),
+    ...databaseItem,
+    updated_at: timestamp,
+  }
+})
 const updated = rows.length - inserted
 
 console.log(`Live MM2 catalog: ${existingItems.length.toLocaleString('en-US')} items.`)
@@ -221,13 +262,12 @@ for (const batch of chunks(rows, batchSize)) {
   })
 }
 
-const finalItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name', { type: 'eq.MM2' })
-const finalNames = finalItems.map((item) => String(item.name || '').trim().toLowerCase())
-const missingNames = sourceItems.filter((item) => !finalNames.includes(item.name.toLowerCase())).map((item) => item.name)
-const duplicateCount = finalNames.length - new Set(finalNames).size
-if (missingNames.length || duplicateCount) {
-  throw new Error(`MM2 verification failed: missing=${missingNames.join(', ') || 'none'}, duplicate names=${duplicateCount}.`)
+const finalItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name,image_url,type', { type: 'eq.MM2' })
+const finalKeys = finalItems.map(catalogKey).sort()
+const expectedKeys = sourceItems.map(catalogKey).sort()
+if (finalKeys.length !== expectedKeys.length || finalKeys.some((key, index) => key !== expectedKeys[index])) {
+  throw new Error('MM2 verification failed: the final name/image catalog does not match upstream.')
 }
 
 console.log(`MM2 sync complete: added ${inserted}, updated ${updated}.`)
-console.log(`Verified ${sourceItems.length} current upstream MM2 names in Supabase.`)
+console.log(`Verified ${sourceItems.length} current upstream MM2 items in Supabase.`)

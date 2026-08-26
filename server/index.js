@@ -1724,11 +1724,14 @@ app.use('/api', async (req, res, next) => {
 })
 
 function isAdminInventoryCatalogItemAllowed(item) {
+  const itemType = String(item?.type || '').trim().toUpperCase()
   const name = String(item?.name || '')
+  if (!Number.isFinite(Number(item?.value)) || Number(item.value) <= 0) return false
+  if (itemType === 'MM2' || itemType === 'AMP') return true
+  if (itemType !== 'PS99') return false
   const isEligiblePet = /\b(?:huge|titanic|gargantuan)\b/i.test(name)
   const isGemPackage = /\bgems?\b/i.test(name)
-  return Number(item?.value) > 0
-    && (isEligiblePet || isGemPackage)
+  return (isEligiblePet || isGemPackage)
     && !/\b(?:booth|enchant|hoverboard|egg)\s*$/i.test(name)
 }
 
@@ -1736,11 +1739,17 @@ app.get('/api/admin/items', requireAuthenticatedUser, async (req, res) => {
   try {
     if (!await requireAdminProfile(req, res)) return
 
+    const itemType = String(req.query?.type || '').trim().toUpperCase()
+    if (!['MM2', 'AMP', 'PS99'].includes(itemType)) {
+      res.status(400).json({ ok: false, error: 'Select a valid item category.' })
+      return
+    }
+
     const pageSize = 1000
     const items = []
     for (let offset = 0; ; offset += pageSize) {
       const page = await adminRest(
-        `items?select=id,name,value,image_url,type&order=value.desc,id.asc&limit=${pageSize}&offset=${offset}`,
+        `items?select=id,name,value,image_url,type&type=eq.${encodeURIComponent(itemType)}&order=value.desc,id.asc&limit=${pageSize}&offset=${offset}`,
       )
       const rows = Array.isArray(page) ? page : []
       items.push(...rows)

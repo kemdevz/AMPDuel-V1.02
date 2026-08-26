@@ -170,11 +170,15 @@ export default function Coinflip({ isMinesPage = false }) {
   const dismissedViewRoomIdsRef = useRef(new Set())
 
   useEffect(() => {
+    const storageKey = isMinesPage ? 'bloxdice:mines-game' : COINFLIP_GAME_STORAGE_KEY
     try {
-      window.localStorage.setItem(isMinesPage ? 'bloxdice:mines-game' : COINFLIP_GAME_STORAGE_KEY, gameMode)
+      window.localStorage.setItem(storageKey, gameMode)
     } catch {
       // Browsers can disable storage; the selected game still works for this session.
     }
+    window.dispatchEvent(new CustomEvent('ampduel:game-mode-changed', {
+      detail: { storageKey, gameMode },
+    }))
   }, [gameMode, isMinesPage])
 
   useEffect(() => {
@@ -1085,6 +1089,7 @@ export default function Coinflip({ isMinesPage = false }) {
       <TipUserModal
         isOpen={Boolean(tipRecipient) && walletSelection === 'items'}
         recipient={tipRecipient}
+        gameMode={gameMode}
         isSubmitting={isUserTipSubmitting}
         onClose={() => {
           if (!isUserTipSubmitting) setTipRecipient(null)

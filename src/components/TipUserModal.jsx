@@ -10,6 +10,7 @@ function formatNumber(value) {
 export default function TipUserModal({
   isOpen,
   recipient,
+  gameMode = null,
   isSubmitting = false,
   onClose,
   onSubmit,
@@ -22,6 +23,7 @@ export default function TipUserModal({
     <InventoryModal
       isOpen={isOpen}
       onClose={onClose}
+      gameMode={gameMode}
       ariaLabel={`Tip items to ${username}`}
       footer={({
         selectedItems,

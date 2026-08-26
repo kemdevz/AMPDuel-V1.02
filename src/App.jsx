@@ -24,11 +24,32 @@ function AppRoutes() {
 
 export default function App() {
   const bootstrap = useAuth((s) => s.bootstrap)
+  const loading = useAuth((s) => s.loading)
 
   // Restore session + connect socket once on mount.
   useEffect(() => {
     bootstrap()
   }, [bootstrap])
+
+  if (loading) {
+    return (
+      <div className="loading-screen" role="status" aria-label="Loading AMPDUEL">
+        <div className="loading-screen-content">
+          <img
+            src="/Logo.svg"
+            alt=""
+            aria-hidden="true"
+            className="loading-screen-logo"
+            fetchPriority="high"
+            decoding="sync"
+          />
+          <div className="loading-screen-track" aria-hidden="true">
+            <span className="loading-screen-progress" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <BrowserRouter>

@@ -44,12 +44,28 @@ const adminSections = [
   { id: 'general', label: 'General', Icon: AdminGeneralIcon },
   { id: 'players', label: 'Players', Icon: AdminPlayersIcon },
   {
-    id: 'items',
-    label: 'Item Database',
+    id: 'items-mm2',
+    label: 'MM2',
+    Icon: AdminCatalogIcon,
+  },
+  {
+    id: 'items-amp',
+    label: 'AMP',
+    Icon: AdminCatalogIcon,
+  },
+  {
+    id: 'items-ps99',
+    label: 'PS99',
     image: PS99_CAT_ICON,
     iconClassName: 'h-3 w-3',
   },
 ]
+
+const adminItemTypes = {
+  'items-mm2': 'MM2',
+  'items-amp': 'AMP',
+  'items-ps99': 'PS99',
+}
 
 const gameFilters = [
   { id: 'all', label: 'All', Icon: AllGamesIcon },
@@ -276,16 +292,16 @@ function AdminRewardsIcon({ className = '' }) {
   )
 }
 
-function isAdminInventoryCatalogItemAllowed(item) {
-  const name = String(item?.name || '')
-  const isEligiblePet = /\b(?:huge|titanic|gargantuan)\b/i.test(name)
-  const isGemPackage = /\bgems?\b/i.test(name)
-  return Number(item?.value) > 0
-    && (isEligiblePet || isGemPackage)
-    && !/\b(?:booth|enchant|hoverboard|egg)\s*$/i.test(name)
+function AdminCatalogIcon({ className = '' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4.75 4.25h14.5A1.75 1.75 0 0 1 21 6v3.5H3V6a1.75 1.75 0 0 1 1.75-1.75ZM3 11h18v7a1.75 1.75 0 0 1-1.75 1.75H4.75A1.75 1.75 0 0 1 3 18v-7Z" />
+      <path d="M8 7h8M8 14.5h8" fill="none" stroke="#131520" strokeWidth="1.8" strokeLinecap="round" opacity=".72" />
+    </svg>
+  )
 }
 
-function AdminItemsDatabase() {
+function AdminItemsDatabase({ itemType }) {
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
   const [descending, setDescending] = useState(true)
@@ -308,8 +324,8 @@ function AdminItemsDatabase() {
     setLoading(true)
     setError('')
     try {
-      const payload = await apiRequest('/api/admin/items')
-      setItems(Array.isArray(payload?.items) ? payload.items.filter(isAdminInventoryCatalogItemAllowed) : [])
+      const payload = await apiRequest(`/api/admin/items?type=${encodeURIComponent(itemType)}`)
+      setItems(Array.isArray(payload?.items) ? payload.items : [])
     } catch (loadError) {
       setItems([])
       setError(loadError?.message || 'Unable to load the item database.')
@@ -320,7 +336,7 @@ function AdminItemsDatabase() {
 
   useEffect(() => {
     void loadItems()
-  }, [])
+  }, [itemType])
 
   const filteredItems = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase()
@@ -549,7 +565,9 @@ function AdminPanel({ section, onSectionChange }) {
       </div>
       {section.id === 'general' ? <AdminGeneral /> : null}
       {section.id === 'players' ? <AdminPlayers /> : null}
-      {section.id === 'items' ? <AdminItemsDatabase /> : null}
+      {adminItemTypes[section.id] ? (
+        <AdminItemsDatabase key={adminItemTypes[section.id]} itemType={adminItemTypes[section.id]} />
+      ) : null}
     </div>
   )
 }

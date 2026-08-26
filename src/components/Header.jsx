@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink } from "../lib/router";
+import { NavLink, usePathname } from "../lib/router";
 import LoginModal from "./LoginModal";
 import AnimatedNumber from "./AnimatedNumber";
 import InventoryModal from "./InventoryModal";
@@ -11,10 +11,24 @@ import { useAuth } from "../store/auth";
 import { connectSocket } from "../lib/socket";
 import { DiscordIcon, MinesIcon } from "./icons";
 import { CoinStackIcon, MedalIcon } from "./ReferenceNavIcons";
+import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from "../lib/coinflipGameMode";
 
 const COIN_ICON = "/currency.svg";
 const AVATAR =
   "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter";
+
+const gameStorageKeyForPath = (pathname) => pathname === '/mines'
+  ? 'bloxdice:mines-game'
+  : 'bloxdice:coinflip-game'
+
+const readStoredGameMode = (storageKey) => {
+  if (typeof window === 'undefined') return 'mm2'
+  try {
+    return normalizeCoinflipGameMode(window.localStorage.getItem(storageKey), 'mm2')
+  } catch {
+    return 'mm2'
+  }
+}
 
 function ChevronDownIcon() {
   return (
@@ -102,6 +116,9 @@ const getOwnerIdsForUser = async (userData) => {
 }
 
 export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
+  const pathname = usePathname()
+  const activeGameStorageKey = gameStorageKeyForPath(pathname)
+  const [activeGameMode, setActiveGameMode] = useState(() => readStoredGameMode(gameStorageKeyForPath(window.location.pathname)))
   const [loginOpen, setLoginOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
@@ -127,6 +144,17 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
   const logout = useAuth((s) => s.logout)
   const [inventorySummary, setInventorySummary] = useState({ count: 0, value: 0 })
   const walletDisplayAmount = inventorySummary.value
+
+  useEffect(() => {
+    setActiveGameMode(readStoredGameMode(activeGameStorageKey))
+    const handleGameModeChange = (event) => {
+      if (event?.detail?.storageKey !== activeGameStorageKey) return
+      setActiveGameMode(normalizeCoinflipGameMode(event?.detail?.gameMode, 'mm2'))
+    }
+    window.addEventListener('ampduel:game-mode-changed', handleGameModeChange)
+    return () => window.removeEventListener('ampduel:game-mode-changed', handleGameModeChange)
+  }, [activeGameStorageKey])
+
   useEffect(() => {
     let isMounted = true
     let inventoryChannel = null
@@ -173,7 +201,8 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
         if (!isMounted || sequence !== refreshSequence) return
 
         if (!inventoryResult.error) {
-          const inventoryRows = inventoryResult.data ?? []
+          const inventoryRows = (inventoryResult.data ?? [])
+            .filter((item) => inventoryItemMatchesGame(item, activeGameMode))
           setInventorySummary({
             count: inventoryRows.length,
             value: inventoryRows.reduce((sum, item) => sum + Number(item.value ?? 0), 0),
@@ -266,7 +295,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
         supabase.removeChannel(inventoryChannel)
       }
     }
-  }, [setBalance, user?.id, user?.profile_id])
+  }, [activeGameMode, setBalance, user?.id, user?.profile_id])
 
   useEffect(() => {
     if (!menuOpen && !volumeOpen && !notificationsOpen) return undefined
@@ -451,6 +480,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
             isOpen={inventoryOpen}
             onClose={() => setInventoryOpen(false)}
             onOpenWithdrawalDeposit={() => setWithdrawalDepositOpen(true)}
+            gameMode={activeGameMode}
           />
           <DepositModal isOpen={withdrawalDepositOpen} onClose={() => setWithdrawalDepositOpen(false)} />
           <button
