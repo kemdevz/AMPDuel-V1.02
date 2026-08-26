@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   username text,
   avatar_url text,
   avatar_headshot_url text,
-  balance integer DEFAULT 0,
+  balance numeric(20, 4) DEFAULT 0,
   level integer DEFAULT 1,
   xp integer DEFAULT 0,
   created_at timestamptz DEFAULT now(),
@@ -90,9 +90,9 @@ ALTER TABLE public.user_profiles
 
 -- ===== 20260702_add_user_profile_stats_columns.sql =====
 ALTER TABLE public.user_profiles
-  ADD COLUMN IF NOT EXISTS played integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS won integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS lost integer DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS played numeric(20, 4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS won numeric(20, 4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS lost numeric(20, 4) DEFAULT 0;
 
 -- ===== 20260702_create_inventory_items_table.sql =====
 CREATE TABLE IF NOT EXISTS public.items (
@@ -1402,8 +1402,8 @@ BEGIN
     owner_id,
     COALESCE(NULLIF(item->>'name', ''), 'Unknown item'),
     CASE
-      WHEN COALESCE(item->>'value', '') ~ '^-?[0-9]+$'
-        THEN (item->>'value')::integer
+      WHEN COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+        THEN (item->>'value')::numeric
       ELSE 0
     END,
     NULLIF(item->>'image_url', ''),
@@ -3016,7 +3016,7 @@ GRANT EXECUTE ON FUNCTION public.record_ps99_deposit(uuid, text, text, text, jso
 -- ===== Coinflip item tax stock and settlement =====
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Physical PS99 items cannot be split. When the exact 12.5% value falls
+-- Physical PS99, MM2, and AMP items cannot be split. When the exact 12.5% value falls
 -- inside an item, the complete item is retained here and the winner receives
 -- the untaxed remainder as a coin balance credit.
 CREATE TABLE IF NOT EXISTS public.tax_stock (
@@ -3024,7 +3024,7 @@ CREATE TABLE IF NOT EXISTS public.tax_stock (
   item_id uuid REFERENCES public.items(id) ON DELETE SET NULL,
   item_uuid uuid NOT NULL UNIQUE,
   name text NOT NULL,
-  value integer NOT NULL CHECK (value >= 0),
+  value numeric(20, 4) NOT NULL CHECK (value >= 0),
   image_url text,
   type text,
   source_game_type text NOT NULL CHECK (source_game_type IN ('coinflip')),
@@ -3047,15 +3047,15 @@ REVOKE ALL ON public.tax_stock FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.tax_stock TO service_role;
 
 COMMENT ON TABLE public.tax_stock IS
-  'Server-owned custody for whole PS99 items retained to fund Coinflip tax.';
+  'Server-owned custody for whole PS99, MM2, and AMP items retained to fund Coinflip tax.';
 
 ALTER TABLE public.coinflip_games
   ADD COLUMN IF NOT EXISTS tax_rate_bps smallint NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS tax_value bigint NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS tax_stock_value bigint NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS tax_change_value bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tax_value numeric(20, 4) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tax_stock_value numeric(20, 4) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tax_change_value numeric(20, 4) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS tax_items jsonb NOT NULL DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS net_payout_value bigint NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS net_payout_value numeric(20, 4) NOT NULL DEFAULT 0;
 
 ALTER TABLE public.coinflip_games
   DROP CONSTRAINT IF EXISTS coinflip_games_tax_rate_check,
@@ -3079,7 +3079,7 @@ ALTER TABLE public.coinflip_games ALTER COLUMN tax_rate_bps SET DEFAULT 1250;
 -- exact tax target. The excess is returned to the winner as coins.
 CREATE OR REPLACE FUNCTION public.select_pvp_tax_item_ids(
   p_items jsonb,
-  p_tax_value bigint
+  p_tax_value numeric
 )
 RETURNS uuid[]
 LANGUAGE plpgsql
@@ -3088,7 +3088,7 @@ SET search_path = public
 AS $$
 DECLARE
   selected_ids uuid[] := '{}'::uuid[];
-  selected_value bigint := 0;
+  selected_value numeric := 0;
   selected_item record;
 BEGIN
   IF p_tax_value <= 0 THEN RETURN selected_ids; END IF;
@@ -3096,12 +3096,12 @@ BEGIN
   FOR selected_item IN
     SELECT
       (entry.item->>'id')::uuid AS inventory_id,
-      (entry.item->>'value')::bigint AS item_value
+      (entry.item->>'value')::numeric AS item_value
     FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p_items) = 'array' THEN p_items ELSE '[]'::jsonb END) entry(item)
     WHERE COALESCE(entry.item->>'id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-      AND COALESCE(entry.item->>'value', '') ~ '^[0-9]+$'
-      AND (entry.item->>'value')::bigint > 0
-    ORDER BY (entry.item->>'value')::bigint, (entry.item->>'id')::uuid
+      AND COALESCE(entry.item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+      AND (entry.item->>'value')::numeric > 0
+    ORDER BY (entry.item->>'value')::numeric, (entry.item->>'id')::uuid
   LOOP
     selected_ids := array_append(selected_ids, selected_item.inventory_id);
     selected_value := selected_value + selected_item.item_value;
@@ -3115,7 +3115,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.select_pvp_tax_item_ids(jsonb, bigint)
+REVOKE ALL ON FUNCTION public.select_pvp_tax_item_ids(jsonb, numeric)
   FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.settle_resolved_coinflip_items()
@@ -3131,7 +3131,7 @@ DECLARE
   inserted_winner_items integer := 0;
   inserted_tax_items integer := 0;
   updated_winner integer := 0;
-  gross_pot_value bigint := 0;
+  gross_pot_value numeric := 0;
   tax_item_ids uuid[] := '{}'::uuid[];
   all_pot_items jsonb := '[]'::jsonb;
 BEGIN
@@ -3167,11 +3167,11 @@ BEGIN
     (CASE WHEN jsonb_typeof(NEW.creator_items) = 'array' THEN NEW.creator_items ELSE '[]'::jsonb END)
     || (CASE WHEN jsonb_typeof(NEW.opponent_items) = 'array' THEN NEW.opponent_items ELSE '[]'::jsonb END);
 
-  SELECT count(DISTINCT item->>'id'), COALESCE(sum((item->>'value')::bigint), 0)
+  SELECT count(DISTINCT item->>'id'), COALESCE(sum((item->>'value')::numeric), 0)
   INTO expected_pot_items, gross_pot_value
   FROM jsonb_array_elements(all_pot_items) pot(item)
   WHERE COALESCE(item->>'id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-    AND COALESCE(item->>'value', '') ~ '^[0-9]+$';
+    AND COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$';
   IF expected_pot_items = 0 OR gross_pot_value <= 0 THEN
     RAISE EXCEPTION 'The Coinflip pot is invalid';
   END IF;
@@ -3185,13 +3185,13 @@ BEGIN
     tax_item_ids := '{}'::uuid[];
   ELSE
     NEW.tax_rate_bps := 1250;
-    NEW.tax_value := floor(gross_pot_value::numeric * NEW.tax_rate_bps / 10000)::bigint;
+    NEW.tax_value := round(gross_pot_value * NEW.tax_rate_bps / 10000, 4);
     tax_item_ids := public.select_pvp_tax_item_ids(all_pot_items, NEW.tax_value);
   END IF;
 
   SELECT
-    COALESCE(sum((item->>'value')::bigint), 0),
-    COALESCE(jsonb_agg(item ORDER BY (item->>'value')::bigint, item->>'id'), '[]'::jsonb)
+    COALESCE(sum((item->>'value')::numeric), 0),
+    COALESCE(jsonb_agg(item ORDER BY (item->>'value')::numeric, item->>'id'), '[]'::jsonb)
   INTO NEW.tax_stock_value, NEW.tax_items
   FROM jsonb_array_elements(all_pot_items) pot(item)
   WHERE (item->>'id')::uuid = ANY(tax_item_ids);
@@ -3210,7 +3210,7 @@ BEGIN
     CASE WHEN COALESCE(item->>'item_uuid', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
       THEN (item->>'item_uuid')::uuid ELSE (item->>'id')::uuid END,
     COALESCE(NULLIF(item->>'name', ''), 'Unknown item'),
-    (item->>'value')::integer,
+    (item->>'value')::numeric,
     NULLIF(item->>'image_url', ''),
     NULLIF(item->>'type', ''),
     'coinflip', NEW.id, NEW.winner_uuid, NEW.tax_rate_bps
@@ -3229,7 +3229,7 @@ BEGIN
       THEN (item->>'item_uuid')::uuid ELSE (item->>'id')::uuid END,
     NEW.winner_uuid,
     COALESCE(NULLIF(item->>'name', ''), 'Unknown item'),
-    (item->>'value')::integer,
+    (item->>'value')::numeric,
     NULLIF(item->>'image_url', ''),
     NULLIF(item->>'type', ''),
     now(), now()
@@ -3269,9 +3269,9 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  creator_wager bigint;
-  opponent_wager bigint;
-  winner_wager bigint;
+  creator_wager numeric;
+  opponent_wager numeric;
+  winner_wager numeric;
   updated_profiles integer;
 BEGIN
   IF NEW.result IS NULL OR OLD.result IS NOT NULL THEN RETURN NEW; END IF;
@@ -3281,12 +3281,12 @@ BEGIN
     RAISE EXCEPTION 'Invalid resolved coinflip participants or winner';
   END IF;
 
-  SELECT COALESCE(sum(CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+$'
-    THEN (item->>'value')::bigint ELSE 0 END), 0)
+  SELECT COALESCE(sum(CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+    THEN (item->>'value')::numeric ELSE 0 END), 0)
   INTO creator_wager
   FROM jsonb_array_elements(CASE WHEN jsonb_typeof(NEW.creator_items) = 'array' THEN NEW.creator_items ELSE '[]'::jsonb END) wager(item);
-  SELECT COALESCE(sum(CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+$'
-    THEN (item->>'value')::bigint ELSE 0 END), 0)
+  SELECT COALESCE(sum(CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+    THEN (item->>'value')::numeric ELSE 0 END), 0)
   INTO opponent_wager
   FROM jsonb_array_elements(CASE WHEN jsonb_typeof(NEW.opponent_items) = 'array' THEN NEW.opponent_items ELSE '[]'::jsonb END) wager(item);
   IF creator_wager <= 0 OR opponent_wager <= 0 THEN
@@ -3741,7 +3741,7 @@ DECLARE
   inserted_winner_items integer := 0;
   inserted_tax_items integer := 0;
   updated_winner integer := 0;
-  gross_pot_value bigint := 0;
+  gross_pot_value numeric := 0;
   tax_item_ids uuid[] := '{}'::uuid[];
   all_pot_items jsonb := '[]'::jsonb;
 BEGIN
@@ -3777,11 +3777,11 @@ BEGIN
     (CASE WHEN jsonb_typeof(NEW.creator_items) = 'array' THEN NEW.creator_items ELSE '[]'::jsonb END)
     || (CASE WHEN jsonb_typeof(NEW.opponent_items) = 'array' THEN NEW.opponent_items ELSE '[]'::jsonb END);
 
-  SELECT count(DISTINCT item->>'id'), COALESCE(sum((item->>'value')::bigint), 0)
+  SELECT count(DISTINCT item->>'id'), COALESCE(sum((item->>'value')::numeric), 0)
   INTO expected_pot_items, gross_pot_value
   FROM jsonb_array_elements(all_pot_items) pot(item)
   WHERE COALESCE(item->>'id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-    AND COALESCE(item->>'value', '') ~ '^[0-9]+$';
+    AND COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$';
   IF expected_pot_items = 0 OR gross_pot_value <= 0 THEN
     RAISE EXCEPTION 'The Coinflip pot is invalid';
   END IF;
@@ -3792,13 +3792,13 @@ BEGIN
     tax_item_ids := '{}'::uuid[];
   ELSE
     NEW.tax_rate_bps := 1250;
-    NEW.tax_value := floor(gross_pot_value::numeric * NEW.tax_rate_bps / 10000)::bigint;
+    NEW.tax_value := round(gross_pot_value * NEW.tax_rate_bps / 10000, 4);
     tax_item_ids := public.select_pvp_tax_item_ids(all_pot_items, NEW.tax_value);
   END IF;
 
   SELECT
-    COALESCE(sum((item->>'value')::bigint), 0),
-    COALESCE(jsonb_agg(item ORDER BY (item->>'value')::bigint, item->>'id'), '[]'::jsonb)
+    COALESCE(sum((item->>'value')::numeric), 0),
+    COALESCE(jsonb_agg(item ORDER BY (item->>'value')::numeric, item->>'id'), '[]'::jsonb)
   INTO NEW.tax_stock_value, NEW.tax_items
   FROM jsonb_array_elements(all_pot_items) pot(item)
   WHERE (item->>'id')::uuid = ANY(tax_item_ids);
@@ -3817,7 +3817,7 @@ BEGIN
     CASE WHEN COALESCE(item->>'item_uuid', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
       THEN (item->>'item_uuid')::uuid ELSE (item->>'id')::uuid END,
     COALESCE(NULLIF(item->>'name', ''), 'Unknown item'),
-    (item->>'value')::integer,
+    (item->>'value')::numeric,
     NULLIF(item->>'image_url', ''),
     NULLIF(item->>'type', ''),
     'coinflip', NEW.id, NEW.winner_uuid, NEW.tax_rate_bps
@@ -3836,7 +3836,7 @@ BEGIN
       THEN (item->>'item_uuid')::uuid ELSE (item->>'id')::uuid END,
     NEW.winner_uuid,
     COALESCE(NULLIF(item->>'name', ''), 'Unknown item'),
-    (item->>'value')::integer,
+    (item->>'value')::numeric,
     NULLIF(item->>'image_url', ''),
     NULLIF(item->>'type', ''),
     now(), now()
@@ -4024,6 +4024,51 @@ SET item_id = match.catalog_id,
     updated_at = now()
 FROM catalog_matches AS match
 WHERE owned.id = match.inventory_id;
+
+-- Upgrade existing installations to the fixed-precision value model used by
+-- MM2 and AMP Coinflips. Dropping the settlement triggers during the type
+-- conversion prevents PostgreSQL from retaining an obsolete integer binding.
+DROP TRIGGER IF EXISTS settle_resolved_coinflip_items_trigger ON public.coinflip_games;
+DROP TRIGGER IF EXISTS update_resolved_coinflip_profile_stats_trigger ON public.coinflip_games;
+
+ALTER TABLE public.coinflip_games
+  DROP CONSTRAINT IF EXISTS coinflip_games_tax_values_check;
+
+ALTER TABLE public.coinflip_games
+  ALTER COLUMN tax_value TYPE numeric(20, 4) USING tax_value::numeric,
+  ALTER COLUMN tax_stock_value TYPE numeric(20, 4) USING tax_stock_value::numeric,
+  ALTER COLUMN tax_change_value TYPE numeric(20, 4) USING tax_change_value::numeric,
+  ALTER COLUMN net_payout_value TYPE numeric(20, 4) USING net_payout_value::numeric;
+
+ALTER TABLE public.tax_stock
+  ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
+
+ALTER TABLE public.user_profiles
+  ALTER COLUMN balance TYPE numeric(20, 4) USING balance::numeric,
+  ALTER COLUMN played TYPE numeric(20, 4) USING played::numeric,
+  ALTER COLUMN won TYPE numeric(20, 4) USING won::numeric,
+  ALTER COLUMN lost TYPE numeric(20, 4) USING lost::numeric;
+
+ALTER TABLE public.coinflip_games
+  ADD CONSTRAINT coinflip_games_tax_values_check CHECK (
+    tax_value >= 0 AND tax_stock_value >= tax_value
+    AND tax_change_value = tax_stock_value - tax_value
+    AND net_payout_value >= 0
+  );
+
+DROP FUNCTION IF EXISTS public.select_pvp_tax_item_ids(jsonb, bigint);
+
+CREATE TRIGGER settle_resolved_coinflip_items_trigger
+BEFORE UPDATE OF result ON public.coinflip_games
+FOR EACH ROW
+WHEN (NEW.result IS NOT NULL AND OLD.result IS NULL)
+EXECUTE FUNCTION public.settle_resolved_coinflip_items();
+
+CREATE TRIGGER update_resolved_coinflip_profile_stats_trigger
+AFTER UPDATE OF result ON public.coinflip_games
+FOR EACH ROW
+WHEN (NEW.result IS NOT NULL AND OLD.result IS NULL)
+EXECUTE FUNCTION public.update_resolved_coinflip_profile_stats();
 
 INSERT INTO public.site_service_settings (service_key, enabled)
 VALUES ('coinflip', true), ('chat', true);

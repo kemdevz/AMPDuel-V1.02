@@ -129,6 +129,13 @@ function uniqueSecrets(values) {
   return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))]
 }
 
+function splitSecretHistory(value) {
+  return String(value || '')
+    .split(/[\r\n,;]+/)
+    .map((secret) => secret.trim())
+    .filter(Boolean)
+}
+
 function getSessionSigningSecrets() {
   return uniqueSecrets([
     process.env.JWT_SECRET,
@@ -2351,9 +2358,16 @@ function getCoinflipSeedEncryptionKey(supabaseKey) {
 }
 
 function getCoinflipSeedDecryptionKeys(supabaseKey) {
+  const previousJwtKeys = splitSecretHistory(process.env.JWT_SECRET_PREVIOUS)
+    .map((secret) => deriveGameSeedEncryptionKey('coinflip', secret))
   return uniqueEncryptionKeys([
     getJwtGameSeedEncryptionKey('coinflip'),
-    ...uniqueSecrets([process.env.COINFLIP_SEED_SECRET, supabaseKey])
+    ...previousJwtKeys,
+    ...uniqueSecrets([
+      process.env.COINFLIP_SEED_SECRET,
+      ...splitSecretHistory(process.env.COINFLIP_SEED_SECRET_PREVIOUS),
+      supabaseKey,
+    ])
       .map((secret) => crypto.createHash('sha256').update(secret).digest()),
   ])
 }
@@ -2371,7 +2385,7 @@ function decryptCoinflipServerSeed(encryptedSeed, supabaseKey) {
     encryptedSeed,
     getCoinflipSeedDecryptionKeys(supabaseKey),
     'invalid encrypted coinflip server seed',
-    'Unable to decrypt the Coinflip server seed. Keep the previous COINFLIP_SEED_SECRET during migration.',
+    'Unable to decrypt the Coinflip server seed with the configured current or previous secrets.',
   )
 }
 
@@ -2746,9 +2760,34 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
 
     // Legacy open games migrated before encrypted commitments use the already
     // committed plaintext seed. Newly-created games always take the encrypted path.
-    const serverSeed = roomObj.server_seed_encrypted
-      ? decryptCoinflipServerSeed(roomObj.server_seed_encrypted, supabaseKey)
-      : String(roomObj.server_seed || '')
+    let serverSeed = ''
+    try {
+      serverSeed = roomObj.server_seed_encrypted
+        ? decryptCoinflipServerSeed(roomObj.server_seed_encrypted, supabaseKey)
+        : String(roomObj.server_seed || '')
+    } catch (seedError) {
+      console.warn(`[api/coinflip/join] canceling undecryptable open room ${roomId}: ${seedError?.message || seedError}`)
+      const canceledRows = await adminRest(
+        `coinflip_games?id=eq.${encodeURIComponent(roomId)}&opponent_uuid=is.null&result=is.null&canceled=eq.false&select=*`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: { canceled: true },
+        },
+      )
+      const canceledRoom = Array.isArray(canceledRows) ? canceledRows[0] : canceledRows
+      if (canceledRoom) {
+        const publicRoom = serializeCoinflipGame(canceledRoom)
+        io.emit('coinflip:updated', publicRoom)
+        await emitProfileUpdates([roomObj.creator_uuid])
+      }
+      return res.status(409).json({
+        ok: false,
+        error: canceledRoom
+          ? 'This Coinflip expired after a fairness-key rotation. The creator items were returned; please use a newer game.'
+          : 'This Coinflip changed while you were joining. Refresh and try again.',
+      })
+    }
     if (!serverSeed) {
       return res.status(409).json({ ok: false, error: 'coinflip has no server seed commitment' })
     }

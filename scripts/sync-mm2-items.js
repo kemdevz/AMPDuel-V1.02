@@ -246,9 +246,34 @@ const rows = sourceItems.map((item) => {
   }
 })
 const updated = rows.length - inserted
+const rowsById = new Map(rows.map((item) => [String(item.id), item]))
+const rowsByKey = new Map(rows.map((item) => [catalogKey(item), item]))
+const ownedItems = await fetchAll(
+  supabaseUrl,
+  supabaseKey,
+  'inventory_items',
+  'id,item_id,name,value,image_url,type',
+  { type: 'eq.MM2' },
+)
+const ownedItemRepairs = ownedItems.flatMap((ownedItem) => {
+  const catalogItem = rowsById.get(String(ownedItem.item_id || ''))
+    || rowsByKey.get(catalogKey(ownedItem))
+  const value = Number(catalogItem?.value)
+  if (!catalogItem || !Number.isFinite(value) || value <= 0) return []
+  const needsRepair = Number(ownedItem.value) !== value
+    || String(ownedItem.item_id || '') !== String(catalogItem.id)
+    || String(ownedItem.image_url || '') !== String(catalogItem.image_url || '')
+  return needsRepair ? [{
+    id: ownedItem.id,
+    item_id: catalogItem.id,
+    value,
+    image_url: catalogItem.image_url,
+  }] : []
+})
 
 console.log(`Live MM2 catalog: ${existingItems.length.toLocaleString('en-US')} items.`)
 console.log(`Will add ${inserted.toLocaleString('en-US')} and update ${updated.toLocaleString('en-US')} MM2 rows.`)
+console.log(`MM2 inventory snapshots needing repair: ${ownedItemRepairs.length.toLocaleString('en-US')} of ${ownedItems.length.toLocaleString('en-US')}.`)
 if (!applyChanges) {
   console.log('Preflight passed. Re-run with --apply to synchronize Supabase.')
   process.exit(0)
@@ -262,12 +287,29 @@ for (const batch of chunks(rows, batchSize)) {
   })
 }
 
-const finalItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name,image_url,type', { type: 'eq.MM2' })
+for (const batch of chunks(ownedItemRepairs, 25)) {
+  await Promise.all(batch.map((repair) => supabaseRequest(supabaseUrl, supabaseKey, 'inventory_items', {
+    method: 'PATCH',
+    query: { id: `eq.${repair.id}`, type: 'eq.MM2' },
+    headers: { Prefer: 'return=minimal' },
+    body: {
+      item_id: repair.item_id,
+      value: repair.value,
+      image_url: repair.image_url,
+      updated_at: timestamp,
+    },
+  })))
+}
+
+const finalItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name,value,image_url,type', { type: 'eq.MM2' })
 const finalKeys = finalItems.map(catalogKey).sort()
 const expectedKeys = sourceItems.map(catalogKey).sort()
 if (finalKeys.length !== expectedKeys.length || finalKeys.some((key, index) => key !== expectedKeys[index])) {
   throw new Error('MM2 verification failed: the final name/image catalog does not match upstream.')
 }
+if (finalItems.some((item) => !(Number(item.value) > 0))) {
+  throw new Error('MM2 verification failed: the final catalog contains a non-positive value.')
+}
 
-console.log(`MM2 sync complete: added ${inserted}, updated ${updated}.`)
+console.log(`MM2 sync complete: added ${inserted}, updated ${updated}, repaired ${ownedItemRepairs.length} inventory snapshots.`)
 console.log(`Verified ${sourceItems.length} current upstream MM2 items in Supabase.`)

@@ -139,28 +139,64 @@ const existingItems = await fetchAll(
   { type: 'eq.PS99' },
 )
 const existingByKey = new Map(existingItems.map((item) => [catalogKey(item), item]))
-const replacementRows = normalizedSource.map((item) => ({
-  id: existingByKey.get(catalogKey(item))?.id || crypto.randomUUID(),
-  ...item,
-  updated_at: new Date().toISOString(),
-}))
+const updatedAt = new Date().toISOString()
+let preservedLastKnownValues = 0
+let omittedUnavailableValues = 0
+const replacementRows = normalizedSource.flatMap((item) => {
+  const existing = existingByKey.get(catalogKey(item))
+  let value = item.value
+  if (value <= 0) {
+    const liveValue = Number(existing?.value)
+    const lastKnownValue = liveValue
+    if (Number.isFinite(lastKnownValue) && lastKnownValue > 0) {
+      value = lastKnownValue
+      preservedLastKnownValues += 1
+    } else {
+      omittedUnavailableValues += 1
+      return []
+    }
+  }
+  return [{
+    id: existing?.id || crypto.randomUUID(),
+    ...item,
+    value,
+    updated_at: updatedAt,
+  }]
+})
 const replacementIds = new Set(replacementRows.map((item) => item.id))
 const staleRows = existingItems.filter((item) => !replacementIds.has(item.id))
+const replacementById = new Map(replacementRows.map((item) => [String(item.id), item]))
+const replacementByKey = new Map(replacementRows.map((item) => [catalogKey(item), item]))
+const ownedItems = await fetchAll(
+  'inventory_items',
+  'id,item_id,name,value,image_url,type',
+  { type: 'eq.PS99' },
+)
+const ownedItemRepairs = ownedItems.flatMap((ownedItem) => {
+  const catalogItem = replacementById.get(String(ownedItem.item_id || ''))
+    || replacementByKey.get(catalogKey(ownedItem))
+  const value = Number(catalogItem?.value)
+  if (!catalogItem || !Number.isFinite(value) || value <= 0) return []
+  const needsRepair = Number(ownedItem.value) !== value
+    || String(ownedItem.item_id || '') !== String(catalogItem.id)
+    || String(ownedItem.image_url || '') !== String(catalogItem.image_url || '')
+  return needsRepair ? [{
+    id: ownedItem.id,
+    item_id: catalogItem.id,
+    value,
+    image_url: catalogItem.image_url,
+  }] : []
+})
 
 console.log(`Live PS99 catalog: ${existingItems.length.toLocaleString('en-US')} items.`)
 console.log(`PS99 rows to upsert: ${replacementRows.length.toLocaleString('en-US')}; stale PS99 rows to remove: ${staleRows.length.toLocaleString('en-US')}.`)
+console.log(`Preserved ${preservedLastKnownValues.toLocaleString('en-US')} last-known positive values; omitted ${omittedUnavailableValues.toLocaleString('en-US')} entries that have never had a positive value.`)
+console.log(`PS99 inventory snapshots needing repair: ${ownedItemRepairs.length.toLocaleString('en-US')} of ${ownedItems.length.toLocaleString('en-US')}.`)
 
 if (!applyChanges) {
   console.log('Preflight passed. Re-run with --apply to sync only type=PS99 rows; MM2 and AMP remain untouched.')
   process.exit(0)
 }
-
-const backupDirectory = path.resolve(projectRoot, 'supabase', 'backups')
-fs.mkdirSync(backupDirectory, { recursive: true })
-const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-')
-const backupPath = path.join(backupDirectory, `items-ps99-${timestamp}.json`)
-fs.writeFileSync(backupPath, `${JSON.stringify(existingItems, null, 2)}\n`, 'utf8')
-console.log(`Backed up the live PS99 catalog to ${path.relative(projectRoot, backupPath)}.`)
 
 let processed = 0
 for (const batch of chunks(replacementRows, batchSize)) {
@@ -173,6 +209,20 @@ for (const batch of chunks(replacementRows, batchSize)) {
   console.log(`Upserted ${processed.toLocaleString('en-US')}/${replacementRows.length.toLocaleString('en-US')} items.`)
 }
 
+for (const batch of chunks(ownedItemRepairs, 25)) {
+  await Promise.all(batch.map((repair) => request('inventory_items', {
+    method: 'PATCH',
+    query: { id: `eq.${repair.id}`, type: 'eq.PS99' },
+    headers: { Prefer: 'return=minimal' },
+    body: {
+      item_id: repair.item_id,
+      value: repair.value,
+      image_url: repair.image_url,
+      updated_at: updatedAt,
+    },
+  })))
+}
+
 for (const batch of chunks(staleRows, batchSize)) {
   await request('items', {
     method: 'DELETE',
@@ -181,9 +231,12 @@ for (const batch of chunks(staleRows, batchSize)) {
   })
 }
 
-const finalItems = await fetchAll('items', 'id', { type: 'eq.PS99' })
+const finalItems = await fetchAll('items', 'id,value', { type: 'eq.PS99' })
 if (finalItems.length !== replacementRows.length) {
   throw new Error(`PS99 sync finished with ${finalItems.length} rows; expected ${replacementRows.length}.`)
 }
+if (finalItems.some((item) => !(Number(item.value) > 0))) {
+  throw new Error('PS99 verification failed: the final catalog still contains a non-positive value.')
+}
 
-console.log(`PS99 catalog sync complete: ${finalItems.length.toLocaleString('en-US')} items. MM2 and AMP were untouched.`)
+console.log(`PS99 catalog sync complete: ${finalItems.length.toLocaleString('en-US')} items and ${ownedItemRepairs.length.toLocaleString('en-US')} inventory snapshots repaired. MM2 and AMP were untouched.`)

@@ -318,7 +318,7 @@ const ownedItems = await fetchAll(
 const ownedItemRepairs = ownedItems.flatMap((ownedItem) => {
   const linkedCatalogItem = existingById.get(String(ownedItem.item_id || ''))
   const sourceItem = sourceByKey.get(catalogKey(linkedCatalogItem || ownedItem))
-  if (!sourceItem) return []
+  if (!sourceItem || !(Number(sourceItem.value) > 0)) return []
   const catalogItem = existingByKey.get(catalogKey(sourceItem))
   const needsRepair = Number(ownedItem.value) !== sourceItem.value
     || (!ownedItem.item_id && catalogItem?.id)
@@ -386,13 +386,16 @@ if (pruneStale) {
   }
 }
 
-const finalItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name', { type: 'eq.AMP' })
+const finalItems = await fetchAll(supabaseUrl, supabaseKey, 'items', 'id,name,value', { type: 'eq.AMP' })
 const finalNames = finalItems.map((item) => String(item.name || '').trim().toLowerCase())
 const finalNameSet = new Set(finalNames)
 const missingNames = sourceItems.filter((item) => !finalNameSet.has(item.name.toLowerCase())).map((item) => item.name)
 const duplicateCount = finalNames.length - finalNameSet.size
 if (missingNames.length || duplicateCount) {
   throw new Error(`AMP verification failed: missing=${missingNames.join(', ') || 'none'}, duplicate names=${duplicateCount}.`)
+}
+if (finalItems.some((item) => !(Number(item.value) > 0))) {
+  throw new Error('AMP verification failed: the final catalog contains a non-positive value.')
 }
 
 console.log(`AMP sync complete: added ${inserted}, updated ${updated}, repaired ${ownedItemRepairs.length} inventory snapshots.`)
