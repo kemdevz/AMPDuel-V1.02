@@ -134,7 +134,7 @@ function isCoinflipGemItem(item) {
   return /\bgems?\b/i.test(name) || /^(?:gems?|diamonds?)$/i.test(type)
 }
 
-export default function Coinflip({ isMinesPage = false }) {
+export default function Coinflip({ isMinesPage = false, onInitialReady }) {
   const hasWarmRoomCache = !isMinesPage && cachedCoinflipRooms.length > 0
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
@@ -164,6 +164,9 @@ export default function Coinflip({ isMinesPage = false }) {
   const [rooms, setRooms] = useState(() => (isMinesPage ? [] : cachedCoinflipRooms))
   const [recentPlayerResults, setRecentPlayerResults] = useState([])
   const [recentPlayerResultsLoading, setRecentPlayerResultsLoading] = useState(false)
+  const [initialRoomsLoaded, setInitialRoomsLoaded] = useState(isMinesPage)
+  const pageRootRef = useRef(null)
+  const initialReadySentRef = useRef(false)
   const socketRef = useRef(null)
   const viewOpenTimerRef = useRef(null)
   const handledResolvedRoomIdsRef = useRef(new Set())
@@ -235,6 +238,53 @@ export default function Coinflip({ isMinesPage = false }) {
     })
     return undefined
   }, [isMinesPage, rooms])
+
+  useEffect(() => {
+    if (!initialRoomsLoaded || initialReadySentRef.current || typeof onInitialReady !== 'function') return undefined
+    let canceled = false
+    let firstFrame = 0
+    let secondFrame = 0
+
+    const waitForVisibleImage = (image) => {
+      if (image.complete) return image.decode?.().catch(() => undefined) || Promise.resolve()
+      return new Promise((resolve) => {
+        const finish = () => resolve()
+        image.addEventListener('load', finish, { once: true })
+        image.addEventListener('error', finish, { once: true })
+      })
+    }
+
+    const finishInitialRender = async () => {
+      try {
+        await document.fonts?.ready
+        const visibleImages = Array.from(pageRootRef.current?.querySelectorAll('img') || []).filter((image) => {
+          const bounds = image.getBoundingClientRect()
+          return bounds.bottom >= 0 && bounds.top <= window.innerHeight
+        })
+        await Promise.race([
+          Promise.allSettled(visibleImages.map(waitForVisibleImage)),
+          new Promise((resolve) => window.setTimeout(resolve, 4000)),
+        ])
+      } catch {
+        // A failed decorative image must not permanently block the application.
+      }
+      if (canceled) return
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => {
+          if (canceled || initialReadySentRef.current) return
+          initialReadySentRef.current = true
+          onInitialReady()
+        })
+      })
+    }
+
+    void finishInitialRender()
+    return () => {
+      canceled = true
+      if (firstFrame) window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [initialRoomsLoaded, onInitialReady])
 
   const applyRoomUpdate = useCallback((incomingRoom) => {
     const normalized = normalizeRoom(incomingRoom)
@@ -486,6 +536,8 @@ export default function Coinflip({ isMinesPage = false }) {
         })
       } catch (err) {
         console.warn('[coinflip] loadRooms error', err)
+      } finally {
+        if (isMounted) setInitialRoomsLoaded(true)
       }
     }
 
@@ -605,7 +657,7 @@ export default function Coinflip({ isMinesPage = false }) {
   }
 
   return (
-    <div className="reference-coinflip flex-1 overflow-x-hidden bg-transparent">
+    <div ref={pageRootRef} className="reference-coinflip flex-1 overflow-x-hidden bg-transparent">
       <style>{`
         @keyframes coinflip-slide-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .reference-coinflip {

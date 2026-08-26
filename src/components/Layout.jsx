@@ -12,7 +12,7 @@ import TermsModal from './TermsModal'
 import HeaderUtilityBar from './HeaderUtilityBar'
 import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
 
-export default function Layout({ children }) {
+export default function Layout({ children, onInitialWalletReady }) {
   const user = useAuth((s) => s.user)
   const touchSessionActivity = useAuth((s) => s.touchSessionActivity)
   const isLoggedIn = Boolean(user)
@@ -123,6 +123,7 @@ export default function Layout({ children }) {
       />
 
       <Header
+        onInitialWalletReady={onInitialWalletReady}
         onOpenProfileModal={() => setProfileModalOpen(true)}
         onOpenLeaderboardModal={() => setLeaderboardModalOpen(true)}
         onOpenTermsModal={() => setTermsModalOpen(true)}

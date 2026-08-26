@@ -115,7 +115,7 @@ const getOwnerIdsForUser = async (userData) => {
   return [...new Set(ownerIds)]
 }
 
-export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
+export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpenLeaderboardModal, onOpenTermsModal }) {
   const pathname = usePathname()
   const activeGameStorageKey = gameStorageKeyForPath(pathname)
   const [activeGameMode, setActiveGameMode] = useState(() => readStoredGameMode(gameStorageKeyForPath(window.location.pathname)))
@@ -138,8 +138,10 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
   const notificationsMenuRef = useRef(null)
   const walletAnimationHeldRef = useRef(false)
   const walletRefreshPendingRef = useRef(false)
+  const initialWalletReadySentRef = useRef(false)
 
   const user = useAuth((s) => s.user)
+  const authLoading = useAuth((s) => s.loading)
   const setBalance = useAuth((s) => s.setBalance)
   const logout = useAuth((s) => s.logout)
   const [inventorySummary, setInventorySummary] = useState({ count: 0, value: 0 })
@@ -156,10 +158,25 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
   }, [activeGameStorageKey])
 
   useEffect(() => {
+    if (authLoading) return undefined
+
     let isMounted = true
     let inventoryChannel = null
     let refreshSequence = 0
+    let walletReadyFrameOne = 0
+    let walletReadyFrameTwo = 0
     const socket = connectSocket()
+
+    const scheduleInitialWalletReady = () => {
+      if (initialWalletReadySentRef.current || typeof onInitialWalletReady !== 'function') return
+      walletReadyFrameOne = window.requestAnimationFrame(() => {
+        walletReadyFrameTwo = window.requestAnimationFrame(() => {
+          if (!isMounted || initialWalletReadySentRef.current) return
+          initialWalletReadySentRef.current = true
+          onInitialWalletReady()
+        })
+      })
+    }
 
     const refreshWalletState = async () => {
       if (walletAnimationHeldRef.current) {
@@ -172,6 +189,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
         if (isMounted) {
           setInventorySummary({ count: 0, value: 0 })
           setBalance(0)
+          scheduleInitialWalletReady()
         }
         return
       }
@@ -214,6 +232,8 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
         }
       } catch (err) {
         console.warn('[Header] failed to refresh wallet totals', err)
+      } finally {
+        if (isMounted && sequence === refreshSequence) scheduleInitialWalletReady()
       }
     }
 
@@ -255,6 +275,8 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
     if (!user?.id && !user?.profile_id) {
       return () => {
         isMounted = false
+        window.cancelAnimationFrame(walletReadyFrameOne)
+        window.cancelAnimationFrame(walletReadyFrameTwo)
         window.removeEventListener('wallet:updated', handleWalletRefresh)
         window.removeEventListener('wallet:animation-start', handleWalletAnimationStart)
         window.removeEventListener('wallet:animation-end', handleWalletAnimationEnd)
@@ -284,6 +306,8 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
 
     return () => {
       isMounted = false
+      window.cancelAnimationFrame(walletReadyFrameOne)
+      window.cancelAnimationFrame(walletReadyFrameTwo)
       window.clearInterval(refreshInterval)
       window.removeEventListener('wallet:updated', handleWalletRefresh)
       window.removeEventListener('wallet:animation-start', handleWalletAnimationStart)
@@ -295,7 +319,7 @@ export default function Header({ onOpenProfileModal, onOpenLeaderboardModal, onO
         supabase.removeChannel(inventoryChannel)
       }
     }
-  }, [activeGameMode, setBalance, user?.id, user?.profile_id])
+  }, [activeGameMode, authLoading, onInitialWalletReady, setBalance, user?.id, user?.profile_id])
 
   useEffect(() => {
     if (!menuOpen && !volumeOpen && !notificationsOpen) return undefined

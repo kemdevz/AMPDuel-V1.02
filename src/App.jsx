@@ -1,17 +1,17 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, useNavigate, usePathname } from './lib/router'
 import Layout from './components/Layout'
 import Coinflip from './pages/Coinflip'
 import Mines from './pages/Mines'
 import { useAuth } from './store/auth'
 
-function AppRoutes() {
+function AppRoutes({ onInitialReady, onInitialWalletReady }) {
   const pathname = usePathname()
   const navigate = useNavigate()
   const routeName = pathname.replace(/^\/+|\/+$/g, '')
   const pages = {
-    coinflip: <Coinflip />,
-    mines: <Mines />,
+    coinflip: <Coinflip onInitialReady={onInitialReady} />,
+    mines: <Mines onInitialReady={onInitialReady} />,
   }
   const page = pages[routeName]
 
@@ -19,41 +19,51 @@ function AppRoutes() {
     if (!page) navigate('/coinflip', { replace: true })
   }, [navigate, page])
 
-  return <Layout>{page || <Coinflip />}</Layout>
+  return (
+    <Layout onInitialWalletReady={onInitialWalletReady}>
+      {page || <Coinflip onInitialReady={onInitialReady} />}
+    </Layout>
+  )
 }
 
 export default function App() {
   const bootstrap = useAuth((s) => s.bootstrap)
   const loading = useAuth((s) => s.loading)
+  const [initialPageReady, setInitialPageReady] = useState(false)
+  const [initialWalletReady, setInitialWalletReady] = useState(false)
+  const handleInitialPageReady = useCallback(() => setInitialPageReady(true), [])
+  const handleInitialWalletReady = useCallback(() => setInitialWalletReady(true), [])
 
   // Restore session + connect socket once on mount.
   useEffect(() => {
     bootstrap()
   }, [bootstrap])
 
-  if (loading) {
-    return (
-      <div className="loading-screen" role="status" aria-label="Loading AMPDUEL">
-        <div className="loading-screen-content">
-          <img
-            src="/Logo.svg"
-            alt=""
-            aria-hidden="true"
-            className="loading-screen-logo"
-            fetchPriority="high"
-            decoding="sync"
-          />
-          <div className="loading-screen-track" aria-hidden="true">
-            <span className="loading-screen-progress" />
+  return (
+    <>
+      <BrowserRouter>
+        <AppRoutes
+          onInitialReady={handleInitialPageReady}
+          onInitialWalletReady={handleInitialWalletReady}
+        />
+      </BrowserRouter>
+      {(loading || !initialPageReady || !initialWalletReady) && (
+        <div className="loading-screen" role="status" aria-label="Loading AMPDUEL">
+          <div className="loading-screen-content">
+            <img
+              src="/Logo.svg"
+              alt=""
+              aria-hidden="true"
+              className="loading-screen-logo"
+              fetchPriority="high"
+              decoding="sync"
+            />
+            <div className="loading-screen-track" aria-hidden="true">
+              <span className="loading-screen-progress" />
+            </div>
           </div>
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+      )}
+    </>
   )
 }
