@@ -17,9 +17,10 @@ export function connectSocket() {
   socket = io(url, {
     withCredentials: true,
     autoConnect: true,
-    // Start with HTTP polling so restrictive mobile networks can connect, then
-    // let Socket.IO upgrade to WebSocket when it is available.
-    transports: ['polling', 'websocket'],
+    // Production can run across more than one application instance. A polling
+    // session can land on a different instance between requests and produce an
+    // invalid-SID 400, so connect directly over one persistent WebSocket there.
+    transports: import.meta.env.PROD ? ['websocket'] : ['polling', 'websocket'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 500,

@@ -9,7 +9,6 @@ import TipUserModal from "./TipUserModal";
 import CoinTipModal from "./CoinTipModal";
 import { notifications } from "./Notifications";
 import { DiscordIcon, XIcon } from "./icons";
-import { getRoleStyle } from "../lib/roleStyles";
 
 const COIN_ICON = "/bobux.png";
 const LEGACY_CHAT_MESSAGES_STORAGE_KEY = "bloxy_chat_messages_v1";
@@ -252,9 +251,6 @@ function ReplyPreview({ reply }) {
 }
 
 function ChatMessage({ message, onProfileOpen }) {
-  const roleStyle = useMemo(() => getRoleStyle(message.role), [message.role]);
-  const hasRankIcon = Boolean(roleStyle.image);
-
   return (
     <div className={`chat-message-row group animate-[msgIn_.22s_ease-out_both]${message._failed ? " opacity-60" : ""}`}>
       <div className="flex items-center gap-2">
@@ -278,15 +274,9 @@ function ChatMessage({ message, onProfileOpen }) {
           )}
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span
-            className="truncate text-sm font-semibold"
-            style={hasRankIcon
-              ? { backgroundImage: roleStyle.nameGradient, backgroundClip: "text", color: "transparent", WebkitTextFillColor: "transparent" }
-              : { color: "white" }}
-          >
+          <span className="truncate text-sm font-semibold text-white">
             {message.name}
           </span>
-          {hasRankIcon ? <img src={roleStyle.image} className="h-6 w-6 object-contain" alt="" title={roleStyle.label} /> : null}
         </div>
       </div>
       <ReplyPreview reply={message.reply} />

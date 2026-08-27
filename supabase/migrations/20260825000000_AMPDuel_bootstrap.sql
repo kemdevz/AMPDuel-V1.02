@@ -2165,19 +2165,19 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT COALESCE(sum(
-    CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+$'
-      THEN (item->>'value')::bigint ELSE 0 END
-  ), 0)
+  SELECT CEIL(COALESCE(sum(
+    CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+      THEN (item->>'value')::numeric ELSE 0 END
+  ), 0))::bigint
   INTO creator_wager
   FROM jsonb_array_elements(
     CASE WHEN jsonb_typeof(NEW.creator_items) = 'array' THEN NEW.creator_items ELSE '[]'::jsonb END
   ) AS wager(item);
 
-  SELECT COALESCE(sum(
-    CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+$'
-      THEN (item->>'value')::bigint ELSE 0 END
-  ), 0)
+  SELECT CEIL(COALESCE(sum(
+    CASE WHEN COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+      THEN (item->>'value')::numeric ELSE 0 END
+  ), 0))::bigint
   INTO opponent_wager
   FROM jsonb_array_elements(
     CASE WHEN jsonb_typeof(NEW.opponent_items) = 'array' THEN NEW.opponent_items ELSE '[]'::jsonb END
