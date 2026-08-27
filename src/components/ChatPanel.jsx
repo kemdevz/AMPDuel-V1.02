@@ -256,7 +256,7 @@ function ChatMessage({ message, onProfileOpen }) {
   const hasRankIcon = Boolean(roleStyle.image);
 
   return (
-    <div className="chat-message-row group animate-[msgIn_.22s_ease-out_both]">
+    <div className={`chat-message-row group animate-[msgIn_.22s_ease-out_both]${message._failed ? " opacity-60" : ""}`}>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -293,6 +293,7 @@ function ChatMessage({ message, onProfileOpen }) {
       <div className="mt-2 text-wrap break-words text-sm font-medium text-gray-400">
         {renderEmojiText(message.text)}
       </div>
+      {message._failed ? <div className="mt-1 text-[10px] font-semibold text-[#ff4fa3]">Failed to send</div> : null}
     </div>
   );
 }
@@ -596,7 +597,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
   const setAuthModalOpen = useAuth((s) => s.setAuthModalOpen);
   const walletSelection = useAuth((s) => s.walletSelection);
   const [replyTo, setReplyTo] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => readStoredChatSession()?.messages || []);
   const [chatSessionId, setChatSessionId] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [chatRulesOpen, setChatRulesOpen] = useState(false);
@@ -679,7 +680,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
         CHAT_SESSION_STORAGE_KEY,
         JSON.stringify({
           serverId: chatSessionId,
-          messages: normalizeStoredMessages(messages.filter((message) => !message._optimistic)),
+          messages: normalizeStoredMessages(messages.filter((message) => !message._optimistic && !message._failed)),
         }),
       );
     } catch {}
@@ -720,11 +721,12 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
       chatSessionIdRef.current = serverId;
       const storedSession = readStoredChatSession();
-      setMessages((currentMessages) => (
-        storedSession?.serverId === serverId
-          ? normalizeStoredMessages([...storedSession.messages, ...currentMessages])
-          : []
-      ));
+      const serverMessages = normalizeStoredMessages(session?.messages);
+      setMessages((currentMessages) => normalizeStoredMessages([
+        ...(storedSession?.messages || []),
+        ...serverMessages,
+        ...currentMessages,
+      ]));
       setChatSessionId(serverId);
     };
 
@@ -967,8 +969,12 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
     let connectTimer = null;
     let hasSent = false;
 
-    const removePendingMessage = (message) => {
-      setMessages((current) => current.filter((message) => message.id !== outgoingMessage.id));
+    const markPendingMessageFailed = (message) => {
+      setMessages((current) => normalizeStoredMessages(current.map((currentMessage) => (
+        currentMessage.id === outgoingMessage.id
+          ? { ...currentMessage, _optimistic: false, _failed: true }
+          : currentMessage
+      ))));
       notifications.error(message || "Chat is disconnected. Please try again.");
     };
 
@@ -980,7 +986,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
 
       socket.timeout(10000).emit("chat:message", outgoingMessage, (timeoutError, result) => {
         if (timeoutError || !result?.ok || !result?.message) {
-          removePendingMessage(result?.error || (timeoutError ? "Chat timed out. Please try again." : undefined));
+          markPendingMessageFailed(result?.error || (timeoutError ? "Chat timed out. Please try again." : undefined));
           return;
         }
 
@@ -1004,7 +1010,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
       socket.connect();
       connectTimer = window.setTimeout(() => {
         socket.off("connect", emitMessage);
-        removePendingMessage("Unable to reconnect to chat. Please check your connection.");
+        markPendingMessageFailed("Unable to reconnect to chat. Please check your connection.");
       }, 10000);
     }
 

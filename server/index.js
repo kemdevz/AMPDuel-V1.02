@@ -816,6 +816,8 @@ function emitOnlineCount() {
 }
 
 const chatServerInstanceId = crypto.randomUUID()
+const chatMessageHistory = []
+const MAX_CHAT_MESSAGE_HISTORY = 20
 
 io.on('connection', (socket) => {
   socket.data.accountId = socket.data.identity?.profileId || null
@@ -836,10 +838,11 @@ io.on('connection', (socket) => {
     }
     next()
   })
-  const chatSession = { id: chatServerInstanceId }
+  const getChatSession = () => ({ id: chatServerInstanceId, messages: [...chatMessageHistory] })
+  const chatSession = getChatSession()
   socket.emit('chat:session', chatSession)
   socket.on('chat:session:get', (acknowledge) => {
-    if (typeof acknowledge === 'function') acknowledge(chatSession)
+    if (typeof acknowledge === 'function') acknowledge(getChatSession())
   })
   emitOnlineCount()
 
@@ -945,6 +948,10 @@ io.on('connection', (socket) => {
     }
     if (receiptKey) {
       chatMessageReceipts.set(receiptKey, { createdAt: now, message: outgoing })
+    }
+    chatMessageHistory.push(outgoing)
+    if (chatMessageHistory.length > MAX_CHAT_MESSAGE_HISTORY) {
+      chatMessageHistory.splice(0, chatMessageHistory.length - MAX_CHAT_MESSAGE_HISTORY)
     }
     socket.broadcast.emit('chat:message', outgoing)
     if (typeof acknowledge === 'function') acknowledge({ ok: true, message: outgoing })

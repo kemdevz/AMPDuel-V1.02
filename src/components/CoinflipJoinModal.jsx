@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { supabase } from '../lib/supabaseClient'
+import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
 import { parsePriceValue } from '../Utils/FormatPriceValues'
 import DepositModal from './DepositModal'
@@ -59,44 +59,18 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
     const loadInventory = async () => {
       setInventoryLoading(true)
       setInventoryError('')
-      const ownerIds = [user?.profile_id, user?.id]
-        .filter((value) => value !== null && value !== undefined && value !== '')
-        .map(String)
-
       try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData?.session?.user?.id) ownerIds.push(String(sessionData.session.user.id))
-        const { data: userData } = await supabase.auth.getUser()
-        if (userData?.user?.id) ownerIds.push(String(userData.user.id))
+        const response = await apiRequest('/api/inventory', { cache: 'no-store' })
+        if (!isMounted) return
+        setInventoryItems(Array.isArray(response?.items) ? response.items : [])
       } catch (error) {
-        console.warn('[CoinflipJoinModal] failed to collect owner ids', error)
-      }
-
-      const uniqueOwnerIds = [...new Set(ownerIds)]
-      if (uniqueOwnerIds.length === 0) {
-        if (isMounted) {
-          setInventoryItems([])
-          setInventoryLoading(false)
-          notifications.error('Please sign in to load your inventory.')
-        }
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('*')
-        .in('user_id', uniqueOwnerIds)
-        .order('created_at', { ascending: false })
-
-      if (!isMounted) return
-      if (error) {
+        if (!isMounted) return
         setInventoryItems([])
         setInventoryError(error.message || 'Failed to load inventory.')
         notifications.error(error.message || 'Failed to load inventory.')
-      } else {
-        setInventoryItems(data ?? [])
+      } finally {
+        if (isMounted) setInventoryLoading(false)
       }
-      setInventoryLoading(false)
     }
 
     void loadInventory()
@@ -109,8 +83,8 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
   })), [inventoryItems])
 
   const gameMode = normalizeCoinflipGameMode(room?.game_mode)
+    || getCoinflipRoomGame(room, null)
     || normalizeCoinflipGameMode(selectedGameMode)
-    || getCoinflipRoomGame(room)
   const eligibleRows = useMemo(
     () => inventoryRows.filter((item) => inventoryItemMatchesGame(item, gameMode)),
     [gameMode, inventoryRows],
@@ -135,18 +109,19 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
   )
 
   const roomRequirements = room?.joinRequirements || room?.join_requirements || {}
-  const targetValue = numericValue(room?.numericValue, room?.total_value, room?.totalValue, room?.value)
-  const minValue = numericValue(
+  const creatorItemsValue = Array.isArray(room?.creator_items)
+    ? room.creator_items.reduce((total, item) => total + numericValue(item?.value), 0)
+    : 0
+  const targetValue = numericValue(creatorItemsValue, room?.numericValue, room?.total_value, room?.totalValue, room?.value)
+  const minValue = targetValue ? targetValue * 0.9 : numericValue(
     roomRequirements.min,
     room?.minJoinAmount,
     room?.min_join_amount,
-    targetValue ? targetValue * 0.9 : 0,
   )
-  const maxValue = numericValue(
+  const maxValue = targetValue ? targetValue * 1.1 : numericValue(
     roomRequirements.max,
     room?.maxJoinAmount,
     room?.max_join_amount,
-    targetValue ? targetValue * 1.1 : 0,
   )
   const configuredMaxItems = numericValue(
     roomRequirements.maxItems,

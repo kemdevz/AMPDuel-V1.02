@@ -211,9 +211,9 @@ export const AMP_MODAL_STYLES = `
   .amp-item-card { position: relative; display: block; min-width: 0; padding: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .065); border-radius: 10px; color: inherit; background: #14171e; text-align: left; transition: background .15s ease, border-color .15s ease; }
   button.amp-item-card { width: 100%; cursor: pointer; font-family: Poppins, sans-serif; }
   .amp-item-card:hover { background: #171a22; }
-  .amp-item-card.is-selected { border-color: #22c55e; background: rgba(34, 197, 94, .09); }
-  .amp-item-card.is-selected:hover { background: rgba(34, 197, 94, .13); }
-  .amp-item-check { position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; color: #111319; background: #22c55e; }
+  .amp-item-card.is-selected { border-color: #ff4fa3; background: rgba(255, 79, 163, .09); }
+  .amp-item-card.is-selected:hover { background: rgba(255, 79, 163, .13); }
+  .amp-item-check { position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; color: #111319; background: #ff4fa3; }
   .amp-item-check svg { width: 10px; height: 10px; }
   .amp-item-image-wrap { display: flex; height: 116px; margin-bottom: 12px; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: #101218; }
   .amp-item-image { width: 104px; height: 104px; object-fit: contain; user-select: none; pointer-events: none; }
