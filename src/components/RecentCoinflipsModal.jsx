@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AMP_MODAL_STYLES, CloseIcon, RobuxIcon } from './AmpInventoryModalUI'
+import AdoptMeTraitBadges from './AdoptMeTraitBadges'
 
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 const PAGE_SIZE = 5
@@ -64,7 +65,7 @@ function HistoryPlayer({ game, creator, winner, onProfileOpen }) {
 }
 
 function HistoryItem({ item, hiddenItemCount = 0 }) {
-  return <div className="history-item" title={item.name} aria-label={item.name}>{item.image ? <img className={isGemItem(item) ? 'is-gem' : ''} src={item.image} alt="" draggable="false" /> : null}{hiddenItemCount > 0 ? <span className="history-item-more">+{hiddenItemCount}</span> : null}</div>
+  return <div className="history-item" title={item.name} aria-label={item.name}>{item.image ? <img className={isGemItem(item) ? 'is-gem' : ''} src={item.image} alt="" draggable="false" /> : null}{hiddenItemCount === 0 ? <AdoptMeTraitBadges item={item} /> : null}{hiddenItemCount > 0 ? <span className="history-item-more">+{hiddenItemCount}</span> : null}</div>
 }
 
 function HistoryRow({ game, index, onView, onProfileOpen }) {
@@ -149,10 +150,12 @@ const HISTORY_STYLES = `
   .history-game-items { display: flex; width: 220px; min-width: 0; flex: 0 0 220px; align-items: center; justify-content: flex-start; gap: 0; padding: 4px 0 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .history-game-items::-webkit-scrollbar { display: none; }
   .history-item + .history-item { margin-left: -18px; }
-  .history-item { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #12151c; transition: border-color .15s ease; }
+  .history-item { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; overflow: visible; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #12151c; transition: border-color .15s ease; }
   .history-item:hover { border-color: rgba(255,255,255,.12); }
   .history-item img { display: block; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; pointer-events: none; }
   .history-item img.is-gem { width: 78%; height: 78%; object-fit: contain; }
+  .history-item .adopt-me-traits { bottom: -5px; gap: 1px; }
+  .history-item .adopt-me-trait { width: 13px; height: 13px; flex-basis: 13px; font-size: 7px; }
   .history-item-more { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; border-radius: 50%; color: #fff; background: rgba(15,18,30,.84); backdrop-filter: blur(2px); font-size: 13px; font-weight: 600; pointer-events: none; }
   .history-game-result { position: relative; display: flex; width: 72px; min-width: 72px; height: 72px; flex: 0 0 72px; align-items: center; justify-content: center; }
   .history-game-result img { width: 58px; height: 58px; object-fit: contain; }
