@@ -26,6 +26,29 @@ CREATE TABLE IF NOT EXISTS public.mines_games (
   CONSTRAINT mines_games_participants_check CHECK (jsonb_typeof(participants) = 'array')
 );
 
+-- CREATE TABLE IF NOT EXISTS does not add columns to a legacy mines_games
+-- table. Keep this migration safe to rerun against installations that already
+-- had the earlier Mines schema.
+ALTER TABLE public.mines_games
+  ADD COLUMN IF NOT EXISTS server_seed_hash text,
+  ADD COLUMN IF NOT EXISTS server_seed_encrypted text,
+  ADD COLUMN IF NOT EXISTS server_seed text,
+  ADD COLUMN IF NOT EXISTS client_seed text;
+
+UPDATE public.mines_games
+SET
+  server_seed_hash = coalesce(server_seed_hash, 'legacy-' || id::text),
+  server_seed_encrypted = coalesce(server_seed_encrypted, 'legacy'),
+  client_seed = coalesce(client_seed, 'legacy-' || id::text)
+WHERE server_seed_hash IS NULL
+   OR server_seed_encrypted IS NULL
+   OR client_seed IS NULL;
+
+ALTER TABLE public.mines_games
+  ALTER COLUMN server_seed_hash SET NOT NULL,
+  ALTER COLUMN server_seed_encrypted SET NOT NULL,
+  ALTER COLUMN client_seed SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS mines_games_mode_status_created_idx
   ON public.mines_games (game_mode, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS mines_games_creator_idx

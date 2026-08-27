@@ -25,17 +25,12 @@ export default function TipUserModal({
         <>
           <button
             type="button"
-            className="_withdrawButton_cpcgp_387 tipUserInventoryButton"
+            className="amp-create-button"
             disabled={selectedAmount === 0 || isSubmitting}
             onClick={() => onSubmit?.(selectedItems)}
           >
-            <strong>Tip</strong>
+            {isSubmitting ? 'Tipping' : 'Tip'}
           </button>
-          <style>{`
-            .tipUserInventoryButton {
-              font-family: Poppins, sans-serif;
-            }
-          `}</style>
         </>
       )}
     />
