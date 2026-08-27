@@ -92,6 +92,24 @@ export const AMP_MODAL_STYLES = `
   .amp-create-top { align-items: center; flex-wrap: wrap; }
   .amp-create-summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .amp-modal-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .amp-inventory-action {
+    display: inline-flex;
+    min-width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 7px;
+    color: #a8aeb9;
+    background: #20242e;
+    font: 600 12px/14.4px Poppins, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .2s ease, background-color .2s ease, opacity .2s ease;
+  }
+  .amp-inventory-action:hover { color: #c1c6d0; background: #282c37; }
+  .amp-inventory-action:disabled { cursor: not-allowed; opacity: .45; }
 
   .amp-value-pill {
     display: flex;

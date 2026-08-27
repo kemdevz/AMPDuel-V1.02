@@ -91,14 +91,19 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
     [gameMode, inventoryRows],
   )
 
-  const visibleRows = useMemo(() => {
+  const sortedFilteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     const direction = sortAscending ? 1 : -1
-    const sortedRows = eligibleRows
+    return eligibleRows
       .filter((item) => String(item.name || '').toLowerCase().includes(query))
+      .slice()
       .sort((a, b) => (Number(a.value ?? 0) - Number(b.value ?? 0)) * direction)
-    return prioritizeSelectedItems(sortedRows, selectedItems)
-  }, [eligibleRows, searchQuery, selectedItems, sortAscending])
+  }, [eligibleRows, searchQuery, sortAscending])
+
+  const visibleRows = useMemo(
+    () => prioritizeSelectedItems(sortedFilteredRows, selectedItems),
+    [selectedItems, sortedFilteredRows],
+  )
 
   const selectedRows = useMemo(() => {
     const selected = new Set(selectedItems)
@@ -132,8 +137,9 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
     room?.max_join_items,
   )
   const itemLimit = configuredMaxItems > 0 ? Math.min(MAX_ITEMS, configuredMaxItems) : MAX_ITEMS
+  const hasValueRange = minValue > 0 || maxValue > 0
   const valueIsValid = selectedRows.length > 0
-    && (!targetValue || (selectedValue >= minValue && selectedValue <= maxValue))
+    && (!hasValueRange || (selectedValue >= minValue && (!maxValue || selectedValue <= maxValue)))
   const canJoin = valueIsValid && selectedRows.length <= itemLimit
 
   const creatorSide = String(room?.creator_side || room?.creatorSide || room?.ownerCoin || 'heads').toLowerCase() === 'tails'
@@ -153,6 +159,66 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
       }
       return [...current, displayKey]
     })
+  }
+
+  const toggleSelectAll = () => {
+    const selectableKeys = sortedFilteredRows.slice(0, itemLimit).map((item) => item.displayKey)
+    const allSelectableSelected = selectableKeys.length > 0 && selectableKeys.every((key) => selectedItems.includes(key))
+    setSelectedItems(allSelectableSelected ? [] : selectableKeys)
+  }
+
+  const autoSelect = () => {
+    const candidates = sortedFilteredRows
+      .map((item) => ({ item, value: numericValue(item.value) }))
+      .filter(({ value }) => value > 0)
+
+    if (candidates.length === 0) {
+      notifications.error('No eligible items are available to auto select.')
+      return
+    }
+
+    if (!hasValueRange) {
+      setSelectedItems(candidates.slice(0, itemLimit).map(({ item }) => item.displayKey))
+      return
+    }
+
+    const epsilon = 0.000001
+    const maxStart = Math.min(candidates.length, 250)
+    let best = null
+
+    for (let start = 0; start < maxStart; start += 1) {
+      const picked = []
+      let total = 0
+
+      for (let index = start; index < candidates.length && picked.length < itemLimit; index += 1) {
+        const candidate = candidates[index]
+        const nextTotal = total + candidate.value
+        if (maxValue > 0 && nextTotal > maxValue + epsilon) continue
+        picked.push(candidate.item)
+        total = nextTotal
+        if (total >= minValue - epsilon) break
+      }
+
+      const valid = picked.length > 0
+        && total >= minValue - epsilon
+        && (!maxValue || total <= maxValue + epsilon)
+      if (!valid) continue
+
+      if (!best
+        || (sortAscending && picked.length > best.items.length)
+        || (!sortAscending && start < best.start)) {
+        best = { items: picked, start, total }
+      }
+
+      if (!sortAscending && start === 0) break
+    }
+
+    if (!best) {
+      notifications.error('No item combination in this order fits the required value range.')
+      return
+    }
+
+    setSelectedItems(best.items.map((item) => item.displayKey))
   }
 
   const handleJoin = async () => {
@@ -220,7 +286,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
               <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-create-summary amp-join-summary-hidden">
                 <AmpValuePill label="Selected value" value={selectedValue} valid={valueIsValid} />
-                <span className="amp-count-badge">{selectedItems.length}/{MAX_ITEMS} items</span>
+                <span className="amp-count-badge">{selectedItems.length}/{itemLimit} items</span>
                 <span className="amp-join-required">
                   <span>Required</span>
                   <RobuxIcon />
@@ -229,6 +295,8 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
                 {configuredMaxItems > 0 ? <span className="amp-join-max-items">Max {configuredMaxItems} join items</span> : null}
               </div>
               <div className="amp-modal-controls">
+                <button type="button" className="amp-inventory-action" disabled={sortedFilteredRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && sortedFilteredRows.slice(0, itemLimit).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button>
+                <button type="button" className="amp-inventory-action" disabled={sortedFilteredRows.length === 0} onClick={autoSelect}>Auto Select</button>
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>

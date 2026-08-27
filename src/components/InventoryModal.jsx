@@ -141,8 +141,10 @@ export default function WalletModal({
   }
 
   const onToggleSelectAll = () => {
-    if (selectedItems.length === inventoryRows.length) setSelectedItems([])
-    else setSelectedItems(inventoryRows.map((item) => item.displayKey))
+    const visibleKeys = visibleRows.map((item) => item.displayKey)
+    const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every((key) => selectedItems.includes(key))
+    if (allVisibleSelected) setSelectedItems((current) => current.filter((key) => !visibleKeys.includes(key)))
+    else setSelectedItems((current) => [...new Set([...current, ...visibleKeys])])
   }
 
   const handleWithdraw = async () => {
@@ -194,6 +196,7 @@ export default function WalletModal({
             <div className="amp-wallet-top">
               <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-modal-controls">
+                {selectionEnabled ? <button type="button" className="amp-inventory-action" disabled={visibleRows.length === 0} onClick={onToggleSelectAll}>{visibleRows.length > 0 && visibleRows.every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button> : null}
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>

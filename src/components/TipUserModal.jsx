@@ -29,18 +29,8 @@ export default function TipUserModal({
         selectedItems,
         selectedAmount,
         selectedValue,
-        totalItems,
-        onToggleSelectAll,
       }) => (
         <>
-          <button
-            type="button"
-            className="_flatActionBtn_cpcgp_373 tipUserInventoryButton"
-            disabled={totalItems === 0 || isSubmitting}
-            onClick={onToggleSelectAll}
-          >
-            {selectedAmount === totalItems && totalItems > 0 ? 'Unselect All' : 'Select all'}
-          </button>
           <button
             type="button"
             className="_withdrawButton_cpcgp_387 tipUserInventoryButton"

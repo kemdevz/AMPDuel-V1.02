@@ -124,6 +124,12 @@ export default function CoinflipCreateModal({
     })
   }
 
+  const toggleSelectAll = () => {
+    const selectableKeys = visibleRows.slice(0, MAX_ITEMS).map((item) => item.displayKey)
+    const allSelectableSelected = selectableKeys.length > 0 && selectableKeys.every((key) => selectedItems.includes(key))
+    setSelectedItems(allSelectableSelected ? [] : selectableKeys)
+  }
+
   const tryCreateRemote = async (body) => {
     const response = await fetch('/api/coinflip/create', {
       method: 'POST',
@@ -205,6 +211,7 @@ export default function CoinflipCreateModal({
             <div className="amp-create-top">
               <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-modal-controls">
+                <button type="button" className="amp-inventory-action" disabled={visibleRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button>
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>

@@ -68,6 +68,11 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
     if (current.includes(displayKey)) return current.filter((key) => key !== displayKey)
     return current.length >= MAX_ITEMS ? current : [...current, displayKey]
   })
+  const toggleSelectAll = () => {
+    const selectableKeys = visibleRows.slice(0, MAX_ITEMS).map((item) => item.displayKey)
+    const allSelectableSelected = selectableKeys.length > 0 && selectableKeys.every((key) => selectedItems.includes(key))
+    setSelectedItems(allSelectableSelected ? [] : selectableKeys)
+  }
 
   if (typeof document === 'undefined') return null
   return createPortal(<div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -77,7 +82,7 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
       <div className="amp-modal-body"><div className="amp-modal-stack">
         <div className="amp-create-top">
           <AmpSearch value={searchQuery} onChange={setSearchQuery} />
-          <div className="amp-modal-controls"><AmpSort ascending={sortAscending} onChange={setSortAscending} /></div>
+          <div className="amp-modal-controls"><button type="button" className="amp-inventory-action" disabled={visibleRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button><AmpSort ascending={sortAscending} onChange={setSortAscending} /></div>
         </div>
         {inventoryLoading ? <div className="amp-inventory-loading"><span className="amp-spinner" /><p className="amp-loading-copy">Loading inventory</p></div>
           : inventoryError ? <div className="amp-inventory-empty"><p className="amp-empty-copy">{inventoryError}</p></div>
