@@ -2929,6 +2929,178 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
 })
 
 // Mines game functions
+function serializeMinesGame(game) {
+  if (!game || typeof game !== 'object') return game
+  const { server_seed_encrypted, ...publicGame } = game
+  if (!['completed', 'resolved'].includes(String(publicGame.status || '').toLowerCase())) {
+    delete publicGame.server_seed
+  }
+  return {
+    ...publicGame,
+    grid_size: Number(publicGame.grid_size) || 5,
+    mine_count: Number(publicGame.mine_count) || 1,
+    max_players: Number(publicGame.max_players) || 2,
+    creator_items: Array.isArray(publicGame.creator_items) ? publicGame.creator_items : [],
+    participants: Array.isArray(publicGame.participants) ? publicGame.participants : [],
+    revealed_cells: Array.isArray(publicGame.revealed_cells) ? publicGame.revealed_cells : [],
+  }
+}
+
+app.get('/api/mines', async (req, res) => {
+  const requestedGame = normalizeCoinflipGameMode(req.query.game)
+  const gameMode = ['mm2', 'adm', 'ps99'].includes(requestedGame) ? requestedGame : 'mm2'
+  try {
+    const rows = await adminRest(
+      `mines_games?select=*&game_mode=eq.${encodeURIComponent(gameMode)}&status=in.(open,active)&order=created_at.desc&limit=100`,
+    )
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({ ok: true, games: (Array.isArray(rows) ? rows : []).map(serializeMinesGame) })
+  } catch (error) {
+    console.error('[api/mines] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load Mines games.' })
+  }
+})
+
+app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const payload = req.body || {}
+  const gameMode = normalizeCoinflipGameMode(payload.game_mode)
+  const gridSize = Number(payload.grid_size)
+  const mineCount = Number(payload.mine_count)
+  const maxPlayers = 2
+  const requestedItemIds = Array.isArray(payload.item_ids) ? payload.item_ids : []
+  const itemIds = getCoinflipItemIds(requestedItemIds)
+
+  if (!['mm2', 'adm', 'ps99'].includes(gameMode)) {
+    return res.status(400).json({ ok: false, error: 'Invalid Mines game mode.' })
+  }
+  if (gridSize !== 5) {
+    return res.status(400).json({ ok: false, error: 'Mines games use a 5x5 grid.' })
+  }
+  if (!Number.isInteger(mineCount) || mineCount < 1 || mineCount >= gridSize * gridSize) {
+    return res.status(400).json({ ok: false, error: `Mine count must be between 1 and ${gridSize * gridSize - 1}.` })
+  }
+  if (itemIds.length < 1 || itemIds.length !== requestedItemIds.length || itemIds.length > 20) {
+    return res.status(400).json({ ok: false, error: 'Select between 1 and 20 valid, unique items.' })
+  }
+
+  try {
+    const { supabaseKey } = getSupabaseAdminConfig()
+    if (!supabaseKey) return res.status(500).json({ ok: false, error: 'Supabase config missing.' })
+    const profileId = String(req.identity.profileId)
+    const profile = await loadProfileById(profileId)
+    if (!profile) return res.status(404).json({ ok: false, error: 'Profile not found.' })
+
+    const inventoryRows = await adminRest(
+      `inventory_items?select=*&user_id=eq.${encodeURIComponent(profileId)}&id=in.(${itemIds.join(',')})`,
+    )
+    if (!Array.isArray(inventoryRows) || inventoryRows.length !== itemIds.length) {
+      return res.status(409).json({ ok: false, error: 'One or more selected items are missing or no longer owned.' })
+    }
+    if (!coinflipItemsMatchGameMode(inventoryRows, gameMode)) {
+      return res.status(400).json({ ok: false, error: `Select only ${coinflipGameModeLabel(gameMode)} for this Mines game.` })
+    }
+    if (getCoinflipWagerValue(inventoryRows) <= 0) {
+      return res.status(400).json({ ok: false, error: 'Mines items must have a positive value.' })
+    }
+
+    const serverSeed = crypto.randomBytes(32).toString('hex')
+    const serverSeedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+    const clientSeed = crypto.randomBytes(16).toString('hex')
+
+    const result = await callDatabaseRpc('create_mines_game', {
+      p_profile_id: profileId,
+      p_username: String(profile.username || 'Player'),
+      p_avatar_url: profile.avatar_headshot_url || profile.avatar_url || '',
+      p_game_mode: gameMode,
+      p_grid_size: gridSize,
+      p_mine_count: mineCount,
+      p_max_players: maxPlayers,
+      p_item_ids: itemIds,
+      p_server_seed_hash: serverSeedHash,
+      p_server_seed_encrypted: encryptCoinflipServerSeed(serverSeed, supabaseKey),
+      p_client_seed: clientSeed,
+    })
+    const game = serializeMinesGame(Array.isArray(result) ? result[0] : result)
+    io.emit('mines:created', game)
+    await emitProfileUpdates([profileId])
+    res.json({ ok: true, data: game })
+  } catch (error) {
+    console.error('[api/mines/create] failed', error)
+    const message = error?.message || 'Unable to create Mines game.'
+    const expected = /item|grid|mine|player|profile|mode|inventory/i.test(message)
+    res.status(expected ? 400 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/mines/cancel', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const roomId = String(req.body?.roomId || req.body?.id || '').trim()
+  if (!isUuidLike(roomId)) {
+    return res.status(400).json({ ok: false, error: 'A valid roomId is required.' })
+  }
+
+  const profileId = String(req.identity.profileId)
+  try {
+    const result = await callDatabaseRpc('cancel_mines_game', {
+      p_game_id: roomId,
+      p_profile_id: profileId,
+    })
+    const game = serializeMinesGame(Array.isArray(result) ? result[0] : result)
+    io.emit('mines:updated', game)
+    await emitProfileUpdates([profileId])
+    return res.json({ ok: true, data: game })
+  } catch (error) {
+    console.error('[api/mines/cancel] failed', error)
+    const message = error?.message || 'Unable to cancel Mines game.'
+    const expected = /creator|cancel|join|player|not found|open/i.test(message)
+    return res.status(expected ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
+app.post('/api/mines/join', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
+  const roomId = String(req.body?.roomId || req.body?.id || '').trim()
+  const requestedItemIds = Array.isArray(req.body?.item_ids) ? req.body.item_ids : []
+  const itemIds = getCoinflipItemIds(requestedItemIds)
+  if (!isUuidLike(roomId)) return res.status(400).json({ ok: false, error: 'A valid roomId is required.' })
+  if (itemIds.length < 1 || itemIds.length !== requestedItemIds.length || itemIds.length > 20) {
+    return res.status(400).json({ ok: false, error: 'Select between 1 and 20 valid, unique items.' })
+  }
+
+  const profileId = String(req.identity.profileId)
+  try {
+    const profile = await loadProfileById(profileId)
+    if (!profile) return res.status(404).json({ ok: false, error: 'Profile not found.' })
+    const rooms = await adminRest(`mines_games?id=eq.${encodeURIComponent(roomId)}&select=*`)
+    const room = Array.isArray(rooms) ? rooms[0] : rooms
+    if (!room) return res.status(404).json({ ok: false, error: 'Mines game not found.' })
+    const inventoryRows = await adminRest(
+      `inventory_items?select=*&user_id=eq.${encodeURIComponent(profileId)}&id=in.(${itemIds.join(',')})`,
+    )
+    if (!Array.isArray(inventoryRows) || inventoryRows.length !== itemIds.length) {
+      return res.status(409).json({ ok: false, error: 'One or more selected items are missing or no longer owned.' })
+    }
+    if (!coinflipItemsMatchGameMode(inventoryRows, room.game_mode)) {
+      return res.status(400).json({ ok: false, error: `This game only accepts ${coinflipGameModeLabel(room.game_mode)}.` })
+    }
+
+    const result = await callDatabaseRpc('join_mines_game', {
+      p_game_id: roomId,
+      p_profile_id: profileId,
+      p_username: String(profile.username || 'Player'),
+      p_avatar_url: profile.avatar_headshot_url || profile.avatar_url || '',
+      p_item_ids: itemIds,
+    })
+    const game = serializeMinesGame(Array.isArray(result) ? result[0] : result)
+    io.emit('mines:updated', game)
+    await emitProfileUpdates([profileId, room.creator_uuid])
+    return res.json({ ok: true, data: game })
+  } catch (error) {
+    console.error('[api/mines/join] failed', error)
+    const message = error?.message || 'Unable to join Mines game.'
+    const expected = /item|wager|creator|join|player|full|already|not found|inventory/i.test(message)
+    return res.status(expected ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
 app.get('/api/health', (req, res) => {
   res.json({ ok: true })
 })

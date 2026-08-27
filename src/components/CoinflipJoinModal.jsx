@@ -35,7 +35,8 @@ const displayNumber = (value) => Number(value || 0).toLocaleString('en-US', {
   maximumFractionDigits: 2,
 })
 
-export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = null, onClose, onJoin }) {
+export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = null, gameType = 'coinflip', onClose, onJoin }) {
+  const isMines = gameType === 'mines'
   const user = useAuth((state) => state.user)
   const [inventoryItems, setInventoryItems] = useState([])
   const [selectedItems, setSelectedItems] = useState([])
@@ -243,7 +244,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
         item_ids: selectedRows.map((item) => item.id).filter(Boolean),
       }
 
-      const response = await fetch('/api/coinflip/join', {
+      const response = await fetch(isMines ? '/api/mines/join' : '/api/coinflip/join', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +254,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
       let json = null
       try { json = text ? JSON.parse(text) : null } catch { json = null }
 
-      if (!response.ok) throw new Error(json?.error || text || 'Unable to join coinflip')
+      if (!response.ok) throw new Error(json?.error || text || `Unable to join ${isMines ? 'Mines' : 'coinflip'}`)
 
       window.dispatchEvent(new CustomEvent('wallet:updated'))
       onJoin?.({
@@ -266,8 +267,8 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
       notifications.joinedGame()
       onClose()
     } catch (error) {
-      console.error('[CoinflipJoinModal] join failed', error)
-      notifications.error(error?.message || 'Unable to join coinflip')
+      console.error(`[${isMines ? 'Mines' : 'Coinflip'}JoinModal] join failed`, error)
+      notifications.error(error?.message || `Unable to join ${isMines ? 'Mines' : 'coinflip'}`)
       setJoining(false)
     }
   }
@@ -277,8 +278,8 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
   return createPortal(<>
     <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} />
     <div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="coinflip-join-title">
-        <h2 className="amp-modal-header" id="coinflip-join-title">Join</h2>
+      <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="game-join-title">
+        <h2 className="amp-modal-header" id="game-join-title">Join</h2>
         <button type="button" className="amp-modal-close" aria-label="Close" onClick={onClose}><CloseIcon /></button>
         <div className="amp-modal-body">
           <div className="amp-modal-stack">
@@ -309,7 +310,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
               <div className="amp-footer-row amp-join-footer-row">
                 <span className="amp-join-range"><RobuxIcon /><span>{displayNumber(minValue)} &ndash; {displayNumber(maxValue)}</span></span>
                 <div className="amp-join-actions">
-                  <img className="amp-join-coin" src={joinSide === 'heads' ? HEADS_ICON : TAILS_ICON} alt={joinSide} draggable="false" />
+                  {!isMines ? <img className="amp-join-coin" src={joinSide === 'heads' ? HEADS_ICON : TAILS_ICON} alt={joinSide} draggable="false" /> : null}
                   <button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={sortedFilteredRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && sortedFilteredRows.slice(0, itemLimit).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button>
                   <button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={sortedFilteredRows.length === 0} onClick={autoSelect}>Auto Select</button>
                   <button type="button" className="amp-create-button" disabled={inventoryLoading || !canJoin || joining} onClick={handleJoin}>{joining ? 'Joining' : 'Join'}</button>

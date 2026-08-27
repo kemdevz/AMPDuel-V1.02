@@ -12,6 +12,7 @@ import { connectSocket } from "../lib/socket";
 import { DiscordIcon, MinesIcon } from "./icons";
 import { CoinStackIcon, MedalIcon } from "./ReferenceNavIcons";
 import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from "../lib/coinflipGameMode";
+import { LEADERBOARD_ENABLED } from '../features'
 
 const COIN_ICON = "/currency.svg";
 const AVATAR =
@@ -489,7 +490,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                 )}
               </NavLink>
             </li>
-            <li><button type="button" onClick={onOpenLeaderboardModal} className="group relative flex h-[71px] items-center border-0 border-b-2 border-b-transparent bg-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] text-white/[0.48] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 hover:text-white"><MedalIcon className="mr-2 h-4 w-4 shrink-0 text-white/[0.36]" />Leaderboard</button></li>
+            {LEADERBOARD_ENABLED ? <li><button type="button" onClick={onOpenLeaderboardModal} className="group relative flex h-[71px] items-center border-0 border-b-2 border-b-transparent bg-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] text-white/[0.48] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 hover:text-white"><MedalIcon className="mr-2 h-4 w-4 shrink-0 text-white/[0.36]" />Leaderboard</button></li> : null}
             <li><a target="_blank" rel="noreferrer" className="flex h-[71px] items-center px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" href="https://discord.gg/bloxdicecom" aria-label="Discord"><DiscordIcon className="h-4 w-4" /></a></li>
           </ul>
         </nav>

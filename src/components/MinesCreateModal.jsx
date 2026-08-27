@@ -1,20 +1,37 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { supabase } from '../lib/supabaseClient'
+import { apiRequest } from '../lib/apiClient'
 import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import { useAuth } from '../store/auth'
 import { AMP_MODAL_STYLES, AmpItemCard, AmpSearch, AmpSort, CloseIcon, prioritizeSelectedItems } from './AmpInventoryModalUI'
+import { MinesIcon } from './icons'
+import { notifications } from './Notifications'
 
 const MAX_ITEMS = 20
 
-export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
+const MINES_CREATE_STYLES = `
+  .mines-footer-slider { display: flex; width: 190px; height: 40px; flex: 0 1 190px; align-items: center; gap: 9px; padding: 0 12px; border-radius: 7px; color: #a8aeb9; background: #20242e; font: 600 12px/14.4px Poppins,sans-serif; }
+  .mines-footer-slider > svg { display: block; width: 14px; height: 14px; flex: 0 0 14px; color: inherit; transform: translateY(-1px); }
+  .mines-footer-slider > span { color: inherit; line-height: 14px; white-space: nowrap; }
+  .mines-footer-slider output { min-width: 18px; color: #f4f5f8; text-align: right; }
+  .mines-footer-slider input { width: 100%; min-width: 56px; height: 4px; margin: 0; appearance: none; border-radius: 999px; outline: 0; background: linear-gradient(to right, #ff4fa3 0 var(--mine-progress), #343945 var(--mine-progress) 100%); cursor: pointer; }
+  .mines-footer-slider input::-webkit-slider-thumb { width: 14px; height: 14px; appearance: none; border: 2px solid #191c24; border-radius: 50%; background: #ff4fa3; box-shadow: 0 0 0 1px rgba(255,79,163,.25); }
+  .mines-footer-slider input::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #191c24; border-radius: 50%; background: #ff4fa3; box-shadow: 0 0 0 1px rgba(255,79,163,.25); }
+  .mines-create-footer-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; }
+  @media (max-width: 700px) { .mines-create-footer-row { align-items: stretch; flex-direction: column; } .mines-create-footer-row .amp-footer-selection-group { width: 100%; flex-wrap: wrap; } .mines-create-footer-actions { width: 100%; justify-content: flex-end; } }
+  @media (max-width: 560px) { .mines-footer-slider { width: 150px; flex-basis: 150px; } }
+`
+
+export default function MinesCreateModal({ gameMode = 'mm2', onClose, onCreate }) {
   const user = useAuth((state) => state.user)
   const [inventoryItems, setInventoryItems] = useState([])
   const [selectedItems, setSelectedItems] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [sortAscending, setSortAscending] = useState(false)
+  const [mineCount, setMineCount] = useState(3)
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (event) => { if (event.key === 'Escape') onClose() }
@@ -27,26 +44,18 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
     const loadInventory = async () => {
       setInventoryLoading(true)
       setInventoryError('')
-      const ownerIds = [user?.profile_id, user?.id]
-        .filter((value) => value !== null && value !== undefined && value !== '')
-        .map(String)
       try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData?.session?.user?.id) ownerIds.push(String(sessionData.session.user.id))
-      } catch { /* Profile identifiers remain available for normal sessions. */ }
-
-      const uniqueOwnerIds = [...new Set(ownerIds)]
-      if (!uniqueOwnerIds.length) {
-        if (mounted) { setInventoryItems([]); setInventoryLoading(false) }
-        return
+        const result = await apiRequest('/api/inventory', { cache: 'no-store' })
+        if (mounted) setInventoryItems(Array.isArray(result?.items) ? result.items : [])
+      } catch (error) {
+        if (mounted) {
+          setInventoryItems([])
+          setInventoryError(error?.message || 'Failed to load inventory.')
+          notifications.error(error?.message || 'Failed to load inventory.')
+        }
+      } finally {
+        if (mounted) setInventoryLoading(false)
       }
-      const { data, error } = await supabase.from('inventory_items').select('*').in('user_id', uniqueOwnerIds).order('created_at', { ascending: false })
-      if (!mounted) return
-      if (error) {
-        setInventoryItems([])
-        setInventoryError(error.message || 'Failed to load inventory.')
-      } else setInventoryItems(data ?? [])
-      setInventoryLoading(false)
     }
     void loadInventory()
     return () => { mounted = false }
@@ -61,20 +70,50 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
     const direction = sortAscending ? 1 : -1
     const sortedRows = inventoryRows
       .filter((item) => String(item.name || '').toLowerCase().includes(query))
+      .slice()
       .sort((left, right) => (Number(left.value || 0) - Number(right.value || 0)) * direction)
     return prioritizeSelectedItems(sortedRows, selectedItems)
   }, [inventoryRows, searchQuery, selectedItems, sortAscending])
+  const selectedRows = useMemo(() => {
+    const selected = new Set(selectedItems)
+    return inventoryRows.filter((item) => selected.has(item.displayKey))
+  }, [inventoryRows, selectedItems])
+
   const toggleItem = (displayKey) => setSelectedItems((current) => {
     if (current.includes(displayKey)) return current.filter((key) => key !== displayKey)
-    return current.length >= MAX_ITEMS ? current : [...current, displayKey]
+    if (current.length >= MAX_ITEMS) {
+      notifications.error(`You can wager up to ${MAX_ITEMS} items.`)
+      return current
+    }
+    return [...current, displayKey]
   })
   const toggleSelectAll = () => {
     const selectableKeys = visibleRows.slice(0, MAX_ITEMS).map((item) => item.displayKey)
-    const allSelectableSelected = selectableKeys.length > 0 && selectableKeys.every((key) => selectedItems.includes(key))
-    setSelectedItems(allSelectableSelected ? [] : selectableKeys)
+    const allSelected = selectableKeys.length > 0 && selectableKeys.every((key) => selectedItems.includes(key))
+    setSelectedItems(allSelected ? [] : selectableKeys)
+  }
+  const handleCreate = async () => {
+    if (!selectedRows.length || creating) return
+    setCreating(true)
+    try {
+      const result = await apiRequest('/api/mines/create', {
+        method: 'POST',
+        body: JSON.stringify({ game_mode: normalizedGameMode, grid_size: 5, mine_count: mineCount, max_players: 2, item_ids: selectedRows.map((item) => item.id) }),
+      })
+      window.dispatchEvent(new CustomEvent('wallet:updated'))
+      onCreate?.(result?.data)
+      notifications.success('Mines game created successfully!')
+      onClose()
+    } catch (error) {
+      notifications.error(error?.message || 'Unable to create Mines game.')
+    } finally {
+      setCreating(false)
+    }
   }
 
   if (typeof document === 'undefined') return null
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey))
+
   return createPortal(<div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="mines-create-title">
       <h2 className="amp-modal-header" id="mines-create-title">Create Mines</h2>
@@ -89,9 +128,9 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
           : inventoryRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">Your inventory is empty.</p></div>
           : visibleRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">No items match “{searchQuery.trim()}”.</p></div>
           : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
-        <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={visibleRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button><button type="button" className="amp-create-button" disabled>Create</button></div></div>
+        <div className="amp-sticky-footer"><div className="amp-footer-row mines-create-footer-row"><div className="amp-footer-selection-group"><label className="mines-footer-slider"><MinesIcon /><span>Mines</span><input type="range" min="1" max="24" value={mineCount} aria-label="Number of mines" style={{ '--mine-progress': `${((mineCount - 1) / 23) * 100}%` }} onChange={(event) => setMineCount(Number(event.target.value))} /><output>{mineCount}</output></label></div><div className="mines-create-footer-actions"><button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={!visibleRows.length} onClick={toggleSelectAll}>{allVisibleSelected ? 'Unselect All' : 'Select All'}</button><button type="button" className="amp-create-button" disabled={inventoryLoading || selectedRows.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button></div></div></div>
       </div></div>
-      <style>{AMP_MODAL_STYLES}</style>
+      <style>{AMP_MODAL_STYLES}{MINES_CREATE_STYLES}</style>
     </section>
   </div>, document.body)
 }

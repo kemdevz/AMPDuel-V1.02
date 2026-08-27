@@ -16,7 +16,7 @@ function displayValue(value) {
   return text && text !== 'Unavailable' && text !== 'Not available' ? text : 'N/A'
 }
 
-export default function CoinflipFairnessModal({ coinflipId = 'N/A', hashedServerSeed = 'N/A', serverSeed = 'N/A', clientSeed = 'N/A', onClose = () => {} }) {
+export default function CoinflipFairnessModal({ gameLabel = 'Coinflip', coinflipId = 'N/A', hashedServerSeed = 'N/A', serverSeed = 'N/A', clientSeed = 'N/A', onClose = () => {} }) {
   const [closing, setClosing] = useState(false)
   const closeTimerRef = useRef(null)
   const onCloseRef = useRef(onClose)
@@ -43,7 +43,7 @@ export default function CoinflipFairnessModal({ coinflipId = 'N/A', hashedServer
   }, [requestClose])
 
   const fields = [
-    ['Coinflip ID', coinflipId],
+    [`${gameLabel} ID`, coinflipId],
     ['Hashed server seed', hashedServerSeed],
     ['Server seed', serverSeed],
     ['Client seed', clientSeed],

@@ -5,6 +5,7 @@ import {
   ProfileIcon,
   TermsIcon,
 } from './components/icons'
+import { LEADERBOARD_ENABLED } from './features'
 
 export const navSections = [
   {
@@ -18,7 +19,7 @@ export const navSections = [
     label: 'General',
     items: [
       { name: 'Profile', icon: ProfileIcon, path: 'profile' },
-      { name: 'Leaderboard', icon: LeaderboardIcon, path: 'leaderboard' },
+      { name: 'Leaderboard', icon: LeaderboardIcon, path: 'leaderboard', enabled: LEADERBOARD_ENABLED },
       { name: 'Terms of Service', icon: TermsIcon, path: 'tos' },
     ],
   },

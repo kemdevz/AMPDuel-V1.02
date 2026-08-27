@@ -11,6 +11,7 @@ import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
 import HeaderUtilityBar from './HeaderUtilityBar'
 import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
+import { LEADERBOARD_ENABLED } from '../features'
 
 export default function Layout({ children, onInitialWalletReady }) {
   const user = useAuth((s) => s.user)
@@ -193,10 +194,10 @@ export default function Layout({ children, onInitialWalletReady }) {
         onClose={() => setProfileModalOpen(false)}
       />
 
-      <LeaderboardModal
+      {LEADERBOARD_ENABLED ? <LeaderboardModal
         isOpen={leaderboardModalOpen}
         onClose={() => setLeaderboardModalOpen(false)}
-      />
+      /> : null}
 
       <TermsModal
         isOpen={termsModalOpen}
