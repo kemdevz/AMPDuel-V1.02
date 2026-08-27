@@ -370,3 +370,15 @@ export function AmpItemCard({ item, selected = false, selectable = false, onClic
   const value = Number(item?.value ?? item?.amount ?? 0)
   return <Tag type={selectable ? 'button' : undefined} className={`amp-item-card${selected ? ' is-selected' : ''}`} onClick={selectable ? onClick : undefined} aria-pressed={selectable ? selected : undefined}>{selected ? <span className="amp-item-check"><CheckIcon /></span> : null}<span className="amp-item-image-wrap">{image ? <img className="amp-item-image" src={image} alt={item?.name || ''} draggable="false" /> : null}</span><p className="amp-item-name" title={item?.name || ''}>{item?.name || 'Item'}</p><span className="amp-item-value"><RobuxIcon /><span>{value.toLocaleString()}</span></span></Tag>
 }
+
+export function prioritizeSelectedItems(items, selectedItems) {
+  const selectedKeys = selectedItems instanceof Set ? selectedItems : new Set(selectedItems || [])
+  if (selectedKeys.size === 0) return items
+
+  const selected = []
+  const unselected = []
+  for (const item of items) {
+    (selectedKeys.has(item.displayKey) ? selected : unselected).push(item)
+  }
+  return [...selected, ...unselected]
+}

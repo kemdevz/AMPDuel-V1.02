@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabaseClient'
 import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import { useAuth } from '../store/auth'
-import { AMP_MODAL_STYLES, AmpItemCard, AmpSearch, AmpSort, CloseIcon } from './AmpInventoryModalUI'
+import { AMP_MODAL_STYLES, AmpItemCard, AmpSearch, AmpSort, CloseIcon, prioritizeSelectedItems } from './AmpInventoryModalUI'
 
 const MAX_ITEMS = 20
 
@@ -59,10 +59,11 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
   const visibleRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     const direction = sortAscending ? 1 : -1
-    return inventoryRows
+    const sortedRows = inventoryRows
       .filter((item) => String(item.name || '').toLowerCase().includes(query))
       .sort((left, right) => (Number(left.value || 0) - Number(right.value || 0)) * direction)
-  }, [inventoryRows, searchQuery, sortAscending])
+    return prioritizeSelectedItems(sortedRows, selectedItems)
+  }, [inventoryRows, searchQuery, selectedItems, sortAscending])
   const toggleItem = (displayKey) => setSelectedItems((current) => {
     if (current.includes(displayKey)) return current.filter((key) => key !== displayKey)
     return current.length >= MAX_ITEMS ? current : [...current, displayKey]

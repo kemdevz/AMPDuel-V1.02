@@ -12,6 +12,7 @@ import {
   AmpValuePill,
   CloseIcon,
   PlusIcon,
+  prioritizeSelectedItems,
   RobuxIcon,
 } from './AmpInventoryModalUI'
 import { notifications } from './Notifications'
@@ -93,10 +94,11 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
   const visibleRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     const direction = sortAscending ? 1 : -1
-    return eligibleRows
+    const sortedRows = eligibleRows
       .filter((item) => String(item.name || '').toLowerCase().includes(query))
       .sort((a, b) => (Number(a.value ?? 0) - Number(b.value ?? 0)) * direction)
-  }, [eligibleRows, searchQuery, sortAscending])
+    return prioritizeSelectedItems(sortedRows, selectedItems)
+  }, [eligibleRows, searchQuery, selectedItems, sortAscending])
 
   const selectedRows = useMemo(() => {
     const selected = new Set(selectedItems)

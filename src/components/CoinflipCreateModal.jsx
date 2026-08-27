@@ -10,6 +10,7 @@ import {
   AmpSort,
   CloseIcon,
   PlusIcon,
+  prioritizeSelectedItems,
 } from './AmpInventoryModalUI'
 import { notifications } from './Notifications'
 import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
@@ -106,10 +107,11 @@ export default function CoinflipCreateModal({
   const visibleRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     const direction = sortAscending ? 1 : -1
-    return inventoryRows
+    const sortedRows = inventoryRows
       .filter((item) => String(item.name || '').toLowerCase().includes(query))
       .sort((a, b) => (Number(a.value ?? 0) - Number(b.value ?? 0)) * direction)
-  }, [inventoryRows, searchQuery, sortAscending])
+    return prioritizeSelectedItems(sortedRows, selectedItems)
+  }, [inventoryRows, searchQuery, selectedItems, sortAscending])
 
   const toggleItem = (displayKey) => {
     setSelectedItems((current) => {
