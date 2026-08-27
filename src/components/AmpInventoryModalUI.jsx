@@ -242,7 +242,8 @@ export const AMP_MODAL_STYLES = `
 
   .amp-sticky-footer { position: sticky; bottom: -20px; z-index: 5; margin: 0 -20px -20px; padding: 16px 20px; border-top: 1px solid rgba(255, 255, 255, .07); background: #191c24; }
   .amp-footer-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
-  .amp-footer-selection-group { display: flex; min-width: 0; align-items: center; gap: 12px; margin-right: auto; }
+  .amp-create-footer-coins { margin-right: auto; }
+  .amp-create-footer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .amp-footer-selection-action { height: 44px; padding: 0 18px; font-size: 14px; font-weight: 700; line-height: 20px; }
   .amp-join-summary-hidden { display: none; }
   .amp-join-footer-row { justify-content: space-between; }
@@ -280,8 +281,11 @@ export const AMP_MODAL_STYLES = `
   .amp-custom-footer > button:last-of-type:hover { background: #ff69b0; }
   .amp-custom-footer > .amp-footer-selection-action {
     min-width: 40px;
-    margin-right: auto;
+    height: 44px;
+    margin-right: 0;
+    padding: 0 18px;
     border: 0;
+    border-radius: 7px;
     color: #a8aeb9;
     background: #20242e;
   }
@@ -320,7 +324,7 @@ export const AMP_MODAL_STYLES = `
     .amp-footer-row { gap: 8px; }
     .amp-join-footer-row { align-items: flex-start; flex-direction: column; }
     .amp-join-actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-    .amp-footer-selection-group { gap: 8px; }
+    .amp-create-footer-actions { gap: 8px; }
     .amp-footer-selection-action { padding: 0 12px; }
     .amp-side-button { width: 42px; min-width: 42px; height: 42px; }
     .amp-side-button img { width: 38px; height: 38px; }
@@ -330,6 +334,7 @@ export const AMP_MODAL_STYLES = `
     .amp-item-image { width: 94px; height: 94px; }
     .amp-custom-footer { gap: 8px; }
     .amp-custom-footer > button { padding: 0 14px; }
+    .amp-custom-footer > .amp-footer-selection-action { padding: 0 12px; }
     .amp-custom-footer > button:last-of-type { min-width: 150px; flex: 1 1 150px; }
   }
 `

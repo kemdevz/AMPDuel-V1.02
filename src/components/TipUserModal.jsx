@@ -1,12 +1,5 @@
 import InventoryModal from './InventoryModal'
 
-const COIN_ICON = '/bobux.png'
-
-function formatNumber(value) {
-  const numericValue = Number(value ?? 0)
-  return Number.isFinite(numericValue) ? numericValue.toLocaleString() : '0'
-}
-
 export default function TipUserModal({
   isOpen,
   recipient,
@@ -28,7 +21,6 @@ export default function TipUserModal({
       footer={({
         selectedItems,
         selectedAmount,
-        selectedValue,
       }) => (
         <>
           <button
@@ -37,22 +29,7 @@ export default function TipUserModal({
             disabled={selectedAmount === 0 || isSubmitting}
             onClick={() => onSubmit?.(selectedItems)}
           >
-            <strong className="_pcvalue_cpcgp_471">
-              {isSubmitting ? 'Sending...' : 'Tip'}
-              <span className="_walletWithdrawSep_cpcgp_local" />
-              <span className="_walletCoinValue_cpcgp_local">
-                <img src={COIN_ICON} alt="Bobux" />
-                <span className="_pcvalue_cpcgp_471">{formatNumber(selectedValue)}</span>
-              </span>
-            </strong>
-            <strong className="_mobilevalue_cpcgp_472">
-              {isSubmitting ? 'Sending...' : `Tip ${username}`}
-              <span className="_walletWithdrawSep_cpcgp_local" />
-              <span className="_walletCoinValue_cpcgp_local">
-                <img src={COIN_ICON} alt="Bobux" />
-                <span className="_mobilevalue_cpcgp_472">{formatNumber(selectedValue)}</span>
-              </span>
-            </strong>
+            <strong>Tip</strong>
           </button>
           <style>{`
             .tipUserInventoryButton {

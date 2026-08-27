@@ -223,13 +223,13 @@ export default function CoinflipCreateModal({
 
             <div className="amp-sticky-footer">
               <div className="amp-footer-row">
-                <div className="amp-footer-selection-group">
-                  {showCoinSelection ? <div className="amp-side-options" role="group" aria-label="Choose coin side">
-                    {['heads', 'tails'].map((side) => <button type="button" key={side} className={`amp-side-button${selectedCoin === side ? ' is-active' : ''}`} aria-label={`Select ${side}`} aria-pressed={selectedCoin === side} onClick={() => setSelectedCoin(side)}><img src={side === 'heads' ? HEADS_ICON : TAILS_ICON} alt="" /></button>)}
-                  </div> : null}
+                {showCoinSelection ? <div className="amp-side-options amp-create-footer-coins" role="group" aria-label="Choose coin side">
+                  {['heads', 'tails'].map((side) => <button type="button" key={side} className={`amp-side-button${selectedCoin === side ? ' is-active' : ''}`} aria-label={`Select ${side}`} aria-pressed={selectedCoin === side} onClick={() => setSelectedCoin(side)}><img src={side === 'heads' ? HEADS_ICON : TAILS_ICON} alt="" /></button>)}
+                </div> : <div className="amp-create-footer-coins" aria-hidden="true" />}
+                <div className="amp-create-footer-actions">
                   <button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={visibleRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button>
+                  <button type="button" className="amp-create-button" disabled={!creationEnabled || inventoryLoading || selectedItems.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button>
                 </div>
-                <button type="button" className="amp-create-button" disabled={!creationEnabled || inventoryLoading || selectedItems.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button>
               </div>
             </div>
           </div>
