@@ -815,6 +815,24 @@ function emitOnlineCount() {
   return count
 }
 
+// Authenticate every Socket.IO handshake from the same signed session cookie
+// used by the HTTP API. Chat events must never trust identity fields supplied
+// by the browser, and reconnecting after login gives this middleware the new
+// cookie without requiring a page refresh.
+io.use(async (socket, next) => {
+  try {
+    const identity = await getAuthenticatedIdentityFromHeaders(socket.handshake.headers)
+    socket.data.identity = identity || null
+    socket.data.profile = identity?.profileId ? await loadProfileById(identity.profileId) : null
+    next()
+  } catch (error) {
+    console.warn('[socket] authentication lookup failed', error)
+    socket.data.identity = null
+    socket.data.profile = null
+    next()
+  }
+})
+
 const chatServerInstanceId = crypto.randomUUID()
 const chatMessageHistory = []
 const MAX_CHAT_MESSAGE_HISTORY = 20
