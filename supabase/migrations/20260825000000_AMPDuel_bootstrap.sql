@@ -1938,7 +1938,11 @@ BEGIN
     END,
     owner_id,
     COALESCE(NULLIF(item->>'name', ''), 'Unknown item'),
-    CASE WHEN COALESCE(item->>'value', '') ~ '^-?[0-9]+$' THEN (item->>'value')::integer ELSE 0 END,
+    CASE
+      WHEN COALESCE(item->>'value', '') ~ '^[0-9]+(\.[0-9]{1,4})?$'
+        THEN (item->>'value')::numeric
+      ELSE 0
+    END,
     NULLIF(item->>'image_url', ''),
     NULLIF(item->>'type', ''),
     now(),
@@ -3980,6 +3984,9 @@ BEGIN
   END IF;
 END;
 $fractional_inventory_values$;
+
+ALTER TABLE public.withdraws
+  ALTER COLUMN value TYPE numeric(20, 4) USING value::numeric;
 
 -- Refresh stale AMP inventory snapshots created while inventory_items.value
 -- was still an integer. Prefer the immutable catalog UUID, then repair older

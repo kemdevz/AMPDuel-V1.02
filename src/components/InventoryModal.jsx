@@ -77,7 +77,6 @@ export default function WalletModal({
         if (isMounted) setInventoryItems(result?.items ?? [])
       } catch (error) {
         if (isMounted) {
-          setInventoryItems([])
           setInventoryError(error.message || 'Failed to load inventory.')
           notifications.error(error.message || 'Failed to load inventory.')
         }

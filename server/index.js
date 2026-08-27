@@ -1759,6 +1759,26 @@ app.get('/api/admin/items', requireAuthenticatedUser, async (req, res) => {
       return
     }
 
+    if (itemType === 'AMP') {
+      const limit = Math.min(250, Math.max(1, Number.parseInt(req.query?.limit, 10) || 120))
+      const offset = Math.max(0, Number.parseInt(req.query?.offset, 10) || 0)
+      const search = String(req.query?.q || '').trim().slice(0, 100)
+      const direction = String(req.query?.sort || '').toLowerCase() === 'asc' ? 'asc' : 'desc'
+      const searchFilter = search ? `&name=ilike.${encodeURIComponent(`*${search}*`)}` : ''
+      const page = await adminRest(
+        `items?select=id,name,value,image_url,type&type=eq.AMP&value=gt.0${searchFilter}&order=value.${direction},name.asc,id.asc&limit=${limit + 1}&offset=${offset}`,
+      )
+      const rows = Array.isArray(page) ? page : []
+      res.setHeader('Cache-Control', 'private, no-store')
+      res.json({
+        ok: true,
+        items: rows.slice(0, limit).filter(isAdminInventoryCatalogItemAllowed),
+        has_more: rows.length > limit,
+        next_offset: offset + Math.min(rows.length, limit),
+      })
+      return
+    }
+
     const pageSize = 1000
     const items = []
     for (let offset = 0; ; offset += pageSize) {

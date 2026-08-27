@@ -302,6 +302,7 @@ function AdminCatalogIcon({ className = '' }) {
 }
 
 function AdminItemsDatabase({ itemType }) {
+  const remotePaged = itemType === 'AMP'
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
   const [descending, setDescending] = useState(true)
@@ -310,6 +311,10 @@ function AdminItemsDatabase({ itemType }) {
   const [error, setError] = useState('')
   const [selectedQuantities, setSelectedQuantities] = useState({})
   const [addingSelected, setAddingSelected] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const nextOffsetRef = useRef(0)
+  const loadSequenceRef = useRef(0)
   const deferredSearch = useDeferredValue(search)
   const selectedItemIds = useMemo(
     () => Object.keys(selectedQuantities).filter((itemId) => Number(selectedQuantities[itemId]) > 0),
@@ -320,26 +325,59 @@ function AdminItemsDatabase({ itemType }) {
     [selectedItemIds, selectedQuantities],
   )
 
-  const loadItems = async () => {
-    setLoading(true)
+  const loadItems = async ({ reset = true } = {}) => {
+    if (!reset && (loadingMore || !hasMore)) return
+    const sequence = reset ? ++loadSequenceRef.current : loadSequenceRef.current
+    if (reset) {
+      setLoading(true)
+      setItems([])
+      setHasMore(false)
+      nextOffsetRef.current = 0
+    } else {
+      setLoadingMore(true)
+    }
     setError('')
     try {
-      const payload = await apiRequest(`/api/admin/items?type=${encodeURIComponent(itemType)}`)
-      setItems(Array.isArray(payload?.items) ? payload.items : [])
+      const query = new URLSearchParams({ type: itemType })
+      if (remotePaged) {
+        query.set('limit', '120')
+        query.set('offset', String(reset ? 0 : nextOffsetRef.current))
+        query.set('sort', descending ? 'desc' : 'asc')
+        if (deferredSearch.trim()) query.set('q', deferredSearch.trim())
+      }
+      const payload = await apiRequest(`/api/admin/items?${query.toString()}`, { cache: 'no-store' })
+      if (sequence !== loadSequenceRef.current) return
+      const incoming = Array.isArray(payload?.items) ? payload.items : []
+      setItems((current) => {
+        if (reset) return incoming
+        const knownIds = new Set(current.map((item) => String(item.id)))
+        return [...current, ...incoming.filter((item) => !knownIds.has(String(item.id)))]
+      })
+      nextOffsetRef.current = Number(payload?.next_offset ?? ((reset ? 0 : nextOffsetRef.current) + incoming.length))
+      setHasMore(remotePaged && Boolean(payload?.has_more))
     } catch (loadError) {
-      setItems([])
+      if (sequence !== loadSequenceRef.current) return
+      if (reset) setItems([])
       setError(loadError?.message || 'Unable to load the item database.')
     } finally {
-      setLoading(false)
+      if (sequence === loadSequenceRef.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }
 
   useEffect(() => {
-    void loadItems()
-  }, [itemType])
+    void loadItems({ reset: true })
+  }, [itemType, remotePaged ? deferredSearch : '', remotePaged ? descending : false])
 
   const filteredItems = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase()
+    if (remotePaged) {
+      return items.slice().sort((a, b) => (
+        Number(selectedItemIds.includes(String(b?.id))) - Number(selectedItemIds.includes(String(a?.id)))
+      ))
+    }
     return items
       .filter((item) => !query || String(item?.name || '').toLowerCase().includes(query))
       .slice()
@@ -350,11 +388,11 @@ function AdminItemsDatabase({ itemType }) {
           ? Number(b?.value || 0) - Number(a?.value || 0) || String(a?.name || '').localeCompare(String(b?.name || ''))
           : Number(a?.value || 0) - Number(b?.value || 0) || String(a?.name || '').localeCompare(String(b?.name || ''))
       })
-  }, [deferredSearch, descending, items, selectedItemIds])
+  }, [deferredSearch, descending, items, remotePaged, selectedItemIds])
 
   const visibleItems = useMemo(
-    () => filteredItems.slice(0, visibleCount),
-    [filteredItems, visibleCount],
+    () => remotePaged ? filteredItems : filteredItems.slice(0, visibleCount),
+    [filteredItems, remotePaged, visibleCount],
   )
 
   useEffect(() => {
@@ -443,8 +481,11 @@ function AdminItemsDatabase({ itemType }) {
         className={`min-h-[260px] flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-[#1c1f2e] p-2.5 ${scrollClasses}`}
         onScroll={(event) => {
           const element = event.currentTarget
-          if (element.scrollHeight - element.scrollTop - element.clientHeight < 320 && visibleCount < filteredItems.length) {
-            setVisibleCount((current) => Math.min(current + 120, filteredItems.length))
+          if (element.scrollHeight - element.scrollTop - element.clientHeight < 320) {
+            if (remotePaged && hasMore && !loadingMore) void loadItems({ reset: false })
+            else if (!remotePaged && visibleCount < filteredItems.length) {
+              setVisibleCount((current) => Math.min(current + 120, filteredItems.length))
+            }
           }
         }}
       >
@@ -501,6 +542,7 @@ function AdminItemsDatabase({ itemType }) {
         ) : (
           <div className="flex h-full min-h-[240px] items-center justify-center text-xs text-white/45">No items found.</div>
         )}
+        {loadingMore ? <div className="py-3 text-center text-xs text-white/45">Loading more items...</div> : null}
       </div>
     </div>
   )
