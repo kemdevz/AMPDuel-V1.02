@@ -970,7 +970,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           .coinflip-game-list { animation: none; }
         }
       `}</style>
-      <div className="relative z-10 flex w-full flex-col px-[18px] pb-32 pt-5">
+      <div className="relative z-10 flex w-full flex-col px-3 pb-32 pt-3 sm:px-[18px] sm:pt-5">
         {/* Stats Cards */}
         <div className="grid gap-2 md:grid-cols-3">
           <StatCard

@@ -82,14 +82,14 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose }) {
       <div className="amp-modal-body"><div className="amp-modal-stack">
         <div className="amp-create-top">
           <AmpSearch value={searchQuery} onChange={setSearchQuery} />
-          <div className="amp-modal-controls"><button type="button" className="amp-inventory-action" disabled={visibleRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button><AmpSort ascending={sortAscending} onChange={setSortAscending} /></div>
+          <div className="amp-modal-controls"><AmpSort ascending={sortAscending} onChange={setSortAscending} /></div>
         </div>
         {inventoryLoading ? <div className="amp-inventory-loading"><span className="amp-spinner" /><p className="amp-loading-copy">Loading inventory</p></div>
           : inventoryError ? <div className="amp-inventory-empty"><p className="amp-empty-copy">{inventoryError}</p></div>
           : inventoryRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">Your inventory is empty.</p></div>
           : visibleRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">No items match “{searchQuery.trim()}”.</p></div>
           : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
-        <div className="amp-sticky-footer"><div className="amp-footer-row"><div aria-hidden="true" /><button type="button" className="amp-create-button" disabled>Create</button></div></div>
+        <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={visibleRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && visibleRows.slice(0, MAX_ITEMS).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button><button type="button" className="amp-create-button" disabled>Create</button></div></div>
       </div></div>
       <style>{AMP_MODAL_STYLES}</style>
     </section>

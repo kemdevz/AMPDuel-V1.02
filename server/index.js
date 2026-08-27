@@ -915,16 +915,20 @@ io.on('connection', (socket) => {
       return
     }
     const recentMessages = getRecentChatMessages(socket.data.identity.profileId, now)
-    if (recentMessages.length >= 3) {
+    const normalizedSpamText = normalizeChatSpamText(messageText)
+    if (isChatMessageSpam(recentMessages, normalizedSpamText, now)) {
       if (typeof acknowledge === 'function') {
         acknowledge({
           ok: false,
-          error: 'Your sending messages too quickly!',
+          error: 'You are sending messages too quickly. Please wait a moment.',
         })
       }
       return
     }
-    chatMessageWindows.set(socket.data.identity.profileId, [...recentMessages, now])
+    chatMessageWindows.set(socket.data.identity.profileId, [
+      ...recentMessages,
+      { timestamp: now, text: normalizedSpamText },
+    ])
     const profile = socket.data.profile
     const outgoing = {
       id: `msg-${Date.now()}-${crypto.randomUUID()}`,
@@ -1004,20 +1008,42 @@ const extremeProfileMutationWindows = new Map()
 const temporaryIpBlocks = new Map()
 const temporaryProfileBlocks = new Map()
 
+function normalizeChatSpamText(messageText) {
+  return String(messageText || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function getRecentChatMessages(profileId, now) {
-  const recentMessages = (chatMessageWindows.get(profileId) || []).filter(
-    (timestamp) => timestamp > now - 10_000,
-  )
+  const recentMessages = (chatMessageWindows.get(profileId) || [])
+    .map((entry) => (typeof entry === 'number' ? { timestamp: entry, text: '' } : entry))
+    .filter((entry) => Number(entry?.timestamp) > now - 60_000)
   chatMessageWindows.set(profileId, recentMessages)
 
   if (chatMessageWindows.size > 5_000) {
-    for (const [storedProfileId, timestamps] of chatMessageWindows.entries()) {
-      if (!timestamps.some((timestamp) => timestamp > now - 10_000)) {
+    for (const [storedProfileId, messages] of chatMessageWindows.entries()) {
+      if (!messages.some((entry) => Number(entry?.timestamp) > now - 60_000)) {
         chatMessageWindows.delete(storedProfileId)
       }
     }
   }
   return recentMessages
+}
+
+function isChatMessageSpam(recentMessages, normalizedText, now) {
+  const messagesInTwoSeconds = recentMessages.filter((entry) => entry.timestamp > now - 2_000)
+  const messagesInTenSeconds = recentMessages.filter((entry) => entry.timestamp > now - 10_000)
+  const matchingMessages = recentMessages.filter((entry) => (
+    entry.timestamp > now - 15_000 && entry.text && entry.text === normalizedText
+  ))
+
+  // Allow normal quick back-and-forth conversation, while still stopping
+  // automated bursts, sustained flooding, and repeated copy/paste spam.
+  return messagesInTwoSeconds.length >= 6
+    || messagesInTenSeconds.length >= 12
+    || recentMessages.length >= 30
+    || matchingMessages.length >= 2
 }
 
 function isRateLimited(store, key, limit, windowMs) {

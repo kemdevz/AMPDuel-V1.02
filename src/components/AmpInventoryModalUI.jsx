@@ -242,6 +242,8 @@ export const AMP_MODAL_STYLES = `
 
   .amp-sticky-footer { position: sticky; bottom: -20px; z-index: 5; margin: 0 -20px -20px; padding: 16px 20px; border-top: 1px solid rgba(255, 255, 255, .07); background: #191c24; }
   .amp-footer-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+  .amp-footer-selection-group { display: flex; min-width: 0; align-items: center; gap: 12px; margin-right: auto; }
+  .amp-footer-selection-action { height: 44px; padding: 0 18px; font-size: 14px; font-weight: 700; line-height: 20px; }
   .amp-join-summary-hidden { display: none; }
   .amp-join-footer-row { justify-content: space-between; }
   .amp-join-range { display: inline-flex; min-width: 0; align-items: center; gap: 8px; color: #c7cce2; font-size: 14px; font-weight: 700; line-height: 20px; white-space: nowrap; }
@@ -276,6 +278,14 @@ export const AMP_MODAL_STYLES = `
   .amp-custom-footer > button:first-of-type:hover { background: rgba(255, 79, 163, .14); }
   .amp-custom-footer > button:last-of-type { min-width: 190px; border: 0; color: #111319; background: #ff4fa3; }
   .amp-custom-footer > button:last-of-type:hover { background: #ff69b0; }
+  .amp-custom-footer > .amp-footer-selection-action {
+    min-width: 40px;
+    margin-right: auto;
+    border: 0;
+    color: #a8aeb9;
+    background: #20242e;
+  }
+  .amp-custom-footer > .amp-footer-selection-action:hover { color: #c1c6d0; background: #282c37; }
   .amp-custom-footer > button:disabled { cursor: not-allowed; opacity: .5; }
   .amp-custom-footer ._pcvalue_cpcgp_471,
   .amp-custom-footer ._mobilevalue_cpcgp_472,
@@ -286,6 +296,7 @@ export const AMP_MODAL_STYLES = `
   .amp-custom-footer ._walletCoinValue_cpcgp_local img { width: 15px; height: 15px; object-fit: contain; }
 
   @media (max-width: 767px) {
+    .amp-modal-header { padding-right: 52px; }
     .amp-modal-body { padding: 12px; }
     .amp-wallet-top { align-items: stretch; flex-direction: column; }
     .amp-modal-controls { width: 100%; }
@@ -295,7 +306,7 @@ export const AMP_MODAL_STYLES = `
     .amp-sort select { width: 100%; }
     .amp-value-pill { width: 100%; justify-content: center; flex-wrap: wrap; }
     .amp-inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .amp-sticky-footer { bottom: -12px; margin: 0 -12px -12px; padding: 16px 12px; }
+    .amp-sticky-footer { bottom: -12px; margin: 0 -12px -12px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
   }
 
   @media (min-width: 768px) and (max-width: 1023px) {
@@ -303,15 +314,17 @@ export const AMP_MODAL_STYLES = `
   }
 
   @media (max-width: 479px) {
-    .amp-modal-dialog { max-height: calc(100dvh - 24px); }
+    .amp-modal-dialog { max-height: calc(100dvh - env(safe-area-inset-top)); }
     .amp-create-summary { width: 100%; }
     .amp-count-badge { margin: 0 auto; }
     .amp-footer-row { gap: 8px; }
     .amp-join-footer-row { align-items: flex-start; flex-direction: column; }
-    .amp-join-actions { width: 100%; justify-content: flex-end; gap: 8px; }
+    .amp-join-actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .amp-footer-selection-group { gap: 8px; }
+    .amp-footer-selection-action { padding: 0 12px; }
     .amp-side-button { width: 42px; min-width: 42px; height: 42px; }
     .amp-side-button img { width: 38px; height: 38px; }
-    .amp-create-button { width: 140px; min-width: 140px; flex: 0 0 140px; }
+    .amp-create-button { width: 108px; min-width: 108px; flex: 0 0 108px; }
     .amp-item-card { padding: 10px; }
     .amp-item-image-wrap { height: 104px; }
     .amp-item-image { width: 94px; height: 94px; }

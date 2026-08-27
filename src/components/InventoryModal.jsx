@@ -196,7 +196,6 @@ export default function WalletModal({
             <div className="amp-wallet-top">
               <AmpSearch value={searchQuery} onChange={setSearchQuery} />
               <div className="amp-modal-controls">
-                {selectionEnabled ? <button type="button" className="amp-inventory-action" disabled={visibleRows.length === 0} onClick={onToggleSelectAll}>{visibleRows.length > 0 && visibleRows.every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button> : null}
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>
@@ -207,8 +206,8 @@ export default function WalletModal({
               : visibleRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">No items match “{searchQuery.trim()}”.</p></div>
               : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable={selectionEnabled} selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
 
-            {customFooter ? <div className="amp-sticky-footer"><div className="amp-custom-footer">{customFooter}</div></div> : null}
-            {!footer && !readOnly ? <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-create-button" disabled={selectedItems.length === 0 || withdrawing} onClick={handleWithdraw}>{withdrawing ? 'Withdrawing' : 'Withdraw'}</button></div></div> : null}
+            {customFooter ? <div className="amp-sticky-footer"><div className="amp-custom-footer">{selectionEnabled ? <button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={visibleRows.length === 0} onClick={onToggleSelectAll}>{visibleRows.length > 0 && visibleRows.every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button> : null}{customFooter}</div></div> : null}
+            {!footer && !readOnly ? <div className="amp-sticky-footer"><div className="amp-footer-row"><button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={visibleRows.length === 0} onClick={onToggleSelectAll}>{visibleRows.length > 0 && visibleRows.every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button><button type="button" className="amp-create-button" disabled={selectedItems.length === 0 || withdrawing} onClick={handleWithdraw}>{withdrawing ? 'Withdrawing' : 'Withdraw'}</button></div></div> : null}
           </div>
         </div>
         <style>{AMP_MODAL_STYLES}</style>

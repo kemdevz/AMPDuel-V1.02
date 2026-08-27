@@ -295,8 +295,6 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
                 {configuredMaxItems > 0 ? <span className="amp-join-max-items">Max {configuredMaxItems} join items</span> : null}
               </div>
               <div className="amp-modal-controls">
-                <button type="button" className="amp-inventory-action" disabled={sortedFilteredRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && sortedFilteredRows.slice(0, itemLimit).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button>
-                <button type="button" className="amp-inventory-action" disabled={sortedFilteredRows.length === 0} onClick={autoSelect}>Auto Select</button>
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>
             </div>
@@ -312,6 +310,8 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
                 <span className="amp-join-range"><RobuxIcon /><span>{displayNumber(minValue)} &ndash; {displayNumber(maxValue)}</span></span>
                 <div className="amp-join-actions">
                   <img className="amp-join-coin" src={joinSide === 'heads' ? HEADS_ICON : TAILS_ICON} alt={joinSide} draggable="false" />
+                  <button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={sortedFilteredRows.length === 0} onClick={toggleSelectAll}>{selectedItems.length > 0 && sortedFilteredRows.slice(0, itemLimit).every((item) => selectedItems.includes(item.displayKey)) ? 'Unselect All' : 'Select All'}</button>
+                  <button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={sortedFilteredRows.length === 0} onClick={autoSelect}>Auto Select</button>
                   <button type="button" className="amp-create-button" disabled={inventoryLoading || !canJoin || joining} onClick={handleJoin}>{joining ? 'Joining' : 'Join'}</button>
                 </div>
               </div>
