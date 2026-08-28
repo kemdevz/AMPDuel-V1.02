@@ -6,7 +6,8 @@ import ChatPanel from './ChatPanel'
 import ProfileModal from './ProfileModal'
 import LeaderboardModal from './LeaderboardModal'
 import { useAuth } from '../store/auth'
-import { NavLink } from '../lib/router'
+import { NavLink, usePathname } from '../lib/router'
+import { normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
 import HeaderUtilityBar from './HeaderUtilityBar'
@@ -14,6 +15,7 @@ import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClien
 import { LEADERBOARD_ENABLED } from '../features'
 
 export default function Layout({ children, onInitialWalletReady }) {
+  const pathname = usePathname()
   const user = useAuth((s) => s.user)
   const touchSessionActivity = useAuth((s) => s.touchSessionActivity)
   const isLoggedIn = Boolean(user)
@@ -22,6 +24,30 @@ export default function Layout({ children, onInitialWalletReady }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const activeGameStorageKey = pathname === '/mines' ? 'bloxdice:mines-game' : 'bloxdice:coinflip-game'
+  const [activeGameMode, setActiveGameMode] = useState(() => {
+    try {
+      const storageKey = window.location.pathname === '/mines' ? 'bloxdice:mines-game' : 'bloxdice:coinflip-game'
+      return normalizeCoinflipGameMode(window.localStorage.getItem(storageKey), 'mm2')
+    } catch {
+      return 'mm2'
+    }
+  })
+
+  useEffect(() => {
+    try {
+      setActiveGameMode(normalizeCoinflipGameMode(window.localStorage.getItem(activeGameStorageKey), 'mm2'))
+    } catch {
+      setActiveGameMode('mm2')
+    }
+
+    const handleGameModeChange = (event) => {
+      if (event?.detail?.storageKey !== activeGameStorageKey) return
+      setActiveGameMode(normalizeCoinflipGameMode(event?.detail?.gameMode, 'mm2'))
+    }
+    window.addEventListener('ampduel:game-mode-changed', handleGameModeChange)
+    return () => window.removeEventListener('ampduel:game-mode-changed', handleGameModeChange)
+  }, [activeGameStorageKey])
 
   useEffect(() => {
     const handleOpenProfileModal = () => {
@@ -131,7 +157,7 @@ export default function Layout({ children, onInitialWalletReady }) {
       />
 
       <div className="mt-[72px] flex min-h-0 flex-1 overflow-hidden">
-          <ChatPanel mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
+          <ChatPanel gameMode={activeGameMode} mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
 
           <div className="flex min-h-0 min-w-0 flex-[1_1_auto] flex-col">
             <HeaderUtilityBar
@@ -204,7 +230,7 @@ export default function Layout({ children, onInitialWalletReady }) {
         onClose={() => setTermsModalOpen(false)}
       />
 
-      <ProfileTipManager />
+      <ProfileTipManager gameMode={activeGameMode} />
     </div>
   )
 }

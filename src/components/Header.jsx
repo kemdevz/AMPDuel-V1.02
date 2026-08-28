@@ -507,7 +507,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
             onOpenWithdrawalDeposit={() => setWithdrawalDepositOpen(true)}
             gameMode={activeGameMode}
           />
-          <DepositModal isOpen={withdrawalDepositOpen} onClose={() => setWithdrawalDepositOpen(false)} />
+          <DepositModal isOpen={withdrawalDepositOpen} onClose={() => setWithdrawalDepositOpen(false)} gameMode={activeGameMode} />
           <button
             type="button"
             className="flex cursor-pointer items-stretch rounded border-0 bg-transparent p-0 text-sm font-semibold text-white transition hover:opacity-90"

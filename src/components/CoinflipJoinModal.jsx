@@ -276,7 +276,7 @@ export default function CoinflipJoinModal({ room, gameMode: selectedGameMode = n
   if (typeof document === 'undefined') return null
 
   return createPortal(<>
-    <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} />
+    <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} gameMode={gameMode} />
     <div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="game-join-title">
         <h2 className="amp-modal-header" id="game-join-title">Join</h2>

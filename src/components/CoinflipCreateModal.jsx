@@ -201,7 +201,7 @@ export default function CoinflipCreateModal({
   if (typeof document === 'undefined') return null
 
   return createPortal(<>
-    <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} />
+    <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} gameMode={normalizedGameMode} />
     <div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="coinflip-create-title">
         <h2 className="amp-modal-header" id="coinflip-create-title">{title}</h2>

@@ -3,29 +3,62 @@ import { createPortal } from 'react-dom'
 import { apiRequest } from '../lib/apiClient'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
+import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import { getInventoryItemCardStyle } from './InventoryItemCard'
+import { CloseIcon } from './AmpInventoryModalUI'
 import { notifications } from './Notifications'
 
 const COIN_ICON = '/bobux.png'
-const BGSI_ICON = 'https://imgs.search.brave.com/587h7PLCiYtUpNyrOJrBSxT2V2GDiYSWVdeiGnUZ1_s/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9zdGF0/aWMud2lraWEubm9j/b29raWUubmV0L3N1/emFuZmlzY2h0ZXN0/L2ltYWdlcy8xLzFj/L1BTOTlfQ2F0LnBu/Zy9yZXZpc2lvbi9s/YXRlc3Q_Y2I9MjAy/NDA1MzExODU3NDQ'
 
 const formatNumber = (value) => {
   const numericValue = Number(value ?? 0)
   return Number.isFinite(numericValue) ? numericValue.toLocaleString() : '0'
 }
 
-const bots = [
-  {
-    name: 'PS99_Rush',
-    active: true,
-    avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter',
+const BOT_CONFIGS = Object.freeze({
+  mm2: {
+    label: 'MM2',
+    fullLabel: 'Murder Mystery 2',
+    itemType: 'MM2',
+    icon: '/deposit-mm2.png',
+    accent: '#ff3636',
+    accentRgb: '255,54,54',
+    surface: '#2a171a',
+    example: 'Chroma Luger',
+    bots: [
+      { name: 'MM2_Rush', active: true, avatar: '/bacon-avatar.png' },
+      { name: 'MM2_Zenu', active: true, avatar: '/bacon-avatar.png' },
+    ],
   },
-  {
-    name: 'PS99_Zenu',
-    active: true,
-    avatar: 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-C4D471323BFE27394BD99F7CC09A6CAE-Png/150/150/AvatarHeadshot/Webp/noFilter',
+  adm: {
+    label: 'Adopt Me',
+    fullLabel: 'Adopt Me',
+    itemType: 'AMP',
+    icon: '/deposit-adm.png',
+    accent: '#ff4fa3',
+    accentRgb: '255,79,163',
+    surface: '#2b1825',
+    example: 'Unicorn',
+    bots: [
+      { name: 'ADM_Rush', active: true, avatar: '/bacon-avatar.png' },
+      { name: 'ADM_Zenu', active: true, avatar: '/bacon-avatar.png' },
+    ],
   },
-]
+  ps99: {
+    label: 'PS99',
+    fullLabel: 'Pet Simulator 99',
+    itemType: 'PS99',
+    icon: '/ps99-cat.png',
+    accent: '#38bdf8',
+    accentRgb: '56,189,248',
+    surface: '#172630',
+    example: 'Huge Santa Monkey',
+    bots: [
+      { name: 'PS99_Rush', active: true, avatar: '/bacon-avatar.png' },
+      { name: 'PS99_Zenu', active: true, avatar: '/bacon-avatar.png' },
+    ],
+  },
+})
 
 function StatusDot({ active }) {
   return (
@@ -55,8 +88,11 @@ function BotRow({ bot }) {
   )
 }
 
-export default function DepositModal({ isOpen, onClose }) {
+export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
   const user = useAuth((state) => state.user)
+  const requestedGameMode = normalizeCoinflipGameMode(gameMode, 'ps99')
+  const [selectedGameMode, setSelectedGameMode] = useState(requestedGameMode)
+  const botConfig = BOT_CONFIGS[selectedGameMode]
   const [view, setView] = useState('bots')
   const [activeWithdraws, setActiveWithdraws] = useState([])
   const [withdrawsLoading, setWithdrawsLoading] = useState(false)
@@ -83,8 +119,10 @@ export default function DepositModal({ isOpen, onClose }) {
       setWithdrawsError(null)
       setItemSearchName('')
       setCheckingItem(false)
+    } else {
+      setSelectedGameMode(requestedGameMode)
     }
-  }, [isOpen])
+  }, [isOpen, requestedGameMode])
 
   useEffect(() => {
     if (!isOpen || view !== 'withdrawals') return undefined
@@ -142,7 +180,9 @@ export default function DepositModal({ isOpen, onClose }) {
 
   if (!isOpen) return null
 
-  const withdrawCards = activeWithdraws.map((withdraw, index) => ({
+  const withdrawCards = activeWithdraws
+    .filter((withdraw) => inventoryItemMatchesGame(withdraw, selectedGameMode))
+    .map((withdraw, index) => ({
     id: withdraw.id,
     displayKey: withdraw.id || `${withdraw.item_name || 'withdraw'}-${index}`,
     name: withdraw.item_name || 'Unknown item',
@@ -150,7 +190,7 @@ export default function DepositModal({ isOpen, onClose }) {
     image_url: withdraw.image_url,
     withdrawed_at: withdraw.withdrawed_at,
     user_id: withdraw.user_id,
-  }))
+    }))
 
   const handleCancelWithdraws = async (rows) => {
     if (canceling || rows.length === 0) return
@@ -202,6 +242,7 @@ export default function DepositModal({ isOpen, onClose }) {
       const { data, error } = await supabase
         .from('items')
         .select('name')
+        .eq('type', botConfig.itemType)
         .ilike('name', escapedName)
         .limit(1)
 
@@ -222,6 +263,8 @@ export default function DepositModal({ isOpen, onClose }) {
   }
 
   const isWithdrawalsView = view === 'withdrawals'
+  const isGamePickerView = view === 'games'
+  const goBack = () => setView(view === 'bots' ? 'games' : 'bots')
 
   return createPortal(
     <div
@@ -232,10 +275,11 @@ export default function DepositModal({ isOpen, onClose }) {
       }}
     >
       <div
-        className={isWithdrawalsView ? '_modalbackgrounddeposit_ei49y_51' : '_modalbackgrounddeposit_13k1a_51'}
+        className={`${isWithdrawalsView ? '_modalbackgrounddeposit_ei49y_51' : '_modalbackgrounddeposit_13k1a_51'}${isGamePickerView ? ' deposit-game-picker-modal' : ''}`}
+        style={{ '--deposit-accent': botConfig.accent, '--deposit-accent-rgb': botConfig.accentRgb }}
         role="dialog"
         aria-modal="true"
-        aria-label={isWithdrawalsView ? 'Active withdrawals' : 'Deposit bots'}
+        aria-label={isWithdrawalsView ? 'Active withdrawals' : isGamePickerView ? 'Choose a deposit game' : 'Deposit bots'}
       >
         <button
           className={isWithdrawalsView ? '_closeButton_ei49y_137' : '_closeButton_13k1a_137'}
@@ -243,11 +287,38 @@ export default function DepositModal({ isOpen, onClose }) {
           aria-label="Close"
           onClick={onClose}
         >
-          &times;
+          <CloseIcon />
         </button>
 
         <div className={isWithdrawalsView ? '_modalContent_ei49y_183' : '_modalContent_13k1a_183'}>
-          {view === 'withdrawals' ? (
+          {view !== 'games' ? <button type="button" className="deposit-view-back" onClick={goBack} aria-label={view === 'bots' ? 'Choose another game' : 'Back to deposit bots'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg><span>Back</span></button> : null}
+          {view === 'games' ? (
+            <>
+              <h1 className="_depositTitle_13k1a_197">DEPOSIT</h1>
+              <div className="deposit-game-picker-list">
+                {Object.entries(BOT_CONFIGS).map(([mode, config]) => (
+                  <button
+                    type="button"
+                    className="deposit-game-picker-card"
+                    key={mode}
+                    style={{
+                      '--deposit-accent': config.accent,
+                      '--deposit-accent-rgb': config.accentRgb,
+                      '--deposit-card-surface': config.surface,
+                    }}
+                    onClick={() => {
+                      setSelectedGameMode(mode)
+                      setView('bots')
+                    }}
+                  >
+                    <span className="deposit-game-picker-icon"><img src={config.icon} alt="" draggable={false} /></span>
+                    <span className="deposit-game-picker-copy"><strong>{config.fullLabel}</strong><small>View available deposit bots</small></span>
+                    <svg className="deposit-game-picker-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : view === 'withdrawals' ? (
             <>
               <h1 className="_depositTitle_ei49y_197">ACTIVE WITHDRAWALS</h1>
               <div className="_botContainer_ei49y_477 _botContainerVisible_ei49y_493" style={{ marginTop: 6 }}>
@@ -322,7 +393,7 @@ export default function DepositModal({ isOpen, onClose }) {
                 )}
               </div>
               <div className="_footer_ei49y_895">
-                <p>If you cancel, pets return to your inventory.</p>
+                <p>If you cancel, items return to your inventory.</p>
               </div>
             </>
           ) : view === 'supported' ? (
@@ -337,7 +408,7 @@ export default function DepositModal({ isOpen, onClose }) {
                     <input
                       type="text"
                       className="_searchInput_10ldz_177"
-                      placeholder='Type item name (e.g. "Huge Santa Monkey")'
+                      placeholder={`Type item name (e.g. "${botConfig.example}")`}
                       value={itemSearchName}
                       onChange={(event) => setItemSearchName(event.target.value)}
                       disabled={checkingItem}
@@ -362,22 +433,16 @@ export default function DepositModal({ isOpen, onClose }) {
             </>
           ) : (
             <>
-              <div style={{ marginBottom: 10 }}>
-                <h1 className="_depositTitle_13k1a_197" style={{ margin: 0 }}>
-                  BOTS
-                </h1>
-              </div>
-
               <div className="_bannerWrapper_13k1a_227">
                 <div className="_card_13k1a_253 group _depositBotCard_13k1a_local">
                   <div className="_depositBotGame_13k1a_local">
                     <div className="_cardIconWrap_13k1a_329">
-                      <img src={BGSI_ICON} alt="" aria-hidden="true" className="_cardIconGlow_13k1a_371" draggable={false} />
-                      <img src={BGSI_ICON} alt="BGSI" className="_cardIcon_13k1a_329" draggable={false} />
+                      <img src={botConfig.icon} alt="" aria-hidden="true" className="_cardIconGlow_13k1a_371" draggable={false} />
+                      <img src={botConfig.icon} alt={botConfig.label} className="_cardIcon_13k1a_329" draggable={false} />
                     </div>
                     <div className="_cardText_13k1a_419">
                       <div>
-                        <span className="_cardTitle_13k1a_441">PS99</span>
+                        <span className="_cardTitle_13k1a_441">{botConfig.label}</span>
                       </div>
                       <span className="_cardSubtitle_13k1a_455">2 Available Bots</span>
                     </div>
@@ -400,7 +465,7 @@ export default function DepositModal({ isOpen, onClose }) {
 
               <div className="_botContainer_13k1a_477 _botContainerVisible_13k1a_493">
                 <ul className="_botList_13k1a_503">
-                  {bots.map((bot) => (
+                  {botConfig.bots.map((bot) => (
                     <BotRow bot={bot} key={bot.name} />
                   ))}
                 </ul>
@@ -1155,6 +1220,211 @@ export default function DepositModal({ isOpen, onClose }) {
             border-color: rgba(255,79,163,.6);
           }
 
+          /* Keep deposit and withdrawal surfaces aligned with the wallet modal. */
+          ._blurbg_13k1a_17,
+          ._blurbg_ei49y_17 {
+            padding: 12px;
+            box-sizing: border-box;
+            background: rgba(4,5,8,.76);
+            -webkit-backdrop-filter: blur(9px);
+            backdrop-filter: blur(9px);
+          }
+
+          ._modalbackgrounddeposit_13k1a_51,
+          ._modalbackgrounddeposit_ei49y_51 {
+            width: calc(100vw - 24px);
+            max-width: 600px;
+            max-height: min(760px,calc(100dvh - 24px));
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 12px;
+            color: #f4f5f8;
+            background: #191c24;
+            box-shadow: 0 26px 80px rgba(0,0,0,.55);
+            scrollbar-width: thin;
+            scrollbar-color: #353945 transparent;
+          }
+
+          ._modalbackgrounddeposit_13k1a_51 *,
+          ._modalbackgrounddeposit_ei49y_51 * {
+            box-sizing: border-box;
+            font-family: Poppins,sans-serif;
+          }
+
+          ._modalbackgrounddeposit_13k1a_51::-webkit-scrollbar,
+          ._modalbackgrounddeposit_ei49y_51::-webkit-scrollbar { width: 6px; }
+          ._modalbackgrounddeposit_13k1a_51::-webkit-scrollbar-thumb,
+          ._modalbackgrounddeposit_ei49y_51::-webkit-scrollbar-thumb { background: #353945; }
+
+          ._closeButton_13k1a_137,
+          ._closeButton_ei49y_137 {
+            top: 12px;
+            right: 14px;
+            display: inline-flex;
+            width: 30px;
+            height: 30px;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 0;
+            border-radius: 6px;
+            color: #8e94a2;
+            background: #222631;
+            opacity: 1;
+            transition: color .15s ease,background-color .15s ease;
+          }
+          ._closeButton_13k1a_137:hover,
+          ._closeButton_ei49y_137:hover { color: #b3b8c3; background: #282c37; }
+          ._closeButton_13k1a_137 svg,
+          ._closeButton_ei49y_137 svg { width: 14px; height: 14px; }
+
+          ._modalContent_13k1a_183,
+          ._modalContent_ei49y_183 { color: #f4f5f8; }
+          ._depositTitle_13k1a_197,
+          ._depositTitle_ei49y_197 {
+            min-height: 30px;
+            margin: 0 42px 10px 0;
+            color: #f4f5f8;
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 24px;
+            letter-spacing: 0;
+          }
+
+          ._card_13k1a_253 {
+            border-color: rgba(255,255,255,.07);
+            background: #151820;
+            box-shadow: none;
+          }
+          ._card_13k1a_253:hover { border-color: rgba(255,255,255,.1); background: #171a22; }
+          ._cardIcon_13k1a_329,
+          ._cardIconGlow_13k1a_371 { object-fit: contain; }
+          ._cardTitle_13k1a_441 { color: #f4f5f8; font-size: 14px; }
+          ._cardSubtitle_13k1a_455 { color: #8e94a2; font-size: 11px; font-weight: 600; }
+          ._botDetails_13k1a_543 { background: #20242e; }
+          ._botPfp_13k1a_597 { border-color: #2c313d; object-fit: contain; background: #151820; }
+          ._botPfp_13k1a_597:hover { border-color: #353b48; }
+          ._botName_13k1a_633 { color: #f4f5f8; font-size: 13px; font-weight: 600; }
+
+          ._joinbutton_13k1a_931,
+          ._activeWithdrawals_13k1a_local,
+          ._helpButton_13k1a_local,
+          ._supportedCheck_10ldz_local,
+          ._btnDanger_sd554_163 {
+            border: 0;
+            border-radius: 7px;
+            color: #111319;
+            background: #ff4fa3;
+            box-shadow: none;
+            font-weight: 700;
+          }
+          ._joinbutton_13k1a_931:hover { opacity: .9; }
+          ._searchInput_10ldz_177 {
+            border: 1px solid rgba(255,255,255,.07);
+            background: #151820;
+            color: #f4f5f8;
+            font-size: 12px;
+            font-weight: 500;
+          }
+          ._searchInput_10ldz_177::placeholder,
+          ._searchHint_10ldz_197,
+          ._footer_13k1a_895 p,
+          ._footer_ei49y_895 p,
+          ._noBots_13k1a_883,
+          ._noBots_ei49y_883 { color: #8e94a2; }
+          ._searchHint_10ldz_197 b { color: #f4f5f8; }
+
+          .deposit-view-back {
+            display: inline-flex;
+            width: fit-content;
+            height: 30px;
+            align-items: center;
+            gap: 5px;
+            margin: 0 0 5px;
+            padding: 0 9px 0 7px;
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 6px;
+            color: #a8aeb9;
+            background: #20242e;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color .15s ease,background-color .15s ease,border-color .15s ease;
+          }
+          .deposit-view-back:hover { color: #f4f5f8; border-color: rgba(255,255,255,.1); background: #282c37; }
+          .deposit-view-back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+          .deposit-game-picker-modal { max-width: 896px; }
+          .deposit-game-picker-list { display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+          .deposit-game-picker-card {
+            position: relative;
+            isolation: isolate;
+            display: flex;
+            width: 100%;
+            min-height: 96px;
+            align-items: center;
+            gap: 28px;
+            overflow: hidden;
+            padding: 16px 24px;
+            border: 1px solid rgba(var(--deposit-accent-rgb),.22);
+            border-radius: 8px;
+            color: #f4f5f8;
+            background:
+              linear-gradient(90deg,rgba(var(--deposit-accent-rgb),.2) 0%,rgba(var(--deposit-accent-rgb),.075) 36%,rgba(21,24,32,.94) 72%,#151820 100%),
+              var(--deposit-card-surface,#151820);
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.025),
+              inset 0 -1px 0 rgba(0,0,0,.28);
+            text-align: left;
+            cursor: pointer;
+            transition: border-color .25s ease,background-color .25s ease,transform .2s cubic-bezier(.22,1,.36,1);
+          }
+          .deposit-game-picker-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(circle,rgba(4,5,8,.43) 0 2.1px,transparent 2.35px) 0 0/16px 16px;
+            mask-image: linear-gradient(90deg,#000 0%,rgba(0,0,0,.92) 26%,transparent 55%);
+            -webkit-mask-image: linear-gradient(90deg,#000 0%,rgba(0,0,0,.92) 26%,transparent 55%);
+            opacity: .72;
+            pointer-events: none;
+          }
+          .deposit-game-picker-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background:
+              radial-gradient(ellipse at 13% 51%,rgba(var(--deposit-accent-rgb),.25),transparent 38%),
+              linear-gradient(90deg,transparent 0%,rgba(4,5,8,.08) 58%,rgba(4,5,8,.22) 100%);
+            pointer-events: none;
+          }
+          .deposit-game-picker-card:hover { border-color: var(--deposit-accent); transform: translateY(-1px); }
+          .deposit-game-picker-card:active { transform: scale(.995); }
+          .deposit-game-picker-icon {
+            position: relative;
+            display: flex;
+            width: 64px;
+            height: 64px;
+            flex: 0 0 64px;
+            align-items: center;
+            justify-content: center;
+            transition: transform .3s cubic-bezier(.22,1,.36,1);
+          }
+          .deposit-game-picker-icon::before { content: ''; position: absolute; inset: 9px; z-index: -1; border-radius: 50%; background: rgba(var(--deposit-accent-rgb),.32); filter: blur(22px); }
+          .deposit-game-picker-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
+          .deposit-game-picker-card:hover .deposit-game-picker-icon { transform: scale(1.08); }
+          .deposit-game-picker-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+          .deposit-game-picker-copy strong { color: #f4f5f8; font-size: 15px; font-weight: 600; line-height: 21px; }
+          .deposit-game-picker-copy small { color: #8e94a2; font-size: 11px; font-weight: 500; line-height: 16px; }
+          .deposit-game-picker-arrow { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: var(--deposit-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .78; transition: transform .2s ease,opacity .2s ease; }
+          .deposit-game-picker-card:hover .deposit-game-picker-arrow { opacity: 1; transform: translateX(3px); }
+
+          .deposit-view-back + ._bannerWrapper_13k1a_227,
+          ._bannerWrapper_13k1a_227 { margin-top: 3px; margin-bottom: 9px; }
+          ._bannerWrapper_13k1a_227 + ._botContainer_13k1a_477 { margin-top: 0; }
+
           @media (max-width: 640px) {
             ._modalbackgrounddeposit_ei49y_51 {
               width: calc(100% - 20px);
@@ -1197,6 +1467,11 @@ export default function DepositModal({ isOpen, onClose }) {
             ._supportedCheck_10ldz_local {
               width: 100%;
             }
+            .deposit-game-picker-modal { width: calc(100% - 20px); }
+            .deposit-game-picker-card { min-height: 80px; gap: 16px; padding: 12px 15px; }
+            .deposit-game-picker-icon { width: 52px; height: 52px; flex-basis: 52px; }
+            .deposit-game-picker-copy strong { font-size: 13px; }
+            .deposit-game-picker-copy small { font-size: 10px; }
           }
         `}</style>
       </div>

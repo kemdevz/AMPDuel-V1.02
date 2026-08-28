@@ -579,7 +579,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   );
 }
 
-export default function ChatPanel({ className = "", mobileOpen = false, onMobileOpenChange }) {
+export default function ChatPanel({ className = "", gameMode = null, mobileOpen = false, onMobileOpenChange }) {
   const user = useAuth((s) => s.user);
   const balance = useAuth((s) => s.balance);
   const setBalance = useAuth((s) => s.setBalance);
@@ -1232,6 +1232,7 @@ export default function ChatPanel({ className = "", mobileOpen = false, onMobile
       <TipUserModal
         isOpen={Boolean(tipRecipient) && walletSelection === "items"}
         recipient={tipRecipient}
+        gameMode={gameMode}
         isSubmitting={isUserTipSubmitting}
         onClose={() => {
           if (!isUserTipSubmitting) setTipRecipient(null)

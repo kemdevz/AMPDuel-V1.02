@@ -18,7 +18,7 @@ function getRecipientId(recipient) {
   ).trim()
 }
 
-export default function ProfileTipManager() {
+export default function ProfileTipManager({ gameMode = null }) {
   const user = useAuth((state) => state.user)
   const balance = useAuth((state) => state.balance)
   const setBalance = useAuth((state) => state.setBalance)
@@ -139,6 +139,7 @@ export default function ProfileTipManager() {
       <TipUserModal
         isOpen={Boolean(recipient) && walletSelection === 'items'}
         recipient={recipient}
+        gameMode={gameMode}
         isSubmitting={isSubmitting}
         onClose={closeTip}
         onSubmit={handleItemTip}

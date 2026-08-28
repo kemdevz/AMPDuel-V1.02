@@ -132,6 +132,7 @@ export default function WalletModal({
   }, [inventoryRows, selectedItems])
   const selectedValue = useMemo(() => selectedInventoryItems.reduce((sum, item) => sum + Number(item.value ?? 0), 0), [selectedInventoryItems])
   const selectionEnabled = !readOnly
+  const showDepositAction = !footer && !readOnly
 
   const toggleItem = (displayKey) => {
     if (!selectionEnabled) return
@@ -186,7 +187,7 @@ export default function WalletModal({
     : null
 
   return createPortal(<>
-    <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} />
+    <DepositModal isOpen={depositOpen} onClose={() => setDepositOpen(false)} gameMode={normalizedGameMode} />
     <div className="amp-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="amp-modal-dialog" role="dialog" aria-modal="true" aria-label={ariaLabel}>
         <h2 className="amp-modal-header">Inventory</h2>
@@ -194,7 +195,10 @@ export default function WalletModal({
         <div className="amp-modal-body">
           <div className="amp-modal-stack">
             <div className="amp-wallet-top">
-              <AmpSearch value={searchQuery} onChange={setSearchQuery} />
+              <div className="amp-wallet-search-actions">
+                <AmpSearch value={searchQuery} onChange={setSearchQuery} />
+                {showDepositAction ? <button type="button" className="amp-inventory-action amp-deposit-action" onClick={() => setDepositOpen(true)}><PlusIcon />Deposit</button> : null}
+              </div>
               <div className="amp-modal-controls">
                 <AmpSort ascending={sortAscending} onChange={setSortAscending} />
               </div>

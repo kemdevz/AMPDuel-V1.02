@@ -90,6 +90,7 @@ export const AMP_MODAL_STYLES = `
   .amp-create-top { display: flex; justify-content: space-between; gap: 12px; }
   .amp-wallet-top { align-items: center; }
   .amp-create-top { align-items: center; flex-wrap: wrap; }
+  .amp-wallet-search-actions { display: flex; min-width: 0; align-items: center; gap: 8px; }
   .amp-create-summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .amp-modal-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .amp-inventory-action {
@@ -110,6 +111,8 @@ export const AMP_MODAL_STYLES = `
   }
   .amp-inventory-action:hover { color: #c1c6d0; background: #282c37; }
   .amp-inventory-action:disabled { cursor: not-allowed; opacity: .45; }
+  .amp-deposit-action { gap: 7px; }
+  .amp-deposit-action svg { width: 11px; height: 11px; flex: 0 0 11px; }
 
   .amp-value-pill {
     display: flex;
@@ -303,6 +306,8 @@ export const AMP_MODAL_STYLES = `
     .amp-modal-header { padding-right: 52px; }
     .amp-modal-body { padding: 12px; }
     .amp-wallet-top { align-items: stretch; flex-direction: column; }
+    .amp-wallet-search-actions { width: 100%; }
+    .amp-wallet-search-actions .amp-search { min-width: 0; flex: 1 1 auto; }
     .amp-modal-controls { width: 100%; }
     .amp-search { width: 100%; flex: 1 1 100%; }
     .amp-create-top .amp-modal-controls { width: 100%; }
