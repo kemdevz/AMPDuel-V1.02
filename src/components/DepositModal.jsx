@@ -320,8 +320,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             </>
           ) : view === 'withdrawals' ? (
             <>
-              <h1 className="_depositTitle_ei49y_197">ACTIVE WITHDRAWALS</h1>
-              <div className="_botContainer_ei49y_477 _botContainerVisible_ei49y_493" style={{ marginTop: 6 }}>
+              <div className="_botContainer_ei49y_477 _botContainerVisible_ei49y_493 deposit-view-content">
                 {withdrawsLoading ? (
                   <p className="_noBots_ei49y_883">Loading withdrawals...</p>
                 ) : withdrawsError ? (
@@ -398,8 +397,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             </>
           ) : view === 'supported' ? (
             <>
-              <h1 className="_depositTitle_13k1a_197">SUPPORTED ITEMS</h1>
-              <div className="_botContainer_13k1a_477 _botContainerVisible_13k1a_493" style={{ marginTop: 6 }}>
+              <div className="_botContainer_13k1a_477 _botContainerVisible_13k1a_493 deposit-view-content">
                 <form
                   className="_searchFormWrapper_10ldz_163"
                   onSubmit={handleSupportedItemCheck}
@@ -1424,6 +1422,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           .deposit-view-back + ._bannerWrapper_13k1a_227,
           ._bannerWrapper_13k1a_227 { margin-top: 3px; margin-bottom: 9px; }
           ._bannerWrapper_13k1a_227 + ._botContainer_13k1a_477 { margin-top: 0; }
+          .deposit-view-back + .deposit-view-content { margin-top: 3px; }
 
           @media (max-width: 640px) {
             ._modalbackgrounddeposit_ei49y_51 {

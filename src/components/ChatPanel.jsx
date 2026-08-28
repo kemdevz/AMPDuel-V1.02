@@ -81,6 +81,15 @@ const CUSTOM_EMOJIS = [
   { name: "volumedown", token: ":volumedown:", src: "https://i.ibb.co/4Rz82g9f/fullsize-5.gif" },
   { name: "lowcortisol", token: ":lowcortisol:", src: "https://i.ibb.co/zhDfyRG3/fullsize-4.gif" },
   { name: "highcortisol", token: ":highcortisol:", src: "https://i.ibb.co/dRWVbjv/fullsize-6.gif" },
+  { name: "Gingerscope", token: ":gingerscope:", src: "https://raw.githubusercontent.com/JonathanGao/MM2ValuesPlus/e1bdac1b67234b4c6370ea0d91e5ead4eb6fd749/static/weaponIcons/Gingerscope.webp" },
+  { name: "Chroma Evergun", token: ":chromaevergun:", src: "https://raw.githubusercontent.com/JonathanGao/MM2ValuesPlus/e1bdac1b67234b4c6370ea0d91e5ead4eb6fd749/static/weaponIcons/Chroma%20Evergun.webp" },
+  { name: "Chroma Evergreen", token: ":chromaevergreen:", src: "https://raw.githubusercontent.com/JonathanGao/MM2ValuesPlus/e1bdac1b67234b4c6370ea0d91e5ead4eb6fd749/static/weaponIcons/Chroma%20Evergreen.webp" },
+  { name: "Diamond Amazon", token: ":diamondamazon:", src: "https://elvebredd.com/images/pets/Diamond%20Amazon.png" },
+  { name: "Winged Tiger", token: ":wingedtiger:", src: "https://elvebredd.com/images/pets/Winged%20Tiger.png" },
+  { name: "Husky", token: ":husky:", src: "https://elvebredd.com/images/pets/Husky.png" },
+  { name: "Huge Cat", token: ":hugecat:", src: "https://biggamesapi.io/image/14976374906" },
+  { name: "Huge Jelly Corgi", token: ":jellycorgi:", src: "https://biggamesapi.io/image/14976465933" },
+  { name: "Huge Shark", token: ":hugeshark:", src: "https://biggamesapi.io/image/14976546876" },
 ];
 const EMOJI_BY_TOKEN = new Map(CUSTOM_EMOJIS.map((emoji) => [emoji.token.toLowerCase(), emoji]));
 
@@ -221,18 +230,6 @@ function TwitchIcon({ className = "" }) {
 }
 
 
-function RulesIcon() {
-  return (
-    <svg viewBox="0 0 17 17" fill="none" aria-hidden="true">
-      <path
-        d="M12.5263 4.16987e-09C13.211 -3.81352e-05 13.8698 0.261554 14.3679 0.731254C14.8661 1.20095 15.1659 1.84325 15.2061 2.52674L15.2105 2.68421V11.6316H15.8816C16.4605 11.6316 16.9374 12.0718 16.9946 12.6355L17 12.75V14.3158C17 15.0005 16.7384 15.6592 16.2687 16.1574C15.799 16.6555 15.1567 16.9554 14.4733 16.9955L14.3158 17H5.36842C4.68376 17 4.02496 16.7384 3.52682 16.2687C3.02868 15.799 2.72885 15.1567 2.68868 14.4733L2.68421 14.3158V5.36842H1.11842C0.841538 5.36855 0.57445 5.26596 0.368841 5.08052C0.163233 4.89507 0.0337213 4.63995 0.00536846 4.36453L4.16987e-09 4.25V2.68421C-3.81352e-05 1.99955 0.261554 1.34075 0.731254 0.842609C1.20095 0.344467 1.84325 0.0446406 2.52674 0.00447379L2.68421 4.16987e-09H12.5263ZM15.2105 13.4211H7.15789V14.3158C7.15789 14.6289 7.10421 14.9305 7.00579 15.2105H14.3158C14.5531 15.2105 14.7807 15.1163 14.9485 14.9485C15.1163 14.7807 15.2105 14.5531 15.2105 14.3158V13.4211ZM8.94737 8.05263H7.15789C6.92984 8.05288 6.7105 8.14021 6.54467 8.29676C6.37884 8.45331 6.27905 8.66727 6.26569 8.89493C6.25232 9.12259 6.32639 9.34676 6.47276 9.52164C6.61913 9.69652 6.82676 9.80891 7.05321 9.83584L7.15789 9.8421H8.94737C9.17542 9.84185 9.39477 9.75453 9.56059 9.59798C9.72642 9.44143 9.82621 9.22746 9.83957 8.9998C9.85294 8.77215 9.77887 8.54798 9.6325 8.3731C9.48613 8.19822 9.27851 8.08583 9.05205 8.05889L8.94737 8.05263ZM10.7368 4.47368H7.15789C6.9206 4.47368 6.69302 4.56795 6.52522 4.73575C6.35742 4.90354 6.26316 5.13112 6.26316 5.36842C6.26316 5.60572 6.35742 5.8333 6.52522 6.0011C6.69302 6.16889 6.9206 6.26316 7.15789 6.26316H10.7368C10.9741 6.26316 11.2017 6.16889 11.3695 6.0011C11.5373 5.8333 11.6316 5.60572 11.6316 5.36842C11.6316 5.13112 11.5373 4.90354 11.3695 4.73575C11.2017 4.56795 10.9741 4.47368 10.7368 4.47368ZM2.68421 1.78947C2.44691 1.78947 2.21933 1.88374 2.05154 2.05154C1.88374 2.21933 1.78947 2.44691 1.78947 2.68421V3.57895H2.68421V1.78947Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-
 function ReplyPreview({ reply }) {
   if (!reply) return null;
 
@@ -346,19 +343,12 @@ function EmojiAutocomplete({ emojis, onSelect }) {
 
 function CustomEmojiPicker({ search, emojis, onSearch, onSelect }) {
   return (
-    <div
-      className="_emojiPickerPortal_18i9r_6 _emojiPickerOpen_18i9r_11"
-      style={{
-        position: "fixed",
-        bottom: "78.2512px",
-        right: "61.9778px",
-        zIndex: 9999,
-        transformOrigin: "100% 100%",
-        width: "320px",
-      }}
-    >
+    <div className="_emojiPickerPortal_18i9r_6 _emojiPickerOpen_18i9r_11">
       <div className="_customEmojiPicker_abrjv_49">
         <div className="_customEmojiSearchWrap_abrjv_58">
+          <svg className="_customEmojiSearchIcon_abrjv_local" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+            <path d="M505 442.7 405.3 343c-4.5-4.5-10.6-7-17-7H372c27.6-35.3 44-79.7 44-128C416 93.1 322.9 0 208 0S0 93.1 0 208s93.1 208 208 208c48.3 0 92.7-16.4 128-44v16.3c0 6.4 2.5 12.5 7 17l99.7 99.7c9.4 9.4 24.6 9.4 33.9 0l28.3-28.3c9.4-9.4 9.4-24.6.1-34zM208 336c-70.7 0-128-57.2-128-128 0-70.7 57.2-128 128-128 70.7 0 128 57.2 128 128 0 70.7-57.2 128-128 128z" />
+          </svg>
           <input
             type="text"
             placeholder="Search emojis..."
@@ -380,28 +370,6 @@ function CustomEmojiPicker({ search, emojis, onSearch, onSelect }) {
             </button>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ChatRulesModal({ onClose }) {
-  return (
-    <div className="absolute inset-0 z-10 flex items-end justify-center px-3 pb-[110px]" style={{ opacity: 1 }} onMouseDown={onClose}>
-      <div
-        className="bg-[#171925] rounded-xl p-4 sm:p-5 w-full max-w-[320px] text-white shadow-md cursor-default"
-        style={{ opacity: 1, transform: "none" }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 className="text-base sm:text-lg font-bold text-[#ff4fa3] mb-3 text-center">Chat Rules</h2>
-        <ul className="text-xs sm:text-sm leading-relaxed text-gray-200 list-disc list-inside space-y-1">
-          <li>No spamming or flooding the chat.</li>
-          <li>Be respectful — no hate speech or harassment.</li>
-          <li>Do not advertise other websites or platforms.</li>
-          <li>Keep messages in English or the main chat language.</li>
-          <li>Do not impersonate staff or other users.</li>
-          <li>Breaking rules may result in mute or ban.</li>
-        </ul>
       </div>
     </div>
   );
@@ -535,10 +503,10 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
                 submit();
               }
             }}
-            className="flex h-12 w-full rounded-lg border-2 border-transparent bg-[hsl(229_17%_13%/.8)] px-3 py-2 pr-10 text-sm font-semibold text-gray-400 outline-none transition placeholder:text-white/50 focus-visible:border-white/60"
+            className="flex h-12 w-full rounded-lg border-2 border-transparent bg-[hsl(229_17%_13%/.8)] px-3 py-2 pr-[76px] text-sm font-semibold text-gray-400 outline-none transition placeholder:text-white/50 focus-visible:border-white/60"
           />
 
-          <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center">
+          <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-3">
             <button
               aria-label="Emoji Picker"
               type="button"
@@ -556,7 +524,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
               type="button"
               onClick={submit}
               disabled={!user}
-              className="hidden"
+              className="inline-grid cursor-pointer place-content-center border-0 bg-transparent text-white/50 transition hover:text-white focus:outline-none disabled:cursor-default disabled:opacity-40"
             >
               <SendIcon />
             </button>
@@ -590,7 +558,6 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
   const [messages, setMessages] = useState(() => readStoredChatSession()?.messages || []);
   const [chatSessionId, setChatSessionId] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
-  const [chatRulesOpen, setChatRulesOpen] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [tipRecipient, setTipRecipient] = useState(null);
   const [isUserTipSubmitting, setIsUserTipSubmitting] = useState(false);
@@ -600,15 +567,6 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
   const setMobileChatOpen = (open) => onMobileOpenChange?.(Boolean(open));
   const messagesEndRef = useRef(null);
   const chatSessionIdRef = useRef(null);
-
-  useEffect(() => {
-    if (!chatRulesOpen) return undefined;
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") setChatRulesOpen(false);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [chatRulesOpen]);
 
   const chatAuthor = useMemo(
     () => ({
@@ -1126,7 +1084,13 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
         }
 
         ._emojiPickerPortal_18i9r_6 {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 8px;
+          z-index: 9999;
+          width: calc(100% - 16px);
           opacity: 0;
+          transform-origin: 0 100%;
           transform: translateY(4px) scale(.98);
           transition: opacity 120ms ease, transform 120ms ease;
         }
@@ -1139,34 +1103,52 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
         ._customEmojiPicker_abrjv_49 {
           width: 100%;
           overflow: hidden;
-          border: 1px solid #2a2f45;
-          border-radius: 10px;
-          background: #171925;
-          box-shadow: 0 18px 42px rgba(0,0,0,.42);
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 12px;
+          background: #191c24;
+          box-shadow: none;
+          font-family: Poppins,sans-serif;
         }
 
         ._customEmojiSearchWrap_abrjv_58 {
-          padding: 10px;
-          border-bottom: 1px solid rgba(255,255,255,.06);
-          background: #161a28;
+          position: relative;
+          padding: 12px;
+          border-bottom: 1px solid rgba(255,255,255,.07);
+          background: #191c24;
+        }
+
+        ._customEmojiSearchIcon_abrjv_local {
+          position: absolute;
+          top: 50%;
+          left: 28px;
+          z-index: 1;
+          width: 13px;
+          height: 13px;
+          color: #747b89;
+          transform: translateY(-50%);
+          pointer-events: none;
         }
 
         ._customEmojiSearch_abrjv_58 {
           width: 100%;
-          height: 34px;
-          border: none;
+          height: 42px;
+          border: 1px solid rgba(255,255,255,.07);
           border-radius: 8px;
-          background: #111522;
-          color: #f2f4ff;
-          font-size: 13px;
-          font-weight: 500;
+          background: #14171e;
+          color: #eceef2;
+          box-shadow: none;
+          font: 500 13px/20px Poppins,sans-serif;
           outline: none;
-          padding: 0 10px;
+          padding: 0 14px 0 40px;
+          transition: border-color .15s ease;
         }
 
         ._customEmojiSearch_abrjv_58::placeholder {
-          color: #6d7396;
+          color: #747b89;
+          opacity: 1;
         }
+        ._customEmojiSearch_abrjv_58:hover { border-color: rgba(255,255,255,.13); }
+        ._customEmojiSearch_abrjv_58:focus { border-color: rgba(255,255,255,.18); }
 
         ._customEmojiGrid_abrjv_81 {
           display: grid;
@@ -1174,15 +1156,17 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           gap: 7px;
           max-height: 238px;
           overflow-y: auto;
-          padding: 10px;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          padding: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: #353945 transparent;
         }
 
         ._customEmojiGrid_abrjv_81::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
+          width: 6px;
+        }
+        ._customEmojiGrid_abrjv_81::-webkit-scrollbar-thumb {
+          border-radius: 999px;
+          background: #353945;
         }
 
         ._customEmojiBtn_abrjv_98 {
@@ -1191,15 +1175,15 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           height: 38px;
           cursor: pointer;
           place-content: center;
-          border: none;
+          border: 0;
           border-radius: 8px;
-          background: #161a28;
+          background: transparent;
           padding: 4px;
-          transition: background-color 150ms ease, transform 150ms ease;
+          transition: background-color 150ms ease,transform 150ms ease;
         }
 
         ._customEmojiBtn_abrjv_98:hover {
-          background: #1f2335;
+          background: transparent;
           transform: translateY(-1px);
         }
 
@@ -1257,9 +1241,6 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
         onSubmit={handleUserCoinTip}
       />
 
-
-      {chatRulesOpen ? <ChatRulesModal onClose={() => setChatRulesOpen(false)} /> : null}
-
       <div className="min-h-0 flex-1 overflow-hidden">
         <div className="relative box-border flex h-full min-w-0 flex-grow flex-col gap-2">
           <div className="h-0 shrink-0" aria-hidden="true" />
@@ -1272,18 +1253,6 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
                   <div className={`h-2 w-2 rounded-full ${Number(onlineCount) > 0 ? 'bg-[#20e68f]' : 'bg-red-500'}`} />
                 </div>
               </div>
-              <button
-                type="button"
-                className="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-white/45 transition-colors hover:text-white/75 focus-visible:text-[#ff4fa3] focus-visible:outline-none"
-                aria-label="View chat rules"
-                title="Chat rules"
-                aria-expanded={chatRulesOpen}
-                onClick={() => setChatRulesOpen((current) => !current)}
-              >
-                <svg viewBox="0 0 576 512" className="h-[13px] w-[13px]" fill="currentColor" aria-hidden="true">
-                  <path d="M542.22 32.05c-54.8 3.11-163.72 14.43-230.96 55.59-4.64 2.84-7.27 7.89-7.27 13.17v363.87c0 11.55 12.63 18.85 23.28 13.49 69.18-34.82 169.23-44.32 218.7-46.92 16.89-.89 30.02-14.43 30.02-30.66V62.75c.01-17.71-15.35-31.74-33.77-30.7zM264.73 87.64C197.5 46.48 88.58 35.17 33.78 32.05 15.36 31.01 0 45.04 0 62.75V400.6c0 16.24 13.13 29.78 30.02 30.66 49.49 2.6 149.59 12.11 218.77 46.95 10.62 5.35 23.21-1.94 23.21-13.46V100.63c0-5.29-2.62-10.14-7.27-12.99z" />
-                </svg>
-              </button>
             </div>
           </div>
 
