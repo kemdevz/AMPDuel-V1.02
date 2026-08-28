@@ -13,6 +13,8 @@ import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 const MINES_GAME_STORAGE_KEY = 'bloxdice:mines-game'
 const RESOLVED_MINES_LIFETIME_MS = 40_000
+const MINES_ROW_EXIT_ANIMATION_MS = 500
+const MINES_ROW_NEW_ANIMATION_CLEAR_MS = 700
 const GAME_OPTIONS = [['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 
@@ -64,7 +66,16 @@ function MinesGameRow({ game, currentProfileId, onJoin, onView }) {
   const completed = String(game.status || '').toLowerCase() === 'completed'
   const canJoin = String(game.status || 'open') === 'open' && participants.length < maxPlayers && !isParticipant
 
-  return <div className="game-preview-shell"><article className="coinflip-room-row mines-room-row">
+  return <div className="game-preview-shell"><article
+    className="coinflip-room-row mines-room-row"
+    style={game.isExiting
+      ? {
+          animation: `mines-resolved-out ${MINES_ROW_EXIT_ANIMATION_MS}ms cubic-bezier(.22, 1, .36, 1) forwards`,
+          pointerEvents: 'none',
+          willChange: 'transform, opacity, filter',
+        }
+      : game.isNew ? { animation: 'mines-slide-in .45s ease' } : undefined}
+  >
     <div className="game-preview-players" aria-label={`${participants.length} of ${maxPlayers} players`}>
       {playerSlots.map((player, index) => {
         const isLoser = completed && player && String(player.uuid || '') === String(game.loser_uuid || '')
@@ -96,6 +107,24 @@ export default function Mines({ onInitialReady }) {
   })
   const gameModeIndex = Math.max(0, GAME_OPTIONS.findIndex(([value]) => value === gameMode))
 
+  const upsertAnimatedGame = useCallback((incomingGame) => {
+    if (!incomingGame?.id) return
+    setGames((current) => {
+      const existingIndex = current.findIndex((entry) => entry.id === incomingGame.id)
+      if (existingIndex >= 0) {
+        const next = [...current]
+        next[existingIndex] = { ...next[existingIndex], ...incomingGame }
+        return next
+      }
+
+      const newGame = { ...incomingGame, isNew: true }
+      window.setTimeout(() => {
+        setGames((latest) => latest.map((entry) => entry.id === newGame.id ? { ...entry, isNew: false } : entry))
+      }, MINES_ROW_NEW_ANIMATION_CLEAR_MS)
+      return [newGame, ...current]
+    })
+  }, [])
+
   const loadGames = useCallback(async () => {
     setLoading(true)
     try {
@@ -116,13 +145,19 @@ export default function Mines({ onInitialReady }) {
   }, [gameMode])
   useEffect(() => {
     const socket = connectSocket()
-    const onCreated = (game) => { if (game?.game_mode === gameMode) setGames((current) => [game, ...current.filter((entry) => entry.id !== game.id)]) }
+    const onCreated = (game) => { if (game?.game_mode === gameMode) upsertAnimatedGame(game) }
     const onUpdated = (game) => {
       if (game?.game_mode !== gameMode) return
       setGames((current) => {
         if (game?.status === 'canceled') return current.filter((entry) => entry.id !== game?.id)
         const existingIndex = current.findIndex((entry) => entry.id === game?.id)
-        if (existingIndex < 0) return [game, ...current]
+        if (existingIndex < 0) {
+          const newGame = { ...game, isNew: true }
+          window.setTimeout(() => {
+            setGames((latest) => latest.map((entry) => entry.id === newGame.id ? { ...entry, isNew: false } : entry))
+          }, MINES_ROW_NEW_ANIMATION_CLEAR_MS)
+          return [newGame, ...current]
+        }
         const next = [...current]
         next[existingIndex] = { ...next[existingIndex], ...game }
         return next
@@ -132,16 +167,21 @@ export default function Mines({ onInitialReady }) {
     socket.on('mines:created', onCreated)
     socket.on('mines:updated', onUpdated)
     return () => { socket.off('mines:created', onCreated); socket.off('mines:updated', onUpdated) }
-  }, [gameMode])
+  }, [gameMode, upsertAnimatedGame])
 
   useEffect(() => {
     const timers = games.flatMap((game) => {
       if (String(game?.status) !== 'completed') return []
+      if (game.isExiting) {
+        return [window.setTimeout(() => {
+          setGames((current) => current.filter((entry) => entry.id !== game.id))
+          setViewGame((current) => current?.id === game.id ? null : current)
+        }, MINES_ROW_EXIT_ANIMATION_MS)]
+      }
       const resolvedAt = new Date(game.resolved_at || Date.now()).getTime()
       const remaining = Math.max(0, RESOLVED_MINES_LIFETIME_MS - (Date.now() - resolvedAt))
       return [window.setTimeout(() => {
-        setGames((current) => current.filter((entry) => entry.id !== game.id))
-        setViewGame((current) => current?.id === game.id ? null : current)
+        setGames((current) => current.map((entry) => entry.id === game.id ? { ...entry, isExiting: true } : entry))
       }, remaining)]
     })
     return () => timers.forEach((timer) => window.clearTimeout(timer))
@@ -151,7 +191,7 @@ export default function Mines({ onInitialReady }) {
   const totalItems = useMemo(() => activeGames.reduce((sum, game) => sum + gameItems(game).length, 0), [activeGames])
   const totalValue = useMemo(() => activeGames.reduce((sum, game) => sum + gameValue(game), 0), [activeGames])
   const requireLogin = (action) => { if (!user) return setAuthModalOpen(true); action?.() }
-  const handleCreated = (game) => { if (game) { setGames((current) => [game, ...current.filter((entry) => entry.id !== game.id)]); setViewGame(game) } }
+  const handleCreated = (game) => { if (game) { upsertAnimatedGame(game); setViewGame(game) } }
   const currentProfileId = String(user?.profile_id || user?.id || '')
 
   return <div className="reference-mines flex-1 overflow-x-hidden bg-transparent">
@@ -171,6 +211,8 @@ export default function Mines({ onInitialReady }) {
 }
 
 const MINES_PAGE_STYLES = `
+  @keyframes mines-slide-in{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes mines-resolved-out{from{opacity:1;filter:blur(0);transform:scale(1)}to{opacity:0;filter:blur(2px);transform:scale(.985)}}
   .reference-mines{min-height:100%;background-color:#111319;background-image:url('/cf-paw-pattern.svg');background-repeat:repeat;background-size:180px 180px;background-position:0 18px}
   .mines-game-list{display:flex;flex-direction:column;gap:8px}
   .game-preview-shell{width:100%;container-type:inline-size}
