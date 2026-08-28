@@ -12,6 +12,7 @@ import { useAuth } from '../store/auth'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
 
 const MINES_GAME_STORAGE_KEY = 'bloxdice:mines-game'
+const RESOLVED_MINES_LIFETIME_MS = 40_000
 const GAME_OPTIONS = [['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 
@@ -60,11 +61,16 @@ function MinesGameRow({ game, currentProfileId, onJoin, onView }) {
   const creatorValue = creatorGameValue(game)
   const range = `${formatPriceValue(creatorValue * 0.9, { maximumFractionDigits: 2 })} - ${formatPriceValue(creatorValue * 1.1, { maximumFractionDigits: 2 })}`
   const isParticipant = participants.some((participant) => String(participant?.uuid || '') === currentProfileId)
-  const canJoin = participants.length < maxPlayers && !isParticipant
+  const completed = String(game.status || '').toLowerCase() === 'completed'
+  const canJoin = String(game.status || 'open') === 'open' && participants.length < maxPlayers && !isParticipant
 
   return <div className="game-preview-shell"><article className="coinflip-room-row mines-room-row">
     <div className="game-preview-players" aria-label={`${participants.length} of ${maxPlayers} players`}>
-      {playerSlots.map((player, index) => <Fragment key={player?.uuid || `waiting-${index}`}>{index > 0 ? <p className="game-preview-versus">VS</p> : null}<div className="game-preview-player"><button type="button" disabled className={`coinflip-row-avatar coinflip-row-avatar--${index === 0 ? 'creator' : 'joiner'}`} aria-label={player?.username || 'Waiting for player'}>{player ? <img src={player.avatar_url || player.avatar || DEFAULT_AVATAR} alt={player.username || 'Player'} className="coinflip-row-avatar-image" loading="lazy" draggable={false} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }} /> : <span className="game-preview-waiting"><WaitingIcon /></span>}</button></div></Fragment>)}
+      {playerSlots.map((player, index) => {
+        const isLoser = completed && player && String(player.uuid || '') === String(game.loser_uuid || '')
+        const isWinner = completed && player && String(player.uuid || '') === String(game.winner_uuid || '')
+        return <Fragment key={player?.uuid || `waiting-${index}`}>{index > 0 ? <p className="game-preview-versus">VS</p> : null}<div className={`game-preview-player${isLoser ? ' game-preview-player--loser' : ''}`}><button type="button" disabled className={`coinflip-row-avatar coinflip-row-avatar--${index === 0 ? 'creator' : 'joiner'}${isWinner ? ' coinflip-row-avatar--winner' : ''}${isLoser ? ' coinflip-row-avatar--loser' : ''}`} aria-label={player?.username || 'Waiting for player'}>{player ? <img src={player.avatar_url || player.avatar || DEFAULT_AVATAR} alt={player.username || 'Player'} className="coinflip-row-avatar-image" loading="lazy" draggable={false} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }} /> : <span className="game-preview-waiting"><WaitingIcon /></span>}</button></div></Fragment>
+      })}
     </div>
     <div className="game-preview-items">{displayItems.map((item, index) => {
       const isLastVisible = index === displayItems.length - 1 && hiddenItemCount > 0
@@ -112,7 +118,15 @@ export default function Mines({ onInitialReady }) {
     const socket = connectSocket()
     const onCreated = (game) => { if (game?.game_mode === gameMode) setGames((current) => [game, ...current.filter((entry) => entry.id !== game.id)]) }
     const onUpdated = (game) => {
-      setGames((current) => game?.status === 'open' || game?.status === 'active' ? current.map((entry) => entry.id === game.id ? game : entry) : current.filter((entry) => entry.id !== game?.id))
+      if (game?.game_mode !== gameMode) return
+      setGames((current) => {
+        if (game?.status === 'canceled') return current.filter((entry) => entry.id !== game?.id)
+        const existingIndex = current.findIndex((entry) => entry.id === game?.id)
+        if (existingIndex < 0) return [game, ...current]
+        const next = [...current]
+        next[existingIndex] = { ...next[existingIndex], ...game }
+        return next
+      })
       setViewGame((current) => current?.id === game?.id ? game : current)
     }
     socket.on('mines:created', onCreated)
@@ -120,8 +134,22 @@ export default function Mines({ onInitialReady }) {
     return () => { socket.off('mines:created', onCreated); socket.off('mines:updated', onUpdated) }
   }, [gameMode])
 
-  const totalItems = useMemo(() => games.reduce((sum, game) => sum + gameItems(game).length, 0), [games])
-  const totalValue = useMemo(() => games.reduce((sum, game) => sum + gameValue(game), 0), [games])
+  useEffect(() => {
+    const timers = games.flatMap((game) => {
+      if (String(game?.status) !== 'completed') return []
+      const resolvedAt = new Date(game.resolved_at || Date.now()).getTime()
+      const remaining = Math.max(0, RESOLVED_MINES_LIFETIME_MS - (Date.now() - resolvedAt))
+      return [window.setTimeout(() => {
+        setGames((current) => current.filter((entry) => entry.id !== game.id))
+        setViewGame((current) => current?.id === game.id ? null : current)
+      }, remaining)]
+    })
+    return () => timers.forEach((timer) => window.clearTimeout(timer))
+  }, [games])
+
+  const activeGames = useMemo(() => games.filter((game) => ['open', 'active'].includes(String(game?.status))), [games])
+  const totalItems = useMemo(() => activeGames.reduce((sum, game) => sum + gameItems(game).length, 0), [activeGames])
+  const totalValue = useMemo(() => activeGames.reduce((sum, game) => sum + gameValue(game), 0), [activeGames])
   const requireLogin = (action) => { if (!user) return setAuthModalOpen(true); action?.() }
   const handleCreated = (game) => { if (game) { setGames((current) => [game, ...current.filter((entry) => entry.id !== game.id)]); setViewGame(game) } }
   const currentProfileId = String(user?.profile_id || user?.id || '')
@@ -129,7 +157,7 @@ export default function Mines({ onInitialReady }) {
   return <div className="reference-mines flex-1 overflow-x-hidden bg-transparent">
     <style>{MINES_PAGE_STYLES}</style>
     <div className="relative z-10 flex w-full flex-col px-[18px] pb-32 pt-5">
-      <div className="grid gap-2 md:grid-cols-3"><StatCard value={totalItems} label="Total Items" /><StatCard icon="/currency.svg" value={totalValue} label="Total Value" /><StatCard value={games.length} label="Active Games" /></div>
+      <div className="grid gap-2 md:grid-cols-3"><StatCard value={totalItems} label="Total Items" /><StatCard icon="/currency.svg" value={totalValue} label="Total Value" /><StatCard value={activeGames.length} label="Active Games" /></div>
       <div className="mb-[10px] mt-3 flex flex-col justify-between gap-2 sm:flex-row">
         <div role="tablist" aria-label="Mines game" className="relative isolate grid h-[43px] w-full grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto"><span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 3)', transform: `translateX(${gameModeIndex * 100}%)` }} />{GAME_OPTIONS.map(([value, label]) => { const active = gameMode === value; return <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setGameMode(value)} className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-colors duration-200 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}>{label}</button> })}</div>
         <div className="flex items-center justify-end gap-2"><button type="button" onClick={() => requireLogin(() => setCreateOpen(true))} className="inline-flex h-[43px] min-w-[98px] items-center justify-center rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff69b0]">Create</button><button type="button" onClick={() => requireLogin()} className="inline-flex h-[43px] min-w-[92px] items-center justify-center rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white">History</button></div>
@@ -149,9 +177,11 @@ const MINES_PAGE_STYLES = `
   .coinflip-room-row{display:grid;min-height:105px;box-sizing:border-box;grid-template-columns:auto minmax(190px,1fr) 86px minmax(120px,145px) auto;align-items:center;justify-content:space-between;gap:clamp(10px,1.25cqw,20px);padding:12px 20px;overflow:visible;border:1px solid rgba(255,255,255,.07);border-radius:9px;background:#191c24;box-shadow:0 8px 24px rgba(0,0,0,.14);font-family:Poppins,sans-serif}
   .game-preview-players{display:flex;width:auto;min-width:0;flex:0 0 auto;align-items:center;justify-content:center;gap:8px}
   .game-preview-player{position:relative;width:58px;height:58px;flex:0 0 58px}
+  .game-preview-player--loser{opacity:.42;filter:saturate(.65) brightness(.78)}
   .game-preview-versus{margin:0;color:#717784;font-size:11px;font-weight:700;line-height:16.5px}
   .coinflip-row-avatar{position:relative;display:block;width:58px;height:58px;flex:0 0 58px;padding:0;overflow:hidden;border:2px solid #ff4fa3;border-radius:9999px;background:#111319;box-shadow:none}.coinflip-row-avatar--creator{border-color:#ff4fa3}.coinflip-row-avatar--joiner{border-color:#1f6fff}
   .coinflip-row-avatar-image{display:block;width:54px;height:54px;border-radius:9999px;object-fit:cover}
+  .coinflip-row-avatar--winner{opacity:1}.coinflip-row-avatar--loser{box-shadow:none}
   .game-preview-waiting{display:flex;width:100%;height:100%;align-items:center;justify-content:center;border-radius:9999px;color:#f7fafc;background:#111319;font-size:18px;font-weight:400}
   .game-preview-items{display:flex;min-width:0;height:76px;flex:0 0 auto;align-items:center;justify-content:flex-start;gap:0;padding:4px 0 8px;overflow:visible;scrollbar-width:none}
   .game-preview-items::-webkit-scrollbar{display:none}.game-preview-item+.game-preview-item{margin-left:-18px}

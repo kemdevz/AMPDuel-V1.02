@@ -12,12 +12,12 @@ const formatValue = (items) => (Array.isArray(items) ? items : [])
   .toLocaleString('en-US', { maximumFractionDigits: 2 })
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 
-function PlayerEntry({ player, index, totalPlayers, gameMode }) {
+function PlayerEntry({ player, index, totalPlayers, gameMode, outcome }) {
   const items = Array.isArray(player.items) ? player.items : []
   const visibleItems = items.slice(0, 2)
   const hiddenItemCount = Math.max(0, items.length - visibleItems.length)
   const countItem = hiddenItemCount > 0 ? items[visibleItems.length] : null
-  return <article className="mines-view-player" style={{ '--player-color': index === 0 ? '#ff4fa3' : '#1f6fff' }}>
+  return <article className={`mines-view-player${outcome ? ` is-${outcome}` : ''}`} style={{ '--player-color': index === 0 ? '#ff4fa3' : '#1f6fff' }}>
     <span className="mines-view-avatar"><img src={player.avatar_url || DEFAULT_AVATAR} alt={player.username || 'Player'} /></span>
     <div className="mines-view-player-details"><strong>{player.username || 'Player'}</strong><div className="mines-view-player-items">{visibleItems.map((item, itemIndex) => <div className="mines-view-player-item" key={item.id || `${item.name}-${itemIndex}`}><span className="mines-view-player-item-tooltip" role="tooltip">{item.name || 'Item'}</span><img className={gameMode === 'mm2' ? 'is-mm2' : ''} src={item.image_url || item.image || '/currency.svg'} alt="" />{gameMode === 'adm' ? <AdoptMeTraitBadges item={item} /> : null}</div>)}{countItem ? <div className="mines-view-player-item" aria-label={`${hiddenItemCount} more items`}><img className={gameMode === 'mm2' ? 'is-mm2' : ''} src={countItem.image_url || countItem.image || '/currency.svg'} alt="" /><span className="mines-view-player-more">+{hiddenItemCount}</span></div> : null}</div></div>
     <div className="mines-view-player-value"><b><RobuxIcon />{formatValue(items)}</b><span>{(100 / Math.max(1, totalPlayers)).toFixed(2)}% chance</span></div>
@@ -42,25 +42,60 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
   const user = useAuth((state) => state.user)
   const [fairnessOpen, setFairnessOpen] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const [playingCell, setPlayingCell] = useState(null)
+  const [liveGame, setLiveGame] = useState(game)
+  const [clock, setClock] = useState(Date.now())
+  useEffect(() => { setLiveGame(game) }, [game])
   useEffect(() => {
     const handleKeyDown = (event) => { if (event.key === 'Escape' && !fairnessOpen) onClose() }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [fairnessOpen, onClose])
+  useEffect(() => {
+    if (String(liveGame?.status) !== 'active') return undefined
+    const timer = window.setInterval(() => setClock(Date.now()), 100)
+    return () => window.clearInterval(timer)
+  }, [liveGame?.status, liveGame?.turn_expires_at])
 
   if (!game || typeof document === 'undefined') return null
-  const gridSize = Math.min(8, Math.max(5, Number(game.grid_size) || 5))
-  const participants = Array.isArray(game.participants) && game.participants.length
-    ? game.participants
-    : [{ uuid: game.creator_uuid, username: game.creator_username, avatar_url: game.creator_avatar_url, items: game.creator_items }]
+  const displayedGame = liveGame || game
+  const gridSize = Math.min(8, Math.max(5, Number(displayedGame.grid_size) || 5))
+  const participants = Array.isArray(displayedGame.participants) && displayedGame.participants.length
+    ? displayedGame.participants
+    : [{ uuid: displayedGame.creator_uuid, username: displayedGame.creator_username, avatar_url: displayedGame.creator_avatar_url, items: displayedGame.creator_items }]
   const currentProfileId = String(user?.profile_id || user?.id || '')
   const canCancel = Boolean(
     currentProfileId &&
-    currentProfileId === String(game.creator_uuid || '') &&
-    String(game.status || 'open') === 'open' &&
+    currentProfileId === String(displayedGame.creator_uuid || '') &&
+    String(displayedGame.status || 'open') === 'open' &&
     participants.length === 1,
   )
-  const completed = ['completed', 'resolved'].includes(String(game.status || '').toLowerCase())
+  const completed = ['completed', 'resolved'].includes(String(displayedGame.status || '').toLowerCase())
+  const active = String(displayedGame.status || '').toLowerCase() === 'active'
+  const currentTurnUuid = String(displayedGame.current_turn_uuid || '')
+  const canPlay = Boolean(active && currentProfileId && currentProfileId === currentTurnUuid && playingCell === null)
+  const revealedCells = new Set((Array.isArray(displayedGame.revealed_cells) ? displayedGame.revealed_cells : []).map(Number))
+  const minePositions = new Set((completed && Array.isArray(displayedGame.mine_positions) ? displayedGame.mine_positions : []).map(Number))
+  const remainingMilliseconds = Math.max(0, new Date(displayedGame.turn_expires_at || 0).getTime() - clock)
+  const remainingSeconds = Math.max(0, Math.ceil(remainingMilliseconds / 1000))
+  const turnProgress = Math.min(100, Math.max(0, (remainingMilliseconds / 20_000) * 100))
+  const turnPlayer = participants.find((participant) => String(participant?.uuid || '') === currentTurnUuid)
+
+  const playCell = async (cell) => {
+    if (!canPlay || revealedCells.has(cell)) return
+    setPlayingCell(cell)
+    try {
+      const result = await apiRequest('/api/mines/play', {
+        method: 'POST',
+        body: JSON.stringify({ roomId: displayedGame.id, cell }),
+      })
+      if (result?.data) setLiveGame(result.data)
+    } catch (error) {
+      notifications.error(error?.message || 'Unable to play this Mines turn.')
+    } finally {
+      setPlayingCell(null)
+    }
+  }
 
   const cancelMines = async () => {
     if (!canCancel || canceling) return
@@ -68,10 +103,10 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
     try {
       const result = await apiRequest('/api/mines/cancel', {
         method: 'POST',
-        body: JSON.stringify({ roomId: game.id }),
+        body: JSON.stringify({ roomId: displayedGame.id }),
       })
       notifications.success('Mines game canceled.')
-      onCanceled(result?.data || { ...game, status: 'canceled' })
+      onCanceled(result?.data || { ...displayedGame, status: 'canceled' })
     } catch (error) {
       notifications.error(error?.message || 'Unable to cancel Mines game.')
     } finally {
@@ -83,24 +118,35 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
     <section className="mines-view-modal" role="dialog" aria-modal="true" aria-label="Mines game">
       <button type="button" className="mines-view-close" aria-label="Close" onClick={onClose}><CloseIcon /></button>
       <aside className="mines-view-sidebar">
-        <div className="mines-view-player-list">{participants.map((player, index) => <PlayerEntry key={player?.uuid || `player-${index}`} player={player} index={index} totalPlayers={Math.max(1, participants.length)} gameMode={game.game_mode} />)}</div>
+        <div className="mines-view-player-list">{participants.map((player, index) => <PlayerEntry key={player?.uuid || `player-${index}`} player={player} index={index} totalPlayers={Math.max(1, participants.length)} gameMode={displayedGame.game_mode} outcome={completed ? (String(player?.uuid || '') === String(displayedGame.winner_uuid || '') ? 'winner' : 'loser') : ''} />)}</div>
       </aside>
       <main className="mines-view-board-box">
         <div className="mines-view-board-content">
-          <div className="mines-view-grid" style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>{Array.from({ length: gridSize * gridSize }, (_, index) => <button type="button" disabled key={index} className="mines-view-cell" aria-label="Unrevealed cell" />)}</div>
+          <div className="mines-view-board-stack">
+            <div className="mines-view-grid" style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>{Array.from({ length: gridSize * gridSize }, (_, index) => {
+              const revealed = revealedCells.has(index)
+              const mine = revealed && minePositions.has(index)
+              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}`} aria-label={mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }} />
+            })}</div>
+            {active ? <div className="mines-view-turn-strip">
+              <div className="mines-view-turn-player"><img src={turnPlayer?.avatar_url || turnPlayer?.avatar || DEFAULT_AVATAR} alt="" /><span>{currentTurnUuid === currentProfileId ? 'Your turn' : turnPlayer?.username || 'Player'}</span></div>
+              <div className="mines-view-turn-track" aria-hidden="true"><span style={{ width: `${turnProgress}%` }} /></div>
+              <output className="mines-view-turn-seconds" aria-label={`${remainingSeconds} seconds remaining`}>{remainingSeconds}s</output>
+            </div> : null}
+          </div>
         </div>
       </main>
       <div className="mines-view-footer-shell">
         <div className="mines-view-divider" />
         <footer className="mines-view-footer">
           <button type="button" className="mines-view-fairness" onClick={() => setFairnessOpen(true)}><ShieldIcon />Fairness</button>
-          <p>{relativeGameTime(game)}</p>
+          <p>{completed ? `${participants.find((participant) => String(participant?.uuid || '') === String(displayedGame.winner_uuid || ''))?.username || 'Player'} won` : relativeGameTime(displayedGame)}</p>
           {canCancel ? <button type="button" className="mines-view-cancel" disabled={canceling} onClick={() => { void cancelMines() }}>{canceling ? 'Canceling' : 'Cancel'}</button> : null}
         </footer>
       </div>
       <style>{MINES_VIEW_STYLES}</style>
     </section>
-    {fairnessOpen ? <CoinflipFairnessModal gameLabel="Mines" coinflipId={game.id || 'N/A'} hashedServerSeed={game.server_seed_hash || 'N/A'} serverSeed={completed ? game.server_seed || 'N/A' : 'N/A'} clientSeed={completed ? game.client_seed || 'N/A' : 'N/A'} onClose={() => setFairnessOpen(false)} /> : null}
+    {fairnessOpen ? <CoinflipFairnessModal gameLabel="Mines" coinflipId={displayedGame.id || 'N/A'} hashedServerSeed={displayedGame.server_seed_hash || 'N/A'} serverSeed={completed ? displayedGame.server_seed || 'N/A' : 'N/A'} clientSeed={completed ? displayedGame.client_seed || 'N/A' : 'N/A'} onClose={() => setFairnessOpen(false)} /> : null}
   </div>, document.body)
 }
 
@@ -116,6 +162,7 @@ const MINES_VIEW_STYLES = `
   .mines-view-player-list { display:flex; min-height:0; flex-direction:column; padding:56px 12px 12px; overflow-y:auto; border:0; border-radius:8px; background:transparent; box-shadow:none; scrollbar-width:thin; scrollbar-color:#ff4fa3 transparent; }
   .mines-view-player-list::-webkit-scrollbar { width:4px; }.mines-view-player-list::-webkit-scrollbar-thumb { border-radius:999px; background:#ff4fa3; }
   .mines-view-player { position:relative; display:grid; min-height:78px; grid-template-columns:62px minmax(0,1fr) auto; align-items:center; gap:13px; margin-bottom:13px; padding:12px 14px; border:0; border-radius:8px; background:#20232d; }
+  .mines-view-player.is-loser { opacity:.42; filter:saturate(.65) brightness(.78); }
   .mines-view-player:last-child { margin-bottom:0; }
   .mines-view-avatar { display:flex; width:54px; height:54px; flex:0 0 54px; align-items:center; justify-content:center; overflow:hidden; border:3px solid var(--player-color); border-radius:50%; color:#777e8d; background:#111319; font-size:14px; font-weight:700; }
   .mines-view-avatar img { width:100%; height:100%; object-fit:cover; }
@@ -134,10 +181,22 @@ const MINES_VIEW_STYLES = `
   .mines-view-player-value { display:flex; flex:0 0 auto; align-items:flex-end; flex-direction:column; gap:3px; }
   .mines-view-player-value b { display:flex; align-items:center; gap:4px; color:#f0f2f5; font-size:13px; font-weight:700; }.mines-view-player-value b svg { width:11px; height:11px; color:#ff4fa3; }
   .mines-view-player-value span { color:#969dab; font-size:11px; font-weight:400; white-space:nowrap; }
-  .mines-view-board-box { display:flex; min-width:0; min-height:0; flex-direction:column; padding:56px 24px 12px; box-sizing:border-box; background:#171a22; }
+  .mines-view-board-box { display:flex; min-width:0; min-height:0; flex-direction:column; padding:56px 24px 8px; box-sizing:border-box; background:#171a22; }
   .mines-view-board-content { display:flex; min-width:0; min-height:0; flex:1; align-items:flex-start; justify-content:center; padding:0; }
+  .mines-view-board-stack { display:flex; width:100%; max-width:440px; min-width:0; flex-direction:column; gap:8px; }
   .mines-view-grid { display:grid; width:100%; max-width:440px; gap:8px; margin:0 auto; }
-  .mines-view-cell { display:flex; width:100%; min-width:0; min-height:0; aspect-ratio:1/1; align-items:center; justify-content:center; padding:0; border:0; border-radius:6px; background:#20232d; cursor:default; }
+  .mines-view-cell { display:flex; width:100%; min-width:0; min-height:0; aspect-ratio:1/1; align-items:center; justify-content:center; padding:0; border:0; border-radius:6px; background:#20232d; cursor:default; transition:background-color .15s ease,transform .15s ease,opacity .15s ease; }
+  .mines-view-cell.is-playable { cursor:pointer; }
+  .mines-view-cell.is-playable:hover { background:#2a2e39; transform:translateY(-1px); }
+  .mines-view-cell.is-revealed { background:#343945; opacity:.72; }
+  .mines-view-cell.is-mine { background:#ff4fa3; opacity:1; }
+  .mines-view-turn-strip { display:grid; width:100%; height:37px; min-width:0; grid-template-columns:minmax(112px,auto) minmax(60px,1fr) 34px; align-items:center; gap:10px; }
+  .mines-view-turn-player { display:flex; min-width:0; align-items:center; gap:7px; }
+  .mines-view-turn-player img { width:26px; height:26px; flex:0 0 26px; border-radius:50%; object-fit:cover; }
+  .mines-view-turn-player span { overflow:hidden; color:#d9dce3; font-size:11px; font-weight:600; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
+  .mines-view-turn-track { position:relative; width:100%; height:5px; overflow:hidden; border:0; border-radius:999px; background:#2b2f3a; }
+  .mines-view-turn-track span { position:absolute; inset:0 auto 0 0; display:block; height:100%; border-radius:inherit; background:#ff4fa3; transition:width .1s linear; }
+  .mines-view-turn-seconds { color:#f4f5f8; font-size:11px; font-weight:700; line-height:16px; text-align:right; }
   .mines-view-footer-shell { grid-column:1/-1; min-width:0; padding:0 16px; background:#171a22; }
   .mines-view-divider { width:100%; height:1px; flex:0 0 1px; background:rgba(255,255,255,.16); opacity:.6; }
   .mines-view-footer { position:relative; display:flex; width:100%; min-height:50px; flex:0 0 50px; align-items:center; justify-content:center; gap:8px; }
@@ -147,5 +206,5 @@ const MINES_VIEW_STYLES = `
   .mines-view-fairness svg { width:13px; height:13px; }
   .mines-view-cancel { position:absolute; top:5px; right:0; min-width:96px; height:40px; padding:0 16px; border:0; border-radius:8px; color:#fff; background:#e34f5f; font:700 13px/19.5px Poppins,sans-serif; cursor:pointer; }
   .mines-view-cancel:hover { background:#ef6271; }.mines-view-cancel:disabled { cursor:not-allowed; opacity:.65; }
-  @media (max-width:760px) { .mines-view-overlay{padding:0}.mines-view-modal{width:100%;height:100dvh;grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr) 51px;border-radius:0}.mines-view-sidebar{border-right:0;border-bottom:1px solid rgba(255,255,255,.06)}.mines-view-player-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding-top:56px}.mines-view-board-box{padding:14px}.mines-view-grid{gap:5px;max-width:min(400px,54vh)}.mines-view-footer{justify-content:space-between}.mines-view-fairness,.mines-view-cancel{position:static}.mines-view-footer p{display:none}}
+  @media (max-width:760px) { .mines-view-overlay{padding:0}.mines-view-modal{width:100%;height:100dvh;grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr) 51px;border-radius:0}.mines-view-sidebar{border-right:0;border-bottom:1px solid rgba(255,255,255,.06)}.mines-view-player-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding-top:56px}.mines-view-board-box{padding:14px}.mines-view-board-stack{max-width:min(400px,54vh)}.mines-view-grid{gap:5px;max-width:none}.mines-view-turn-strip{grid-template-columns:minmax(96px,auto) minmax(48px,1fr) 32px;gap:7px}.mines-view-footer{justify-content:space-between}.mines-view-fairness,.mines-view-cancel{position:static}.mines-view-footer p{display:none}}
 `

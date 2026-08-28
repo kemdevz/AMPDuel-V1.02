@@ -2929,11 +2929,51 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
 })
 
 // Mines game functions
+const MINES_RESOLVED_ROOM_LIFETIME_MS = 40_000
+
+function resolveMinesBoard(serverSeed, game) {
+  const gridSize = Number(game?.grid_size) || 5
+  const cellCount = gridSize * gridSize
+  const mineCount = Math.min(cellCount - 1, Math.max(1, Number(game?.mine_count) || 1))
+  const gameId = String(game?.id || '')
+  const clientSeed = String(game?.client_seed || '')
+  const scoredCells = Array.from({ length: cellCount }, (_, cell) => ({
+    cell,
+    score: crypto.createHmac('sha256', serverSeed)
+      .update(`mines-board:${gameId}:${clientSeed}:${cell}`)
+      .digest('hex'),
+  }))
+  scoredCells.sort((left, right) => left.score.localeCompare(right.score) || left.cell - right.cell)
+  const minePositions = scoredCells.slice(0, mineCount).map(({ cell }) => cell).sort((a, b) => a - b)
+  const firstTurnRoll = crypto.createHmac('sha256', serverSeed)
+    .update(`mines-first-turn:${gameId}:${clientSeed}`)
+    .digest()[0]
+  const participants = Array.isArray(game?.participants) ? game.participants : []
+  return {
+    minePositions,
+    firstTurnUuid: String(participants[firstTurnRoll % Math.max(1, participants.length)]?.uuid || ''),
+  }
+}
+
+function decryptMinesServerSeed(game) {
+  const { supabaseKey } = getSupabaseAdminConfig()
+  if (!supabaseKey) throw new Error('Supabase config missing.')
+  const serverSeed = game?.server_seed_encrypted
+    ? decryptCoinflipServerSeed(game.server_seed_encrypted, supabaseKey)
+    : String(game?.server_seed || '')
+  if (!serverSeed) throw new Error('Mines game has no server seed commitment.')
+  const expectedHash = crypto.createHash('sha256').update(serverSeed).digest('hex')
+  if (expectedHash !== game?.server_seed_hash) throw new Error('Mines server seed commitment is invalid.')
+  return serverSeed
+}
+
 function serializeMinesGame(game) {
   if (!game || typeof game !== 'object') return game
   const { server_seed_encrypted, ...publicGame } = game
-  if (!['completed', 'resolved'].includes(String(publicGame.status || '').toLowerCase())) {
+  const completed = ['completed', 'resolved'].includes(String(publicGame.status || '').toLowerCase())
+  if (!completed) {
     delete publicGame.server_seed
+    delete publicGame.mine_positions
   }
   return {
     ...publicGame,
@@ -2943,7 +2983,43 @@ function serializeMinesGame(game) {
     creator_items: Array.isArray(publicGame.creator_items) ? publicGame.creator_items : [],
     participants: Array.isArray(publicGame.participants) ? publicGame.participants : [],
     revealed_cells: Array.isArray(publicGame.revealed_cells) ? publicGame.revealed_cells : [],
+    mine_positions: completed && Array.isArray(publicGame.mine_positions) ? publicGame.mine_positions : undefined,
   }
+}
+
+async function initializeMinesGame(game) {
+  if (!game || String(game.status) !== 'active') return game
+  if (Array.isArray(game.mine_positions) && game.mine_positions.length && game.current_turn_uuid && game.turn_expires_at) return game
+  const serverSeed = decryptMinesServerSeed(game)
+  const { minePositions, firstTurnUuid } = resolveMinesBoard(serverSeed, game)
+  if (!firstTurnUuid) throw new Error('Mines game has no starting player.')
+  const result = await callDatabaseRpc('start_mines_game', {
+    p_game_id: game.id,
+    p_mine_positions: minePositions,
+    p_first_turn_uuid: firstTurnUuid,
+  })
+  return Array.isArray(result) ? result[0] : result
+}
+
+async function playMinesTurn(game, profileId, cell, isAuto = false) {
+  const serverSeed = decryptMinesServerSeed(game)
+  const result = await callDatabaseRpc('play_mines_turn', {
+    p_game_id: game.id,
+    p_profile_id: String(profileId),
+    p_cell: Number(cell),
+    p_is_auto: Boolean(isAuto),
+    p_server_seed: serverSeed,
+  })
+  const updated = Array.isArray(result) ? result[0] : result
+  const publicGame = serializeMinesGame(updated)
+  io.emit('mines:updated', publicGame)
+  if (String(updated?.status) === 'completed') {
+    const participantIds = (Array.isArray(updated.participants) ? updated.participants : [])
+      .map((participant) => participant?.uuid)
+      .filter(Boolean)
+    await emitProfileUpdates(participantIds)
+  }
+  return publicGame
 }
 
 app.get('/api/mines', async (req, res) => {
@@ -2951,10 +3027,16 @@ app.get('/api/mines', async (req, res) => {
   const gameMode = ['mm2', 'adm', 'ps99'].includes(requestedGame) ? requestedGame : 'mm2'
   try {
     const rows = await adminRest(
-      `mines_games?select=*&game_mode=eq.${encodeURIComponent(gameMode)}&status=in.(open,active)&order=created_at.desc&limit=100`,
+      `mines_games?select=*&game_mode=eq.${encodeURIComponent(gameMode)}&status=in.(open,active,completed)&order=created_at.desc&limit=100`,
     )
+    const resolvedCutoff = Date.now() - MINES_RESOLVED_ROOM_LIFETIME_MS
+    const visibleRows = (Array.isArray(rows) ? rows : []).filter((game) => {
+      if (String(game?.status) !== 'completed') return true
+      const resolvedAt = new Date(game?.resolved_at || 0).getTime()
+      return Number.isFinite(resolvedAt) && resolvedAt >= resolvedCutoff
+    })
     res.setHeader('Cache-Control', 'no-store')
-    res.json({ ok: true, games: (Array.isArray(rows) ? rows : []).map(serializeMinesGame) })
+    res.json({ ok: true, games: visibleRows.map(serializeMinesGame) })
   } catch (error) {
     console.error('[api/mines] failed', error)
     res.status(500).json({ ok: false, error: 'Unable to load Mines games.' })
@@ -3089,7 +3171,11 @@ app.post('/api/mines/join', express.json({ limit: '24kb' }), requireAuthenticate
       p_avatar_url: profile.avatar_headshot_url || profile.avatar_url || '',
       p_item_ids: itemIds,
     })
-    const game = serializeMinesGame(Array.isArray(result) ? result[0] : result)
+    const joinedGame = Array.isArray(result) ? result[0] : result
+    const startedGame = String(joinedGame?.status) === 'active'
+      ? await initializeMinesGame(joinedGame)
+      : joinedGame
+    const game = serializeMinesGame(startedGame)
     io.emit('mines:updated', game)
     await emitProfileUpdates([profileId, room.creator_uuid])
     return res.json({ ok: true, data: game })
@@ -3100,6 +3186,66 @@ app.post('/api/mines/join', express.json({ limit: '24kb' }), requireAuthenticate
     return res.status(expected ? 409 : 500).json({ ok: false, error: message })
   }
 })
+
+app.post('/api/mines/play', express.json({ limit: '8kb' }), requireAuthenticatedUser, async (req, res) => {
+  const roomId = String(req.body?.roomId || req.body?.id || '').trim()
+  const cell = Number(req.body?.cell)
+  if (!isUuidLike(roomId)) return res.status(400).json({ ok: false, error: 'A valid roomId is required.' })
+  if (!Number.isInteger(cell) || cell < 0 || cell >= 25) {
+    return res.status(400).json({ ok: false, error: 'Select a valid Mines cell.' })
+  }
+
+  const profileId = String(req.identity.profileId)
+  try {
+    const rows = await adminRest(`mines_games?id=eq.${encodeURIComponent(roomId)}&select=*`)
+    let game = Array.isArray(rows) ? rows[0] : rows
+    if (!game) return res.status(404).json({ ok: false, error: 'Mines game not found.' })
+    game = await initializeMinesGame(game)
+    const updated = await playMinesTurn(game, profileId, cell, false)
+    return res.json({ ok: true, data: updated })
+  } catch (error) {
+    console.error('[api/mines/play] failed', error)
+    const message = error?.message || 'Unable to play this Mines turn.'
+    const expected = /turn|cell|active|expired|player|not found|seed/i.test(message)
+    return res.status(expected ? 409 : 500).json({ ok: false, error: message })
+  }
+})
+
+let minesTurnSweepRunning = false
+async function sweepExpiredMinesTurns() {
+  if (minesTurnSweepRunning) return
+  minesTurnSweepRunning = true
+  try {
+    const rows = await adminRest('mines_games?select=*&status=eq.active&order=updated_at.asc&limit=100')
+    for (const storedGame of Array.isArray(rows) ? rows : []) {
+      try {
+        const game = await initializeMinesGame(storedGame)
+        const expiresAt = new Date(game?.turn_expires_at || 0).getTime()
+        if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) continue
+        const revealed = new Set((Array.isArray(game.revealed_cells) ? game.revealed_cells : []).map(Number))
+        const availableCells = Array.from({ length: (Number(game.grid_size) || 5) ** 2 }, (_, cell) => cell)
+          .filter((cell) => !revealed.has(cell))
+        if (!availableCells.length) continue
+        const randomCell = availableCells[crypto.randomInt(availableCells.length)]
+        await playMinesTurn(game, game.current_turn_uuid, randomCell, true)
+      } catch (error) {
+        // Multiple app instances may race the same deadline. The row-locked RPC
+        // accepts exactly one move; stale workers safely receive a turn conflict.
+        if (!/turn|expired|active|not ready|not found/i.test(String(error?.message || ''))) {
+          console.error('[mines] failed to reconcile active turn', error)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[mines] failed to scan expired turns', error)
+  } finally {
+    minesTurnSweepRunning = false
+  }
+}
+
+const minesTurnSweepTimer = setInterval(() => { void sweepExpiredMinesTurns() }, 500)
+minesTurnSweepTimer.unref?.()
+void sweepExpiredMinesTurns()
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true })
