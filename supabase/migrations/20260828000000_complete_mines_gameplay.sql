@@ -209,7 +209,7 @@ CREATE OR REPLACE FUNCTION public.play_mines_turn(
 RETURNS public.mines_games
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_game public.mines_games;
@@ -229,7 +229,7 @@ BEGIN
   IF p_cell < 0 OR p_cell >= v_game.grid_size * v_game.grid_size OR p_cell = ANY(v_game.revealed_cells) THEN
     RAISE EXCEPTION 'Invalid or already revealed Mines cell.';
   END IF;
-  IF encode(digest(p_server_seed, 'sha256'), 'hex') <> v_game.server_seed_hash THEN
+  IF encode(extensions.digest(p_server_seed, 'sha256'), 'hex') <> v_game.server_seed_hash THEN
     RAISE EXCEPTION 'Mines server seed commitment is invalid.';
   END IF;
 
