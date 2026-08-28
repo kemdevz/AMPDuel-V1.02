@@ -126,7 +126,8 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
             <div className="mines-view-grid" style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>{Array.from({ length: gridSize * gridSize }, (_, index) => {
               const revealed = revealedCells.has(index)
               const mine = revealed && minePositions.has(index)
-              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}`} aria-label={mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }} />
+              const cellImage = mine ? '/mines-hit.png' : revealed ? '/mines-safe.png' : '/mines-unrevealed.png'
+              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}`} aria-label={mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}><img src={cellImage} alt="" draggable={false} /></button>
             })}</div>
             {active ? <div className="mines-view-turn-strip">
               <div className="mines-view-turn-player"><img src={turnPlayer?.avatar_url || turnPlayer?.avatar || DEFAULT_AVATAR} alt="" /><span>{currentTurnUuid === currentProfileId ? 'Your turn' : turnPlayer?.username || 'Player'}</span></div>
@@ -186,10 +187,12 @@ const MINES_VIEW_STYLES = `
   .mines-view-board-stack { display:flex; width:100%; max-width:440px; min-width:0; flex-direction:column; gap:8px; }
   .mines-view-grid { display:grid; width:100%; max-width:440px; gap:8px; margin:0 auto; }
   .mines-view-cell { display:flex; width:100%; min-width:0; min-height:0; aspect-ratio:1/1; align-items:center; justify-content:center; padding:0; border:0; border-radius:6px; background:#20232d; cursor:default; transition:background-color .15s ease,transform .15s ease,opacity .15s ease; }
+  .mines-view-cell img { display:block; width:64%; height:64%; object-fit:contain; pointer-events:none; user-select:none; }
   .mines-view-cell.is-playable { cursor:pointer; }
   .mines-view-cell.is-playable:hover { background:#2a2e39; transform:translateY(-1px); }
-  .mines-view-cell.is-revealed { background:#343945; opacity:.72; }
-  .mines-view-cell.is-mine { background:#ff4fa3; opacity:1; }
+  .mines-view-cell.is-revealed { background:#20232d; opacity:1; }
+  .mines-view-cell.is-mine { background:#20232d; opacity:1; }
+  .mines-view-cell.is-mine img { width:70%; height:70%; }
   .mines-view-turn-strip { display:grid; width:100%; height:37px; min-width:0; grid-template-columns:minmax(112px,auto) minmax(60px,1fr) 34px; align-items:center; gap:10px; }
   .mines-view-turn-player { display:flex; min-width:0; align-items:center; gap:7px; }
   .mines-view-turn-player img { width:26px; height:26px; flex:0 0 26px; border-radius:50%; object-fit:cover; }
