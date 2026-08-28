@@ -341,9 +341,9 @@ function EmojiAutocomplete({ emojis, onSelect }) {
   );
 }
 
-function CustomEmojiPicker({ search, emojis, onSearch, onSelect }) {
+function CustomEmojiPicker({ search, emojis, onSearch, onSelect, pickerRef }) {
   return (
-    <div className="_emojiPickerPortal_18i9r_6 _emojiPickerOpen_18i9r_11">
+    <div ref={pickerRef} className="_emojiPickerPortal_18i9r_6 _emojiPickerOpen_18i9r_11">
       <div className="_customEmojiPicker_abrjv_49">
         <div className="_customEmojiSearchWrap_abrjv_58">
           <svg className="_customEmojiSearchIcon_abrjv_local" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
@@ -382,6 +382,8 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   const [emojiSearch, setEmojiSearch] = useState("");
   const [cursorIndex, setCursorIndex] = useState(0);
   const inputRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+  const emojiButtonRef = useRef(null);
   const pendingCursorRef = useRef(null);
   const filteredEmojis = useMemo(() => {
     return getMatchingEmojis(emojiSearch.trim());
@@ -403,6 +405,20 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
     inputRef.current?.setSelectionRange(nextCursor, nextCursor);
     setCursorIndex(nextCursor);
   }, [value]);
+
+  useEffect(() => {
+    if (!emojiPickerOpen) return undefined;
+
+    const handleOutsidePointerDown = (event) => {
+      if (emojiPickerRef.current?.contains(event.target)) return;
+      if (emojiButtonRef.current?.contains(event.target)) return;
+      setEmojiPickerOpen(false);
+      setEmojiSearch("");
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => document.removeEventListener("pointerdown", handleOutsidePointerDown);
+  }, [emojiPickerOpen]);
 
   function syncCursor(event) {
     setCursorIndex(event.target.selectionStart ?? event.target.value.length);
@@ -469,6 +485,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
             emojis={filteredEmojis}
             onSearch={setEmojiSearch}
             onSelect={selectEmoji}
+            pickerRef={emojiPickerRef}
           />
         )}
 
@@ -508,6 +525,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
 
           <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-3">
             <button
+              ref={emojiButtonRef}
               aria-label="Emoji Picker"
               type="button"
               aria-expanded={emojiPickerOpen}
