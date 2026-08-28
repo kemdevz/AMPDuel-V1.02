@@ -3046,6 +3046,29 @@ app.get('/api/mines', async (req, res) => {
   }
 })
 
+app.get('/api/mines/history', requireAuthenticatedUser, async (req, res) => {
+  const profileId = String(req.identity.profileId)
+  const requestedGame = normalizeCoinflipGameMode(req.query.game)
+  const selectedGame = ['mm2', 'adm', 'ps99'].includes(requestedGame) ? requestedGame : null
+
+  try {
+    const gameFilter = selectedGame ? `&game_mode=eq.${encodeURIComponent(selectedGame)}` : ''
+    const rows = await adminRest(
+      `mines_games?select=*&status=eq.completed${gameFilter}&order=resolved_at.desc&limit=500`,
+    )
+    const history = (Array.isArray(rows) ? rows : [])
+      .filter((game) => (Array.isArray(game?.participants) ? game.participants : [])
+        .some((participant) => String(participant?.uuid || '') === profileId))
+      .slice(0, 100)
+      .map(serializeMinesGame)
+    res.setHeader('Cache-Control', 'private, no-store')
+    res.json({ ok: true, game: selectedGame || 'all', history })
+  } catch (error) {
+    console.error('[mines/history] failed', error)
+    res.status(500).json({ ok: false, error: 'Unable to load Mines history.' })
+  }
+})
+
 app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthenticatedUser, async (req, res) => {
   const payload = req.body || {}
   const gameMode = normalizeCoinflipGameMode(payload.game_mode)

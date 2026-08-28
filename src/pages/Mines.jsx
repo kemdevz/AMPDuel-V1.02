@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import AnimatedNumber from '../components/AnimatedNumber'
 import MinesCreateModal from '../components/MinesCreateModal'
 import MinesViewModal from '../components/MinesViewModal'
+import RecentMinesModal from '../components/RecentMinesModal'
+import MiniProfileModal, { preloadMiniProfile } from '../components/MiniProfileModal'
 import CoinflipJoinModal from '../components/CoinflipJoinModal'
 import { RobuxIcon } from '../components/AmpInventoryModalUI'
 import AdoptMeTraitBadges from '../components/AdoptMeTraitBadges'
@@ -99,6 +101,10 @@ export default function Mines({ onInitialReady }) {
   const [createOpen, setCreateOpen] = useState(false)
   const [viewGame, setViewGame] = useState(null)
   const [joinRoom, setJoinRoom] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyGames, setHistoryGames] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [selectedProfile, setSelectedProfile] = useState(null)
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [gameMode, setGameMode] = useState(() => {
@@ -106,6 +112,7 @@ export default function Mines({ onInitialReady }) {
     try { const saved = window.localStorage.getItem(MINES_GAME_STORAGE_KEY); return GAME_OPTIONS.some(([value]) => value === saved) ? saved : 'mm2' } catch { return 'mm2' }
   })
   const gameModeIndex = Math.max(0, GAME_OPTIONS.findIndex(([value]) => value === gameMode))
+  const currentProfileId = String(user?.profile_id || user?.id || '')
 
   const upsertAnimatedGame = useCallback((incomingGame) => {
     if (!incomingGame?.id) return
@@ -140,6 +147,32 @@ export default function Mines({ onInitialReady }) {
 
   useEffect(() => { void loadGames() }, [loadGames])
   useEffect(() => {
+    if (!historyOpen) {
+      setHistoryLoading(false)
+      return undefined
+    }
+    let active = true
+    const loadHistory = async () => {
+      if (!currentProfileId) {
+        setHistoryGames([])
+        setHistoryLoading(false)
+        return
+      }
+      setHistoryLoading(true)
+      try {
+        const result = await apiRequest(`/api/mines/history?game=${encodeURIComponent(gameMode)}`, { cache: 'no-store' })
+        if (active) setHistoryGames(Array.isArray(result?.history) ? result.history : [])
+      } catch (error) {
+        console.warn('[mines] failed to load player history', error)
+        if (active) setHistoryGames([])
+      } finally {
+        if (active) setHistoryLoading(false)
+      }
+    }
+    void loadHistory()
+    return () => { active = false }
+  }, [currentProfileId, gameMode, historyOpen])
+  useEffect(() => {
     try { window.localStorage.setItem(MINES_GAME_STORAGE_KEY, gameMode) } catch { /* Storage may be unavailable. */ }
     window.dispatchEvent(new CustomEvent('ampduel:game-mode-changed', { detail: { storageKey: MINES_GAME_STORAGE_KEY, gameMode } }))
   }, [gameMode])
@@ -162,12 +195,17 @@ export default function Mines({ onInitialReady }) {
         next[existingIndex] = { ...next[existingIndex], ...game }
         return next
       })
+      if (historyOpen && String(game?.status) === 'completed' && (Array.isArray(game?.participants) ? game.participants : []).some((participant) => String(participant?.uuid || '') === currentProfileId)) {
+        setHistoryGames((current) => [game, ...current.filter((entry) => entry.id !== game.id)]
+          .sort((left, right) => new Date(right.resolved_at || 0).getTime() - new Date(left.resolved_at || 0).getTime())
+          .slice(0, 100))
+      }
       setViewGame((current) => current?.id === game?.id ? game : current)
     }
     socket.on('mines:created', onCreated)
     socket.on('mines:updated', onUpdated)
     return () => { socket.off('mines:created', onCreated); socket.off('mines:updated', onUpdated) }
-  }, [gameMode, upsertAnimatedGame])
+  }, [currentProfileId, gameMode, historyOpen, upsertAnimatedGame])
 
   useEffect(() => {
     const timers = games.flatMap((game) => {
@@ -192,21 +230,21 @@ export default function Mines({ onInitialReady }) {
   const totalValue = useMemo(() => activeGames.reduce((sum, game) => sum + gameValue(game), 0), [activeGames])
   const requireLogin = (action) => { if (!user) return setAuthModalOpen(true); action?.() }
   const handleCreated = (game) => { if (game) { upsertAnimatedGame(game); setViewGame(game) } }
-  const currentProfileId = String(user?.profile_id || user?.id || '')
-
   return <div className="reference-mines flex-1 overflow-x-hidden bg-transparent">
     <style>{MINES_PAGE_STYLES}</style>
     <div className="relative z-10 flex w-full flex-col px-[18px] pb-32 pt-5">
       <div className="grid gap-2 md:grid-cols-3"><StatCard value={totalItems} label="Total Items" /><StatCard icon="/currency.svg" value={totalValue} label="Total Value" /><StatCard value={activeGames.length} label="Active Games" /></div>
       <div className="mb-[10px] mt-3 flex flex-col justify-between gap-2 sm:flex-row">
         <div role="tablist" aria-label="Mines game" className="relative isolate grid h-[43px] w-full grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto"><span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 3)', transform: `translateX(${gameModeIndex * 100}%)` }} />{GAME_OPTIONS.map(([value, label]) => { const active = gameMode === value; return <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setGameMode(value)} className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-colors duration-200 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}>{label}</button> })}</div>
-        <div className="flex items-center justify-end gap-2"><button type="button" onClick={() => requireLogin(() => setCreateOpen(true))} className="inline-flex h-[43px] min-w-[98px] items-center justify-center rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff69b0]">Create</button><button type="button" onClick={() => requireLogin()} className="inline-flex h-[43px] min-w-[92px] items-center justify-center rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white">History</button></div>
+        <div className="flex items-center justify-end gap-2"><button type="button" onClick={() => requireLogin(() => setCreateOpen(true))} className="inline-flex h-[43px] min-w-[98px] items-center justify-center rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff69b0]">Create</button><button type="button" onClick={() => requireLogin(() => setHistoryOpen(true))} className="inline-flex h-[43px] min-w-[92px] items-center justify-center rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white">History</button></div>
       </div>
       <div className="mines-game-list">{loading ? null : games.map((game) => <MinesGameRow key={game.id} game={game} currentProfileId={currentProfileId} onJoin={(room) => requireLogin(() => setJoinRoom(room))} onView={setViewGame} />)}</div>
     </div>
     {createOpen ? <MinesCreateModal gameMode={gameMode} onClose={() => setCreateOpen(false)} onCreate={handleCreated} /> : null}
     {joinRoom ? <CoinflipJoinModal room={joinRoom} gameMode={gameMode} gameType="mines" onClose={() => setJoinRoom(null)} onJoin={({ updatedRoom } = {}) => { if (updatedRoom) { setGames((current) => current.map((game) => game.id === updatedRoom.id ? updatedRoom : game)); setViewGame(updatedRoom) } setJoinRoom(null) }} /> : null}
+    <RecentMinesModal isOpen={historyOpen} games={historyGames} loading={historyLoading} isAuthenticated={Boolean(currentProfileId)} onClose={() => setHistoryOpen(false)} onView={(game) => { setHistoryOpen(false); setViewGame(game) }} onProfileOpen={(player) => { void preloadMiniProfile(player).then((loadedProfile) => { setSelectedProfile({ ...player, ...(loadedProfile || {}) }) }) }} />
     {viewGame ? <MinesViewModal game={viewGame} onClose={() => setViewGame(null)} onCanceled={(canceledGame) => { setGames((current) => current.filter((game) => game.id !== canceledGame.id)); setViewGame(null) }} /> : null}
+    <MiniProfileModal isOpen={Boolean(selectedProfile)} player={selectedProfile} onClose={() => setSelectedProfile(null)} />
   </div>
 }
 

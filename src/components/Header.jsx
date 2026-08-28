@@ -830,7 +830,6 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                       </svg>
                       <span>Promocodes</span>
                     </div>
-                    <div role="separator" aria-orientation="horizontal" className="mx-1 my-1 h-px bg-[hsl(231_16%_17%)]" />
                     <div
                       role="menuitem"
                       className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-semibold text-[hsl(349_84%_60%)] outline-none transition-opacity hover:bg-[hsl(349_84%_60%/.2)] focus:bg-[hsl(349_84%_60%/.2)] [&>svg]:hidden cursor-pointer"

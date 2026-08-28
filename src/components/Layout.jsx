@@ -11,6 +11,7 @@ import { normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
 import HeaderUtilityBar from './HeaderUtilityBar'
+import ProvablyFairModal from './ProvablyFairModal'
 import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
 import { LEADERBOARD_ENABLED } from '../features'
 
@@ -24,6 +25,7 @@ export default function Layout({ children, onInitialWalletReady }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const [fairnessModalOpen, setFairnessModalOpen] = useState(false)
   const activeGameStorageKey = pathname === '/mines' ? 'bloxdice:mines-game' : 'bloxdice:coinflip-game'
   const [activeGameMode, setActiveGameMode] = useState(() => {
     try {
@@ -161,6 +163,7 @@ export default function Layout({ children, onInitialWalletReady }) {
 
           <div className="flex min-h-0 min-w-0 flex-[1_1_auto] flex-col">
             <HeaderUtilityBar
+              onOpenFairness={() => setFairnessModalOpen(true)}
               onOpenTerms={() => setTermsModalOpen(true)}
             />
             <main
@@ -228,6 +231,11 @@ export default function Layout({ children, onInitialWalletReady }) {
       <TermsModal
         isOpen={termsModalOpen}
         onClose={() => setTermsModalOpen(false)}
+      />
+
+      <ProvablyFairModal
+        isOpen={fairnessModalOpen}
+        onClose={() => setFairnessModalOpen(false)}
       />
 
       <ProfileTipManager gameMode={activeGameMode} />

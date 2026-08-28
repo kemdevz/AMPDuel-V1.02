@@ -71,7 +71,7 @@ export default function CoinflipFairnessModal({ gameLabel = 'Coinflip', coinflip
   )
 }
 
-const COINFLIP_FAIR_UI_STYLES = `
+export const COINFLIP_FAIR_UI_STYLES = `
   .coinflip-fair-ui__overlay { position:fixed; inset:0; z-index:2147483200; display:flex; box-sizing:border-box; align-items:center; justify-content:center; overflow:auto; background:rgba(4,5,8,.78); -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px); font-family:Poppins,sans-serif; animation:coinflip-fair-overlay-in 160ms ease-out both; }
   .coinflip-fair-ui__modal { position:relative; z-index:1; display:flex; width:calc(100% - 32px); max-width:576px; box-sizing:border-box; flex-direction:column; margin:16px; overflow:visible; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:#191c24; color:#f4f5f8; box-shadow:0 24px 70px rgba(0,0,0,.55); animation:coinflip-fair-modal-in 180ms cubic-bezier(.2,.8,.2,1) both; }
   .coinflip-fair-ui__modal > header { box-sizing:border-box; min-height:57.5px; margin:0; padding:16px 24px; color:#f4f5f8; font:600 17px/25.5px Poppins,sans-serif; }
