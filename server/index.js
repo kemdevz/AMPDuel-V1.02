@@ -3026,6 +3026,9 @@ app.get('/api/mines', async (req, res) => {
   const requestedGame = normalizeCoinflipGameMode(req.query.game)
   const gameMode = ['mm2', 'adm', 'ps99'].includes(requestedGame) ? requestedGame : 'mm2'
   try {
+    // Hosted/serverless workers may suspend background timers between requests.
+    // Reconcile expired turns here as an authoritative request-driven fallback.
+    await sweepExpiredMinesTurns()
     const rows = await adminRest(
       `mines_games?select=*&game_mode=eq.${encodeURIComponent(gameMode)}&status=in.(open,active,completed)&order=created_at.desc&limit=100`,
     )

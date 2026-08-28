@@ -56,6 +56,28 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
     const timer = window.setInterval(() => setClock(Date.now()), 100)
     return () => window.clearInterval(timer)
   }, [liveGame?.status, liveGame?.turn_expires_at])
+  useEffect(() => {
+    if (String(liveGame?.status) !== 'active' || !liveGame?.turn_expires_at || !liveGame?.id) return undefined
+    let refreshing = false
+    let canceled = false
+    const refreshExpiredTurn = async () => {
+      if (refreshing || Date.now() < new Date(liveGame.turn_expires_at).getTime()) return
+      refreshing = true
+      try {
+        const result = await apiRequest(`/api/mines?game=${encodeURIComponent(liveGame.game_mode || 'mm2')}`, { cache: 'no-store' })
+        const refreshedGame = (Array.isArray(result?.games) ? result.games : []).find((entry) => entry.id === liveGame.id)
+        if (!canceled && refreshedGame) setLiveGame(refreshedGame)
+      } catch {
+        // Keep retrying while the expired game remains visible. The server owns
+        // the move, so a transient network failure cannot alter the result.
+      } finally {
+        refreshing = false
+      }
+    }
+    const timer = window.setInterval(() => { void refreshExpiredTurn() }, 750)
+    void refreshExpiredTurn()
+    return () => { canceled = true; window.clearInterval(timer) }
+  }, [liveGame?.game_mode, liveGame?.id, liveGame?.status, liveGame?.turn_expires_at])
 
   if (!game || typeof document === 'undefined') return null
   const displayedGame = liveGame || game
