@@ -17,7 +17,10 @@ const MINES_CREATE_STYLES = `
   .mines-footer-slider input { width: 100%; min-width: 56px; height: 4px; margin: 0; appearance: none; border-radius: 999px; outline: 0; background: linear-gradient(to right, #ff4fa3 0 var(--mine-progress), #343945 var(--mine-progress) 100%); cursor: pointer; }
   .mines-footer-slider input::-webkit-slider-thumb { width: 14px; height: 14px; appearance: none; border: 2px solid #191c24; border-radius: 50%; background: #ff4fa3; box-shadow: 0 0 0 1px rgba(255,79,163,.25); }
   .mines-footer-slider input::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #191c24; border-radius: 50%; background: #ff4fa3; box-shadow: 0 0 0 1px rgba(255,79,163,.25); }
+  .mines-create-footer-row { justify-content: space-between; }
+  .mines-create-footer-row .amp-footer-selection-group { margin-right: auto; }
   .mines-create-footer-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; }
+  .mines-create-error { margin: 0; padding: 9px 12px; border: 1px solid rgba(239,98,113,.2); border-radius: 7px; color: #ef7885; background: rgba(227,79,95,.08); font: 600 11px/16px Poppins,sans-serif; }
   @media (max-width: 700px) { .mines-create-footer-row { align-items: stretch; flex-direction: column; } .mines-create-footer-row .amp-footer-selection-group { width: 100%; flex-wrap: wrap; } .mines-create-footer-actions { width: 100%; justify-content: flex-end; } }
   @media (max-width: 560px) { .mines-footer-slider { width: 150px; flex-basis: 150px; } }
 `
@@ -31,6 +34,7 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose, onCreate }
   const [mineCount, setMineCount] = useState(3)
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState('')
+  const [creationError, setCreationError] = useState('')
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
@@ -79,33 +83,41 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose, onCreate }
     return inventoryRows.filter((item) => selected.has(item.displayKey))
   }, [inventoryRows, selectedItems])
 
-  const toggleItem = (displayKey) => setSelectedItems((current) => {
-    if (current.includes(displayKey)) return current.filter((key) => key !== displayKey)
-    if (current.length >= MAX_ITEMS) {
-      notifications.error(`You can wager up to ${MAX_ITEMS} items.`)
-      return current
-    }
-    return [...current, displayKey]
-  })
+  const toggleItem = (displayKey) => {
+    setCreationError('')
+    setSelectedItems((current) => {
+      if (current.includes(displayKey)) return current.filter((key) => key !== displayKey)
+      if (current.length >= MAX_ITEMS) {
+        notifications.error(`You can wager up to ${MAX_ITEMS} items.`)
+        return current
+      }
+      return [...current, displayKey]
+    })
+  }
   const toggleSelectAll = () => {
+    setCreationError('')
     const selectableKeys = visibleRows.slice(0, MAX_ITEMS).map((item) => item.displayKey)
     const allSelected = selectableKeys.length > 0 && selectableKeys.every((key) => selectedItems.includes(key))
     setSelectedItems(allSelected ? [] : selectableKeys)
   }
   const handleCreate = async () => {
     if (!selectedRows.length || creating) return
+    setCreationError('')
     setCreating(true)
     try {
       const result = await apiRequest('/api/mines/create', {
         method: 'POST',
         body: JSON.stringify({ game_mode: normalizedGameMode, grid_size: 5, mine_count: mineCount, max_players: 2, item_ids: selectedRows.map((item) => item.id) }),
       })
+      if (!result?.data?.id) throw new Error('The Mines game was not created. Please try again.')
       window.dispatchEvent(new CustomEvent('wallet:updated'))
-      onCreate?.(result?.data)
+      onCreate?.(result.data)
       notifications.success('Mines game created successfully!')
       onClose()
     } catch (error) {
-      notifications.error(error?.message || 'Unable to create Mines game.')
+      const message = error?.message || 'Unable to create Mines game.'
+      setCreationError(message)
+      notifications.error(message)
     } finally {
       setCreating(false)
     }
@@ -123,12 +135,13 @@ export default function MinesCreateModal({ gameMode = 'mm2', onClose, onCreate }
           <AmpSearch value={searchQuery} onChange={setSearchQuery} />
           <div className="amp-modal-controls"><AmpSort ascending={sortAscending} onChange={setSortAscending} /></div>
         </div>
+        {creationError ? <p className="mines-create-error" role="alert">{creationError}</p> : null}
         {inventoryLoading ? <div className="amp-inventory-loading"><span className="amp-spinner" /><p className="amp-loading-copy">Loading inventory</p></div>
           : inventoryError ? <div className="amp-inventory-empty"><p className="amp-empty-copy">{inventoryError}</p></div>
           : inventoryRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">Your inventory is empty.</p></div>
           : visibleRows.length === 0 ? <div className="amp-inventory-empty"><p className="amp-empty-copy">No items match “{searchQuery.trim()}”.</p></div>
           : <div className="amp-inventory-grid">{visibleRows.map((item) => <AmpItemCard key={item.displayKey} item={item} selectable selected={selectedItems.includes(item.displayKey)} onClick={() => toggleItem(item.displayKey)} />)}</div>}
-        <div className="amp-sticky-footer"><div className="amp-footer-row mines-create-footer-row"><div className="amp-footer-selection-group"><label className="mines-footer-slider"><MinesIcon /><span>Mines</span><input type="range" min="1" max="24" value={mineCount} aria-label="Number of mines" style={{ '--mine-progress': `${((mineCount - 1) / 23) * 100}%` }} onChange={(event) => setMineCount(Number(event.target.value))} /><output>{mineCount}</output></label></div><div className="mines-create-footer-actions"><button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={!visibleRows.length} onClick={toggleSelectAll}>{allVisibleSelected ? 'Unselect All' : 'Select All'}</button><button type="button" className="amp-create-button" disabled={inventoryLoading || selectedRows.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button></div></div></div>
+        <div className="amp-sticky-footer"><div className="amp-footer-row mines-create-footer-row"><div className="amp-footer-selection-group"><label className="mines-footer-slider"><MinesIcon /><span>Mines</span><input type="range" min="1" max="24" value={mineCount} aria-label="Number of mines" style={{ '--mine-progress': `${((mineCount - 1) / 23) * 100}%` }} onChange={(event) => { setCreationError(''); setMineCount(Number(event.target.value)) }} /><output>{mineCount}</output></label></div><div className="mines-create-footer-actions"><button type="button" className="amp-inventory-action amp-footer-selection-action" disabled={!visibleRows.length} onClick={toggleSelectAll}>{allVisibleSelected ? 'Unselect All' : 'Select All'}</button><button type="button" className="amp-create-button" disabled={inventoryLoading || selectedRows.length === 0 || creating} onClick={handleCreate}>{creating ? 'Creating' : 'Create'}</button></div></div></div>
       </div></div>
       <style>{AMP_MODAL_STYLES}{MINES_CREATE_STYLES}</style>
     </section>
