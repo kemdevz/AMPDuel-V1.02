@@ -814,16 +814,6 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
         .game-preview-item-image { display: block; width: calc(100% - 6px); height: calc(100% - 6px); padding: 0; border-radius: 9999px; object-fit: cover; pointer-events: none; }
         .game-preview-item-image--mm2 { width: calc(100% - 10px); height: calc(100% - 10px); }
         .game-preview-item-image--gem { width: 78%; height: 78%; object-fit: contain; }
-        .game-preview-item .adopt-me-traits {
-          bottom: -5px;
-          gap: 1px;
-        }
-        .game-preview-item .adopt-me-trait {
-          width: 13px;
-          height: 13px;
-          flex-basis: 13px;
-          font-size: 7px;
-        }
         .game-preview-tooltip {
           position: absolute;
           bottom: calc(100% + 8px);
@@ -947,8 +937,6 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           .game-preview-actions { grid-area: actions; }
           .game-preview-join { min-width: 62px; padding: 0 12px; }
           .game-preview-item { width: 48px; height: 48px; flex-basis: 48px; }
-          .game-preview-item .adopt-me-traits { bottom: -4px; }
-          .game-preview-item .adopt-me-trait { width: 9px; height: 9px; flex-basis: 9px; font-size: 6px; }
         }
         @media (max-width: 640px) {
           .coinflip-top-counter { height: 40px; }

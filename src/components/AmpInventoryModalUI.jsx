@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import AdoptMeTraitBadges from './AdoptMeTraitBadges'
 
 export const AMP_MODAL_STYLES = `
   @keyframes ampModalOverlayIn { from { opacity: 0; } to { opacity: 1; } }
@@ -236,7 +237,7 @@ export const AMP_MODAL_STYLES = `
   .amp-item-card.is-selected:hover { background: rgba(255, 79, 163, .13); }
   .amp-item-check { position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; color: #111319; background: #ff4fa3; }
   .amp-item-check svg { width: 10px; height: 10px; }
-  .amp-item-image-wrap { display: flex; height: 116px; margin-bottom: 12px; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: #101218; }
+  .amp-item-image-wrap { position: relative; display: flex; height: 116px; margin-bottom: 12px; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: #101218; }
   .amp-item-image { width: 104px; height: 104px; object-fit: contain; user-select: none; pointer-events: none; }
   .amp-item-name { margin: 0; overflow: hidden; color: #eceef2; font-size: 13px; font-weight: 600; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
   .amp-item-value { display: flex; margin-top: 8px; align-items: center; gap: 6px; color: #ff69b0; }
@@ -409,7 +410,7 @@ export function AmpItemCard({ item, selected = false, selectable = false, onClic
   const Tag = selectable ? 'button' : 'div'
   const image = item?.image_url || item?.imageUrl || item?.image || ''
   const value = Number(item?.value ?? item?.amount ?? 0)
-  return <Tag type={selectable ? 'button' : undefined} className={`amp-item-card${selected ? ' is-selected' : ''}`} onClick={selectable ? onClick : undefined} aria-pressed={selectable ? selected : undefined}>{selected ? <span className="amp-item-check"><CheckIcon /></span> : null}<span className="amp-item-image-wrap">{image ? <img className="amp-item-image" src={image} alt={item?.name || ''} draggable="false" /> : null}</span><p className="amp-item-name" title={item?.name || ''}>{item?.name || 'Item'}</p><span className="amp-item-value"><RobuxIcon /><span>{value.toLocaleString()}</span></span>{footer ? <span className="amp-item-footer">{footer}</span> : null}</Tag>
+  return <Tag type={selectable ? 'button' : undefined} className={`amp-item-card${selected ? ' is-selected' : ''}`} onClick={selectable ? onClick : undefined} aria-pressed={selectable ? selected : undefined}>{selected ? <span className="amp-item-check"><CheckIcon /></span> : null}<span className="amp-item-image-wrap">{image ? <img className="amp-item-image" src={image} alt={item?.name || ''} draggable="false" /> : null}<AdoptMeTraitBadges item={item} className="adopt-me-traits--inside" /></span><p className="amp-item-name" title={item?.name || ''}>{item?.name || 'Item'}</p><span className="amp-item-value"><RobuxIcon /><span>{value.toLocaleString()}</span></span>{footer ? <span className="amp-item-footer">{footer}</span> : null}</Tag>
 }
 
 export function prioritizeSelectedItems(items, selectedItems) {

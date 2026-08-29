@@ -197,8 +197,8 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
               const revealed = completed || revealedCells.has(index)
               const mine = completed && minePositions.has(index)
               const pending = playingCell === index
-              const cellImage = mine ? '/mines-hit.png' : revealed ? '/mines-safe.png' : '/mines-unrevealed.png'
-              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}${pending ? ' is-pending' : ''}`} aria-label={pending ? 'Revealing cell' : mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}><img src={cellImage} alt="" draggable={false} /></button>
+              const cellImage = mine ? '/mines-hit.png' : revealed ? '/mines-safe.png' : null
+              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}${pending ? ' is-pending' : ''}`} aria-label={pending ? 'Revealing cell' : mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}>{cellImage ? <img src={cellImage} alt="" draggable={false} /> : null}</button>
             })}</div>
             {active ? <TurnStrip expiresAt={displayedGame.turn_expires_at} turnPlayer={turnPlayer} isCurrentUser={currentTurnUuid === currentProfileId} /> : null}
           </div>
@@ -242,8 +242,6 @@ const MINES_VIEW_STYLES = `
   .mines-view-player-item { position:relative; display:flex; width:46px; height:46px; flex:0 0 46px; box-sizing:border-box; align-items:center; justify-content:center; overflow:visible; border:1px solid rgba(255,255,255,.05); border-radius:9999px; color:#fff; background:#12151c; box-shadow:none; }
   .mines-view-player-item img { display:block; width:40px; height:40px; padding:0; border-radius:9999px; background:transparent; object-fit:cover; pointer-events:none; }
   .mines-view-player-item img.is-mm2 { width:36px; height:36px; object-fit:contain; }
-  .mines-view-player-item .adopt-me-traits { bottom:-4px; gap:1px; }
-  .mines-view-player-item .adopt-me-trait { width:10px; height:10px; flex-basis:10px; font-size:6px; }
   .mines-view-player-more { position:absolute; inset:0; z-index:3; display:grid; place-items:center; border-radius:50%; background:rgba(15,18,30,.84); color:#fff; backdrop-filter:blur(2px); font-size:11px; font-weight:600; line-height:16.5px; pointer-events:none; }
   .mines-view-player-item-tooltip { position:absolute; bottom:calc(100% + 7px); left:50%; z-index:20; display:block; width:max-content; max-width:150px; padding:4px 8px; overflow:hidden; border:1px solid rgba(255,255,255,.08); border-radius:5px; color:#f4f5f8; background:#191c24; font:600 10px/15px Poppins,sans-serif; opacity:0; visibility:hidden; transform:translate(-50%,3px); white-space:nowrap; text-overflow:ellipsis; pointer-events:none; transition:opacity .12s ease,transform .12s ease,visibility 0s linear .12s; }
   .mines-view-player-item:hover .mines-view-player-item-tooltip { opacity:1; visibility:visible; transform:translate(-50%,0); transition-delay:0s; }

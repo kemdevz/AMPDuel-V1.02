@@ -13,6 +13,7 @@ import { formatPriceValue } from '../Utils/FormatPriceValues'
 import { AllGamesIcon, GameHistoryStatusBadge } from './GameHistoryUI'
 import RoleBadge from './RoleBadge'
 import AdminSearchField from './AdminSearchField'
+import AdoptMeTraitBadges from './AdoptMeTraitBadges'
 import { ADMIN_PRIMARY_BUTTON, SESSION_DANGER_SURFACE } from './AdminControlStyles'
 import {
   AdminGeneral,
@@ -516,6 +517,7 @@ function AdminItemsDatabase({ itemType }) {
                 <span className={`absolute right-2.5 top-2.5 z-[3] h-2.5 w-2.5 rounded-[30%] bg-[var(--inventory-indicator-color)] transition-[opacity,transform] duration-200 ${selected ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`} />
                 <div className="relative min-h-0 flex-1 overflow-hidden rounded-md">
                   {item.image_url ? <img src={item.image_url} alt={item.name} className="absolute inset-0 z-[1] h-full w-full object-contain" loading="lazy" decoding="async" /> : null}
+                  {itemType === 'AMP' ? <AdoptMeTraitBadges item={item} className="adopt-me-traits--inside" /> : null}
                 </div>
                 <div className="relative z-[2] flex h-[34px] shrink-0 flex-col items-center justify-center overflow-hidden text-center">
                   {selected ? (

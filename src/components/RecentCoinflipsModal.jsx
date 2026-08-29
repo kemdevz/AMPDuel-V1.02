@@ -154,8 +154,6 @@ export const HISTORY_STYLES = `
   .history-item:hover { border-color: rgba(255,255,255,.12); }
   .history-item img { display: block; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; pointer-events: none; }
   .history-item img.is-gem { width: 78%; height: 78%; object-fit: contain; }
-  .history-item .adopt-me-traits { bottom: -5px; gap: 1px; }
-  .history-item .adopt-me-trait { width: 13px; height: 13px; flex-basis: 13px; font-size: 7px; }
   .history-item-more { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; border-radius: 50%; color: #fff; background: rgba(15,18,30,.84); backdrop-filter: blur(2px); font-size: 13px; font-weight: 600; pointer-events: none; }
   .history-game-result { position: relative; display: flex; width: 72px; min-width: 72px; height: 72px; flex: 0 0 72px; align-items: center; justify-content: center; }
   .history-game-result img { width: 58px; height: 58px; object-fit: contain; }

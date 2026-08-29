@@ -150,12 +150,12 @@
 /* Adopt Me pet modifiers match the compact AMP item markers. */
 .adopt-me-traits {
   position: absolute;
-  bottom: -7px;
+  bottom: -4px;
   left: 50%;
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   margin: 0;
   padding: 0;
   transform: translateX(-50%);
@@ -164,9 +164,9 @@
 
 .adopt-me-trait {
   display: flex;
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
   align-items: center;
   justify-content: center;
   margin: 0;
@@ -176,9 +176,13 @@
   color: #fff;
   box-shadow: none;
   font-family: Poppins, sans-serif;
-  font-size: 9px;
+  font-size: 6px;
   font-weight: 700;
   line-height: 1;
+}
+
+.adopt-me-traits.adopt-me-traits--inside {
+  bottom: 5px;
 }
 
 .adopt-me-trait--m { background: linear-gradient(135deg, #a855f7 0%, #6d28d9 100%); }

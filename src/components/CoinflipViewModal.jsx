@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { notifications } from './Notifications'
 import CoinflipFairnessModal from './CoinflipFairnessModal'
+import AdoptMeTraitBadges from './AdoptMeTraitBadges'
 import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
@@ -164,6 +165,7 @@ function ItemColumn({ column, waiting = false }) {
         >
           <div className="view-modal__item-image-wrapper">
             <img src={item.image} alt={item.name} className="view-modal__normal-item-image" loading="eager" />
+            <AdoptMeTraitBadges item={item} />
           </div>
           <p className="view-modal__item-name">{item.name}</p>
           <span className="view-modal__item-value"><CurrencyIcon />{item.value}</span>
