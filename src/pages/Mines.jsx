@@ -127,6 +127,16 @@ export default function Mines({ onInitialReady }) {
 
   useEffect(() => { historyOpenRef.current = historyOpen }, [historyOpen])
   useEffect(() => { currentProfileIdRef.current = currentProfileId }, [currentProfileId])
+  useEffect(() => {
+    const images = ['/mines-unrevealed.png', '/mines-safe.png', '/mines-hit.png'].map((source) => {
+      const image = new Image()
+      image.decoding = 'async'
+      image.src = source
+      void image.decode?.().catch(() => {})
+      return image
+    })
+    return () => { images.forEach((image) => { image.onload = null; image.onerror = null }) }
+  }, [])
 
   const openPlayerProfile = useCallback((player) => {
     void preloadMiniProfile(player).then((loadedProfile) => {

@@ -13,7 +13,6 @@ import { DiscordIcon, MinesIcon } from "./icons";
 import { CoinStackIcon, MedalIcon } from "./ReferenceNavIcons";
 import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from "../lib/coinflipGameMode";
 import { LEADERBOARD_ENABLED } from '../features'
-import { getSoundVolume, setSoundVolume } from '../lib/soundEffects'
 
 const COIN_ICON = "/currency.svg";
 const AVATAR =
@@ -126,7 +125,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   const [volumeOpen, setVolumeOpen] = useState(false)
   const [volumePosition, setVolumePosition] = useState({ x: 0, y: 0 })
-  const [volumeLevel, setVolumeLevel] = useState(() => getSoundVolume())
+  const [volumeLevel, setVolumeLevel] = useState(100)
   const [inventoryOpen, setInventoryOpen] = useState(false)
   const [withdrawalDepositOpen, setWithdrawalDepositOpen] = useState(false)
   const [promoCodeOpen, setPromoCodeOpen] = useState(false)
@@ -681,10 +680,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                     max="100"
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#ff4fa3]"
                     value={volumeLevel}
-                    onChange={(event) => {
-                      const nextVolume = setSoundVolume(event.target.value)
-                      setVolumeLevel(nextVolume)
-                    }}
+                    onChange={(event) => setVolumeLevel(Number(event.target.value))}
                     style={{ backgroundColor: 'rgb(32, 34, 47)' }}
                   />
                 </div>

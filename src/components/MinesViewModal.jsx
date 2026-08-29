@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CloseIcon, RobuxIcon } from './AmpInventoryModalUI'
 import CoinflipFairnessModal from './CoinflipFairnessModal'
@@ -13,7 +13,7 @@ const formatValue = (items) => (Array.isArray(items) ? items : [])
   .toLocaleString('en-US', { maximumFractionDigits: 2 })
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 
-function PlayerEntry({ player, index, gameMode, outcome }) {
+const PlayerEntry = memo(function PlayerEntry({ player, index, gameMode, outcome }) {
   const items = Array.isArray(player.items) ? player.items : []
   const visibleItems = items.slice(0, 2)
   const hiddenItemCount = Math.max(0, items.length - visibleItems.length)
@@ -23,7 +23,7 @@ function PlayerEntry({ player, index, gameMode, outcome }) {
     <div className="mines-view-player-details"><strong>{player.username || 'Player'}</strong><div className="mines-view-player-items">{visibleItems.map((item, itemIndex) => <div className="mines-view-player-item" key={item.id || `${item.name}-${itemIndex}`}><span className="mines-view-player-item-tooltip" role="tooltip">{item.name || 'Item'}</span><img className={gameMode === 'mm2' ? 'is-mm2' : ''} src={item.image_url || item.image || '/currency.svg'} alt="" />{gameMode === 'adm' ? <AdoptMeTraitBadges item={item} /> : null}</div>)}{countItem ? <div className="mines-view-player-item" aria-label={`${hiddenItemCount} more items`}><img className={gameMode === 'mm2' ? 'is-mm2' : ''} src={countItem.image_url || countItem.image || '/currency.svg'} alt="" /><span className="mines-view-player-more">+{hiddenItemCount}</span></div> : null}</div></div>
     <div className="mines-view-player-value"><b><RobuxIcon />{formatValue(items)}</b></div>
   </article>
-}
+})
 
 function ShieldIcon() {
   return <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="m466.5 83.7-192-80a48.2 48.2 0 0 0-36.9 0l-192 80A48 48 0 0 0 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C360.1 472.6 496 349.3 496 128c0-19.4-11.7-36.9-29.5-44.3zM256.1 446.3 256 65.3l175.9 73.3c-3.3 151.4-82.1 261.1-175.8 307.7z" /></svg>
@@ -39,26 +39,50 @@ function relativeGameTime(game) {
   return `Created ${hours} hour${hours === 1 ? '' : 's'} ago`
 }
 
+function minesSnapshotKey(game) {
+  if (!game) return ''
+  return [
+    game.id,
+    game.status,
+    game.updated_at,
+    game.current_turn_uuid,
+    (Array.isArray(game.revealed_cells) ? game.revealed_cells : []).join(','),
+  ].join('|')
+}
+
+const TurnStrip = memo(function TurnStrip({ expiresAt, turnPlayer, isCurrentUser }) {
+  const [clock, setClock] = useState(Date.now())
+  useEffect(() => {
+    setClock(Date.now())
+    const timer = window.setInterval(() => setClock(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [expiresAt])
+
+  const remainingMilliseconds = Math.max(0, new Date(expiresAt || 0).getTime() - clock)
+  const remainingSeconds = Math.max(0, Math.ceil(remainingMilliseconds / 1000))
+  const turnProgress = Math.min(100, Math.max(0, (remainingMilliseconds / 20_000) * 100))
+  return <div className="mines-view-turn-strip">
+    <div className="mines-view-turn-player"><img src={turnPlayer?.avatar_url || turnPlayer?.avatar || DEFAULT_AVATAR} alt="" /><span>{isCurrentUser ? 'Your turn' : turnPlayer?.username || 'Player'}</span></div>
+    <div className="mines-view-turn-track" aria-hidden="true"><span style={{ width: `${turnProgress}%` }} /></div>
+    <output className="mines-view-turn-seconds" aria-label={`${remainingSeconds} seconds remaining`}>{remainingSeconds}s</output>
+  </div>
+})
+
 export default function MinesViewModal({ game, onClose, onCanceled = () => {} }) {
   const user = useAuth((state) => state.user)
   const [fairnessOpen, setFairnessOpen] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [playingCell, setPlayingCell] = useState(null)
   const [liveGame, setLiveGame] = useState(game)
-  const [clock, setClock] = useState(Date.now())
   const previousGameRef = useRef(game)
-  useEffect(() => { setLiveGame(game) }, [game])
+  useEffect(() => {
+    setLiveGame((current) => minesSnapshotKey(current) === minesSnapshotKey(game) ? current : game)
+  }, [game])
   useEffect(() => {
     const handleKeyDown = (event) => { if (event.key === 'Escape' && !fairnessOpen) onClose() }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [fairnessOpen, onClose])
-  useEffect(() => {
-    if (String(liveGame?.status) !== 'active') return undefined
-    setClock(Date.now())
-    const timer = window.setInterval(() => setClock(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [liveGame?.status, liveGame?.turn_expires_at])
   useEffect(() => {
     const previousGame = previousGameRef.current
     previousGameRef.current = liveGame
@@ -88,7 +112,9 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
       try {
         const result = await apiRequest(`/api/mines?game=${encodeURIComponent(liveGame.game_mode || 'mm2')}`, { cache: 'no-store' })
         const refreshedGame = (Array.isArray(result?.games) ? result.games : []).find((entry) => entry.id === liveGame.id)
-        if (!canceled && refreshedGame) setLiveGame(refreshedGame)
+        if (!canceled && refreshedGame) {
+          setLiveGame((current) => minesSnapshotKey(current) === minesSnapshotKey(refreshedGame) ? current : refreshedGame)
+        }
       } catch {
         // Keep retrying while the expired game remains visible. The server owns
         // the move, so a transient network failure cannot alter the result.
@@ -120,9 +146,6 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
   const canPlay = Boolean(active && currentProfileId && currentProfileId === currentTurnUuid && playingCell === null)
   const revealedCells = new Set((Array.isArray(displayedGame.revealed_cells) ? displayedGame.revealed_cells : []).map(Number))
   const minePositions = new Set((completed && Array.isArray(displayedGame.mine_positions) ? displayedGame.mine_positions : []).map(Number))
-  const remainingMilliseconds = Math.max(0, new Date(displayedGame.turn_expires_at || 0).getTime() - clock)
-  const remainingSeconds = Math.max(0, Math.ceil(remainingMilliseconds / 1000))
-  const turnProgress = Math.min(100, Math.max(0, (remainingMilliseconds / 20_000) * 100))
   const turnPlayer = participants.find((participant) => String(participant?.uuid || '') === currentTurnUuid)
 
   const playCell = async (cell) => {
@@ -134,7 +157,9 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
         method: 'POST',
         body: JSON.stringify({ roomId: displayedGame.id, cell }),
       })
-      if (result?.data) setLiveGame(result.data)
+      if (result?.data) {
+        setLiveGame((current) => minesSnapshotKey(current) === minesSnapshotKey(result.data) ? current : result.data)
+      }
     } catch (error) {
       notifications.error(error?.message || 'Unable to play this Mines turn.')
     } finally {
@@ -169,17 +194,13 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
         <div className="mines-view-board-content">
           <div className="mines-view-board-stack">
             <div className="mines-view-grid" style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>{Array.from({ length: gridSize * gridSize }, (_, index) => {
-              const revealed = revealedCells.has(index)
-              const mine = revealed && minePositions.has(index)
+              const revealed = completed || revealedCells.has(index)
+              const mine = completed && minePositions.has(index)
               const pending = playingCell === index
               const cellImage = mine ? '/mines-hit.png' : revealed ? '/mines-safe.png' : '/mines-unrevealed.png'
               return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}${pending ? ' is-pending' : ''}`} aria-label={pending ? 'Revealing cell' : mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}><img src={cellImage} alt="" draggable={false} /></button>
             })}</div>
-            {active ? <div className="mines-view-turn-strip">
-              <div className="mines-view-turn-player"><img src={turnPlayer?.avatar_url || turnPlayer?.avatar || DEFAULT_AVATAR} alt="" /><span>{currentTurnUuid === currentProfileId ? 'Your turn' : turnPlayer?.username || 'Player'}</span></div>
-              <div className="mines-view-turn-track" aria-hidden="true"><span style={{ width: `${turnProgress}%` }} /></div>
-              <output className="mines-view-turn-seconds" aria-label={`${remainingSeconds} seconds remaining`}>{remainingSeconds}s</output>
-            </div> : null}
+            {active ? <TurnStrip expiresAt={displayedGame.turn_expires_at} turnPlayer={turnPlayer} isCurrentUser={currentTurnUuid === currentProfileId} /> : null}
           </div>
         </div>
       </main>
@@ -198,10 +219,10 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
 }
 
 const MINES_VIEW_STYLES = `
-  @keyframes minesViewIn { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
-  @keyframes minesCellPending { 0%,100% { transform:scale(1); filter:brightness(1); } 50% { transform:scale(.94); filter:brightness(1.3); } }
-  .mines-view-overlay { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:rgba(4,5,8,.76); backdrop-filter:blur(9px); font-family:Poppins,sans-serif; }
-  .mines-view-modal { position:relative; display:grid; width:calc(100% - 48px); max-width:900px; height:min(600px,calc(100dvh - 48px)); min-height:0; grid-template-columns:360px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 51px; overflow:hidden; border:1px solid rgba(255,255,255,.06); border-radius:11px; color:#f4f5f8; background:#171a22; box-shadow:0 26px 80px rgba(0,0,0,.55); animation:minesViewIn .22s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes minesViewIn { from { opacity:0; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
+  @keyframes minesCellPending { to { transform:rotate(360deg); } }
+  .mines-view-overlay { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:rgba(4,5,8,.82); font-family:Poppins,sans-serif; }
+  .mines-view-modal { position:relative; display:grid; width:calc(100% - 48px); max-width:900px; height:min(600px,calc(100dvh - 48px)); min-height:0; grid-template-columns:360px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 51px; overflow:hidden; border:1px solid rgba(255,255,255,.06); border-radius:11px; color:#f4f5f8; background:#171a22; box-shadow:0 26px 80px rgba(0,0,0,.55); animation:minesViewIn .14s ease-out both; will-change:transform,opacity; }
   .mines-view-modal * { box-sizing:border-box; }
   .mines-view-close { position:absolute; top:12px; right:12px; z-index:5; display:grid; width:30px; height:30px; place-items:center; padding:0; border:0; border-radius:6px; color:#8e94a2; background:#222631; cursor:pointer; }
   .mines-view-close:hover { color:#b3b8c3; background:#282c37; }
@@ -236,7 +257,9 @@ const MINES_VIEW_STYLES = `
   .mines-view-cell img { display:block; width:64%; height:64%; object-fit:contain; pointer-events:none; user-select:none; }
   .mines-view-cell.is-playable { cursor:pointer; }
   .mines-view-cell.is-playable:hover { background:#2a2e39; transform:translateY(-1px); }
-  .mines-view-cell.is-pending { background:#2a2e39; animation:minesCellPending .65s ease-in-out infinite; }
+  .mines-view-cell.is-pending { position:relative; background:#2a2e39; }
+  .mines-view-cell.is-pending img { opacity:.28; }
+  .mines-view-cell.is-pending::after { position:absolute; width:20px; height:20px; border:2px solid rgba(255,255,255,.22); border-top-color:#ff4fa3; border-radius:50%; content:''; animation:minesCellPending .55s linear infinite; }
   .mines-view-cell.is-revealed { background:#20232d; opacity:1; }
   .mines-view-cell.is-mine { background:#20232d; opacity:1; }
   .mines-view-cell.is-mine img { width:70%; height:70%; }

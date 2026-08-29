@@ -2930,6 +2930,31 @@ app.post('/api/coinflip/join', express.json({ limit: '24kb' }), requireAuthentic
 
 // Mines game functions
 const MINES_RESOLVED_ROOM_LIFETIME_MS = 40_000
+const MINES_GAME_CACHE_TTL_MS = 10 * 60_000
+const MINES_GAME_CACHE_LIMIT = 500
+const minesGameCache = new Map()
+
+function cacheMinesGame(game) {
+  const gameId = String(game?.id || '')
+  if (!gameId) return game
+  minesGameCache.delete(gameId)
+  minesGameCache.set(gameId, { game, expiresAt: Date.now() + MINES_GAME_CACHE_TTL_MS })
+  while (minesGameCache.size > MINES_GAME_CACHE_LIMIT) {
+    minesGameCache.delete(minesGameCache.keys().next().value)
+  }
+  return game
+}
+
+function getCachedMinesGame(gameId) {
+  const key = String(gameId || '')
+  const cached = minesGameCache.get(key)
+  if (!cached) return null
+  if (cached.expiresAt <= Date.now()) {
+    minesGameCache.delete(key)
+    return null
+  }
+  return cached.game
+}
 
 function resolveMinesBoard(serverSeed, game) {
   const gridSize = Number(game?.grid_size) || 5
@@ -2989,7 +3014,7 @@ function serializeMinesGame(game) {
 
 async function initializeMinesGame(game) {
   if (!game || String(game.status) !== 'active') return game
-  if (Array.isArray(game.mine_positions) && game.mine_positions.length && game.current_turn_uuid && game.turn_expires_at) return game
+  if (Array.isArray(game.mine_positions) && game.mine_positions.length && game.current_turn_uuid && game.turn_expires_at) return cacheMinesGame(game)
   const serverSeed = decryptMinesServerSeed(game)
   const { minePositions, firstTurnUuid } = resolveMinesBoard(serverSeed, game)
   if (!firstTurnUuid) throw new Error('Mines game has no starting player.')
@@ -2998,7 +3023,7 @@ async function initializeMinesGame(game) {
     p_mine_positions: minePositions,
     p_first_turn_uuid: firstTurnUuid,
   })
-  return Array.isArray(result) ? result[0] : result
+  return cacheMinesGame(Array.isArray(result) ? result[0] : result)
 }
 
 async function playMinesTurn(game, profileId, cell, isAuto = false) {
@@ -3011,6 +3036,7 @@ async function playMinesTurn(game, profileId, cell, isAuto = false) {
     p_server_seed: serverSeed,
   })
   const updated = Array.isArray(result) ? result[0] : result
+  cacheMinesGame(updated)
   const publicGame = serializeMinesGame(updated)
   io.emit('mines:updated', publicGame)
   if (String(updated?.status) === 'completed') {
@@ -3032,8 +3058,10 @@ app.get('/api/mines', async (req, res) => {
     const rows = await adminRest(
       `mines_games?select=*&game_mode=eq.${encodeURIComponent(gameMode)}&status=in.(open,active,completed)&order=created_at.desc&limit=100`,
     )
+    const storedRows = Array.isArray(rows) ? rows : []
+    storedRows.forEach(cacheMinesGame)
     const resolvedCutoff = Date.now() - MINES_RESOLVED_ROOM_LIFETIME_MS
-    const visibleRows = (Array.isArray(rows) ? rows : []).filter((game) => {
+    const visibleRows = storedRows.filter((game) => {
       if (String(game?.status) !== 'completed') return true
       const resolvedAt = new Date(game?.resolved_at || 0).getTime()
       return Number.isFinite(resolvedAt) && resolvedAt >= resolvedCutoff
@@ -3128,7 +3156,8 @@ app.post('/api/mines/create', express.json({ limit: '24kb' }), requireAuthentica
       p_server_seed_encrypted: encryptCoinflipServerSeed(serverSeed, supabaseKey),
       p_client_seed: clientSeed,
     })
-    const game = serializeMinesGame(Array.isArray(result) ? result[0] : result)
+    const storedGame = cacheMinesGame(Array.isArray(result) ? result[0] : result)
+    const game = serializeMinesGame(storedGame)
     io.emit('mines:created', game)
     await emitProfileUpdates([profileId])
     res.json({ ok: true, data: game })
@@ -3152,7 +3181,8 @@ app.post('/api/mines/cancel', express.json({ limit: '8kb' }), requireAuthenticat
       p_game_id: roomId,
       p_profile_id: profileId,
     })
-    const game = serializeMinesGame(Array.isArray(result) ? result[0] : result)
+    const storedGame = cacheMinesGame(Array.isArray(result) ? result[0] : result)
+    const game = serializeMinesGame(storedGame)
     io.emit('mines:updated', game)
     await emitProfileUpdates([profileId])
     return res.json({ ok: true, data: game })
@@ -3201,6 +3231,7 @@ app.post('/api/mines/join', express.json({ limit: '24kb' }), requireAuthenticate
     const startedGame = String(joinedGame?.status) === 'active'
       ? await initializeMinesGame(joinedGame)
       : joinedGame
+    cacheMinesGame(startedGame)
     const game = serializeMinesGame(startedGame)
     io.emit('mines:updated', game)
     await emitProfileUpdates([profileId, room.creator_uuid])
@@ -3223,8 +3254,12 @@ app.post('/api/mines/play', express.json({ limit: '8kb' }), requireAuthenticated
 
   const profileId = String(req.identity.profileId)
   try {
-    const rows = await adminRest(`mines_games?id=eq.${encodeURIComponent(roomId)}&select=*`)
-    let game = Array.isArray(rows) ? rows[0] : rows
+    let game = getCachedMinesGame(roomId)
+    if (!game) {
+      const rows = await adminRest(`mines_games?id=eq.${encodeURIComponent(roomId)}&select=*`)
+      game = Array.isArray(rows) ? rows[0] : rows
+      cacheMinesGame(game)
+    }
     if (!game) return res.status(404).json({ ok: false, error: 'Mines game not found.' })
     game = await initializeMinesGame(game)
     const updated = await playMinesTurn(game, profileId, cell, false)
