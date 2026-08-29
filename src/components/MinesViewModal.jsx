@@ -50,6 +50,10 @@ function minesSnapshotKey(game) {
   ].join('|')
 }
 
+function isCompletedMinesGame(game) {
+  return ['completed', 'resolved'].includes(String(game?.status || '').toLowerCase())
+}
+
 const TurnStrip = memo(function TurnStrip({ expiresAt, turnPlayer, isCurrentUser }) {
   const [clock, setClock] = useState(Date.now())
   useEffect(() => {
@@ -74,7 +78,9 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
   const [canceling, setCanceling] = useState(false)
   const [playingCell, setPlayingCell] = useState(null)
   const [liveGame, setLiveGame] = useState(game)
+  const [boardRevealReady, setBoardRevealReady] = useState(() => isCompletedMinesGame(game))
   const previousGameRef = useRef(game)
+  const boardRevealTimerRef = useRef(null)
   useEffect(() => {
     setLiveGame((current) => minesSnapshotKey(current) === minesSnapshotKey(game) ? current : game)
   }, [game])
@@ -86,7 +92,27 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
   useEffect(() => {
     const previousGame = previousGameRef.current
     previousGameRef.current = liveGame
-    if (!previousGame || !liveGame || String(previousGame.id || '') !== String(liveGame.id || '')) return
+    if (!previousGame || !liveGame || String(previousGame.id || '') !== String(liveGame.id || '')) {
+      if (boardRevealTimerRef.current) window.clearTimeout(boardRevealTimerRef.current)
+      boardRevealTimerRef.current = null
+      setBoardRevealReady(isCompletedMinesGame(liveGame))
+      return
+    }
+
+    const wasCompleted = isCompletedMinesGame(previousGame)
+    const isCompleted = isCompletedMinesGame(liveGame)
+    if (!wasCompleted && isCompleted) {
+      if (boardRevealTimerRef.current) window.clearTimeout(boardRevealTimerRef.current)
+      setBoardRevealReady(false)
+      boardRevealTimerRef.current = window.setTimeout(() => {
+        setBoardRevealReady(true)
+        boardRevealTimerRef.current = null
+      }, 1000)
+    } else if (!isCompleted) {
+      if (boardRevealTimerRef.current) window.clearTimeout(boardRevealTimerRef.current)
+      boardRevealTimerRef.current = null
+      setBoardRevealReady(false)
+    }
 
     const previousRevealed = new Set((Array.isArray(previousGame.revealed_cells) ? previousGame.revealed_cells : []).map(Number))
     const newlyRevealed = (Array.isArray(liveGame.revealed_cells) ? liveGame.revealed_cells : [])
@@ -102,6 +128,9 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
       playMinesSound('turn')
     }
   }, [liveGame, user?.id, user?.profile_id])
+  useEffect(() => () => {
+    if (boardRevealTimerRef.current) window.clearTimeout(boardRevealTimerRef.current)
+  }, [])
   useEffect(() => {
     if (String(liveGame?.status) !== 'active' || !liveGame?.turn_expires_at || !liveGame?.id) return undefined
     let refreshing = false
@@ -140,12 +169,13 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
     String(displayedGame.status || 'open') === 'open' &&
     participants.length === 1,
   )
-  const completed = ['completed', 'resolved'].includes(String(displayedGame.status || '').toLowerCase())
+  const completed = isCompletedMinesGame(displayedGame)
   const active = String(displayedGame.status || '').toLowerCase() === 'active'
   const currentTurnUuid = String(displayedGame.current_turn_uuid || '')
   const canPlay = Boolean(active && currentProfileId && currentProfileId === currentTurnUuid && playingCell === null)
   const revealedCells = new Set((Array.isArray(displayedGame.revealed_cells) ? displayedGame.revealed_cells : []).map(Number))
   const minePositions = new Set((completed && Array.isArray(displayedGame.mine_positions) ? displayedGame.mine_positions : []).map(Number))
+  const revealWholeBoard = completed && boardRevealReady
   const turnPlayer = participants.find((participant) => String(participant?.uuid || '') === currentTurnUuid)
 
   const playCell = async (cell) => {
@@ -194,11 +224,14 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
         <div className="mines-view-board-content">
           <div className="mines-view-board-stack">
             <div className="mines-view-grid" style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>{Array.from({ length: gridSize * gridSize }, (_, index) => {
-              const revealed = completed || revealedCells.has(index)
-              const mine = completed && minePositions.has(index)
+              const previouslyRevealed = revealedCells.has(index)
+              const revealed = revealWholeBoard || previouslyRevealed
+              const mine = completed && revealed && minePositions.has(index)
               const pending = playingCell === index
+              const triggeredMine = mine && previouslyRevealed && !revealWholeBoard
+              const finalReveal = revealWholeBoard && !previouslyRevealed
               const cellImage = mine ? '/mines-hit.png' : revealed ? '/mines-safe.png' : null
-              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}${pending ? ' is-pending' : ''}`} aria-label={pending ? 'Revealing cell' : mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}>{cellImage ? <img src={cellImage} alt="" draggable={false} /> : null}</button>
+              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}${pending ? ' is-pending' : ''}${triggeredMine ? ' is-triggered-mine' : ''}${finalReveal ? ' is-final-reveal' : ''}`} aria-label={pending ? 'Revealing cell' : mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}>{cellImage ? <img src={cellImage} alt="" draggable={false} /> : null}</button>
             })}</div>
             {active ? <TurnStrip expiresAt={displayedGame.turn_expires_at} turnPlayer={turnPlayer} isCurrentUser={currentTurnUuid === currentProfileId} /> : null}
           </div>
@@ -220,7 +253,8 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
 
 const MINES_VIEW_STYLES = `
   @keyframes minesViewIn { from { opacity:0; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
-  @keyframes minesCellPending { to { transform:rotate(360deg); } }
+  @keyframes minesMineShake { 0%,100% { transform:translateX(0) rotate(0); } 25% { transform:translateX(-2px) rotate(-1.5deg); } 50% { transform:translateX(2px) rotate(1.5deg); } 75% { transform:translateX(-1px) rotate(-.75deg); } }
+  @keyframes minesBoardReveal { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:scale(1); } }
   .mines-view-overlay { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:rgba(4,5,8,.82); font-family:Poppins,sans-serif; }
   .mines-view-modal { position:relative; display:grid; width:calc(100% - 48px); max-width:900px; height:min(600px,calc(100dvh - 48px)); min-height:0; grid-template-columns:360px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 51px; overflow:hidden; border:1px solid rgba(255,255,255,.06); border-radius:11px; color:#f4f5f8; background:#171a22; box-shadow:0 26px 80px rgba(0,0,0,.55); animation:minesViewIn .14s ease-out both; will-change:transform,opacity; }
   .mines-view-modal * { box-sizing:border-box; }
@@ -255,12 +289,12 @@ const MINES_VIEW_STYLES = `
   .mines-view-cell img { display:block; width:64%; height:64%; object-fit:contain; pointer-events:none; user-select:none; }
   .mines-view-cell.is-playable { cursor:pointer; }
   .mines-view-cell.is-playable:hover { background:#2a2e39; transform:translateY(-1px); }
-  .mines-view-cell.is-pending { position:relative; background:#2a2e39; }
-  .mines-view-cell.is-pending img { opacity:.28; }
-  .mines-view-cell.is-pending::after { position:absolute; width:20px; height:20px; border:2px solid rgba(255,255,255,.22); border-top-color:#ff4fa3; border-radius:50%; content:''; animation:minesCellPending .55s linear infinite; }
+  .mines-view-cell.is-pending { background:#191c24; }
   .mines-view-cell.is-revealed { background:#20232d; opacity:1; }
   .mines-view-cell.is-mine { background:#20232d; opacity:1; }
   .mines-view-cell.is-mine img { width:70%; height:70%; }
+  .mines-view-cell.is-triggered-mine img { transform-origin:50% 65%; animation:minesMineShake .5s ease-in-out 2; }
+  .mines-view-cell.is-final-reveal img { animation:minesBoardReveal .18s ease-out both; }
   .mines-view-turn-strip { display:grid; width:100%; height:37px; min-width:0; grid-template-columns:minmax(112px,auto) minmax(60px,1fr) 34px; align-items:center; gap:10px; }
   .mines-view-turn-player { display:flex; min-width:0; align-items:center; gap:7px; }
   .mines-view-turn-player img { width:26px; height:26px; flex:0 0 26px; border-radius:50%; object-fit:cover; }
