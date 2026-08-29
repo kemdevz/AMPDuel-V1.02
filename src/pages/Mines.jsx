@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AnimatedNumber from '../components/AnimatedNumber'
 import MinesCreateModal from '../components/MinesCreateModal'
 import MinesViewModal from '../components/MinesViewModal'
@@ -53,7 +53,7 @@ function WaitingIcon() {
   return <svg width="18" height="18" viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M202.021 0C122.202 0 70.503 32.703 29.914 91.026c-7.363 10.58-5.093 25.086 5.178 32.874l43.138 32.709c10.373 7.865 25.132 6.026 33.253-4.148 25.049-31.381 43.63-49.449 82.757-49.449 30.764 0 68.816 19.799 68.816 49.631 0 22.552-18.617 34.134-48.993 51.164-35.423 19.86-82.299 44.576-82.299 106.405V320c0 13.255 10.745 24 24 24h72.471c13.255 0 24-10.745 24-24v-5.773c0-42.86 125.268-44.645 125.268-160.627C377.504 66.256 286.902 0 202.021 0zM192 373.459c-38.196 0-69.271 31.075-69.271 69.271 0 38.195 31.075 69.27 69.271 69.27s69.271-31.075 69.271-69.271-31.075-69.27-69.271-69.27z" /></svg>
 }
 
-function MinesGameRow({ game, currentProfileId, onJoin, onView }) {
+function MinesGameRow({ game, currentProfileId, onJoin, onView, onProfileOpen }) {
   const storedParticipants = Array.isArray(game.participants) ? game.participants : []
   const participants = storedParticipants.length ? storedParticipants : [{ uuid: game.creator_uuid, username: game.creator_username, avatar_url: game.creator_avatar_url, items: game.creator_items }]
   const maxPlayers = 2
@@ -82,7 +82,16 @@ function MinesGameRow({ game, currentProfileId, onJoin, onView }) {
       {playerSlots.map((player, index) => {
         const isLoser = completed && player && String(player.uuid || '') === String(game.loser_uuid || '')
         const isWinner = completed && player && String(player.uuid || '') === String(game.winner_uuid || '')
-        return <Fragment key={player?.uuid || `waiting-${index}`}>{index > 0 ? <p className="game-preview-versus">VS</p> : null}<div className={`game-preview-player${isLoser ? ' game-preview-player--loser' : ''}`}><button type="button" disabled className={`coinflip-row-avatar coinflip-row-avatar--${index === 0 ? 'creator' : 'joiner'}${isWinner ? ' coinflip-row-avatar--winner' : ''}${isLoser ? ' coinflip-row-avatar--loser' : ''}`} aria-label={player?.username || 'Waiting for player'}>{player ? <img src={player.avatar_url || player.avatar || DEFAULT_AVATAR} alt={player.username || 'Player'} className="coinflip-row-avatar-image" loading="lazy" draggable={false} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }} /> : <span className="game-preview-waiting"><WaitingIcon /></span>}</button></div></Fragment>
+        const profile = player ? {
+          id: player.id || player.profile_id || player.uuid,
+          profile_id: player.profile_id || player.uuid || player.id,
+          uuid: player.uuid || player.profile_id || player.id,
+          username: player.username,
+          avatar: player.avatar || player.avatar_url,
+          avatar_url: player.avatar_url || player.avatar,
+          avatar_headshot_url: player.avatar_headshot_url,
+        } : null
+        return <Fragment key={player?.uuid || `waiting-${index}`}>{index > 0 ? <p className="game-preview-versus">VS</p> : null}<div className={`game-preview-player${isLoser ? ' game-preview-player--loser' : ''}`}><button type="button" disabled={!player} onClick={() => { if (profile) onProfileOpen?.(profile) }} className={`coinflip-row-avatar coinflip-row-avatar--${index === 0 ? 'creator' : 'joiner'}${isWinner ? ' coinflip-row-avatar--winner' : ''}${isLoser ? ' coinflip-row-avatar--loser' : ''}`} aria-label={player ? `View ${player.username || 'player'} profile` : 'Waiting for player'}>{player ? <img src={player.avatar_url || player.avatar || DEFAULT_AVATAR} alt={player.username || 'Player'} className="coinflip-row-avatar-image" loading="lazy" draggable={false} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = DEFAULT_AVATAR }} /> : <span className="game-preview-waiting"><WaitingIcon /></span>}</button></div></Fragment>
       })}
     </div>
     <div className="game-preview-items">{displayItems.map((item, index) => {
@@ -105,6 +114,8 @@ export default function Mines({ onInitialReady }) {
   const [historyGames, setHistoryGames] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [selectedProfile, setSelectedProfile] = useState(null)
+  const historyOpenRef = useRef(historyOpen)
+  const currentProfileIdRef = useRef('')
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(true)
   const [gameMode, setGameMode] = useState(() => {
@@ -113,6 +124,15 @@ export default function Mines({ onInitialReady }) {
   })
   const gameModeIndex = Math.max(0, GAME_OPTIONS.findIndex(([value]) => value === gameMode))
   const currentProfileId = String(user?.profile_id || user?.id || '')
+
+  useEffect(() => { historyOpenRef.current = historyOpen }, [historyOpen])
+  useEffect(() => { currentProfileIdRef.current = currentProfileId }, [currentProfileId])
+
+  const openPlayerProfile = useCallback((player) => {
+    void preloadMiniProfile(player).then((loadedProfile) => {
+      setSelectedProfile({ ...player, ...(loadedProfile || {}) })
+    })
+  }, [])
 
   const upsertAnimatedGame = useCallback((incomingGame) => {
     if (!incomingGame?.id) return
@@ -195,7 +215,7 @@ export default function Mines({ onInitialReady }) {
         next[existingIndex] = { ...next[existingIndex], ...game }
         return next
       })
-      if (historyOpen && String(game?.status) === 'completed' && (Array.isArray(game?.participants) ? game.participants : []).some((participant) => String(participant?.uuid || '') === currentProfileId)) {
+      if (historyOpenRef.current && String(game?.status) === 'completed' && (Array.isArray(game?.participants) ? game.participants : []).some((participant) => String(participant?.uuid || '') === currentProfileIdRef.current)) {
         setHistoryGames((current) => [game, ...current.filter((entry) => entry.id !== game.id)]
           .sort((left, right) => new Date(right.resolved_at || 0).getTime() - new Date(left.resolved_at || 0).getTime())
           .slice(0, 100))
@@ -205,7 +225,7 @@ export default function Mines({ onInitialReady }) {
     socket.on('mines:created', onCreated)
     socket.on('mines:updated', onUpdated)
     return () => { socket.off('mines:created', onCreated); socket.off('mines:updated', onUpdated) }
-  }, [currentProfileId, gameMode, historyOpen, upsertAnimatedGame])
+  }, [gameMode, upsertAnimatedGame])
 
   useEffect(() => {
     const timers = games.flatMap((game) => {
@@ -238,11 +258,11 @@ export default function Mines({ onInitialReady }) {
         <div role="tablist" aria-label="Mines game" className="relative isolate grid h-[43px] w-full grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto"><span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 3)', transform: `translateX(${gameModeIndex * 100}%)` }} />{GAME_OPTIONS.map(([value, label]) => { const active = gameMode === value; return <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setGameMode(value)} className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-colors duration-200 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}>{label}</button> })}</div>
         <div className="flex items-center justify-end gap-2"><button type="button" onClick={() => requireLogin(() => setCreateOpen(true))} className="inline-flex h-[43px] min-w-[98px] items-center justify-center rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff69b0]">Create</button><button type="button" onClick={() => requireLogin(() => setHistoryOpen(true))} className="inline-flex h-[43px] min-w-[92px] items-center justify-center rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white">History</button></div>
       </div>
-      <div className="mines-game-list">{loading ? null : games.map((game) => <MinesGameRow key={game.id} game={game} currentProfileId={currentProfileId} onJoin={(room) => requireLogin(() => setJoinRoom(room))} onView={setViewGame} />)}</div>
+      <div className="mines-game-list">{loading ? null : games.map((game) => <MinesGameRow key={game.id} game={game} currentProfileId={currentProfileId} onJoin={(room) => requireLogin(() => setJoinRoom(room))} onView={setViewGame} onProfileOpen={openPlayerProfile} />)}</div>
     </div>
     {createOpen ? <MinesCreateModal gameMode={gameMode} onClose={() => setCreateOpen(false)} onCreate={handleCreated} /> : null}
     {joinRoom ? <CoinflipJoinModal room={joinRoom} gameMode={gameMode} gameType="mines" onClose={() => setJoinRoom(null)} onJoin={({ updatedRoom } = {}) => { if (updatedRoom) { setGames((current) => current.map((game) => game.id === updatedRoom.id ? updatedRoom : game)); setViewGame(updatedRoom) } setJoinRoom(null) }} /> : null}
-    <RecentMinesModal isOpen={historyOpen} games={historyGames} loading={historyLoading} isAuthenticated={Boolean(currentProfileId)} onClose={() => setHistoryOpen(false)} onView={(game) => { setHistoryOpen(false); setViewGame(game) }} onProfileOpen={(player) => { void preloadMiniProfile(player).then((loadedProfile) => { setSelectedProfile({ ...player, ...(loadedProfile || {}) }) }) }} />
+    <RecentMinesModal isOpen={historyOpen} games={historyGames} loading={historyLoading} isAuthenticated={Boolean(currentProfileId)} onClose={() => setHistoryOpen(false)} onView={(game) => { setHistoryOpen(false); setViewGame(game) }} onProfileOpen={openPlayerProfile} />
     {viewGame ? <MinesViewModal game={viewGame} onClose={() => setViewGame(null)} onCanceled={(canceledGame) => { setGames((current) => current.filter((game) => game.id !== canceledGame.id)); setViewGame(null) }} /> : null}
     <MiniProfileModal isOpen={Boolean(selectedProfile)} player={selectedProfile} onClose={() => setSelectedProfile(null)} />
   </div>
@@ -259,7 +279,7 @@ const MINES_PAGE_STYLES = `
   .game-preview-player{position:relative;width:58px;height:58px;flex:0 0 58px}
   .game-preview-player--loser{opacity:.42;filter:saturate(.65) brightness(.78)}
   .game-preview-versus{margin:0;color:#717784;font-size:11px;font-weight:700;line-height:16.5px}
-  .coinflip-row-avatar{position:relative;display:block;width:58px;height:58px;flex:0 0 58px;padding:0;overflow:hidden;border:2px solid #ff4fa3;border-radius:9999px;background:#111319;box-shadow:none}.coinflip-row-avatar--creator{border-color:#ff4fa3}.coinflip-row-avatar--joiner{border-color:#1f6fff}
+  .coinflip-row-avatar{position:relative;display:block;width:58px;height:58px;flex:0 0 58px;padding:0;overflow:hidden;border:2px solid #ff4fa3;border-radius:9999px;background:#111319;box-shadow:none;cursor:pointer;transition:filter .15s ease,transform .15s ease}.coinflip-row-avatar:not(:disabled):hover{filter:brightness(1.12);transform:translateY(-1px)}.coinflip-row-avatar:disabled{cursor:default}.coinflip-row-avatar--creator{border-color:#ff4fa3}.coinflip-row-avatar--joiner{border-color:#1f6fff}
   .coinflip-row-avatar-image{display:block;width:54px;height:54px;border-radius:9999px;object-fit:cover}
   .coinflip-row-avatar--winner{opacity:1}.coinflip-row-avatar--loser{box-shadow:none}
   .game-preview-waiting{display:flex;width:100%;height:100%;align-items:center;justify-content:center;border-radius:9999px;color:#f7fafc;background:#111319;font-size:18px;font-weight:400}

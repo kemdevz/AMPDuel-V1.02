@@ -405,11 +405,11 @@ export function AmpValuePill({ label, value, valid = false }) {
   return <div className={`amp-value-pill${valid ? ' is-valid' : ''}`}><span className="amp-value-label">{label}</span><RobuxIcon className="amp-value-icon" /><span className="amp-value-number">{Number(value || 0).toLocaleString()}</span></div>
 }
 
-export function AmpItemCard({ item, selected = false, selectable = false, onClick }) {
+export function AmpItemCard({ item, selected = false, selectable = false, onClick, footer = null }) {
   const Tag = selectable ? 'button' : 'div'
   const image = item?.image_url || item?.imageUrl || item?.image || ''
   const value = Number(item?.value ?? item?.amount ?? 0)
-  return <Tag type={selectable ? 'button' : undefined} className={`amp-item-card${selected ? ' is-selected' : ''}`} onClick={selectable ? onClick : undefined} aria-pressed={selectable ? selected : undefined}>{selected ? <span className="amp-item-check"><CheckIcon /></span> : null}<span className="amp-item-image-wrap">{image ? <img className="amp-item-image" src={image} alt={item?.name || ''} draggable="false" /> : null}</span><p className="amp-item-name" title={item?.name || ''}>{item?.name || 'Item'}</p><span className="amp-item-value"><RobuxIcon /><span>{value.toLocaleString()}</span></span></Tag>
+  return <Tag type={selectable ? 'button' : undefined} className={`amp-item-card${selected ? ' is-selected' : ''}`} onClick={selectable ? onClick : undefined} aria-pressed={selectable ? selected : undefined}>{selected ? <span className="amp-item-check"><CheckIcon /></span> : null}<span className="amp-item-image-wrap">{image ? <img className="amp-item-image" src={image} alt={item?.name || ''} draggable="false" /> : null}</span><p className="amp-item-name" title={item?.name || ''}>{item?.name || 'Item'}</p><span className="amp-item-value"><RobuxIcon /><span>{value.toLocaleString()}</span></span>{footer ? <span className="amp-item-footer">{footer}</span> : null}</Tag>
 }
 
 export function prioritizeSelectedItems(items, selectedItems) {

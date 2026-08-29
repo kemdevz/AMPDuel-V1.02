@@ -17,10 +17,10 @@ import { apiRequest } from '../lib/apiClient'
 import { connectSocket } from '../lib/socket'
 
 const COIN_ICON = '/bobux.png'
-const PANEL = 'rounded-md bg-[#1c1f2e]'
-const INNER = 'rounded-md border border-white/[.035] bg-[#171925]'
+const PANEL = 'rounded-lg border border-white/[.06] bg-[#14171e]'
+const INNER = 'rounded-lg border border-white/[.05] bg-[#171a22]'
 const LABEL = 'text-[10px] font-semibold uppercase tracking-[.04em] text-[rgba(225,228,242,.35)]'
-const INPUT = 'h-8 w-full rounded-[5px] border border-[#323240] bg-[#171925] px-2.5 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#f43f8f]'
+const INPUT = 'h-8 w-full rounded-md border border-white/[.07] bg-[#14171e] px-2.5 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#ff4fa3]'
 
 let adminGeneralClientCache = null
 let adminGeneralPendingRequest = null
@@ -218,7 +218,7 @@ export function AdminGeneral() {
 
   return (
     <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
-      <div className="flex shrink-0 flex-col items-stretch gap-1.5 rounded-[8px] bg-[#0f1119] px-3 py-2 sm:flex-row sm:items-center sm:gap-0.5">
+      <div className="flex shrink-0 flex-col items-stretch gap-1.5 rounded-lg border border-white/[.06] bg-[#151820] px-3 py-2 sm:flex-row sm:items-center sm:gap-0.5">
         {stats.map((stat, index) => (
           <div key={stat.label} className="contents">
             {index > 0 ? <span className="h-px w-full shrink-0 bg-[#1e2235] sm:mx-2 sm:h-6 sm:w-px" aria-hidden="true" /> : null}
@@ -242,7 +242,7 @@ export function AdminGeneral() {
             {visibleActivity.map((entry) => {
               const isPositive = entry.amount >= 0
               return (
-                <div key={entry.id} className="adminActivityRow flex h-[42px] min-h-[42px] cursor-pointer items-center justify-between gap-1.5 overflow-visible rounded-[5px] bg-[#171925] px-2 text-[10px] font-semibold text-[rgba(225,228,242,.85)] transition-colors hover:bg-[#202332] sm:grid sm:grid-cols-[1.3fr_.7fr_.95fr_1.65fr_1.05fr] sm:gap-2 sm:text-[11px]">
+                <div key={entry.id} className="adminActivityRow flex h-[42px] min-h-[42px] cursor-pointer items-center justify-between gap-1.5 overflow-visible rounded-[7px] border border-white/[.05] bg-[#14171e] px-2 text-[10px] font-semibold text-[#d9dce3] transition-colors hover:bg-[#1b1f28] sm:grid sm:grid-cols-[1.3fr_.7fr_.95fr_1.65fr_1.05fr] sm:gap-2 sm:text-[11px]">
                   <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
                     <img src={entry.player?.avatar || '/ps99-cat.png'} alt="" className="h-[22px] w-[22px] shrink-0 rounded-full border border-[#292d43] bg-[#202435] object-cover" />
                     <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{entry.player.name}</span>
@@ -268,14 +268,14 @@ export function AdminGeneral() {
           {games.map((game) => {
             const GameIcon = gameIcons[game]
             const serviceKey = serviceKeys[game]
-            return <div key={game} className="flex h-[31px] items-center justify-between rounded-md bg-[#171925] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#cdd2e8]"><GameIcon className="h-3 w-3 text-[#777fb0]" />{game}</span><Toggle label={game} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(game, value)} /></div>
+            return <div key={game} className="flex h-[31px] items-center justify-between rounded-md border border-white/[.05] bg-[#14171e] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#d9dce3]"><GameIcon className="h-3 w-3 text-[#858c99]" />{game}</span><Toggle label={game} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(game, value)} /></div>
           })}
         </div>
         <p className={`${LABEL} mb-1.5 mt-3 px-2.5`}>Community</p>
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
           {[['Chat', MessageSquare]].map(([name, Icon]) => {
             const serviceKey = serviceKeys[name]
-            return <div key={name} className="flex h-9 items-center justify-between rounded-md bg-[#171925] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#cdd2e8]"><Icon className="h-3.5 w-3.5 text-[#777fb0]" />Site chat</span><Toggle label={name} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(name, value)} /></div>
+            return <div key={name} className="flex h-9 items-center justify-between rounded-md border border-white/[.05] bg-[#14171e] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#d9dce3]"><Icon className="h-3.5 w-3.5 text-[#858c99]" />Site chat</span><Toggle label={name} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(name, value)} /></div>
           })}
         </div>
         {loadError ? <p className="mt-2 px-2.5 text-[10px] font-semibold text-[#f87171]">{loadError}</p> : null}
@@ -360,7 +360,7 @@ export function AdminPlayers() {
           </div>
           <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto">
           {sortedPlayers.map((player) => (
-            <button type="button" key={player.id} onClick={() => setSelectedId(player.id)} className={`adminActivityRow flex h-[42px] min-h-[42px] w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[5px] px-2 text-left text-[10px] font-semibold text-[rgba(225,228,242,.85)] transition-colors sm:grid sm:grid-cols-[1.3fr_.7fr_1fr_1fr] sm:gap-2 sm:text-[11px] ${selectedId === player.id ? 'bg-[#202332]' : 'bg-[#171925] hover:bg-[#202332]'}`}>
+            <button type="button" key={player.id} onClick={() => setSelectedId(player.id)} className={`adminActivityRow flex h-[42px] min-h-[42px] w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[7px] border border-white/[.05] px-2 text-left text-[10px] font-semibold text-[#d9dce3] transition-colors sm:grid sm:grid-cols-[1.3fr_.7fr_1fr_1fr] sm:gap-2 sm:text-[11px] ${selectedId === player.id ? 'bg-[#282c37]' : 'bg-[#14171e] hover:bg-[#1b1f28]'}`}>
               <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
                 <img src={player.avatar_headshot_url || player.avatar_url || '/ps99-cat.png'} alt="" className="h-[22px] w-[22px] shrink-0 rounded-full border border-[#292d43] bg-[#202435] object-cover" />
                 <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{player.username}</span>

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CloseIcon, RobuxIcon } from './AmpInventoryModalUI'
 import CoinflipFairnessModal from './CoinflipFairnessModal'
 import { notifications } from './Notifications'
 import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
+import { playMinesSound } from '../lib/soundEffects'
 import AdoptMeTraitBadges from './AdoptMeTraitBadges'
 
 const formatValue = (items) => (Array.isArray(items) ? items : [])
@@ -12,7 +13,7 @@ const formatValue = (items) => (Array.isArray(items) ? items : [])
   .toLocaleString('en-US', { maximumFractionDigits: 2 })
 const DEFAULT_AVATAR = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-7E27815C7C5F72DA623094CFB3768D15-Png/420/420/AvatarHeadshot/Png/noFilter'
 
-function PlayerEntry({ player, index, totalPlayers, gameMode, outcome }) {
+function PlayerEntry({ player, index, gameMode, outcome }) {
   const items = Array.isArray(player.items) ? player.items : []
   const visibleItems = items.slice(0, 2)
   const hiddenItemCount = Math.max(0, items.length - visibleItems.length)
@@ -20,7 +21,7 @@ function PlayerEntry({ player, index, totalPlayers, gameMode, outcome }) {
   return <article className={`mines-view-player${outcome ? ` is-${outcome}` : ''}`} style={{ '--player-color': index === 0 ? '#ff4fa3' : '#1f6fff' }}>
     <span className="mines-view-avatar"><img src={player.avatar_url || DEFAULT_AVATAR} alt={player.username || 'Player'} /></span>
     <div className="mines-view-player-details"><strong>{player.username || 'Player'}</strong><div className="mines-view-player-items">{visibleItems.map((item, itemIndex) => <div className="mines-view-player-item" key={item.id || `${item.name}-${itemIndex}`}><span className="mines-view-player-item-tooltip" role="tooltip">{item.name || 'Item'}</span><img className={gameMode === 'mm2' ? 'is-mm2' : ''} src={item.image_url || item.image || '/currency.svg'} alt="" />{gameMode === 'adm' ? <AdoptMeTraitBadges item={item} /> : null}</div>)}{countItem ? <div className="mines-view-player-item" aria-label={`${hiddenItemCount} more items`}><img className={gameMode === 'mm2' ? 'is-mm2' : ''} src={countItem.image_url || countItem.image || '/currency.svg'} alt="" /><span className="mines-view-player-more">+{hiddenItemCount}</span></div> : null}</div></div>
-    <div className="mines-view-player-value"><b><RobuxIcon />{formatValue(items)}</b><span>{(100 / Math.max(1, totalPlayers)).toFixed(2)}% chance</span></div>
+    <div className="mines-view-player-value"><b><RobuxIcon />{formatValue(items)}</b></div>
   </article>
 }
 
@@ -45,6 +46,7 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
   const [playingCell, setPlayingCell] = useState(null)
   const [liveGame, setLiveGame] = useState(game)
   const [clock, setClock] = useState(Date.now())
+  const previousGameRef = useRef(game)
   useEffect(() => { setLiveGame(game) }, [game])
   useEffect(() => {
     const handleKeyDown = (event) => { if (event.key === 'Escape' && !fairnessOpen) onClose() }
@@ -53,9 +55,29 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
   }, [fairnessOpen, onClose])
   useEffect(() => {
     if (String(liveGame?.status) !== 'active') return undefined
-    const timer = window.setInterval(() => setClock(Date.now()), 100)
+    setClock(Date.now())
+    const timer = window.setInterval(() => setClock(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [liveGame?.status, liveGame?.turn_expires_at])
+  useEffect(() => {
+    const previousGame = previousGameRef.current
+    previousGameRef.current = liveGame
+    if (!previousGame || !liveGame || String(previousGame.id || '') !== String(liveGame.id || '')) return
+
+    const previousRevealed = new Set((Array.isArray(previousGame.revealed_cells) ? previousGame.revealed_cells : []).map(Number))
+    const newlyRevealed = (Array.isArray(liveGame.revealed_cells) ? liveGame.revealed_cells : [])
+      .map(Number)
+      .filter((cell) => !previousRevealed.has(cell))
+    if (newlyRevealed.length) {
+      const mines = new Set((Array.isArray(liveGame.mine_positions) ? liveGame.mine_positions : []).map(Number))
+      playMinesSound(newlyRevealed.some((cell) => mines.has(cell)) ? 'mine' : 'safe')
+    }
+
+    const profileId = String(user?.profile_id || user?.id || '')
+    if (profileId && String(previousGame.current_turn_uuid || '') !== String(liveGame.current_turn_uuid || '') && String(liveGame.current_turn_uuid || '') === profileId) {
+      playMinesSound('turn')
+    }
+  }, [liveGame, user?.id, user?.profile_id])
   useEffect(() => {
     if (String(liveGame?.status) !== 'active' || !liveGame?.turn_expires_at || !liveGame?.id) return undefined
     let refreshing = false
@@ -74,7 +96,7 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
         refreshing = false
       }
     }
-    const timer = window.setInterval(() => { void refreshExpiredTurn() }, 750)
+    const timer = window.setInterval(() => { void refreshExpiredTurn() }, 1500)
     void refreshExpiredTurn()
     return () => { canceled = true; window.clearInterval(timer) }
   }, [liveGame?.game_mode, liveGame?.id, liveGame?.status, liveGame?.turn_expires_at])
@@ -105,6 +127,7 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
 
   const playCell = async (cell) => {
     if (!canPlay || revealedCells.has(cell)) return
+    playMinesSound('select', { userGesture: true })
     setPlayingCell(cell)
     try {
       const result = await apiRequest('/api/mines/play', {
@@ -140,7 +163,7 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
     <section className="mines-view-modal" role="dialog" aria-modal="true" aria-label="Mines game">
       <button type="button" className="mines-view-close" aria-label="Close" onClick={onClose}><CloseIcon /></button>
       <aside className="mines-view-sidebar">
-        <div className="mines-view-player-list">{participants.map((player, index) => <PlayerEntry key={player?.uuid || `player-${index}`} player={player} index={index} totalPlayers={Math.max(1, participants.length)} gameMode={displayedGame.game_mode} outcome={completed ? (String(player?.uuid || '') === String(displayedGame.winner_uuid || '') ? 'winner' : 'loser') : ''} />)}</div>
+        <div className="mines-view-player-list">{participants.map((player, index) => <PlayerEntry key={player?.uuid || `player-${index}`} player={player} index={index} gameMode={displayedGame.game_mode} outcome={completed ? (String(player?.uuid || '') === String(displayedGame.winner_uuid || '') ? 'winner' : 'loser') : ''} />)}</div>
       </aside>
       <main className="mines-view-board-box">
         <div className="mines-view-board-content">
@@ -148,8 +171,9 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
             <div className="mines-view-grid" style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>{Array.from({ length: gridSize * gridSize }, (_, index) => {
               const revealed = revealedCells.has(index)
               const mine = revealed && minePositions.has(index)
+              const pending = playingCell === index
               const cellImage = mine ? '/mines-hit.png' : revealed ? '/mines-safe.png' : '/mines-unrevealed.png'
-              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}`} aria-label={mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}><img src={cellImage} alt="" draggable={false} /></button>
+              return <button type="button" disabled={!canPlay || revealed} key={index} className={`mines-view-cell${canPlay && !revealed ? ' is-playable' : ''}${revealed ? ' is-revealed' : ''}${mine ? ' is-mine' : ''}${pending ? ' is-pending' : ''}`} aria-label={pending ? 'Revealing cell' : mine ? 'Mine' : revealed ? 'Safe cell' : 'Unrevealed cell'} onClick={() => { void playCell(index) }}><img src={cellImage} alt="" draggable={false} /></button>
             })}</div>
             {active ? <div className="mines-view-turn-strip">
               <div className="mines-view-turn-player"><img src={turnPlayer?.avatar_url || turnPlayer?.avatar || DEFAULT_AVATAR} alt="" /><span>{currentTurnUuid === currentProfileId ? 'Your turn' : turnPlayer?.username || 'Player'}</span></div>
@@ -175,6 +199,7 @@ export default function MinesViewModal({ game, onClose, onCanceled = () => {} })
 
 const MINES_VIEW_STYLES = `
   @keyframes minesViewIn { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+  @keyframes minesCellPending { 0%,100% { transform:scale(1); filter:brightness(1); } 50% { transform:scale(.94); filter:brightness(1.3); } }
   .mines-view-overlay { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:rgba(4,5,8,.76); backdrop-filter:blur(9px); font-family:Poppins,sans-serif; }
   .mines-view-modal { position:relative; display:grid; width:calc(100% - 48px); max-width:900px; height:min(600px,calc(100dvh - 48px)); min-height:0; grid-template-columns:360px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 51px; overflow:hidden; border:1px solid rgba(255,255,255,.06); border-radius:11px; color:#f4f5f8; background:#171a22; box-shadow:0 26px 80px rgba(0,0,0,.55); animation:minesViewIn .22s cubic-bezier(.22,1,.36,1) both; }
   .mines-view-modal * { box-sizing:border-box; }
@@ -203,7 +228,6 @@ const MINES_VIEW_STYLES = `
   .mines-view-player-item:hover .mines-view-player-item-tooltip { opacity:1; visibility:visible; transform:translate(-50%,0); transition-delay:0s; }
   .mines-view-player-value { display:flex; flex:0 0 auto; align-items:flex-end; flex-direction:column; gap:3px; }
   .mines-view-player-value b { display:flex; align-items:center; gap:4px; color:#f0f2f5; font-size:13px; font-weight:700; }.mines-view-player-value b svg { width:11px; height:11px; color:#ff4fa3; }
-  .mines-view-player-value span { color:#969dab; font-size:11px; font-weight:400; white-space:nowrap; }
   .mines-view-board-box { display:flex; min-width:0; min-height:0; flex-direction:column; padding:56px 24px 8px; box-sizing:border-box; background:#171a22; }
   .mines-view-board-content { display:flex; min-width:0; min-height:0; flex:1; align-items:flex-start; justify-content:center; padding:0; }
   .mines-view-board-stack { display:flex; width:100%; max-width:440px; min-width:0; flex-direction:column; gap:8px; }
@@ -212,6 +236,7 @@ const MINES_VIEW_STYLES = `
   .mines-view-cell img { display:block; width:64%; height:64%; object-fit:contain; pointer-events:none; user-select:none; }
   .mines-view-cell.is-playable { cursor:pointer; }
   .mines-view-cell.is-playable:hover { background:#2a2e39; transform:translateY(-1px); }
+  .mines-view-cell.is-pending { background:#2a2e39; animation:minesCellPending .65s ease-in-out infinite; }
   .mines-view-cell.is-revealed { background:#20232d; opacity:1; }
   .mines-view-cell.is-mine { background:#20232d; opacity:1; }
   .mines-view-cell.is-mine img { width:70%; height:70%; }
@@ -220,7 +245,7 @@ const MINES_VIEW_STYLES = `
   .mines-view-turn-player img { width:26px; height:26px; flex:0 0 26px; border-radius:50%; object-fit:cover; }
   .mines-view-turn-player span { overflow:hidden; color:#d9dce3; font-size:11px; font-weight:600; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
   .mines-view-turn-track { position:relative; width:100%; height:5px; overflow:hidden; border:0; border-radius:999px; background:#2b2f3a; }
-  .mines-view-turn-track span { position:absolute; inset:0 auto 0 0; display:block; height:100%; border-radius:inherit; background:#ff4fa3; transition:width .1s linear; }
+  .mines-view-turn-track span { position:absolute; inset:0 auto 0 0; display:block; height:100%; border-radius:inherit; background:#ff4fa3; transition:width 1s linear; }
   .mines-view-turn-seconds { color:#f4f5f8; font-size:11px; font-weight:700; line-height:16px; text-align:right; }
   .mines-view-footer-shell { grid-column:1/-1; min-width:0; padding:0 16px; background:#171a22; }
   .mines-view-divider { width:100%; height:1px; flex:0 0 1px; background:rgba(255,255,255,.16); opacity:.6; }

@@ -4,16 +4,8 @@ import { apiRequest } from '../lib/apiClient'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../store/auth'
 import { inventoryItemMatchesGame, normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
-import { getInventoryItemCardStyle } from './InventoryItemCard'
-import { CloseIcon } from './AmpInventoryModalUI'
+import { AMP_MODAL_STYLES, AmpItemCard, CloseIcon } from './AmpInventoryModalUI'
 import { notifications } from './Notifications'
-
-const COIN_ICON = '/bobux.png'
-
-const formatNumber = (value) => {
-  const numericValue = Number(value ?? 0)
-  return Number.isFinite(numericValue) ? numericValue.toLocaleString() : '0'
-}
 
 const BOT_CONFIGS = Object.freeze({
   mm2: {
@@ -329,42 +321,14 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
                   <p className="_noBots_ei49y_883">No Active Withdrawals</p>
                 ) : (
                   <>
-                    <div
-                      className="_scrollRow_v8lrd_1"
-                      ref={withdrawalScrollRef}
-                      tabIndex="0"
-                      aria-label="Active withdrawal items"
-                    >
+                    <div className="withdrawal-wallet-grid" ref={withdrawalScrollRef} tabIndex="0" aria-label="Active withdrawal items">
                       {withdrawCards.map((item) => (
-                        <div className="_itemBox_v8lrd_22" style={getInventoryItemCardStyle(item)} key={item.displayKey}>
-                          {item.image_url ? (
-                            <>
-                              <img className="_blurritem_v8lrd_93" src={item.image_url} alt="" aria-hidden="true" />
-                              <div className="_imageWrapper_v8lrd_67">
-                                <img
-                                  className="_itemImage_v8lrd_77 _normalImage_v8lrd_88"
-                                  src={item.image_url}
-                                  alt={item.name}
-                                />
-                              </div>
-                            </>
-                          ) : (
-                            <div className="_imageWrapper_v8lrd_67" aria-hidden="true" />
-                          )}
-                          <div className="_itemDetails_v8lrd_108">
-                            <p className="_itemName_v8lrd_115" title={item.name}>
-                              {item.name}
-                            </p>
-                            <p className="_itemPrice_v8lrd_124">
-                              <span className="_itemPriceInner_v8lrd_local">
-                                <img src={COIN_ICON} alt="Bobux" />
-                                <span className="_itemPriceText_v8lrd_130">{formatNumber(item.value)}</span>
-                              </span>
-                            </p>
-                          </div>
-                          <div className="_cancelFooter_v8lrd_137">
+                        <AmpItemCard
+                          key={item.displayKey}
+                          item={item}
+                          footer={(
                             <button
-                              className="_cancelBtn_v8lrd_144 _btnDanger_sd554_163"
+                              className="withdrawal-cancel-button _btnDanger_sd554_163"
                               type="button"
                               disabled={canceling}
                               onClick={() => {
@@ -374,8 +338,8 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
                             >
                               Cancel
                             </button>
-                          </div>
-                        </div>
+                          )}
+                        />
                       ))}
                     </div>
                     <div style={{ marginTop: 12 }}>
@@ -476,6 +440,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           )}
         </div>
 
+        <style>{AMP_MODAL_STYLES}</style>
         <style>{`
           @keyframes _fadeIn_ei49y_1 {
             from { opacity: 0; }
@@ -621,6 +586,25 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           }
 
           ._scrollRow_v8lrd_1::-webkit-scrollbar { display: none; }
+
+          .withdrawal-wallet-grid {
+            display: flex;
+            gap: 12px;
+            padding: 6px 2px 10px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            overscroll-behavior-x: contain;
+            scroll-snap-type: x proximity;
+            scrollbar-width: thin;
+            scrollbar-color: #353945 transparent;
+          }
+          .withdrawal-wallet-grid::-webkit-scrollbar { height: 6px; }
+          .withdrawal-wallet-grid::-webkit-scrollbar-thumb { border-radius: 999px; background: #353945; }
+          .withdrawal-wallet-grid .amp-item-card { display: flex; width: 160px; min-width: 160px; min-height: 238px; flex: 0 0 160px; flex-direction: column; scroll-snap-align: start; }
+          .withdrawal-wallet-grid .amp-item-image-wrap { height: 104px; }
+          .withdrawal-wallet-grid .amp-item-image { width: 94px; height: 94px; }
+          .withdrawal-wallet-grid .amp-item-footer { display: block; margin-top: auto; padding-top: 10px; }
+          .withdrawal-cancel-button { width: 100%; min-width: 0; height: 30px; padding: 0; font-size: 12px; }
 
           ._itemBox_v8lrd_22 {
             position: relative;
@@ -1307,8 +1291,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           ._joinbutton_13k1a_931,
           ._activeWithdrawals_13k1a_local,
           ._helpButton_13k1a_local,
-          ._supportedCheck_10ldz_local,
-          ._btnDanger_sd554_163 {
+          ._supportedCheck_10ldz_local {
             border: 0;
             border-radius: 7px;
             color: #111319;

@@ -456,7 +456,7 @@ function AdminItemsDatabase({ itemType }) {
           <AdminSearchField value={search} onChange={setSearch} placeholder="Search for an item..." className="sm:max-w-[260px]" />
           <button
             type="button"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#20222f] text-[#e1e4f2] transition-colors hover:bg-[#2a2e44] active:bg-[#32364d] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#20242e] text-[#d9dce3] transition-colors hover:bg-[#282c37] active:bg-[#303642] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]"
             title={`Price ${descending ? 'Descending' : 'Ascending'}`}
             aria-label={`Sort by price ${descending ? 'descending' : 'ascending'}`}
             onClick={() => setDescending((value) => !value)}
@@ -478,7 +478,7 @@ function AdminItemsDatabase({ itemType }) {
       {error ? <div className="shrink-0 rounded-md bg-[rgba(255,77,77,.1)] px-3 py-2 text-xs text-[#ff7b87]">{error}</div> : null}
 
       <div
-        className={`min-h-[260px] flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-[#1c1f2e] p-2.5 ${scrollClasses}`}
+        className={`min-h-[260px] flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-white/[.06] bg-[#14171e] p-2.5 ${scrollClasses}`}
         onScroll={(event) => {
           const element = event.currentTarget
           if (element.scrollHeight - element.scrollTop - element.clientHeight < 320) {
@@ -499,7 +499,7 @@ function AdminItemsDatabase({ itemType }) {
               return (
               <div
                 key={item.id}
-                className={`adminItemCard relative flex h-[154px] min-w-0 flex-col overflow-hidden rounded-md border-none p-1.5 transition-[transform,box-shadow] duration-200 hover:scale-[1.03] ${selected ? 'adminItemCardSelected scale-[1.03]' : ''}`}
+                className={`adminItemCard relative flex h-[154px] min-w-0 flex-col overflow-hidden rounded-lg border-none p-1.5 transition-[transform,box-shadow] duration-200 hover:scale-[1.03] ${selected ? 'adminItemCardSelected scale-[1.03]' : ''}`}
                 style={getInventoryItemCardStyle(item, selected)}
                 title={item.name}
                 role="button"
@@ -523,7 +523,7 @@ function AdminItemsDatabase({ itemType }) {
                       <button type="button" className="flex h-7 w-7 items-center justify-center rounded border-none bg-[#ef4444] text-white disabled:cursor-not-allowed disabled:opacity-55" aria-label={`Decrease ${item.name} quantity`} onClick={() => setItemQuantity(item.id, quantity - 1)} disabled={quantity <= 0}>
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                       </button>
-                      <input type="number" min="0" max="100" value={quantity} aria-label={`${item.name} quantity`} className="adminItemQuantityInput h-7 w-[50px] rounded border-none bg-[#1c1f2e] px-1 text-center text-[.85rem] text-white outline-none" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => setItemQuantity(item.id, event.target.value)} />
+                      <input type="number" min="0" max="100" value={quantity} aria-label={`${item.name} quantity`} className="adminItemQuantityInput h-7 w-[50px] rounded border border-white/[.07] bg-[#20242e] px-1 text-center text-[.85rem] text-white outline-none" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => setItemQuantity(item.id, event.target.value)} />
                       <button type="button" className="flex h-7 w-7 items-center justify-center rounded border-none bg-[#10b981] text-white disabled:cursor-not-allowed disabled:opacity-55" aria-label={`Increase ${item.name} quantity`} onClick={() => setItemQuantity(item.id, quantity + 1)} disabled={quantity >= 100}>
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                       </button>
@@ -576,8 +576,8 @@ function AdminPanel({ section, onSectionChange }) {
             onClick={() => onSectionChange(id)}
             className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border-none px-2.5 py-1 text-[11px] font-semibold transition-colors ${
               active
-                ? 'bg-[#252839] text-white'
-                : 'bg-[#1c1f2e] text-[rgba(225,228,242,.5)] hover:bg-[#252839] hover:text-[rgba(225,228,242,.8)]'
+                ? 'bg-[#ff4fa3] text-[#111319]'
+                : 'bg-[#20242e] text-[#8e94a2] hover:bg-[#282c37] hover:text-[#d9dce3]'
             }`}
           >
             <span className="inline-flex items-center opacity-80">
@@ -641,7 +641,7 @@ function SessionDeviceIcon() {
 
 function StatBox({ amount, label }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg bg-[#1c1f2e] px-1 py-1.5 sm:p-3">
+    <div className="flex flex-col items-center gap-1 rounded-lg border border-white/[.06] bg-[#14171e] px-1 py-1.5 sm:p-3">
       <div className="inline-flex items-center gap-0.5 text-[.7rem] font-bold text-white sm:gap-1 sm:text-[.95rem]">
         <img src={COIN_ICON} alt="" className="h-[9px] w-[9px] sm:h-3.5 sm:w-3.5" draggable={false} />
         <AnimatedStatNumber value={amount} />
@@ -687,8 +687,8 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
               onClick={() => onFilterChange(id)}
               className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border-none px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 active
-                  ? 'bg-[#252839] text-white'
-                  : 'bg-[#1c1f2e] text-[rgba(225,228,242,.5)] hover:bg-[#252839] hover:text-[rgba(225,228,242,.8)]'
+                  ? 'bg-[#ff4fa3] text-[#111319]'
+                  : 'bg-[#20242e] text-[#8e94a2] hover:bg-[#282c37] hover:text-[#d9dce3]'
               }`}
             >
               <span className="inline-flex items-center opacity-80">
@@ -726,7 +726,7 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
           return (
             <div
               key={entry.id}
-              className="grid h-[34px] min-h-[34px] cursor-pointer grid-cols-[1.4fr_.85fr_.85fr] items-center gap-x-1 overflow-hidden rounded-[5px] bg-[#171925] px-1.5 text-[10px] font-semibold text-[rgba(225,228,242,.85)] transition-colors hover:bg-[#1c1f2e] sm:h-9 sm:min-h-9 sm:grid-cols-[1.1fr_.85fr_.85fr_.95fr_1fr_24px] sm:gap-2 sm:px-2 sm:text-[11px]"
+              className="grid h-[34px] min-h-[34px] cursor-pointer grid-cols-[1.4fr_.85fr_.85fr] items-center gap-x-1 overflow-hidden rounded-[7px] border border-white/[.05] bg-[#14171e] px-1.5 text-[10px] font-semibold text-[#d9dce3] transition-colors hover:bg-[#1b1f28] sm:h-9 sm:min-h-9 sm:grid-cols-[1.1fr_.85fr_.85fr_.95fr_1fr_24px] sm:gap-2 sm:px-2 sm:text-[11px]"
             >
               <span className="inline-flex min-w-0 items-center gap-[5px] overflow-hidden text-ellipsis whitespace-nowrap">
                 <span className="inline-flex shrink-0 opacity-70">
@@ -765,7 +765,7 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
           type="button"
           disabled
           aria-label="Previous page"
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#1c1f2e] text-white/60 disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#242833] text-[#9aa0ac] disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
         >
           <ChevronLeft className="h-3 w-3" />
         </button>
@@ -774,7 +774,7 @@ function GameHistory({ filter, onFilterChange, history, loading, error }) {
           type="button"
           disabled
           aria-label="Next page"
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#1c1f2e] text-white/60 disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#242833] text-[#9aa0ac] disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
         >
           <ChevronRight className="h-3 w-3" />
         </button>
@@ -800,8 +800,8 @@ function TransactionHistory({ filter, onFilterChange, history, loading, error })
               onClick={() => onFilterChange(id)}
               className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-md border-none px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 active
-                  ? 'bg-[#252839] text-white'
-                  : 'bg-[#1c1f2e] text-[rgba(225,228,242,.5)] hover:bg-[#252839] hover:text-[rgba(225,228,242,.8)]'
+                  ? 'bg-[#ff4fa3] text-[#111319]'
+                  : 'bg-[#20242e] text-[#8e94a2] hover:bg-[#282c37] hover:text-[#d9dce3]'
               }`}
             >
               {label}
@@ -828,7 +828,7 @@ function TransactionHistory({ filter, onFilterChange, history, loading, error })
           return (
             <div
               key={entry.id}
-              className="flex h-[34px] min-h-[34px] cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[5px] bg-[#171925] px-2 text-[10px] font-semibold text-[rgba(225,228,242,.85)] transition-colors hover:bg-[#1c1f2e] sm:grid sm:h-9 sm:min-h-9 sm:grid-cols-[1.5fr_1.4fr_.6fr_1.1fr_24px] sm:gap-2 sm:text-[11px]"
+              className="flex h-[34px] min-h-[34px] cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[7px] border border-white/[.05] bg-[#14171e] px-2 text-[10px] font-semibold text-[#d9dce3] transition-colors hover:bg-[#1b1f28] sm:grid sm:h-9 sm:min-h-9 sm:grid-cols-[1.5fr_1.4fr_.6fr_1.1fr_24px] sm:gap-2 sm:text-[11px]"
             >
               <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap sm:flex-none">
                 {entry.type}
@@ -866,7 +866,7 @@ function TransactionHistory({ filter, onFilterChange, history, loading, error })
           type="button"
           disabled
           aria-label="Previous transaction page"
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#1c1f2e] text-white/60 disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#242833] text-[#9aa0ac] disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
         >
           <ChevronLeft className="h-3 w-3" />
         </button>
@@ -875,7 +875,7 @@ function TransactionHistory({ filter, onFilterChange, history, loading, error })
           type="button"
           disabled
           aria-label="Next transaction page"
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#1c1f2e] text-white/60 disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#242833] text-[#9aa0ac] disabled:cursor-not-allowed disabled:opacity-35 sm:h-[30px] sm:w-[30px]"
         >
           <ChevronRight className="h-3 w-3" />
         </button>
@@ -898,10 +898,10 @@ function IgnoredUsers({ users, loading, onRemove }) {
         return (
         <div
           key={ignoredUser.id}
-          className="flex items-center justify-between rounded-md bg-[#171925] px-3 py-[9px]"
+          className="flex items-center justify-between rounded-lg border border-white/[.05] bg-[#14171e] px-3 py-[9px]"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#1c1f2e] text-[11px] text-white/40">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[.06] bg-[#20242e] text-[11px] text-white/40">
               {avatar ? (
                 <img src={avatar} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
               ) : '?'}
@@ -1347,7 +1347,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
 
   return createPortal(
     <div
-      className={`profileModalOverlay fixed inset-0 z-[999] flex items-center justify-center bg-[rgba(0,0,0,.55)] ${
+      className={`profileModalOverlay fixed inset-0 z-[2147483300] flex items-center justify-center bg-[rgba(4,5,8,.76)] ${
         closing
           ? 'animate-[profileFadeOut_.2s_ease-in_forwards]'
           : 'animate-[profileFadeIn_.2s_ease-out]'
@@ -1375,12 +1375,15 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
         .profileModalOverlay {
           position: fixed;
           inset: 0;
-          z-index: 999;
+          z-index: 2147483300;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          background: rgba(0, 0, 0, .55);
+          padding: 12px;
+          background: rgba(4, 5, 8, .76);
+          -webkit-backdrop-filter: blur(9px);
+          backdrop-filter: blur(9px);
         }
 
         .profileModalSurface,
@@ -1396,9 +1399,12 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           display: flex;
           flex-direction: row;
           overflow: hidden;
-          border-radius: 6px;
-          background: #131520;
-          color: #e1e4f2;
+          border: 1px solid rgba(255, 255, 255, .08);
+          border-radius: 12px;
+          background: #191c24;
+          color: #f4f5f8;
+          box-shadow: 0 26px 80px rgba(0, 0, 0, .55);
+          font-family: Poppins, sans-serif;
         }
 
         .profileModalSidebar {
@@ -1407,7 +1413,8 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           height: 100%;
           flex: 0 0 210px;
           overflow: visible;
-          background: #0f1119;
+          border-right: 1px solid rgba(255, 255, 255, .06);
+          background: #151820;
         }
 
         .profileModalPanel {
@@ -1416,7 +1423,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           min-height: 0;
           flex: 1 1 auto;
           overflow: hidden;
-          background: #131520;
+          background: #191c24;
         }
 
         .profileModalContent {
@@ -1452,6 +1459,83 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+
+        .profileModalSurface button:focus-visible,
+        .profileModalSurface input:focus-visible {
+          outline: 2px solid rgba(255, 79, 163, .62);
+          outline-offset: 1px;
+        }
+
+        .profileModalSurface [class*="bg-[#171925]"] {
+          border-color: rgba(255, 255, 255, .05);
+          background: #14171e !important;
+        }
+
+        .profileModalSurface [class*="bg-[#1c1f2e]"] {
+          background: #20242e !important;
+        }
+
+        .profileModalSurface [class*="bg-[#20222f]"] {
+          background: #20242e !important;
+        }
+
+        .profileModalSurface [class*="bg-[#202332]"] {
+          background: #282c37 !important;
+        }
+
+        .profileModalSurface [class*="border-[#252839]"] {
+          border-color: rgba(255, 255, 255, .08) !important;
+        }
+
+        .profileModalSurface [class*="border-[#323240]"] {
+          border-color: rgba(255, 255, 255, .07) !important;
+        }
+
+        .profileModalSurface [class*="text-[#a78bfa]"] {
+          color: #ff4fa3 !important;
+        }
+
+        .profileModalSurface [class*="text-[#7d839f]"] {
+          color: #8e94a2 !important;
+        }
+
+        .profileModalSurface [class*="text-[#ccd9fa]"],
+        .profileModalSurface [class*="text-[#cdd2e8]"] {
+          color: #d9dce3 !important;
+        }
+
+        .profileModalSurface [class*="bg-[rgba(20,30,70,.45)]"] {
+          border: 1px solid rgba(255, 255, 255, .06);
+          background: #14171e !important;
+        }
+
+        .profileModalPanel > div:first-of-type {
+          border-bottom: 1px solid rgba(255, 255, 255, .06);
+          background: #151820;
+        }
+
+        .profileModalPanel > button[aria-label="Close account"] {
+          color: #8e94a2;
+          background: #222631;
+        }
+
+        .profileModalPanel > button[aria-label="Close account"]:hover {
+          color: #b3b8c3;
+          background: #282c37;
+        }
+
+        .profileModalStats > div {
+          border: 1px solid rgba(255, 255, 255, .06);
+          background: #14171e !important;
+        }
+
+        .profileModalContent {
+          scrollbar-width: thin;
+          scrollbar-color: #353945 transparent;
+        }
+
+        .profileModalContent::-webkit-scrollbar { width: 6px; }
+        .profileModalContent::-webkit-scrollbar-thumb { border-radius: 999px; background: #353945; }
 
         .profileModalGameHistory {
           width: 100%;
@@ -1529,6 +1613,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
             height: 100%;
             max-height: 100%;
             flex-direction: column;
+            border: 0;
             border-radius: 0;
           }
 
@@ -1566,7 +1651,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
       `}</style>
 
       <div
-        className={`profileModalSurface flex h-full max-h-full w-full max-w-full flex-col overflow-hidden rounded-none bg-[#131520] text-[#e1e4f2] sm:h-[660px] sm:max-h-[92vh] sm:w-[92%] sm:max-w-[860px] sm:flex-row sm:rounded-[6px] ${
+        className={`profileModalSurface flex h-full max-h-full w-full max-w-full flex-col overflow-hidden rounded-none bg-[#191c24] text-[#f4f5f8] sm:h-[660px] sm:max-h-[92vh] sm:w-[92%] sm:max-w-[860px] sm:flex-row sm:rounded-xl ${
           closing
             ? 'animate-[profileModalClose_.2s_forwards]'
             : 'animate-[profileModalOpen_.25s_forwards]'
@@ -1575,12 +1660,12 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
         aria-modal="true"
         aria-labelledby="profile-modal-title"
       >
-        <aside className="profileModalSidebar flex w-full shrink-0 flex-col border-b border-[#1c1f2e] bg-[#0f1119] px-3 pb-3 pt-2.5 sm:w-[210px] sm:border-b-0 sm:px-0 sm:py-5">
+        <aside className="profileModalSidebar flex w-full shrink-0 flex-col border-b border-white/[.06] bg-[#151820] px-3 pb-3 pt-2.5 sm:w-[210px] sm:border-b-0 sm:px-0 sm:py-5">
           <div className="flex items-center justify-between pb-2 text-sm font-bold text-[#f6f6f6] sm:mb-2 sm:px-4 sm:pb-4 sm:text-base">
             <span id="profile-modal-title">Account</span>
             <button
               type="button"
-              className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-[5px] border-0 bg-transparent p-0 text-[#7d839f] transition-[color,background] duration-150 hover:bg-white/[.05] hover:text-white sm:hidden"
+              className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-md border-0 bg-[#222631] p-0 text-[#8e94a2] transition-[color,background] duration-150 hover:bg-[#282c37] hover:text-[#b3b8c3] sm:hidden"
               aria-label="Close account"
               onClick={requestClose}
             >
@@ -1591,7 +1676,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           <div className="relative block sm:hidden">
             <button
               type="button"
-              className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#252839] bg-[#1c1f2e] px-3 py-2.5 text-[13px] font-semibold text-[#e1e4f2] outline-none"
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/[.08] bg-[#20242e] px-3 py-2.5 text-[13px] font-semibold text-[#e8eaf0] outline-none"
               aria-haspopup="menu"
               aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen((open) => !open)}
@@ -1619,7 +1704,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
 
             {mobileMenuOpen ? (
               <div
-                className="absolute left-0 right-0 top-[calc(100%+4px)] z-[100] overflow-hidden rounded-lg border border-[#252839] bg-[#1a1d2e] animate-[profileTabFadeIn_.15s_ease-out]"
+                className="absolute left-0 right-0 top-[calc(100%+4px)] z-[100] overflow-hidden rounded-lg border border-white/[.08] bg-[#20242e] shadow-[0_16px_40px_rgba(0,0,0,.4)] animate-[profileTabFadeIn_.15s_ease-out]"
                 role="menu"
               >
                 {visibleTabs.map((tab) => (
@@ -1629,8 +1714,8 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                     role="menuitem"
                     className={`flex w-full items-center gap-2.5 border-x-0 border-t-0 border-b border-solid border-white/[.04] px-3.5 py-[11px] text-left text-[13px] font-semibold transition-colors last:border-b-0 ${
                       tab.id === activeTab
-                        ? 'bg-[rgba(255,79,163,.12)] text-white'
-                        : 'bg-transparent text-[rgba(225,228,242,.6)] hover:bg-[#1c1f2e] hover:text-[#e1e4f2]'
+                        ? 'bg-[#ff4fa3] text-[#111319]'
+                        : 'bg-transparent text-[#9aa0ac] hover:bg-[#282c37] hover:text-[#e8eaf0]'
                     }`}
                     onClick={() => selectTab(tab.id)}
                   >
@@ -1650,8 +1735,8 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                 aria-current={tab.id === activeTab ? 'page' : undefined}
                 className={`flex w-full items-center gap-[9px] rounded-md border-none px-2.5 py-[9px] text-left text-[13px] font-semibold transition-colors ${
                   tab.id === activeTab
-                    ? 'bg-[rgba(255,79,163,.15)] text-white'
-                    : 'bg-transparent text-[rgba(225,228,242,.45)] hover:bg-[#1c1f2e] hover:text-[rgba(225,228,242,.8)]'
+                    ? 'bg-[rgba(255,79,163,.13)] text-[#ff69b0] shadow-[inset_3px_0_0_#ff4fa3]'
+                    : 'bg-transparent text-[#858c99] hover:bg-[#20242e] hover:text-[#d9dce3]'
                 }`}
                 onClick={() => selectTab(tab.id)}
               >
@@ -1662,10 +1747,10 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           </nav>
         </aside>
 
-        <section className="profileModalPanel relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#131520]">
+        <section className="profileModalPanel relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#191c24]">
           <button
             type="button"
-            className="absolute right-4 top-3.5 z-[5] hidden h-[30px] w-[30px] shrink-0 place-items-center rounded-[5px] border-0 bg-transparent p-0 text-[#7d839f] transition-[color,background] duration-150 hover:bg-white/[.05] hover:text-white sm:grid"
+            className="absolute right-4 top-3.5 z-[5] hidden h-[30px] w-[30px] shrink-0 place-items-center rounded-md border-0 bg-[#222631] p-0 text-[#8e94a2] transition-[color,background] duration-150 hover:bg-[#282c37] hover:text-[#b3b8c3] sm:grid"
             aria-label="Close account"
             onClick={requestClose}
           >
@@ -1673,7 +1758,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
           </button>
 
           <div className="hidden shrink-0 items-center gap-2.5 px-[22px] pb-3.5 pt-[18px] sm:flex">
-            <span className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-[rgba(255,79,163,.12)] text-[#a78bfa]">
+            <span className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-[rgba(255,79,163,.10)] text-[#ff4fa3]">
               <TabIcon icon={activeTabData.icon} />
             </span>
             <span className="text-[15px] font-bold text-[#f6f6f6]">{activeTabData.label}</span>
@@ -1686,7 +1771,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   <img
                     src={avatarUrl}
                     alt=""
-                    className="h-11 w-11 shrink-0 rounded-full border border-solid border-[#22283F] object-cover sm:h-[58px] sm:w-[58px]"
+                    className="h-11 w-11 shrink-0 rounded-full border-2 border-solid border-[#ff4fa3] bg-[#111319] object-cover sm:h-[58px] sm:w-[58px]"
                     draggable={false}
                     referrerPolicy="no-referrer"
                   />
@@ -1719,7 +1804,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   <StatBox amount={account?.lost} label="Lost" />
                 </div>
 
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-[#1c1f2e] px-2.5 py-2 sm:px-3.5 sm:py-3">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-white/[.06] bg-[#14171e] px-2.5 py-2 sm:px-3.5 sm:py-3">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[13px] font-semibold text-[#f6f6f6]">Discord Avatar</span>
                     <span className="text-[10px] text-[rgba(225,228,242,.4)] sm:text-[11px]">
@@ -1735,7 +1820,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                   />
                 </div>
 
-                <div className="profileModalDiscordCard flex flex-row flex-wrap items-center gap-2 rounded-lg bg-[rgba(20,30,70,.45)] p-2.5 sm:gap-3.5 sm:p-4">
+                <div className="profileModalDiscordCard flex flex-row flex-wrap items-center gap-2 rounded-lg border border-white/[.06] bg-[#14171e] p-2.5 sm:gap-3.5 sm:p-4">
                   <img src={DISCORD_ICON} alt="Discord" className="h-[26px] w-[26px] shrink-0 object-contain sm:h-10 sm:w-10" draggable={false} />
                   <div className="profileModalDiscordInfo min-w-0 flex-1">
                     {isDiscordLinked ? (
@@ -1754,7 +1839,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                       Unlink Discord
                     </button>
                   ) : (
-                    <button type="button" className="profileModalDiscordButton shrink-0 rounded-[8px] border border-[rgba(255,79,163,.4)] bg-[linear-gradient(135deg,#ff4fa3,#f43f8f)] px-3 py-[7px] text-[11px] font-semibold text-white shadow-[0_2px_8px_rgba(255,79,163,.2)] transition-[transform,background,opacity] duration-[140ms] ease-out hover:bg-[linear-gradient(135deg,#ff4fa3,#f43f8f)] hover:opacity-95 active:scale-[.98] sm:px-4 sm:py-[9px] sm:text-xs">
+                    <button type="button" className="profileModalDiscordButton shrink-0 rounded-lg border-0 bg-[#ff4fa3] px-3 py-[7px] text-[11px] font-semibold text-[#111319] transition-[transform,background] duration-[140ms] ease-out hover:bg-[#ff69b0] active:scale-[.98] sm:px-4 sm:py-[9px] sm:text-xs">
                       Link Discord
                     </button>
                   )}
@@ -1774,15 +1859,15 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {sessionsLoading ? (
-                    <div className="rounded-md bg-[#171925] p-3 text-center text-[11px] text-[rgba(225,228,242,.45)]">
+                    <div className="rounded-lg border border-white/[.05] bg-[#14171e] p-3 text-center text-[11px] text-[#858c99]">
                       Loading sessions...
                     </div>
                   ) : sessions.length ? sessions.map((session) => (
                     <div
                       key={session.id}
-                      className="flex items-start gap-[7px] rounded-md bg-[#171925] p-2 sm:gap-2.5 sm:px-3 sm:py-2.5"
+                      className="flex items-start gap-[7px] rounded-lg border border-white/[.05] bg-[#14171e] p-2 sm:gap-2.5 sm:px-3 sm:py-2.5"
                     >
-                      <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[7px] bg-[#1c1f2e] text-[rgba(225,228,242,.6)]">
+                      <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[7px] bg-[#20242e] text-[#9aa0ac]">
                         <SessionDeviceIcon />
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
@@ -1811,7 +1896,7 @@ export default function ProfileModal({ isOpen, initialTab = 'profile', onClose }
                       </div>
                     </div>
                   )) : (
-                    <div className="rounded-md bg-[#171925] p-3 text-center text-[11px] text-[rgba(225,228,242,.45)]">
+                    <div className="rounded-lg border border-white/[.05] bg-[#14171e] p-3 text-center text-[11px] text-[#858c99]">
                       No active sessions found.
                     </div>
                   )}
