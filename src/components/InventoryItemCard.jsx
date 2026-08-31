@@ -8,7 +8,7 @@ function getInventoryItemAccent(item) {
 }
 
 export function getInventoryItemCardStyle(item, selected = false) {
-  const accentColor = getInventoryItemAccent(item)
+  const accentColor = selected ? '221, 210, 241' : getInventoryItemAccent(item)
   const backgroundOpacity = selected ? 0.35 : 0.18
   const borderBottomOpacity = selected ? 0.95 : 0.7
   const borderSideOpacity = selected ? 0.45 : 0.25

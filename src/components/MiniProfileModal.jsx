@@ -9,7 +9,7 @@ import { PROFILE_TIP_OPEN_EVENT } from './ProfileTipManager'
 const profileCache = new Map()
 const profilePreloadRequests = new Map()
 const profileStatsCache = new Map()
-const FALLBACK_AVATAR = '/login.png'
+const FALLBACK_AVATAR = '/bloxdice-icon.png'
 const EMPTY_STATS = { totalBet: 0, totalProfit: 0, totalWon: 0, totalLost: 0 }
 const GAME_OPTIONS = [['mm2', 'MM2'], ['adm', 'AMP'], ['ps99', 'PS99']]
 const MINI_PROFILE_GAME_STORAGE_KEY = 'bloxdice:mini-profile-game'
@@ -77,7 +77,7 @@ export function preloadMiniProfile(player) {
 
 function StatCard({ amount, label }) {
   return (
-    <div className="miniPlayerProfileCard rounded border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%/.15)] px-6 py-4">
+    <div className="miniPlayerProfileCard rounded border border-[#4D4A6B] bg-[rgba(60,60,89,.15)] px-6 py-4">
       <div className="flex items-center gap-1 font-semibold">
         <img src="/currency.svg" alt="currency" width="18" height="18" className="-mt-[2px] h-[18px] w-[18px] object-contain" />
         <AnimatedNumber value={amount} duration={650} fastThreshold={100_000_000} fastDuration={300} animateOnMount />
@@ -199,8 +199,8 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip, allow
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .miniPlayerProfileCard {
-          border-color: hsl(231 16% 16%);
-          background-color: hsl(230 16% 14% / .15);
+          border-color: #4D4A6B;
+          background-color: rgba(60,60,89,.15);
         }
         @media (min-width: 640px) {
           .miniPlayerProfileDialog {
@@ -213,10 +213,10 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip, allow
         }
       `}</style>
 
-      <div role="dialog" aria-modal="true" aria-labelledby="mini-profile-username" className="miniPlayerProfileDialog fixed left-1/2 top-1/2 z-50 flex h-[100dvh] w-full max-w-full -translate-x-1/2 -translate-y-1/2 flex-col items-start gap-4 rounded-none border border-[hsl(231_16%_16%)] bg-[hsl(227_17%_11%)] px-8 py-8 pb-6 text-white shadow-lg animate-[miniProfileDialogIn_200ms_ease-out_forwards] sm:h-fit sm:min-h-72 sm:max-w-md sm:rounded-lg" style={{ pointerEvents: 'auto' }} onMouseDown={(event) => event.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-labelledby="mini-profile-username" className="miniPlayerProfileDialog fixed left-1/2 top-1/2 z-50 flex h-[100dvh] w-full max-w-full -translate-x-1/2 -translate-y-1/2 flex-col items-start gap-4 rounded-none border border-[#4D4A6B] bg-[#25263B] px-8 py-8 pb-6 text-white shadow-none animate-[miniProfileDialogIn_200ms_ease-out_forwards] sm:h-fit sm:min-h-72 sm:max-w-md sm:rounded-lg" style={{ pointerEvents: 'auto' }} onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-4">
-            <span className="relative flex h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-[#ff4fa3] bg-[#171920]">
+            <span className="relative flex h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-[#804AFF] bg-[#171920]">
               <img src={avatar} alt={`${username} thumbnail`} className="absolute inset-0 h-full w-full object-cover" draggable={false} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.src = FALLBACK_AVATAR }} />
             </span>
             <div>
@@ -228,12 +228,12 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip, allow
         </div>
 
         <div className="mt-4 w-full">
-          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)]">
-            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 3)', transform: `translateX(${activeGameIndex * 100}%)` }} />
+          <div role="tablist" aria-label="Player stats game" className="miniPlayerProfileTabs relative grid h-10 w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[#353650]">
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] shadow-none transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: 'calc(100% / 3)', transform: `translateX(${activeGameIndex * 100}%)` }} />
             {GAME_OPTIONS.map(([value, label]) => {
               const active = activeGame === value
               return (
-                <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setActiveGame(value)} className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}>
+                <button key={value} type="button" role="tab" aria-selected={active} onClick={() => setActiveGame(value)} className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#804AFF] focus-visible:ring-offset-2 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}>
                   {label}
                 </button>
               )
@@ -249,7 +249,7 @@ export default function MiniProfileModal({ isOpen, player, onClose, onTip, allow
           </div>
         </div>
 
-        {!isOwnProfile ? <button type="button" className="inline-flex h-10 w-full min-w-16 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2" onClick={handleTip}>Tip</button> : null}
+        {!isOwnProfile ? <button type="button" className="inline-flex h-10 w-full min-w-16 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] px-4 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#804AFF] focus-visible:ring-offset-2" onClick={handleTip}>Tip</button> : null}
         <button type="button" aria-label="Close" className="absolute right-4 top-4 rounded-sm bg-transparent p-0 text-white opacity-70 transition-opacity hover:opacity-100 focus:outline-none" onClick={onClose}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           <span className="sr-only">Close</span>

@@ -17,10 +17,10 @@ import { apiRequest } from '../lib/apiClient'
 import { connectSocket } from '../lib/socket'
 
 const COIN_ICON = '/bobux.png'
-const PANEL = 'rounded-lg border border-white/[.06] bg-[#14171e]'
-const INNER = 'rounded-lg border border-white/[.05] bg-[#171a22]'
+const PANEL = 'rounded-lg border border-white/[.06] bg-[#25263B]'
+const INNER = 'rounded-lg border border-white/[.05] bg-[#292A42]'
 const LABEL = 'text-[10px] font-semibold uppercase tracking-[.04em] text-[rgba(225,228,242,.35)]'
-const INPUT = 'h-8 w-full rounded-md border border-white/[.07] bg-[#14171e] px-2.5 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#ff4fa3]'
+const INPUT = 'h-8 w-full rounded-md border border-white/[.07] bg-[#25263B] px-2.5 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#804AFF]'
 
 let adminGeneralClientCache = null
 let adminGeneralPendingRequest = null
@@ -58,7 +58,7 @@ function SearchField({ value, onChange, placeholder, onFocus }) {
 
 function Toggle({ checked, onChange, label, disabled = false }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className={`relative h-[18px] w-8 shrink-0 rounded-full border-0 p-0 transition-colors duration-200 disabled:cursor-wait disabled:opacity-50 ${checked ? 'bg-[#ff4fa3]' : 'bg-[#303448]'}`}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className={`relative h-[18px] w-8 shrink-0 rounded-full border-0 p-0 transition-colors duration-200 disabled:cursor-wait disabled:opacity-50 ${checked ? 'bg-[#804AFF]' : 'bg-[#303448]'}`}>
       <span className={`absolute left-[3px] top-[3px] h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${checked ? 'translate-x-[14px]' : 'translate-x-0'}`} />
     </button>
   )
@@ -102,7 +102,7 @@ function TransactionItemStack({ items = [] }) {
       {visibleItems.map((item, index) => (
         <span
           key={`${item.id}-${index}`}
-          className="group relative box-border block h-[30px] w-[30px] shrink-0 cursor-pointer rounded-[3px] border-2 border-solid border-[#2F3347] bg-[#171925] transition-colors duration-200 [transform:var(--item-shift)] hover:!z-20 hover:border-[#ff4fa3]"
+          className="group relative box-border block h-[30px] w-[30px] shrink-0 cursor-pointer rounded-[3px] border-2 border-solid border-[#2F3347] bg-[#292A42] transition-colors duration-200 [transform:var(--item-shift)] hover:!z-20 hover:border-[#804AFF]"
           style={{
             ...getInventoryItemCardStyle(item),
             '--item-shift': `translateX(${index * -35.7}%)`,
@@ -218,7 +218,7 @@ export function AdminGeneral() {
 
   return (
     <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
-      <div className="flex shrink-0 flex-col items-stretch gap-1.5 rounded-lg border border-white/[.06] bg-[#151820] px-3 py-2 sm:flex-row sm:items-center sm:gap-0.5">
+      <div className="flex shrink-0 flex-col items-stretch gap-1.5 rounded-lg border border-white/[.06] bg-[#25263B] px-3 py-2 sm:flex-row sm:items-center sm:gap-0.5">
         {stats.map((stat, index) => (
           <div key={stat.label} className="contents">
             {index > 0 ? <span className="h-px w-full shrink-0 bg-[#1e2235] sm:mx-2 sm:h-6 sm:w-px" aria-hidden="true" /> : null}
@@ -242,7 +242,7 @@ export function AdminGeneral() {
             {visibleActivity.map((entry) => {
               const isPositive = entry.amount >= 0
               return (
-                <div key={entry.id} className="adminActivityRow flex h-[42px] min-h-[42px] cursor-pointer items-center justify-between gap-1.5 overflow-visible rounded-[7px] border border-white/[.05] bg-[#14171e] px-2 text-[10px] font-semibold text-[#d9dce3] transition-colors hover:bg-[#1b1f28] sm:grid sm:grid-cols-[1.3fr_.7fr_.95fr_1.65fr_1.05fr] sm:gap-2 sm:text-[11px]">
+                <div key={entry.id} className="adminActivityRow flex h-[42px] min-h-[42px] cursor-pointer items-center justify-between gap-1.5 overflow-visible rounded-[7px] border border-white/[.05] bg-[#25263B] px-2 text-[10px] font-semibold text-[#d9dce3] transition-colors hover:bg-[#353650] sm:grid sm:grid-cols-[1.3fr_.7fr_.95fr_1.65fr_1.05fr] sm:gap-2 sm:text-[11px]">
                   <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
                     <img src={entry.player?.avatar || '/ps99-cat.png'} alt="" className="h-[22px] w-[22px] shrink-0 rounded-full border border-[#292d43] bg-[#202435] object-cover" />
                     <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{entry.player.name}</span>
@@ -256,9 +256,9 @@ export function AdminGeneral() {
             })}
           </div>
           <div className="mt-1 flex shrink-0 items-center justify-between">
-            <button type="button" disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Previous transaction page" className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#1c1f2e] text-white/60 disabled:cursor-not-allowed disabled:opacity-35"><ChevronLeft className="h-3 w-3" /></button>
+            <button type="button" disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label="Previous transaction page" className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#353650] text-white/60 disabled:cursor-not-allowed disabled:opacity-35"><ChevronLeft className="h-3 w-3" /></button>
             <span className="text-[11px] font-semibold text-[rgba(225,228,242,.4)]">{currentPage} / {pageCount}</span>
-            <button type="button" disabled={currentPage >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} aria-label="Next transaction page" className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#1c1f2e] text-white/60 disabled:cursor-not-allowed disabled:opacity-35"><ChevronRight className="h-3 w-3" /></button>
+            <button type="button" disabled={currentPage >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} aria-label="Next transaction page" className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border-none bg-[#353650] text-white/60 disabled:cursor-not-allowed disabled:opacity-35"><ChevronRight className="h-3 w-3" /></button>
           </div>
         </div>
 
@@ -268,14 +268,14 @@ export function AdminGeneral() {
           {games.map((game) => {
             const GameIcon = gameIcons[game]
             const serviceKey = serviceKeys[game]
-            return <div key={game} className="flex h-[31px] items-center justify-between rounded-md border border-white/[.05] bg-[#14171e] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#d9dce3]"><GameIcon className="h-3 w-3 text-[#858c99]" />{game}</span><Toggle label={game} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(game, value)} /></div>
+            return <div key={game} className="flex h-[31px] items-center justify-between rounded-md border border-white/[.05] bg-[#25263B] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#d9dce3]"><GameIcon className="h-3 w-3 text-[#858c99]" />{game}</span><Toggle label={game} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(game, value)} /></div>
           })}
         </div>
         <p className={`${LABEL} mb-1.5 mt-3 px-2.5`}>Community</p>
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
           {[['Chat', MessageSquare]].map(([name, Icon]) => {
             const serviceKey = serviceKeys[name]
-            return <div key={name} className="flex h-9 items-center justify-between rounded-md border border-white/[.05] bg-[#14171e] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#d9dce3]"><Icon className="h-3.5 w-3.5 text-[#858c99]" />Site chat</span><Toggle label={name} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(name, value)} /></div>
+            return <div key={name} className="flex h-9 items-center justify-between rounded-md border border-white/[.05] bg-[#25263B] px-2.5"><span className="inline-flex items-center gap-2 text-[10px] font-semibold text-[#d9dce3]"><Icon className="h-3.5 w-3.5 text-[#858c99]" />Site chat</span><Toggle label={name} checked={overview.services?.[serviceKey] !== false} disabled={!overview.services || savingServices.has(serviceKey)} onChange={(value) => updateService(name, value)} /></div>
           })}
         </div>
         {loadError ? <p className="mt-2 px-2.5 text-[10px] font-semibold text-[#f87171]">{loadError}</p> : null}
@@ -353,14 +353,14 @@ export function AdminPlayers() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-hidden pr-0.5">
       <div className={searchOpen ? 'flex min-h-0 w-full flex-1 flex-col' : 'w-full shrink-0'}>
-        <div className="flex w-full items-center justify-between gap-2"><div className="flex min-w-0 flex-1 items-center gap-1.5"><div className="min-w-0 flex-1 sm:max-w-[260px]"><SearchField value={query} onChange={(value) => { setQuery(value); setSearchOpen(true) }} onFocus={() => setSearchOpen(true)} placeholder="Search players..." /></div><button type="button" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#20222f] text-[#e1e4f2] transition-colors hover:bg-[#2a2e44] active:bg-[#32364d] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]" title={`Username ${playerSortAscending ? 'Ascending' : 'Descending'}`} aria-label={`Sort username ${playerSortAscending ? 'descending' : 'ascending'}`} onClick={() => { setPlayerSortAscending((value) => !value); setSearchOpen(true) }}><SortDirectionIcon ascending={playerSortAscending} /></button></div><div className="flex shrink-0 items-center gap-1.5"><button type="button" className={ADMIN_PRIMARY_BUTTON} aria-disabled={!selectedPlayer} title={selectedPlayer ? `Open ${selectedPlayer.username}'s inventory` : 'Select a player first'} onClick={() => { if (selectedPlayer) setInventoryOpen(true) }}>Inventory</button><button type="button" className={ADMIN_DANGER_BUTTON} aria-disabled={!selectedPlayer || savingBan} title={selectedPlayer ? `${selectedPlayer.is_banned ? 'Unban' : 'Ban'} ${selectedPlayer.username}` : 'Select a player first'} onClick={() => { if (selectedPlayer && !savingBan) void togglePlayerBan() }}>{savingBan ? 'Saving...' : selectedPlayer?.is_banned ? 'Unban' : 'Ban'}</button></div></div>
+        <div className="flex w-full items-center justify-between gap-2"><div className="flex min-w-0 flex-1 items-center gap-1.5"><div className="min-w-0 flex-1 sm:max-w-[260px]"><SearchField value={query} onChange={(value) => { setQuery(value); setSearchOpen(true) }} onFocus={() => setSearchOpen(true)} placeholder="Search players..." /></div><button type="button" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-none bg-[#3C3C59] text-[#e1e4f2] transition-colors hover:bg-[#2a2e44] active:bg-[#32364d] [&_.sort-direction-icon]:h-[14px] [&_.sort-direction-icon]:w-[14px]" title={`Username ${playerSortAscending ? 'Ascending' : 'Descending'}`} aria-label={`Sort username ${playerSortAscending ? 'descending' : 'ascending'}`} onClick={() => { setPlayerSortAscending((value) => !value); setSearchOpen(true) }}><SortDirectionIcon ascending={playerSortAscending} /></button></div><div className="flex shrink-0 items-center gap-1.5"><button type="button" className={ADMIN_PRIMARY_BUTTON} aria-disabled={!selectedPlayer} title={selectedPlayer ? `Open ${selectedPlayer.username}'s inventory` : 'Select a player first'} onClick={() => { if (selectedPlayer) setInventoryOpen(true) }}>Inventory</button><button type="button" className={ADMIN_DANGER_BUTTON} aria-disabled={!selectedPlayer || savingBan} title={selectedPlayer ? `${selectedPlayer.is_banned ? 'Unban' : 'Ban'} ${selectedPlayer.username}` : 'Select a player first'} onClick={() => { if (selectedPlayer && !savingBan) void togglePlayerBan() }}>{savingBan ? 'Saving...' : selectedPlayer?.is_banned ? 'Unban' : 'Ban'}</button></div></div>
         {searchOpen ? <div className="mt-2 flex min-h-0 flex-1 flex-col gap-[3px]">
           <div className="hidden min-h-7 shrink-0 grid-cols-[1.3fr_.7fr_1fr_1fr] items-end gap-2 px-2 pb-1 pt-2 text-[10px] font-bold uppercase leading-none tracking-[.06em] text-[rgba(225,228,242,.35)] sm:grid">
             <span>User</span><span>Rank</span><span>Balance</span><span>Joined At</span>
           </div>
           <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto">
           {sortedPlayers.map((player) => (
-            <button type="button" key={player.id} onClick={() => setSelectedId(player.id)} className={`adminActivityRow flex h-[42px] min-h-[42px] w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[7px] border border-white/[.05] px-2 text-left text-[10px] font-semibold text-[#d9dce3] transition-colors sm:grid sm:grid-cols-[1.3fr_.7fr_1fr_1fr] sm:gap-2 sm:text-[11px] ${selectedId === player.id ? 'bg-[#282c37]' : 'bg-[#14171e] hover:bg-[#1b1f28]'}`}>
+            <button type="button" key={player.id} onClick={() => setSelectedId(player.id)} className={`adminActivityRow flex h-[42px] min-h-[42px] w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-[7px] border border-white/[.05] px-2 text-left text-[10px] font-semibold text-[#d9dce3] transition-colors sm:grid sm:grid-cols-[1.3fr_.7fr_1fr_1fr] sm:gap-2 sm:text-[11px] ${selectedId === player.id ? 'bg-[#4D4A6B]' : 'bg-[#25263B] hover:bg-[#353650]'}`}>
               <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
                 <img src={player.avatar_headshot_url || player.avatar_url || '/ps99-cat.png'} alt="" className="h-[22px] w-[22px] shrink-0 rounded-full border border-[#292d43] bg-[#202435] object-cover" />
                 <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{player.username}</span>
@@ -370,8 +370,8 @@ export function AdminPlayers() {
               <span className="hidden min-w-0 truncate text-[10px] opacity-55 sm:block">{formatPlayerJoinedDate(player.created_at)}</span>
             </button>
           ))}
-          {loadingPlayers ? <div className="flex h-[42px] items-center justify-center rounded-[5px] bg-[#171925] text-[10px] text-white/30">Searching players...</div> : null}
-          {!loadingPlayers && !players.length ? <div className={`flex h-[42px] items-center justify-center rounded-[5px] bg-[#171925] px-3 text-center text-[10px] ${loadError ? 'font-semibold text-[#f87171]' : 'text-white/30'}`}>{loadError || 'No players found.'}</div> : null}
+          {loadingPlayers ? <div className="flex h-[42px] items-center justify-center rounded-[5px] bg-[#292A42] text-[10px] text-white/30">Searching players...</div> : null}
+          {!loadingPlayers && !players.length ? <div className={`flex h-[42px] items-center justify-center rounded-[5px] bg-[#292A42] px-3 text-center text-[10px] ${loadError ? 'font-semibold text-[#f87171]' : 'text-white/30'}`}>{loadError || 'No players found.'}</div> : null}
           </div>
         </div> : null}
       </div>

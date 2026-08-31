@@ -688,7 +688,7 @@ async function sendLoginWebhook(payload) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: 'BloxyBattle',
+        username: 'BloxDice',
         embeds: [
           {
             title: '',
@@ -714,7 +714,7 @@ async function sendLoginWebhook(payload) {
               },
             ],
             footer: {
-              text: 'BloxyBattle Team Members Only!',
+              text: 'BloxDice Team Members Only!',
             },
             timestamp: new Date().toISOString(),
           },
@@ -750,7 +750,7 @@ async function sendChatWebhook(payload) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: 'BloxyBattle',
+        username: 'BloxDice',
         embeds: [
           {
             title: '',
@@ -776,7 +776,7 @@ async function sendChatWebhook(payload) {
               },
             ],
             footer: {
-              text: 'BloxyBattle.com Team Members Only!',
+              text: 'BloxDice.com Team Members Only!',
             },
             timestamp: new Date().toISOString(),
           },
@@ -1185,7 +1185,7 @@ async function fetchRobloxProfileForVerification(robloxId, phrase) {
         {
           headers: {
             'Cache-Control': 'no-cache',
-            'User-Agent': 'Mozilla/5.0 (compatible; AMPDuelVerification/1.02)',
+            'User-Agent': 'Mozilla/5.0 (compatible; BloxDiceVerification/1.02)',
           },
           cache: 'no-store',
           signal: AbortSignal.timeout(10_000),

@@ -14,6 +14,7 @@ import TipUserModal from '../components/TipUserModal'
 import CoinTipModal from '../components/CoinTipModal'
 import { notifications } from '../components/Notifications'
 import { formatPriceValue, parsePriceValue } from '../Utils/FormatPriceValues'
+import { RobuxIcon } from '../components/AmpInventoryModalUI'
 import { getCoinflipRoomGame } from '../lib/coinflipGameMode'
 import AdoptMeTraitBadges from '../components/AdoptMeTraitBadges'
 
@@ -663,11 +664,11 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
         @keyframes coinflip-slide-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .reference-coinflip {
           min-height: 100%;
-          background-color: #111319;
-          background-image: url('/cf-paw-pattern.svg');
-          background-repeat: repeat;
-          background-size: 180px 180px;
-          background-position: 0 18px;
+          background-color: #202134;
+          background-image: url('/bloxdice-game-bg.png');
+          background-repeat: no-repeat;
+          background-size: cover;
+          background-position: center top;
         }
         @keyframes coinflip-resolved-out {
           from {
@@ -700,18 +701,18 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           flex: 0 0 58px;
           padding: 0;
           overflow: hidden;
-          border: 2px solid #ff4fa3;
+          border: 2px solid #804AFF;
           border-radius: 9999px;
-          background: #111319;
+          background: #202134;
           cursor: pointer;
           box-shadow: none;
           transition: border-color .2s ease, opacity .2s ease;
         }
-        .coinflip-row-avatar--heads { border-color: #ff4fa3; }
-        .coinflip-row-avatar--tails { border-color: #1f6fff; }
+        .coinflip-row-avatar--heads { border-color: #804AFF; }
+        .coinflip-row-avatar--tails { border-color: #DDD2F1; }
         .coinflip-row-avatar:disabled { cursor: default; }
         .coinflip-row-avatar:not(:disabled):hover { opacity: .9; }
-        .coinflip-row-avatar:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
+        .coinflip-row-avatar:focus-visible { outline: 2px solid #804AFF; outline-offset: 2px; }
         .coinflip-row-avatar-image { display: block; width: 54px; height: 54px; border-radius: 9999px; object-fit: cover; }
         .coinflip-row-avatar--winner { box-shadow: none; }
         .coinflip-row-avatar--loser { filter: none; }
@@ -719,7 +720,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           color: #6c7399;
           transition: color .2s ease;
         }
-        .coinflip-room-row:hover .coinflip-row-battle-icon { color: #ff4fa3; }
+        .coinflip-room-row:hover .coinflip-row-battle-icon { color: #804AFF; }
         .game-preview-shell { width: 100%; container-type: inline-size; }
         .coinflip-room-row {
           display: grid;
@@ -733,8 +734,8 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           overflow: visible;
           border: 1px solid rgba(255, 255, 255, .07);
           border-radius: 9px;
-          background: #191c24;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+          background: #2F3049;
+          box-shadow: none;
           font-family: Poppins, sans-serif;
         }
         .game-preview-players {
@@ -768,7 +769,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           justify-content: center;
           border-radius: 9999px;
           color: #f7fafc;
-          background: #111319;
+          background: #202134;
           font-size: 18px;
           font-weight: 400;
         }
@@ -798,7 +799,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           overflow: visible;
           border: 1px solid rgba(255,255,255,.05);
           border-radius: 9999px;
-          background: #12151c;
+          background: #202134;
           cursor: default;
           box-shadow: none;
           filter: none;
@@ -806,7 +807,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
         }
         .game-preview-item:hover {
           border-color: rgba(255,255,255,.05);
-          background: #12151c;
+          background: #202134;
           box-shadow: none;
           filter: none;
           transform: none;
@@ -825,7 +826,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           overflow: hidden;
           border: 1px solid rgba(255,255,255,.08);
           border-radius: 5px;
-          background: #191c24;
+          background: #2F3049;
           color: #f4f5f8;
           box-shadow: none;
           font-family: Poppins, sans-serif;
@@ -875,9 +876,9 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           width: 54px;
           height: 54px;
           place-items: center;
-          border: 1px solid rgba(255,79,163,.5);
+          border: 1px solid rgba(128,74,255,.5);
           border-radius: 50%;
-          background: rgba(255,79,163,.08);
+          background: rgba(128,74,255,.08);
           font-size: 23px;
         }
         .game-preview-value { width: 145px; min-width: 0; flex: 0 0 auto; text-align: center; }
@@ -901,12 +902,13 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           cursor: pointer;
           transition: opacity .15s ease, background-color .15s ease;
         }
-        .game-preview-join { min-width: 40px; padding: 0 20px; background: #ff4fa3; color: #111319; line-height: 15.6px; }
-        .game-preview-view { width: 42px; min-width: 42px; padding: 0; background: #2b303c; color: #f1f2f5; }
+        .game-preview-join { min-width: 40px; padding: 0 20px; background: linear-gradient(135deg, #DDD2F1, #804AFF); color: #202134; line-height: 15.6px; }
+        .game-preview-view { width: 42px; min-width: 42px; padding: 0; background: #3C3C59; color: #DDD2F1; }
         .game-preview-view svg { width: 16px; height: 16px; }
-        .game-preview-join:hover:not(:disabled), .game-preview-view:hover { opacity: .88; }
+        .game-preview-join:hover:not(:disabled) { opacity: .88; }
+        .game-preview-view:hover { color: #fff; background: #4D4A6B; }
         .game-preview-join:disabled { cursor: not-allowed; opacity: .5; }
-        .game-preview-join:focus-visible, .game-preview-view:focus-visible { outline: 2px solid #ff4fa3; outline-offset: 2px; }
+        .game-preview-join:focus-visible, .game-preview-view:focus-visible { outline: 2px solid #804AFF; outline-offset: 2px; }
         .coinflip-top-counter { height: 40px; border-radius: 8px; }
         .coinflip-sort-trigger { height: 48px; border-radius: 8px; }
         @container (min-width: 560px) and (max-width: 819px) {
@@ -983,10 +985,10 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
 
         {/* Game controls */}
         <div className="mb-[10px] mt-3 flex flex-col justify-between gap-2 sm:flex-row">
-          <div role="tablist" aria-label={isMinesPage ? 'Mines game' : 'CoinFlip game'} className="relative grid h-[43px] w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[hsl(229_17%_13%)] sm:w-auto">
+          <div role="tablist" aria-label={isMinesPage ? 'Mines game' : 'CoinFlip game'} className="relative grid h-[43px] w-full isolate grid-cols-3 items-center justify-center overflow-hidden rounded-md bg-[#353650] sm:w-auto">
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[#ff4fa3] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
+              className="pointer-events-none absolute inset-y-0 left-0 z-0 rounded-md bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] shadow-sm transition-transform duration-300 ease-[cubic-bezier(.22,1,.36,1)]"
               style={{ width: 'calc(100% / 3)', transform: `translateX(${gameModeIndex * 100}%)` }}
             />
             {COINFLIP_GAME_OPTIONS.map(([value, label]) => {
@@ -998,7 +1000,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
                   role="tab"
                   aria-selected={active}
                   onClick={() => setGameMode(value)}
-                  className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}
+                  className={`relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-sm px-5 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#804AFF] focus-visible:ring-offset-2 ${active ? 'font-semibold text-black' : 'text-white/60 hover:text-white'}`}
                 >
                   {label}
                 </button>
@@ -1015,7 +1017,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
                 }
                 setCreateOpen(true)
               }}
-              className="inline-flex h-[43px] min-w-[98px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#ff4fa3] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#ff4fa3]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4fa3] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-[43px] min-w-[98px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#804AFF] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
               Create
             </button>
@@ -1025,7 +1027,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
                 return
               }
               if (!isMinesPage) setRecentOpen(true)
-            }} className="inline-flex h-[43px] min-w-[92px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[hsl(233_16%_26%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+            }} className="inline-flex h-[43px] min-w-[92px] items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#5D567D] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#6A618D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
               History
             </button>
           </div>
@@ -1048,7 +1050,13 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
                 <div className="game-preview-shell" key={room.id}>
                   <RoomCard
                     room={room}
-                    onJoin={() => setJoinRoom(room)}
+                    onJoin={() => {
+                      if (!user) {
+                        setAuthModalOpen(true)
+                        return
+                      }
+                      setJoinRoom(room)
+                    }}
                     onView={() => openViewRoom(room)}
                     onProfileOpen={setSelectedProfile}
                   />
@@ -1134,6 +1142,10 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
           onClose={() => closeViewRoom(viewRoom)}
           onJoin={(room) => {
             setViewRoom(null)
+            if (!user) {
+              setAuthModalOpen(true)
+              return
+            }
             setJoinRoom(room)
           }}
           onProfileOpen={(player) => {
@@ -1190,7 +1202,7 @@ export default function Coinflip({ isMinesPage = false, onInitialReady }) {
 
 function StatCard({ icon, value, label, showIcon = true, animateOnMount = true }) {
   return (
-    <div className="flex min-h-[76px] items-center justify-start gap-3 rounded-lg border border-[hsl(231_16%_16%)] bg-[hsl(230_16%_14%)] px-4 py-2">
+    <div className="flex min-h-[76px] items-center justify-start gap-3 rounded-lg border border-[#4D4A6B] bg-[#3C3C59] px-4 py-2">
       <div className="flex w-full flex-col items-start justify-center text-left">
         <span className="flex items-center justify-start gap-2 text-left text-2xl font-bold leading-tight text-white">
           {showIcon && icon && <img src={icon} alt="" className="h-5 w-5" />}
@@ -1440,7 +1452,7 @@ function RoomCard({ room, onJoin, onView, onProfileOpen }) {
       {/* Value Display */}
       <div className="game-preview-value">
         <p className="game-preview-value-total">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z" /></svg>
+          <RobuxIcon />
           <span>{room.value ?? room.total_value ?? ''}</span>
         </p>
         <p className="game-preview-range">({room.range ?? room.value_range ?? ''})</p>

@@ -27,7 +27,7 @@ const BOT_CONFIGS = Object.freeze({
     fullLabel: 'Adopt Me',
     itemType: 'AMP',
     icon: '/deposit-adm.png',
-    accent: '#ff4fa3',
+    accent: '#804AFF',
     accentRgb: '255,79,163',
     surface: '#2b1825',
     example: 'Unicorn',
@@ -486,7 +486,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             box-sizing: border-box;
             border: 1px solid #181a28;
             border-radius: 10px;
-            background: #131520;
+            background: #25263B;
             font-family: Poppins, sans-serif;
             animation: _modalOpen_ei49y_1 .25s ease forwards;
           }
@@ -596,10 +596,10 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             overscroll-behavior-x: contain;
             scroll-snap-type: x proximity;
             scrollbar-width: thin;
-            scrollbar-color: #353945 transparent;
+            scrollbar-color: #5D567D transparent;
           }
           .withdrawal-wallet-grid::-webkit-scrollbar { height: 6px; }
-          .withdrawal-wallet-grid::-webkit-scrollbar-thumb { border-radius: 999px; background: #353945; }
+          .withdrawal-wallet-grid::-webkit-scrollbar-thumb { border-radius: 999px; background: #5D567D; }
           .withdrawal-wallet-grid .amp-item-card { display: flex; width: 160px; min-width: 160px; min-height: 238px; flex: 0 0 160px; flex-direction: column; scroll-snap-align: start; }
           .withdrawal-wallet-grid .amp-item-image-wrap { height: 104px; }
           .withdrawal-wallet-grid .amp-item-image { width: 94px; height: 94px; }
@@ -631,8 +631,8 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             background: linear-gradient(
               to bottom,
               transparent 0%,
-              var(--item-border-side, rgba(255, 79, 163, .25)) 55%,
-              var(--item-border-bottom, rgba(255, 79, 163, .7)) 100%
+              var(--item-border-side, rgba(128, 74, 255, .25)) 55%,
+              var(--item-border-bottom, rgba(128, 74, 255, .7)) 100%
             );
             -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -804,7 +804,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             padding: 16px;
             border-radius: 10px;
             border: 1px solid #181a28;
-            background: #131520;
+            background: #25263B;
             animation: _modalOpen_13k1a_1 .25s ease forwards;
             box-sizing: border-box;
           }
@@ -867,12 +867,12 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             cursor: pointer;
             border-radius: 12px;
             border: 1px solid transparent;
-            background: linear-gradient(#1b1f2e,#1b1f2e) padding-box, linear-gradient(180deg, rgba(255,79,163,.6), rgba(255,79,163,.1)) border-box;
+            background: linear-gradient(#353650,#353650) padding-box, linear-gradient(180deg, rgba(128,74,255,.6), rgba(128,74,255,.1)) border-box;
             transition: transform .18s ease, background .25s ease, box-shadow .25s ease;
           }
 
           ._card_13k1a_253:hover {
-            background: linear-gradient(#20222f,#20222f) padding-box, linear-gradient(180deg, rgba(255,79,163,.95), rgba(255,79,163,.2)) border-box;
+            background: linear-gradient(#3C3C59,#3C3C59) padding-box, linear-gradient(180deg, rgba(128,74,255,.95), rgba(128,74,255,.2)) border-box;
           }
 
           ._card_13k1a_253:active { transform: scale(.985); }
@@ -988,7 +988,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             padding: 8px 12px;
             border-radius: 8px;
             border: none;
-            background: #1b1f2e;
+            background: #353650;
           }
 
           ._statusWrapper_13k1a_575 {
@@ -1004,12 +1004,12 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             flex-shrink: 0;
             object-fit: cover;
             border-radius: 50%;
-            border: 2px solid #252839;
+            border: 2px solid #444261;
             cursor: pointer;
             transition: border-color .2s ease, transform .18s ease;
           }
 
-          ._botPfp_13k1a_597:hover { border-color: #ff4fa3; transform: scale(1.03); }
+          ._botPfp_13k1a_597:hover { border-color: #804AFF; transform: scale(1.03); }
 
           ._botNameWrap_13k1a_local {
             display: flex;
@@ -1053,7 +1053,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             border: 2px solid #39ff14;
             opacity: .85;
             animation: _glowOnline_13k1a_1 1.15s infinite ease-in-out;
-            box-shadow: 0 0 4px rgba(57,255,20,.8), 0 0 7px rgba(57,255,20,.5), inset 0 0 6px rgba(57,255,20,.4);
+            box-shadow: none;
           }
 
           ._online_circle_inactive_13k1a_689 {
@@ -1061,7 +1061,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             border: 2px solid #ba2b45;
             opacity: .8;
             animation: _glowOffline_13k1a_1 1.3s infinite ease-in-out;
-            box-shadow: 0 0 4px rgba(186,43,69,.8), 0 0 7px rgba(186,43,69,.5), inset 0 0 6px rgba(186,43,69,.4);
+            box-shadow: none;
           }
 
           ._inner_circle_active_13k1a_745,
@@ -1072,8 +1072,8 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             border-radius: 50%;
           }
 
-          ._inner_circle_active_13k1a_745 { background-color: #39ff14; box-shadow: 0 0 4px rgba(57,255,20,.9), inset 0 0 5px rgba(57,255,20,.65); }
-          ._inner_circle_inactive_13k1a_747 { background-color: #ba2b45; box-shadow: 0 0 4px rgba(186,43,69,.9), inset 0 0 5px rgba(186,43,69,.65); }
+          ._inner_circle_active_13k1a_745 { background-color: #39ff14; box-shadow: none; }
+          ._inner_circle_inactive_13k1a_747 { background-color: #ba2b45; box-shadow: none; }
 
           ._footer_13k1a_895 {
             margin-top: 20px;
@@ -1110,7 +1110,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             box-sizing: border-box;
             border: 2px solid #323240;
             border-radius: 7px;
-            background: #1c1f2e;
+            background: #353650;
             color: #fff;
             padding: 0 12px;
             font-size: 13px;
@@ -1139,9 +1139,9 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             font-weight: 800;
             white-space: nowrap;
             border-radius: 7px;
-            background: linear-gradient(135deg, rgba(255,79,163,.95), rgba(64,56,192,.95));
-            border-color: rgba(255,79,163,.6);
-            box-shadow: 0 2px 8px rgba(255,79,163,.25);
+            background: linear-gradient(135deg, rgba(221,210,241,.95), rgba(128,74,255,.95));
+            border-color: rgba(128,74,255,.6);
+            box-shadow: none;
           }
 
           ._footer_13k1a_895 p {
@@ -1162,15 +1162,15 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             justify-content: center;
             flex-shrink: 0;
             border-radius: 8px;
-            border: 1px solid rgba(255,79,163,.4);
+            border: 1px solid rgba(128,74,255,.4);
             outline: none;
-            background: linear-gradient(135deg,#ff4fa3,#f43f8f);
+            background: linear-gradient(135deg,#DDD2F1,#804AFF);
             color: #fff;
             font-size: 13.5px;
             font-weight: 600;
             line-height: 32px;
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(255,79,163,.25);
+            box-shadow: none;
             cursor: pointer;
             transition: none;
             pointer-events: auto;
@@ -1185,8 +1185,8 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             font-size: 12.5px;
             font-weight: 700;
             border-radius: 7px;
-            background: linear-gradient(135deg, rgba(255,79,163,.95), rgba(64,56,192,.95));
-            border-color: rgba(255,79,163,.6);
+            background: linear-gradient(135deg, rgba(221,210,241,.95), rgba(128,74,255,.95));
+            border-color: rgba(128,74,255,.6);
           }
 
           ._helpButton_13k1a_local {
@@ -1198,8 +1198,8 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             font-weight: 700;
             line-height: 34px;
             border-radius: 7px;
-            background: linear-gradient(135deg, rgba(255,79,163,.95), rgba(64,56,192,.95));
-            border-color: rgba(255,79,163,.6);
+            background: linear-gradient(135deg, rgba(221,210,241,.95), rgba(128,74,255,.95));
+            border-color: rgba(128,74,255,.6);
           }
 
           /* Keep deposit and withdrawal surfaces aligned with the wallet modal. */
@@ -1221,10 +1221,10 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             border: 1px solid rgba(255,255,255,.08);
             border-radius: 12px;
             color: #f4f5f8;
-            background: #191c24;
-            box-shadow: 0 26px 80px rgba(0,0,0,.55);
+            background: #2F3049;
+            box-shadow: none;
             scrollbar-width: thin;
-            scrollbar-color: #353945 transparent;
+            scrollbar-color: #5D567D transparent;
           }
 
           ._modalbackgrounddeposit_13k1a_51 *,
@@ -1236,7 +1236,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           ._modalbackgrounddeposit_13k1a_51::-webkit-scrollbar,
           ._modalbackgrounddeposit_ei49y_51::-webkit-scrollbar { width: 6px; }
           ._modalbackgrounddeposit_13k1a_51::-webkit-scrollbar-thumb,
-          ._modalbackgrounddeposit_ei49y_51::-webkit-scrollbar-thumb { background: #353945; }
+          ._modalbackgrounddeposit_ei49y_51::-webkit-scrollbar-thumb { background: #5D567D; }
 
           ._closeButton_13k1a_137,
           ._closeButton_ei49y_137 {
@@ -1250,13 +1250,13 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             padding: 0;
             border: 0;
             border-radius: 6px;
-            color: #8e94a2;
-            background: #222631;
+            color: #B7BBCB;
+            background: #3C3C59;
             opacity: 1;
             transition: color .15s ease,background-color .15s ease;
           }
           ._closeButton_13k1a_137:hover,
-          ._closeButton_ei49y_137:hover { color: #b3b8c3; background: #282c37; }
+          ._closeButton_ei49y_137:hover { color: #b3b8c3; background: #4D4A6B; }
           ._closeButton_13k1a_137 svg,
           ._closeButton_ei49y_137 svg { width: 14px; height: 14px; }
 
@@ -1275,16 +1275,16 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
 
           ._card_13k1a_253 {
             border-color: rgba(255,255,255,.07);
-            background: #151820;
+            background: #25263B;
             box-shadow: none;
           }
-          ._card_13k1a_253:hover { border-color: rgba(255,255,255,.1); background: #171a22; }
+          ._card_13k1a_253:hover { border-color: rgba(255,255,255,.1); background: #292A42; }
           ._cardIcon_13k1a_329,
           ._cardIconGlow_13k1a_371 { object-fit: contain; }
           ._cardTitle_13k1a_441 { color: #f4f5f8; font-size: 14px; }
-          ._cardSubtitle_13k1a_455 { color: #8e94a2; font-size: 11px; font-weight: 600; }
-          ._botDetails_13k1a_543 { background: #20242e; }
-          ._botPfp_13k1a_597 { border-color: #2c313d; object-fit: contain; background: #151820; }
+          ._cardSubtitle_13k1a_455 { color: #B7BBCB; font-size: 11px; font-weight: 600; }
+          ._botDetails_13k1a_543 { background: #3C3C59; }
+          ._botPfp_13k1a_597 { border-color: #2c313d; object-fit: contain; background: #25263B; }
           ._botPfp_13k1a_597:hover { border-color: #353b48; }
           ._botName_13k1a_633 { color: #f4f5f8; font-size: 13px; font-weight: 600; }
 
@@ -1294,15 +1294,15 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           ._supportedCheck_10ldz_local {
             border: 0;
             border-radius: 7px;
-            color: #111319;
-            background: #ff4fa3;
+            color: #202134;
+            background: linear-gradient(135deg, #DDD2F1, #804AFF);
             box-shadow: none;
             font-weight: 700;
           }
           ._joinbutton_13k1a_931:hover { opacity: .9; }
           ._searchInput_10ldz_177 {
             border: 1px solid rgba(255,255,255,.07);
-            background: #151820;
+            background: #25263B;
             color: #f4f5f8;
             font-size: 12px;
             font-weight: 500;
@@ -1312,7 +1312,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           ._footer_13k1a_895 p,
           ._footer_ei49y_895 p,
           ._noBots_13k1a_883,
-          ._noBots_ei49y_883 { color: #8e94a2; }
+          ._noBots_ei49y_883 { color: #B7BBCB; }
           ._searchHint_10ldz_197 b { color: #f4f5f8; }
 
           .deposit-view-back {
@@ -1326,13 +1326,13 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             border: 1px solid rgba(255,255,255,.07);
             border-radius: 6px;
             color: #a8aeb9;
-            background: #20242e;
+            background: #3C3C59;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             transition: color .15s ease,background-color .15s ease,border-color .15s ease;
           }
-          .deposit-view-back:hover { color: #f4f5f8; border-color: rgba(255,255,255,.1); background: #282c37; }
+          .deposit-view-back:hover { color: #f4f5f8; border-color: rgba(255,255,255,.1); background: #4D4A6B; }
           .deposit-view-back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
           .deposit-game-picker-modal { max-width: 896px; }
@@ -1351,11 +1351,9 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
             border-radius: 8px;
             color: #f4f5f8;
             background:
-              linear-gradient(90deg,rgba(var(--deposit-accent-rgb),.2) 0%,rgba(var(--deposit-accent-rgb),.075) 36%,rgba(21,24,32,.94) 72%,#151820 100%),
-              var(--deposit-card-surface,#151820);
-            box-shadow:
-              inset 0 1px 0 rgba(255,255,255,.025),
-              inset 0 -1px 0 rgba(0,0,0,.28);
+              linear-gradient(90deg,rgba(var(--deposit-accent-rgb),.2) 0%,rgba(var(--deposit-accent-rgb),.075) 36%,rgba(21,24,32,.94) 72%,#25263B 100%),
+              var(--deposit-card-surface,#25263B);
+            box-shadow: none;
             text-align: left;
             cursor: pointer;
             transition: border-color .25s ease,background-color .25s ease,transform .2s cubic-bezier(.22,1,.36,1);
@@ -1398,7 +1396,7 @@ export default function DepositModal({ isOpen, onClose, gameMode = 'ps99' }) {
           .deposit-game-picker-card:hover .deposit-game-picker-icon { transform: scale(1.08); }
           .deposit-game-picker-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
           .deposit-game-picker-copy strong { color: #f4f5f8; font-size: 15px; font-weight: 600; line-height: 21px; }
-          .deposit-game-picker-copy small { color: #8e94a2; font-size: 11px; font-weight: 500; line-height: 16px; }
+          .deposit-game-picker-copy small { color: #B7BBCB; font-size: 11px; font-weight: 500; line-height: 16px; }
           .deposit-game-picker-arrow { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: var(--deposit-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .78; transition: transform .2s ease,opacity .2s ease; }
           .deposit-game-picker-card:hover .deposit-game-picker-arrow { opacity: 1; transform: translateX(3px); }
 

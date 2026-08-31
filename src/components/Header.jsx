@@ -69,7 +69,7 @@ function WalletIcon() {
 
 function BellIcon() {
   return (
-    <svg viewBox="0 0 22 23" fill="none" className="h-[18px] w-[18px] text-[#ff4fa3]" aria-hidden="true">
+    <svg viewBox="0 0 22 23" fill="none" className="h-[18px] w-[18px] text-[#804AFF]" aria-hidden="true">
       <path
         d="M9.22322 19.287C9.16077 19.0417 9.37186 18.8333 9.62499 18.8333H12.375C12.6281 18.8333 12.8392 19.0417 12.7767 19.287C12.5748 20.0801 11.8559 20.6667 11 20.6667C10.1441 20.6667 9.42513 20.0801 9.22322 19.287Z"
         fill="currentColor"
@@ -98,7 +98,7 @@ function VolumeIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="lucide lucide-volume2 h-[18px] w-[18px] text-[#ff4fa3]"
+      className="lucide lucide-volume2 h-[18px] w-[18px] text-[#804AFF]"
       aria-hidden="true"
     >
       <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
@@ -426,7 +426,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
 
   return (
     <header 
-      className="reference-header fixed z-40 box-border flex h-[72px] w-full items-center justify-between border-b border-white/[.07] bg-[#151820] px-7 xl:pl-[242px]"
+      className="reference-header fixed z-40 box-border flex h-[80px] w-full items-center justify-between border-b border-white/[.07] bg-[#25263B] px-7 xl:pl-[242px]"
     >
       <style>{`
         @keyframes menuPopupIn {
@@ -454,24 +454,25 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
 
       <NavLink
         to="/coinflip"
-        aria-label="AMPDUEL home"
-        className="absolute left-[14px] top-1/2 z-10 block w-[132px] -translate-y-1/2 sm:left-[29px] sm:w-[172px]"
+        aria-label="BloxDice home"
+        className="absolute left-[14px] top-1/2 z-10 flex w-[140px] -translate-y-1/2 items-center gap-2 sm:left-[29px] sm:w-[190px] sm:gap-2.5"
       >
-        <img src="/Logo.svg" alt="AMPDUEL" className="block h-auto w-full select-none" draggable={false} />
+        <img src="/bloxdice-icon.png" alt="" aria-hidden="true" className="block h-[36px] w-[29px] shrink-0 select-none object-contain sm:h-[46px] sm:w-[37px]" draggable={false} />
+        <img src="/bloxdice-wordmark.png" alt="BloxDice" className="block h-auto min-w-0 flex-1 select-none" draggable={false} />
       </NavLink>
 
       <div className="hidden min-w-0 flex-1 items-center gap-16 xl:flex">
         <nav className="min-w-0" aria-label="Game navigation">
-          <ul className="flex h-[71px] items-center gap-3">
+          <ul className="flex h-[79px] items-center gap-3">
             <li className="relative">
               <NavLink
                 to="/coinflip"
                 end
-                className={({ isActive }) => `group relative flex h-[71px] items-center border-b-2 px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? 'border-b-[#ff4fa3] text-white' : 'border-b-transparent text-white/[0.48] hover:text-white'}`}
+                className={({ isActive }) => `group relative flex h-[79px] items-center border-b-2 border-b-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? '[border-image:linear-gradient(90deg,#DDD2F1,#804AFF)_1] text-white' : 'text-white/[0.48] hover:text-white'}`}
               >
                 {({ isActive }) => (
                   <>
-                    <CoinStackIcon className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? 'text-[#ff4fa3]' : 'text-white/[0.36]'}`} />
+                    <CoinStackIcon gradientId={isActive ? 'nav-coinflip-gradient' : undefined} className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? '' : 'text-white/[0.36]'}`} />
                     CoinFlip
                   </>
                 )}
@@ -480,18 +481,18 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
             <li>
               <NavLink
                 to="/mines"
-                className={({ isActive }) => `group relative flex h-[71px] items-center border-b-2 px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? 'border-b-[#ff4fa3] text-white' : 'border-b-transparent text-white/[0.48] hover:text-white'}`}
+                className={({ isActive }) => `group relative flex h-[79px] items-center border-b-2 border-b-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 ${isActive ? '[border-image:linear-gradient(90deg,#DDD2F1,#804AFF)_1] text-white' : 'text-white/[0.48] hover:text-white'}`}
               >
                 {({ isActive }) => (
                   <>
-                    <MinesIcon className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? 'text-[#ff4fa3]' : 'text-white/[0.36]'}`} />
+                    <MinesIcon gradientId={isActive ? 'nav-mines-gradient' : undefined} className={`mr-2 h-[17px] w-[17px] shrink-0 ${isActive ? '' : 'text-white/[0.36]'}`} />
                     MINES
                   </>
                 )}
               </NavLink>
             </li>
-            {LEADERBOARD_ENABLED ? <li><button type="button" onClick={onOpenLeaderboardModal} className="group relative flex h-[71px] items-center border-0 border-b-2 border-b-transparent bg-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] text-white/[0.48] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 hover:text-white"><MedalIcon className="mr-2 h-4 w-4 shrink-0 text-white/[0.36]" />Leaderboard</button></li> : null}
-            <li><a target="_blank" rel="noreferrer" className="flex h-[71px] items-center px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" href="https://discord.gg/bloxdicecom" aria-label="Discord"><DiscordIcon className="h-4 w-4" /></a></li>
+            {LEADERBOARD_ENABLED ? <li><button type="button" onClick={onOpenLeaderboardModal} className="group relative flex h-[79px] items-center border-0 border-b-2 border-b-transparent bg-transparent px-4 text-[14px] font-bold uppercase leading-[16.8px] text-white/[0.48] transition-[background-color,border-color,color,fill,stroke,opacity,box-shadow,transform] duration-200 hover:text-white"><MedalIcon className="mr-2 h-4 w-4 shrink-0 text-white/[0.36]" />Leaderboard</button></li> : null}
+            <li><a target="_blank" rel="noreferrer" className="flex h-[79px] items-center px-3 text-base text-white/[0.48] transition-colors duration-200 hover:text-white" href="https://discord.gg/bloxdicecom" aria-label="Discord"><DiscordIcon className="h-4 w-4" /></a></li>
           </ul>
         </nav>
       </div>
@@ -510,7 +511,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
           <DepositModal isOpen={withdrawalDepositOpen} onClose={() => setWithdrawalDepositOpen(false)} gameMode={activeGameMode} />
           <button
             type="button"
-            className="flex cursor-pointer items-stretch rounded border-0 bg-transparent p-0 text-sm font-semibold text-white transition hover:opacity-90"
+            className="flex cursor-pointer items-stretch overflow-hidden rounded-lg border border-white/[.07] bg-transparent p-0 text-sm font-semibold text-white transition hover:opacity-90"
             aria-label="Open inventory"
             onClick={() => {
               setInventoryOpen(true)
@@ -519,11 +520,11 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
               setNotificationsOpen(false)
             }}
           >
-            <span className="flex items-center gap-2 rounded-l bg-[hsl(228_17%_12%/.8)] px-4 py-3 font-semibold text-white">
+            <span className="flex items-center gap-2 bg-[#3C3C59] px-4 py-3 font-semibold text-[#F1F2F7]">
               <img src={COIN_ICON} alt="bobux" draggable={false} className="h-5 w-5 object-contain" />
               <AnimatedNumber value={walletDisplayAmount} />
             </span>
-            <span className="flex items-center rounded-r bg-[#ff4fa3] px-2 text-sm font-semibold tracking-wide text-[hsl(230_16%_14%)]">
+            <span className="flex items-center bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] px-3 text-sm font-semibold tracking-wide text-[#202134]">
               Wallet
             </span>
           </button>
@@ -536,7 +537,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
             ref={notificationsButtonRef}
             type="button"
             aria-label="Notifications"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#3C3C59] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
             aria-haspopup="menu"
             aria-expanded={notificationsOpen}
             data-state={notificationsOpen ? "open" : "closed"}
@@ -575,7 +576,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
               dir="ltr"
               id="radix-:r3:"
               aria-labelledby="radix-:r2:"
-              className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] w-[calc(100vw-1rem)] max-w-80 overflow-y-auto overflow-x-hidden rounded-[6px] border border-solid border-[#252839] bg-[#1C1F2D] p-1 mt-1 text-[#E1E4F2] shadow-none animate-[menuPopupIn_180ms_ease-out_forwards]"
+              className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] w-[calc(100vw-1rem)] max-w-80 overflow-y-auto overflow-x-hidden rounded-[6px] border border-solid border-[#444261] bg-[#1C1F2D] p-1 mt-1 text-[#E1E4F2] shadow-none animate-[menuPopupIn_180ms_ease-out_forwards]"
               tabIndex={-1}
               data-orientation="vertical"
               style={{
@@ -590,8 +591,8 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
             >
               <div className="px-2 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-[6px] bg-[#20222f] flex items-center justify-center">
-                    <svg viewBox="0 0 22 23" fill="none" className="w-4 h-4 text-[#ff4fa3]">
+                  <div className="h-8 w-8 rounded-[6px] bg-[#3C3C59] flex items-center justify-center">
+                    <svg viewBox="0 0 22 23" fill="none" className="w-4 h-4 text-[#804AFF]">
                       <path d="M9.22322 19.287C9.16077 19.0417 9.37186 18.8333 9.62499 18.8333H12.375C12.6281 18.8333 12.8392 19.0417 12.7767 19.287C12.5748 20.0801 11.8559 20.6667 11 20.6667C10.1441 20.6667 9.42513 20.0801 9.22322 19.287Z" fill="currentColor"></path>
                       <path d="M11.9207 4.16667H10.0793L9.13358 4.50688C6.95371 5.29104 5.5002 7.35861 5.5002 9.67523V10.8908C5.5002 11.5634 5.18395 12.1968 4.64636 12.601C2.7696 14.0121 3.76757 17 6.11563 17H15.8847C18.2327 17 19.2307 14.0121 17.354 12.601C16.8164 12.1968 16.5002 11.5634 16.5002 10.8908V9.67532C16.5002 7.35864 15.0466 5.29105 12.8667 4.50693L11.9207 4.16667Z" fill="currentColor"></path>
                       <path d="M10.0834 3.25C10.0834 2.74374 10.4938 2.33333 11 2.33333C11.5063 2.33333 11.9167 2.74374 11.9167 3.25V4.16667H10.0834V3.25Z" fill="currentColor"></path>
@@ -604,7 +605,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                 </div>
                 <button type="button" className="text-xs font-semibold px-2 py-1 rounded-[6px] border-none bg-[#2a2e44] text-[#E1E4F2] active:opacity-100 transition-none opacity-50 cursor-not-allowed hover:opacity-50" disabled aria-disabled="true">Clear all</button>
               </div>
-              <div className="h-px bg-[#252839] my-1"></div>
+              <div className="h-px bg-[#444261] my-1"></div>
               <div className="px-3 py-8 text-center">
                 <div className="text-sm font-semibold text-[#E1E4F2]/80">No notifications</div>
                 <div className="text-xs text-[#9ca9d6] mt-1">When something happens, it’ll show up here.</div>
@@ -616,7 +617,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
         <div className="hidden">
           <button
             ref={volumeButtonRef}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#20222f] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[6px] border-none bg-[#3C3C59] text-[#E1E4F2] shadow-none transition-none hover:opacity-90 active:opacity-100"
             aria-label="Volume"
             type="button"
             aria-haspopup="menu"
@@ -656,7 +657,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                 dir="ltr"
                 id="volume-menu"
                 aria-labelledby="volume-button"
-                className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] overflow-y-auto overflow-x-hidden bg-[#1C1F2D] border border-solid border-[#252839] shadow-none rounded-[6px] p-1 mt-1 text-[#E1E4F2] w-56 animate-[menuPopupIn_180ms_ease-out_forwards]"
+                className="z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[8rem] overflow-y-auto overflow-x-hidden bg-[#1C1F2D] border border-solid border-[#444261] shadow-none rounded-[6px] p-1 mt-1 text-[#E1E4F2] w-56 animate-[menuPopupIn_180ms_ease-out_forwards]"
                 tabIndex={-1}
                 data-orientation="vertical"
                 style={{
@@ -678,7 +679,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                     type="range"
                     min="0"
                     max="100"
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#ff4fa3]"
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[#804AFF]"
                     value={volumeLevel}
                     onChange={(event) => setVolumeLevel(Number(event.target.value))}
                     style={{ backgroundColor: 'rgb(32, 34, 47)' }}
@@ -708,7 +709,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                   }
                 }}
               >
-                <div className="flex items-center rounded-lg p-2 transition-opacity hover:bg-[hsl(231_16%_17%)]">
+                <div className="flex items-center rounded-lg p-2 transition-opacity hover:bg-[#544F74]">
                   <img
                     src={user.avatar_headshot_url || user.avatar_url || AVATAR}
                     alt={`${user.username || 'User'} thumbnail`}
@@ -753,7 +754,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                     dir="ltr"
                     id="radix-:rr:"
                     aria-labelledby="radix-:rq:"
-                    className="z-50 min-w-[12rem] overflow-hidden rounded-[8px] bg-[hsl(227_17%_11%)] px-3 py-2 text-white shadow-md [transform-origin:50%_0] animate-[profileMenuIn_150ms_ease-out_forwards]"
+                    className="z-50 min-w-[12rem] overflow-hidden rounded-[8px] bg-[#25263B] px-3 py-2 text-white shadow-md [transform-origin:50%_0] animate-[profileMenuIn_150ms_ease-out_forwards]"
                     tabIndex={-1}
                     data-orientation="vertical"
                     style={{
@@ -768,7 +769,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                   >
                     <div
                       role="menuitem"
-                      className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-medium text-white outline-none transition-opacity hover:bg-[hsl(231_16%_17%/.5)] focus:bg-[hsl(231_16%_17%/.5)] [&>svg]:hidden cursor-pointer"
+                      className="relative flex select-none items-center rounded-[4px] px-2 py-1.5 text-sm font-medium text-white outline-none transition-opacity hover:bg-[rgba(84,79,116,.5)] focus:bg-[rgba(84,79,116,.5)] [&>svg]:hidden cursor-pointer"
                       tabIndex={-1}
                       data-orientation="vertical"
                       data-radix-collection-item=""
@@ -789,14 +790,14 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="lucide lucide-user h-4 w-4 text-[#ff4fa3]"
+                        className="lucide lucide-user h-4 w-4 text-[#804AFF]"
                       >
                         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
                         <circle cx="12" cy="7" r="4"></circle>
                       </svg>
                       <span>Profile</span>
                     </div>
-                    <div role="separator" aria-orientation="horizontal" className="mx-1 my-1 h-px bg-[hsl(231_16%_17%)]" />
+                    <div role="separator" aria-orientation="horizontal" className="mx-1 my-1 h-px bg-[#544F74]" />
                     <div
                       role="menuitem"
                       className="hidden"
@@ -821,7 +822,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="lucide lucide-ticket h-4 w-4 text-[#ff4fa3]"
+                        className="lucide lucide-ticket h-4 w-4 text-[#804AFF]"
                       >
                         <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
                         <path d="M13 5v2"></path>
@@ -865,7 +866,7 @@ export default function Header({ onInitialWalletReady, onOpenProfileModal, onOpe
           ) : (
             <button
               onClick={() => setLoginOpen(true)}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border-none bg-[#ff4fa3] px-5 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 active:opacity-100 sm:gap-2 sm:px-8 sm:text-sm"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border-none bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] px-5 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 active:opacity-100 sm:gap-2 sm:px-8 sm:text-sm"
               type="button"
             >
               <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">

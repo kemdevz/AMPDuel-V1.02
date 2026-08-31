@@ -58,7 +58,7 @@ export default function HeaderUtilityBar({ onOpenFairness, onOpenTerms }) {
           overflow: hidden;
           padding: 0 22px;
           border-bottom: 1px solid rgba(255, 255, 255, .07);
-          background: #151820;
+          background: #25263B;
           font-family: Poppins, sans-serif;
         }
         .header-utility-bar-inner { display: flex; height: 100%; align-items: center; justify-content: flex-start; gap: 0; }
@@ -80,7 +80,7 @@ export default function HeaderUtilityBar({ onOpenFairness, onOpenTerms }) {
           transition: color .15s ease;
         }
         .header-utility-bar button:hover { color: #fff; background: transparent; }
-        .header-utility-bar button:focus-visible { outline: 2px solid #ff4fa3; outline-offset: -2px; color: #fff; }
+        .header-utility-bar button:focus-visible { outline: 2px solid #804AFF; outline-offset: -2px; color: #fff; }
         .header-utility-icon { display: inline-flex; width: 14px; height: 14px; flex: 0 0 14px; align-items: center; justify-content: center; }
         .header-utility-icon svg { display: block; width: 14px; height: 14px; }
         @media (max-width: 991px) {

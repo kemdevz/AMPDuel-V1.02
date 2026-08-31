@@ -1,3 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor" fill="currentColor" stroke-width="0" role="img" color="#F4F5F8" aria-hidden="true" style="color:rgb(244,245,248)">
-  <path d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="robux-gradient" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDD2F1"/>
+      <stop offset="1" stop-color="#804AFF"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#robux-gradient)" d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z"/>
 </svg>

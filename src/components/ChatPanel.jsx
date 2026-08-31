@@ -254,7 +254,7 @@ function ChatMessage({ message, onProfileOpen }) {
         <button
           type="button"
           aria-label={`Open ${message.name || "user"} profile`}
-          className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[hsl(231_16%_16%)] transition hover:border-white/20 focus-visible:border-[#ff4fa3] focus-visible:outline-none"
+          className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[#4D4A6B] transition hover:border-white/20 focus-visible:border-[#804AFF] focus-visible:outline-none"
           onClick={() => onProfileOpen(message)}
         >
           {message.avatar ? (
@@ -267,7 +267,7 @@ function ChatMessage({ message, onProfileOpen }) {
               referrerPolicy="no-referrer"
             />
           ) : (
-            <span className="grid h-full w-full place-items-center bg-[hsl(230_16%_14%)] font-bold text-white/50">?</span>
+            <span className="grid h-full w-full place-items-center bg-[#3C3C59] font-bold text-white/50">?</span>
           )}
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -280,7 +280,7 @@ function ChatMessage({ message, onProfileOpen }) {
       <div className="mt-2 text-wrap break-words text-sm font-medium text-gray-400">
         {renderEmojiText(message.text)}
       </div>
-      {message._failed ? <div className="mt-1 text-[10px] font-semibold text-[#ff4fa3]">Failed to send</div> : null}
+      {message._failed ? <div className="mt-1 text-[10px] font-semibold text-[#804AFF]">Failed to send</div> : null}
     </div>
   );
 }
@@ -295,10 +295,10 @@ function TipNotification({ message }) {
       className="group relative flex gap-2.5 overflow-hidden px-3 py-2 animate-[msgIn_.22s_ease-out_both]"
       style={{ backgroundColor: "rgb(28, 31, 46)", borderRadius: "8px" }}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_85%,rgba(255,79,163,0.22),transparent_58%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_85%,rgba(128,74,255,0.22),transparent_58%)]" />
       <div className="relative flex-1 min-w-0">
         <div className="flex flex-wrap items-center mb-0.5">
-          <span className="w-max text-[0.75rem] font-semibold select-none text-[#ff4fa3]">Tip Notification</span>
+          <span className="w-max text-[0.75rem] font-semibold select-none text-[#804AFF]">Tip Notification</span>
           <span className="ml-auto text-[0.6rem] font-medium text-[#555b82] select-none">{formatChatMessageTime(message.time)}</span>
         </div>
         {isUserTip ? (
@@ -460,7 +460,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
   return (
     <div className="relative shrink-0">
       {replyTo && (
-        <div className="mb-[9px] flex items-start gap-[9px] rounded-[9px] bg-[#1c1f2e] px-[14px] py-[9px]">
+        <div className="mb-[9px] flex items-start gap-[9px] rounded-[9px] bg-[#353650] px-[14px] py-[9px]">
           <div className="min-w-0 flex-1">
             <div className="text-[0.81rem] font-bold leading-tight text-[#a6b2d3]">Replying to {replyTo.name}</div>
             <div className="mt-[2px] line-clamp-2 text-[0.86rem] font-semibold text-[#c7cce2] [overflow-wrap:anywhere]">{renderEmojiText(replyTo.text)}</div>
@@ -469,7 +469,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
             type="button"
             onClick={onCancelReply}
             aria-label="Cancel reply"
-            className="grid h-8 w-8 place-content-center rounded-[7px] border-none bg-[#171925] text-[0.95rem] text-[#a6b2d3] hover:bg-[#202235]"
+            className="grid h-8 w-8 place-content-center rounded-[7px] border-none bg-[#292A42] text-[0.95rem] text-[#a6b2d3] hover:bg-[#202235]"
           >
             ×
           </button>
@@ -492,7 +492,7 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
         <div className="relative">
           <input
             type="text"
-            placeholder={user ? "Say something..." : "Login to chat"}
+            placeholder={user ? "Type a message..." : "Sign In to chat..."}
             value={value}
             maxLength={MAX_CHAT_MESSAGE_LENGTH}
             ref={inputRef}
@@ -520,10 +520,10 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
                 submit();
               }
             }}
-            className="flex h-12 w-full rounded-lg border-2 border-transparent bg-[hsl(229_17%_13%/.8)] px-3 py-2 pr-[76px] text-sm font-semibold text-gray-400 outline-none transition placeholder:text-white/50 focus-visible:border-white/60"
+            className="flex h-11 w-full rounded-lg border-2 border-transparent bg-[rgba(53,54,80,.8)] px-3 py-2 pr-[70px] text-[13px] font-semibold text-gray-400 outline-none transition placeholder:text-white/50 focus-visible:border-white/60"
           />
 
-          <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-3">
+          <div className="absolute right-3.5 top-1/2 flex -translate-y-1/2 items-center gap-2.5">
             <button
               ref={emojiButtonRef}
               aria-label="Emoji Picker"
@@ -550,15 +550,15 @@ function ChatInput({ replyTo, onCancelReply, onSend, user, onlineCount }) {
         </div>
       </div>
 
-      <div className="mb-6 mt-2 flex gap-2">
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!user || !value.trim()}
-          className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-[hsl(233_16%_22%)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
-        >
-          Send
-        </button>
+      <div className="mb-4 mt-2 flex items-center justify-between px-1">
+        <div className="flex items-center gap-2" aria-label={`${onlineCount ?? 0} online`}>
+          <div className={`relative grid h-3.5 w-3.5 place-items-center rounded-full ${Number(onlineCount) > 0 ? 'bg-[#20e68f]/15' : 'bg-red-500/15'}`}>
+            <div className={`absolute inset-0 animate-ping rounded-full ${Number(onlineCount) > 0 ? 'bg-[#20e68f]/20' : 'bg-red-500/20'}`} />
+            <div className={`relative h-1.5 w-1.5 rounded-full ${Number(onlineCount) > 0 ? 'bg-[#20e68f]' : 'bg-red-500'}`} />
+          </div>
+          <div className="min-w-4 text-xs font-semibold leading-none text-[#B7BBCB]">{onlineCount ?? 0}</div>
+        </div>
+        <div className="text-[11px] font-semibold leading-none text-[#8f94aa]">{value.length}/{MAX_CHAT_MESSAGE_LENGTH}</div>
       </div>
 
     </div>
@@ -866,7 +866,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
         const result = await apiRequest(`/api/public-profiles?roblox_id=${encodeURIComponent(robloxId)}`);
         const recipient = Array.isArray(result?.profiles) ? result.profiles[0] || null : null;
         if (!recipient) {
-          notifications.error("No AMPDuel account was found for that Roblox user ID.");
+          notifications.error("No BloxDice account was found for that Roblox user ID.");
           return;
         }
 
@@ -985,7 +985,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
 
   return (
     <>
-      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] box-border flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible border-r border-white/[.07] bg-[#151820] pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[375px] xl:min-w-[375px] xl:bg-[#151820] xl:pl-1 xl:pr-[18px] xl:pt-2 xl:pb-0 ${
+      <aside className={`fixed bottom-0 top-[calc(5rem+env(safe-area-inset-top))] z-[120] box-border flex min-h-0 w-full flex-shrink-0 flex-col overflow-visible border-r border-white/[.07] bg-[#25263B] px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] transition-[right] duration-300 sm:top-20 xl:relative xl:right-auto xl:top-auto xl:z-auto xl:h-full xl:max-h-full xl:w-[330px] xl:min-w-[330px] xl:bg-[#25263B] xl:pt-2 xl:pb-0 ${
         mobileChatOpen ? "right-0" : "-right-full"
       } ${className}`}>
       <style>{`
@@ -1040,7 +1040,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           background: rgb(28, 31, 46);
           padding: 4px;
           scrollbar-width: thin;
-          scrollbar-color: rgba(255, 79, 163, 0.35) transparent;
+          scrollbar-color: rgba(128, 74, 255, 0.35) transparent;
         }
 
         .emoji-autocomplete-panel::-webkit-scrollbar {
@@ -1052,7 +1052,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
         }
 
         .emoji-autocomplete-panel::-webkit-scrollbar-thumb {
-          background: rgba(255, 79, 163, 0.35);
+          background: rgba(128, 74, 255, 0.35);
           border-radius: 9999px;
         }
 
@@ -1123,7 +1123,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           overflow: hidden;
           border: 1px solid rgba(255,255,255,.08);
           border-radius: 12px;
-          background: #191c24;
+          background: #2F3049;
           box-shadow: none;
           font-family: Poppins,sans-serif;
         }
@@ -1132,7 +1132,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           position: relative;
           padding: 12px;
           border-bottom: 1px solid rgba(255,255,255,.07);
-          background: #191c24;
+          background: #2F3049;
         }
 
         ._customEmojiSearchIcon_abrjv_local {
@@ -1152,7 +1152,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           height: 42px;
           border: 1px solid rgba(255,255,255,.07);
           border-radius: 8px;
-          background: #14171e;
+          background: #25263B;
           color: #eceef2;
           box-shadow: none;
           font: 500 13px/20px Poppins,sans-serif;
@@ -1176,7 +1176,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
           overflow-y: auto;
           padding: 12px;
           scrollbar-width: thin;
-          scrollbar-color: #353945 transparent;
+          scrollbar-color: #5D567D transparent;
         }
 
         ._customEmojiGrid_abrjv_81::-webkit-scrollbar {
@@ -1184,7 +1184,7 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
         }
         ._customEmojiGrid_abrjv_81::-webkit-scrollbar-thumb {
           border-radius: 999px;
-          background: #353945;
+          background: #5D567D;
         }
 
         ._customEmojiBtn_abrjv_98 {
@@ -1262,17 +1262,6 @@ export default function ChatPanel({ className = "", gameMode = null, mobileOpen 
       <div className="min-h-0 flex-1 overflow-hidden">
         <div className="relative box-border flex h-full min-w-0 flex-grow flex-col gap-2">
           <div className="h-0 shrink-0" aria-hidden="true" />
-          <div className="flex h-12 shrink-0 items-center justify-between rounded border border-white/[.07] bg-[#191c24] px-5">
-            <div className="text-sm font-semibold opacity-50">Chat</div>
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2" aria-label={`${onlineCount ?? 0} online`}>
-                <div className="text-sm font-semibold opacity-50">{onlineCount ?? 0}</div>
-                <div className={`animate-pulse rounded-full border-2 ${Number(onlineCount) > 0 ? 'border-[#20e68f]/50' : 'border-red-500/50'}`}>
-                  <div className={`h-2 w-2 rounded-full ${Number(onlineCount) > 0 ? 'bg-[#20e68f]' : 'bg-red-500'}`} />
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div className="chat-scroll mb-2 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-2 pr-2">
             <div className="contents">

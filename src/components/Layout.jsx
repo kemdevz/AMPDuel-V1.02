@@ -10,8 +10,6 @@ import { NavLink, usePathname } from '../lib/router'
 import { normalizeCoinflipGameMode } from '../lib/coinflipGameMode'
 import ProfileTipManager from './ProfileTipManager'
 import TermsModal from './TermsModal'
-import HeaderUtilityBar from './HeaderUtilityBar'
-import ProvablyFairModal from './ProvablyFairModal'
 import { clearPrefetchedApiResponses, prefetchApiRequest } from '../lib/apiClient'
 import { LEADERBOARD_ENABLED } from '../features'
 
@@ -25,7 +23,6 @@ export default function Layout({ children, onInitialWalletReady }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
-  const [fairnessModalOpen, setFairnessModalOpen] = useState(false)
   const activeGameStorageKey = pathname === '/mines' ? 'bloxdice:mines-game' : 'bloxdice:coinflip-game'
   const [activeGameMode, setActiveGameMode] = useState(() => {
     try {
@@ -158,14 +155,10 @@ export default function Layout({ children, onInitialWalletReady }) {
         onOpenTermsModal={() => setTermsModalOpen(true)}
       />
 
-      <div className="mt-[72px] flex min-h-0 flex-1 overflow-hidden">
+      <div className="mt-[80px] flex min-h-0 flex-1 overflow-hidden">
           <ChatPanel gameMode={activeGameMode} mobileOpen={mobileChatOpen} onMobileOpenChange={setMobileChatOpen} />
 
           <div className="flex min-h-0 min-w-0 flex-[1_1_auto] flex-col">
-            <HeaderUtilityBar
-              onOpenFairness={() => setFairnessModalOpen(true)}
-              onOpenTerms={() => setTermsModalOpen(true)}
-            />
             <main
               className="main-bg no-scrollbar page-scroll-container relative z-0 box-border min-h-0 min-w-0 flex-[1_1_auto] touch-pan-y overscroll-contain overflow-x-hidden overflow-y-auto bg-[hsl(228_17%_12%)] pb-[calc(5rem+env(safe-area-inset-bottom))] xl:pb-0"
               style={{ WebkitOverflowScrolling: 'touch' }}
@@ -177,12 +170,12 @@ export default function Layout({ children, onInitialWalletReady }) {
 
       <nav
         aria-label="Mobile navigation"
-        className="fixed bottom-0 left-0 z-[130] flex h-[calc(5rem+env(safe-area-inset-bottom))] w-full items-stretch border-t border-white/[0.06] bg-[hsl(227_17%_11%)] pb-[env(safe-area-inset-bottom)] xl:hidden"
+        className="fixed bottom-0 left-0 z-[130] flex h-[calc(5rem+env(safe-area-inset-bottom))] w-full items-stretch border-t border-white/[0.06] bg-[#25263B] pb-[env(safe-area-inset-bottom)] xl:hidden"
       >
         <button
           type="button"
           aria-label="menu"
-          className={`flex flex-1 items-center justify-center border-0 border-b-2 bg-transparent text-xl transition ${mobileNavOpen ? 'border-b-[#ff4fa3] text-[#ff4fa3]' : 'border-b-transparent text-white/60'}`}
+          className={`flex flex-1 items-center justify-center border-0 border-b-2 bg-transparent text-xl transition ${mobileNavOpen ? 'border-b-[#804AFF] text-[#804AFF]' : 'border-b-transparent text-white/60'}`}
           onClick={() => {
             setMobileChatOpen(false)
             setMobileNavOpen((open) => !open)
@@ -199,7 +192,7 @@ export default function Layout({ children, onInitialWalletReady }) {
             setMobileChatOpen(false)
           }}
           aria-label="games"
-          className={({ isActive }) => `flex flex-1 items-center justify-center border-b-2 text-xl transition ${isActive && !mobileNavOpen && !mobileChatOpen ? 'border-b-[#ff4fa3] text-[#ff4fa3]' : 'border-b-transparent text-white/60'}`}
+          className={({ isActive }) => `flex flex-1 items-center justify-center border-b-2 text-xl transition ${isActive && !mobileNavOpen && !mobileChatOpen ? 'border-b-[#804AFF] text-[#804AFF]' : 'border-b-transparent text-white/60'}`}
         >
           <svg viewBox="0 0 640 512" className="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M192 64C86 64 0 150 0 256s86 192 192 192h256c106 0 192-86 192-192S554 64 448 64H192zm304 104a40 40 0 1 1 0 80 40 40 0 1 1 0-80zM392 304a40 40 0 1 1 80 0 40 40 0 1 1-80 0zM168 200c0-13.3 10.7-24 24-24s24 10.7 24 24v32h32c13.3 0 24 10.7 24 24s-10.7 24-24 24h-32v32c0 13.3-10.7 24-24 24s-24-10.7-24-24v-32h-32c-13.3 0-24-10.7-24-24s10.7-24 24-24h32v-32z" /></svg>
         </NavLink>
@@ -207,7 +200,7 @@ export default function Layout({ children, onInitialWalletReady }) {
         <button
           type="button"
           aria-label="chat"
-          className={`flex flex-1 items-center justify-center border-0 border-b-2 bg-transparent text-xl transition ${mobileChatOpen ? 'border-b-[#ff4fa3] text-[#ff4fa3]' : 'border-b-transparent text-white/60'}`}
+          className={`flex flex-1 items-center justify-center border-0 border-b-2 bg-transparent text-xl transition ${mobileChatOpen ? 'border-b-[#804AFF] text-[#804AFF]' : 'border-b-transparent text-white/60'}`}
           onClick={() => {
             setMobileNavOpen(false)
             setMobileChatOpen(true)
@@ -231,11 +224,6 @@ export default function Layout({ children, onInitialWalletReady }) {
       <TermsModal
         isOpen={termsModalOpen}
         onClose={() => setTermsModalOpen(false)}
-      />
-
-      <ProvablyFairModal
-        isOpen={fairnessModalOpen}
-        onClose={() => setFairnessModalOpen(false)}
       />
 
       <ProfileTipManager gameMode={activeGameMode} />

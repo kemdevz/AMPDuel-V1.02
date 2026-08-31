@@ -195,7 +195,7 @@ export default function PromoCodeModal({ isOpen, onClose }) {
           overflow-y: auto;
           border: 1px solid #1e2235;
           border-radius: 12px;
-          background-color: #171925;
+          background-color: #292A42;
           color: #e1e4f2;
           scrollbar-width: none;
           animation: promoCodeModalOpen .3s forwards;
@@ -243,8 +243,8 @@ export default function PromoCodeModal({ isOpen, onClose }) {
           align-items: center;
           justify-content: center;
           border-radius: 999px;
-          background: rgba(255, 79, 163, .12);
-          color: #ff4fa3;
+          background: rgba(128, 74, 255, .12);
+          color: #804AFF;
         }
 
         .promoCodeTitle {
@@ -293,7 +293,7 @@ export default function PromoCodeModal({ isOpen, onClose }) {
           gap: .5rem;
           border: none;
           border-radius: 6px;
-          background: #1c1f2e;
+          background: #353650;
           transition: background .15s;
         }
 
@@ -357,10 +357,10 @@ export default function PromoCodeModal({ isOpen, onClose }) {
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          border: 1px solid rgba(255, 79, 163, .4);
+          border: 1px solid rgba(128, 74, 255, .4);
           border-radius: 8px;
-          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
-          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
+          background: linear-gradient(135deg, #DDD2F1, #804AFF);
+          box-shadow: none;
           color: #fff;
           font-size: .9rem;
           font-weight: 600;
@@ -371,7 +371,7 @@ export default function PromoCodeModal({ isOpen, onClose }) {
         }
 
         .promoCodeButton:hover:not(:disabled) {
-          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          background: linear-gradient(135deg, #DDD2F1, #804AFF);
           opacity: .95;
         }
 
@@ -380,7 +380,7 @@ export default function PromoCodeModal({ isOpen, onClose }) {
         }
 
         .promoCodeButton:focus-visible {
-          outline: 2px solid #ff69b0;
+          outline: 2px solid #DDD2F1;
           outline-offset: 2px;
         }
 

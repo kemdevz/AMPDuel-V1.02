@@ -10,7 +10,7 @@
     padding: 0;
     font-family: Poppins, sans-serif;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 79, 163, 0.35) transparent;
+    scrollbar-color: rgba(128, 74, 255, 0.35) transparent;
   }
 
   html,
@@ -26,7 +26,7 @@
     min-height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
-    background-color: #171925;
+    background-color: #292A42;
   }
 
   #root {
@@ -59,7 +59,7 @@
   z-index: 99999;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at center, rgba(255, 79, 163, .055), transparent 28rem), #111319;
+  background: #25263B;
 }
 
 .loading-screen-content {
@@ -82,20 +82,20 @@
 .loading-screen-track {
   position: relative;
   width: 112px;
-  height: 3px;
+  height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: #ffffff14;
+  background: #353650;
 }
 
 .loading-screen-progress {
   position: absolute;
   inset: 0 auto 0 0;
   display: block;
-  width: 42%;
+  width: 44%;
   border-radius: inherit;
-  background: #ff4fa3;
-  box-shadow: 0 0 10px #ff4fa373;
+  background: linear-gradient(90deg, #DDD2F1 0%, #A98AE9 52%, #804AFF 100%);
+  box-shadow: none;
   animation: loading-progress 1.15s ease-in-out infinite;
 }
 
@@ -131,6 +131,131 @@
   .loading-screen-progress {
     width: 100%;
   }
+}
+
+.notification-center {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 110000;
+  display: flex;
+  width: min(360px, calc(100vw - 24px));
+  flex-direction: column;
+  gap: 9px;
+  pointer-events: none;
+}
+
+.notification-toast {
+  position: relative;
+  display: grid;
+  min-height: 68px;
+  grid-template-columns: 36px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 12px 14px 15px;
+  overflow: hidden;
+  border: 1px solid rgba(221, 210, 241, .14);
+  border-radius: 9px;
+  color: #f4f5f8;
+  background: #2F3049;
+  box-shadow: none;
+  pointer-events: auto;
+  animation: notification-toast-in .2s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.notification-toast-accent {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #DDD2F1 0%, #804AFF 100%);
+}
+
+.notification-toast-icon {
+  display: grid;
+  width: 32px;
+  height: 34px;
+  place-items: center;
+}
+
+.notification-toast-icon svg {
+  display: block;
+  width: 31px;
+  height: 34px;
+}
+
+.notification-toast-message {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notification-toast-message strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.notification-toast-message > span {
+  overflow-wrap: anywhere;
+  color: #B7BBCB;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.notification-toast-close {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  align-self: start;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: #8f94aa;
+  background: transparent;
+  cursor: pointer;
+}
+
+.notification-toast-close:hover { color: #fff; background: #3C3C59; }
+.notification-toast-close:focus-visible { outline: 2px solid #DDD2F1; outline-offset: 0; }
+.notification-toast-close svg { width: 13px; height: 13px; }
+
+.notification-toast-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 3px;
+  height: 2px;
+  background: linear-gradient(90deg, #DDD2F1 0%, #804AFF 100%);
+  transform-origin: left center;
+  animation: notification-toast-progress var(--notification-duration) linear forwards;
+}
+
+@keyframes notification-toast-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes notification-toast-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (max-width: 640px) {
+  .notification-center {
+    bottom: calc(5rem + env(safe-area-inset-bottom) + 12px);
+    right: 12px;
+    left: auto;
+    width: min(360px, calc(100vw - 24px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-toast,
+  .notification-toast-progress { animation: none; }
 }
 
 @keyframes adminActivityRowIn {

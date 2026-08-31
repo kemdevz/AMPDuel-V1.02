@@ -13,7 +13,7 @@ import { HCAPTCHA_TEST_SITE_KEY, loadHcaptcha } from "../lib/hcaptcha";
 import { useAuth } from "../store/auth";
 import { notifications } from "./Notifications";
 
-const LOGIN_ART = "/login-banner.png";
+const LOGIN_ART = "/bloxdice-login-banner.png";
 const FALLBACK_AVATAR =
   "https://tr.rbxcdn.com/38c6edcb50633730ff4cf39ac8859840/420/420/Avatar/Png";
 
@@ -28,9 +28,9 @@ function ModalButton({ children, className = "", variant = "primary", ...props }
     "inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-45";
   const variants = {
     primary:
-      "border-0 bg-[#ff4fa3] text-black hover:opacity-90",
+      "border-0 bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] text-black hover:opacity-90",
     secondary:
-      "border border-[hsl(231_16%_16%)] bg-[hsl(233_16%_22%)] text-white hover:opacity-90",
+      "border border-[#4D4A6B] bg-[#5D567D] text-white hover:opacity-90",
   };
 
   return (
@@ -268,7 +268,7 @@ export default function LoginModal({ isOpen, onClose }) {
         onClick={handleBackdropClick}
       >
         <div
-          className="w-full max-w-md rounded-xl border border-white/10 bg-[#191c24] p-6 shadow-2xl animate-[loginModalIn_220ms_ease-out_forwards]"
+          className="w-full max-w-md rounded-xl border border-white/10 bg-[#2F3049] p-6 shadow-none animate-[loginModalIn_220ms_ease-out_forwards]"
           onClick={(event) => event.stopPropagation()}
         >
           {/* Close button — single instance, same spot for every step */}
@@ -279,17 +279,17 @@ export default function LoginModal({ isOpen, onClose }) {
               <div>
                 <img
                   src={LOGIN_ART}
-                  alt="Adopt Me"
+                  alt="BloxDice"
                   className="-mx-6 -mt-6 mb-6 block h-[240px] w-[calc(100%+3rem)] max-w-none rounded-t-xl object-cover"
                   draggable={false}
                 />
-                <h1 className="text-xl font-semibold text-white">Login to AMPDUEL</h1>
+                <h1 className="text-xl font-semibold text-white">Login to BloxDice</h1>
                 <p className="mt-2 text-sm leading-6 text-[#969baa]">
                   Enter your Roblox username. New accounts require a Roblox account that is at least 90 days old.
                 </p>
 
                 <form onSubmit={handleLookup} className="mt-5 space-y-4">
-                  <label className="flex items-center rounded-lg border border-white/10 bg-[#111319] px-4">
+                  <label className="flex items-center rounded-lg border border-white/10 bg-[#202134] px-4">
                     <svg
                       stroke="currentColor"
                       fill="currentColor"
@@ -330,7 +330,7 @@ export default function LoginModal({ isOpen, onClose }) {
                       />
                       <span
                         aria-hidden="true"
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${agreedTos ? 'border-[#ff4fa3] bg-[#ff4fa3] text-[#111319]' : 'border-white/20 bg-[#111319] text-transparent'}`}
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${agreedTos ? 'border-[#804AFF] bg-[#804AFF] text-[#202134]' : 'border-white/20 bg-[#202134] text-transparent'}`}
                       >
                         {agreedTos ? (
                           <svg viewBox="0 0 12 12" className="h-3 w-3">
@@ -350,7 +350,7 @@ export default function LoginModal({ isOpen, onClose }) {
                       By checking this box, you confirm that you are at least 18 years old and agree to our{" "}
                       <button
                         type="button"
-                        className="font-semibold text-[#ff4fa3] underline underline-offset-2"
+                        className="font-semibold text-[#804AFF] underline underline-offset-2"
                         onClick={() => window.dispatchEvent(new CustomEvent("terms:open"))}
                       >
                         Terms of Service
@@ -368,7 +368,7 @@ export default function LoginModal({ isOpen, onClose }) {
                   <button
                     type="submit"
                     disabled={!canStart || loading}
-                    className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#ff4fa3] text-sm font-semibold text-[#111319] transition-colors hover:bg-[#ff4fa3] disabled:opacity-50"
+                    className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] text-sm font-semibold text-[#202134] transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Continue"}
                   </button>
@@ -382,7 +382,7 @@ export default function LoginModal({ isOpen, onClose }) {
 
                 <div className="mb-3 flex flex-col gap-1.5">
                   <label className="text-[13px] font-bold text-white">
-                    Roblox Username <span className="text-[#ff69b0]">*</span>
+                    Roblox Username <span className="text-[#DDD2F1]">*</span>
                   </label>
                   <div className="flex h-[44px] items-center rounded-[8px] border border-[#2a2f45] bg-[#0c101b] px-4">
                     <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-white">{username.trim()}</span>
@@ -394,7 +394,7 @@ export default function LoginModal({ isOpen, onClose }) {
 
                 <div className="mb-3 rounded-[12px] border border-[#2a2f45] bg-[#111827]/70 p-3">
                   <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 sm:grid-cols-[140px_1fr]">
-                    <div className="flex h-[108px] items-center justify-center overflow-hidden rounded-[10px] border border-white/[0.06] bg-[radial-gradient(circle_at_50%_30%,rgba(255,79,163,0.14),transparent_62%),#171b28] sm:h-[150px]">
+                    <div className="flex h-[108px] items-center justify-center overflow-hidden rounded-[10px] border border-white/[0.06] bg-[radial-gradient(circle_at_50%_30%,rgba(128,74,255,0.14),transparent_62%),#171b28] sm:h-[150px]">
                       <img
                         src={robloxUser?.avatarUrl || FALLBACK_AVATAR}
                         alt={`${robloxUser?.username || "Roblox"} avatar`}
@@ -418,7 +418,7 @@ export default function LoginModal({ isOpen, onClose }) {
                           <span className="block min-w-0 max-w-full truncate">{robloxUser?.displayName}</span>
                         </div>
                         <div
-                          className={`flex h-[38px] min-w-0 items-center justify-center px-2 font-extrabold text-[#ff69b0] ${
+                          className={`flex h-[38px] min-w-0 items-center justify-center px-2 font-extrabold text-[#DDD2F1] ${
                             usernameIsLong ? "text-[12px]" : "text-[13px]"
                           }`}
                           title={robloxUser?.username ? `@${robloxUser.username}` : ""}
@@ -467,9 +467,9 @@ export default function LoginModal({ isOpen, onClose }) {
                     <p className="text-xs font-semibold tracking-wide">DO NOT SHARE THIS CODE WITH ANYONE</p>
                   </div>
 
-                  <div className="rounded-lg border border-white/10 bg-[#111319] p-4">
+                  <div className="rounded-lg border border-white/10 bg-[#202134] p-4">
                     <p className="break-words text-sm font-medium leading-7 text-white">{phrase}</p>
-                    <button type="button" onClick={handleCopy} className="mt-3 flex items-center gap-2 text-xs font-medium text-[#ff4fa3]">
+                    <button type="button" onClick={handleCopy} className="mt-3 flex items-center gap-2 text-xs font-medium text-[#804AFF]">
                       <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z" />
                       </svg>
@@ -483,7 +483,7 @@ export default function LoginModal({ isOpen, onClose }) {
 
                   {error ? <p className="text-xs font-semibold text-red-400">{error}</p> : null}
 
-                  <button type="button" onClick={handleVerify} disabled={verifying || timeLeft <= 0} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#ff4fa3] text-sm font-semibold text-[#111319] transition-colors hover:bg-[#ff4fa3] disabled:opacity-50">
+                  <button type="button" onClick={handleVerify} disabled={verifying || timeLeft <= 0} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(135deg,#DDD2F1,#804AFF)] text-sm font-semibold text-[#202134] transition-opacity hover:opacity-90 disabled:opacity-50">
                     {verifying ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (

@@ -10,13 +10,14 @@ import { notifications } from './Notifications'
 const MAX_ITEMS = 20
 
 const MINES_CREATE_STYLES = `
-  .mines-footer-slider { display: flex; width: 190px; height: 40px; flex: 0 1 190px; align-items: center; gap: 9px; padding: 0 12px; border-radius: 7px; color: #a8aeb9; background: #20242e; font: 600 12px/14.4px Poppins,sans-serif; }
+  .mines-footer-slider { display: flex; width: 190px; height: 40px; flex: 0 1 190px; align-items: center; gap: 9px; padding: 0 12px; border-radius: 7px; color: #fff; background: #3C3C59; font: 600 12px/14.4px Poppins,sans-serif; }
   .mines-footer-slider > svg { display: block; width: 14px; height: 14px; flex: 0 0 14px; color: inherit; transform: translateY(-1px); }
   .mines-footer-slider > span { color: inherit; line-height: 14px; white-space: nowrap; }
   .mines-footer-slider output { min-width: 18px; color: #f4f5f8; text-align: right; }
-  .mines-footer-slider input { width: 100%; min-width: 56px; height: 4px; margin: 0; appearance: none; border-radius: 999px; outline: 0; background: linear-gradient(to right, #ff4fa3 0 var(--mine-progress), #343945 var(--mine-progress) 100%); cursor: pointer; }
-  .mines-footer-slider input::-webkit-slider-thumb { width: 14px; height: 14px; appearance: none; border: 2px solid #191c24; border-radius: 50%; background: #ff4fa3; box-shadow: 0 0 0 1px rgba(255,79,163,.25); }
-  .mines-footer-slider input::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #191c24; border-radius: 50%; background: #ff4fa3; box-shadow: 0 0 0 1px rgba(255,79,163,.25); }
+  .mines-footer-slider input { width: 100%; min-width: 56px; height: 5px; margin: 0; appearance: none; border-radius: 999px; outline: 0; background: linear-gradient(to right, #DDD2F1 0, #804AFF var(--mine-progress), #4D4A6B var(--mine-progress), #4D4A6B 100%); cursor: pointer; }
+  .mines-footer-slider input:focus-visible { outline: 2px solid #DDD2F1; outline-offset: 3px; }
+  .mines-footer-slider input::-webkit-slider-thumb { width: 15px; height: 15px; appearance: none; border: 2px solid #804AFF; border-radius: 50%; background: #DDD2F1; box-shadow: none; }
+  .mines-footer-slider input::-moz-range-thumb { width: 15px; height: 15px; border: 2px solid #804AFF; border-radius: 50%; background: #DDD2F1; box-shadow: none; }
   .mines-create-footer-row { justify-content: space-between; }
   .mines-create-footer-row .amp-footer-selection-group { margin-right: auto; }
   .mines-create-footer-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; }

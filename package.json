@@ -1,9 +1,9 @@
 {
-  "name": "ampduel-client",
+  "name": "bloxdice-client",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "AMPDuel frontend — React + Tailwind + Vite",
+  "description": "BloxDice frontend — React + Tailwind + Vite",
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:client": "vite",

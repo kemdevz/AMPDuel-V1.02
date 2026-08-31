@@ -6,6 +6,7 @@ import AdoptMeTraitBadges from './AdoptMeTraitBadges'
 import { apiRequest } from '../lib/apiClient'
 import { useAuth } from '../store/auth'
 import { formatPriceValue } from '../Utils/FormatPriceValues'
+import { RobuxIcon as CurrencyIcon } from './AmpInventoryModalUI'
 
 // All coin animation assets and timing live here so the mockup can be retuned
 // without touching the component markup.
@@ -50,10 +51,6 @@ function normalizeItem(item, index) {
     numericValue: Number(item?.value ?? 0) || 0,
     value: formatValue(item?.value),
   }
-}
-
-function CurrencyIcon({ className = '' }) {
-  return <svg className={className} role="img" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.926 23.998 0 18.892 5.075.002 24 5.108ZM15.348 10.09l-5.282-1.453-1.414 5.273 5.282 1.453z" /></svg>
 }
 
 function CloseIcon() {
@@ -420,7 +417,7 @@ const VIEW_MODAL_STYLES = `
     overflow: hidden;
     border: none;
     border-radius: 6px;
-    background-color: #131520;
+    background-color: #25263B;
     color: rgba(255, 255, 255, .92);
     font-family: Poppins, sans-serif;
     font-size: 16px;
@@ -557,19 +554,19 @@ const VIEW_MODAL_STYLES = `
     margin-bottom: 10px;
     border: 4px solid rgba(255, 255, 255, .06);
     border-radius: 50%;
-    background-color: #1c1f2e;
+    background-color: #353650;
     object-fit: cover;
     cursor: pointer;
     transition: transform .14s ease, border-color .14s ease, filter .14s ease;
   }
 
   .view-modal__avatar:hover {
-    border-color: rgba(255, 79, 163, .65);
+    border-color: rgba(128, 74, 255, .65);
     filter: brightness(1.04);
   }
 
   .view-modal__avatar.view-modal__winner {
-    border-color: rgba(255, 79, 163, .85);
+    border-color: rgba(128, 74, 255, .85);
   }
 
   .view-modal__username {
@@ -591,7 +588,7 @@ const VIEW_MODAL_STYLES = `
     bottom: 2px;
     width: 38px;
     height: 38px;
-    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .45));
+    filter: none;
   }
 
   .view-modal__coin img {
@@ -641,7 +638,7 @@ const VIEW_MODAL_STYLES = `
   }
 
   .view-modal__game-id:focus-visible {
-    outline: 2px solid #ff4fa3;
+    outline: 2px solid #804AFF;
     outline-offset: 3px;
   }
 
@@ -652,7 +649,7 @@ const VIEW_MODAL_STYLES = `
     overflow: hidden;
     padding: 6px 10px;
     border-radius: 999px;
-    background: #1c1f2e;
+    background: #353650;
     color: rgba(255, 255, 255, .85);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -714,7 +711,7 @@ const VIEW_MODAL_STYLES = `
     gap: 12px;
     margin: 10px 0 6px;
     padding: 10px 0;
-    background: #131520;
+    background: #25263B;
     color: rgba(255, 255, 255, .92);
     font-weight: 700;
   }
@@ -863,15 +860,15 @@ const VIEW_MODAL_STYLES = `
     padding: 0;
     border: 0;
     border-radius: 6px;
-    color: #8e94a2;
-    background: #222631;
+    color: #B7BBCB;
+    background: #3C3C59;
     font-size: 12px;
     opacity: 1;
     transition: color .2s, background-color .2s, box-shadow .2s;
   }
   .view-modal__close svg { width: 14px; height: 14px; }
-  .view-modal__close:hover { color: #b3b8c3; background: #282c37; opacity: 1; }
-  .view-modal__close:focus-visible { outline: 0; box-shadow: 0 0 0 2px rgba(255,79,163,.4); }
+  .view-modal__close:hover { color: #b3b8c3; background: #4D4A6B; opacity: 1; }
+  .view-modal__close:focus-visible { outline: 2px solid #DDD2F1; outline-offset: 0; box-shadow: none; }
   .view-modal__body {
     min-height: 0;
     flex: 1 1 auto;
@@ -891,7 +888,7 @@ const VIEW_MODAL_STYLES = `
     padding: 16px;
     border: 1px solid rgba(255,255,255,.06);
     border-radius: 11px;
-    background: #171a22;
+    background: #292A42;
   }
   .view-modal__players {
     display: grid;
@@ -922,8 +919,8 @@ const VIEW_MODAL_STYLES = `
     border-radius: 9999px;
     background: #303540;
   }
-  .view-modal__avatar-wrapper--heads { background: #ff4fa3; }
-  .view-modal__avatar-wrapper--tails { background: #1f6fff; }
+  .view-modal__avatar-wrapper--heads { background: #804AFF; }
+  .view-modal__avatar-wrapper--tails { background: #DDD2F1; }
   .view-modal__avatar {
     display: inline-flex;
     width: 92px;
@@ -935,7 +932,7 @@ const VIEW_MODAL_STYLES = `
     border: 0;
     border-radius: 9999px;
     color: #fff;
-    background: #111319;
+    background: #202134;
     object-fit: cover;
   }
   .view-modal__avatar:hover { border-color: transparent; filter: none; }
@@ -978,13 +975,13 @@ const VIEW_MODAL_STYLES = `
     padding: 0 16px;
     border: 0;
     border-radius: 8px;
-    color: #111319;
-    background: #ff4fa3;
+    color: #202134;
+    background: linear-gradient(135deg, #DDD2F1, #804AFF);
     box-shadow: none;
     font: 700 13px/15.6px Poppins,sans-serif;
     cursor: pointer;
   }
-  .view-modal__middle-action:hover { background: #ff69b0; }
+  .view-modal__middle-action:hover { background: linear-gradient(135deg, #DDD2F1, #804AFF); }
   .view-modal__middle-action--cancel { color: #fff; background: #e34f5f; }
   .view-modal__middle-action--cancel:hover { background: #ef6271; }
   .view-modal__middle-action:disabled { cursor: not-allowed; opacity: .55; }
@@ -1015,14 +1012,14 @@ const VIEW_MODAL_STYLES = `
     border-radius: 8px;
     outline: 0;
     color: #9298a5;
-    background: #20242e;
+    background: #3C3C59;
     font: inherit;
     text-align: left;
     cursor: pointer;
     transition: border-color .15s ease, background-color .15s ease;
   }
   .view-modal__seed:hover { border-color: rgba(255,255,255,.12); background: #252a35; }
-  .view-modal__seed:focus-visible { border-color: rgba(255,79,163,.7); box-shadow: 0 0 0 2px rgba(255,79,163,.18); }
+  .view-modal__seed:focus-visible { border-color: #DDD2F1; outline: 2px solid rgba(221,210,241,.35); outline-offset: 0; box-shadow: none; }
   .view-modal__seed svg { width: 13px; height: 13px; flex: 0 0 13px; }
   .view-modal__seed span {
     min-width: 0;
@@ -1047,11 +1044,11 @@ const VIEW_MODAL_STYLES = `
     padding: 0 16px;
     box-sizing: border-box;
     border-radius: 8px;
-    background: #20242e;
+    background: #3C3C59;
   }
   .view-modal__total strong { color: #f0f1f4; font-size: 15px; font-weight: 700; line-height: 22.5px; }
   .view-modal__total span { display: flex; align-items: center; gap: 6px; color: #f0f1f4; font-size: 14px; font-weight: 700; line-height: 21px; }
-  .view-modal__total svg { width: 16px; height: 16px; color: #ff4fa3; }
+  .view-modal__total svg { width: 16px; height: 16px; color: #804AFF; }
   .view-modal__items {
     display: grid;
     width: 100%;
@@ -1108,7 +1105,7 @@ const VIEW_MODAL_STYLES = `
     white-space: nowrap;
   }
   .view-modal__item-value { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; margin: 0; color: #f1f2f5; font-size: 12px; font-weight: 600; line-height: 18px; }
-  .view-modal__item-value svg { width: 11px; height: 11px; color: #ff69b0; }
+  .view-modal__item-value svg { width: 11px; height: 11px; color: #DDD2F1; }
   .view-modal__waiting-items { display: flex; min-height: 80px; align-items: center; justify-content: center; color: #777e8d; font-size: 13px; line-height: 19.5px; }
   .view-modal__divider { width: 100%; height: 1px; background: rgba(255,255,255,.16); opacity: .6; }
   .view-modal__footer { position: relative; display: flex; width: 100%; min-height: 50px; align-items: center; justify-content: center; gap: 8px; }
@@ -1127,11 +1124,11 @@ const VIEW_MODAL_STYLES = `
     border: 0;
     border-radius: 7px;
     color: #a8aeb9;
-    background: #20242e;
+    background: #3C3C59;
     font: 600 12px/14.4px Poppins,sans-serif;
     cursor: pointer;
   }
-  .view-modal__fairness:hover { color: #c1c6d0; background: #282c37; }
+  .view-modal__fairness:hover { color: #c1c6d0; background: #4D4A6B; }
   .view-modal__fairness svg { width: 13px; height: 13px; }
   .view-modal__footer-cancel {
     position: absolute;
@@ -1197,9 +1194,9 @@ const VIEW_MODAL_STYLES = `
     overflow-y: auto;
     border: 0;
     border-radius: 5px;
-    background: #131520;
+    background: #25263B;
     color: #e1e4f2;
-    box-shadow: 0 20px 80px #0000008c;
+    box-shadow: none;
     font-family: Poppins, sans-serif;
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1268,7 +1265,7 @@ const VIEW_MODAL_STYLES = `
     padding: 12px 13px;
     border: 0;
     border-radius: 6px;
-    background: #1c1f2e;
+    background: #353650;
   }
 
   .fairness-modal__value {

@@ -98,7 +98,7 @@ export default function CoinTipModal({
           overflow: hidden;
           border: 1px solid #1e2235;
           border-radius: 12px;
-          background-color: #171925;
+          background-color: #292A42;
           color: #e1e4f2;
           scrollbar-width: none;
           animation: tipUserModalOpen .3s forwards;
@@ -129,7 +129,7 @@ export default function CoinTipModal({
         }
 
         .tipUserClose:focus-visible {
-          outline: 2px solid #ff69b0;
+          outline: 2px solid #DDD2F1;
           outline-offset: 2px;
         }
 
@@ -151,14 +151,14 @@ export default function CoinTipModal({
           align-items: center;
           justify-content: center;
           border-radius: 999px;
-          background: rgba(255, 79, 163, .12);
+          background: rgba(128, 74, 255, .12);
         }
 
         .tipUserIcon {
           display: block;
           width: 28px;
           height: 28px;
-          color: #ff4fa3;
+          color: #804AFF;
         }
 
         .tipUserTitle {
@@ -208,7 +208,7 @@ export default function CoinTipModal({
           align-items: center;
           border: none;
           border-radius: 6px;
-          background: #1c1f2e;
+          background: #353650;
           transition: background .15s;
         }
 
@@ -241,7 +241,7 @@ export default function CoinTipModal({
           padding: 10px 14px;
           border: none;
           border-radius: 6px;
-          background: #1c1f2e;
+          background: #353650;
         }
 
         .tipUserCheckboxLabel {
@@ -263,15 +263,15 @@ export default function CoinTipModal({
           width: 18px;
           height: 18px;
           flex-shrink: 0;
-          border: 1px solid #252839;
+          border: 1px solid #444261;
           border-radius: 5px;
-          background: #131520;
+          background: #25263B;
           transition: background .15s, border-color .15s;
         }
 
         .tipUserCheckboxInput:checked + .tipUserCheckboxBox {
-          border-color: rgba(255, 79, 163, .5);
-          background: linear-gradient(135deg, #ff4fa3, #574fd6);
+          border-color: rgba(128, 74, 255, .5);
+          background: linear-gradient(135deg, #DDD2F1, #804AFF);
         }
 
         .tipUserCheckboxInput:checked + .tipUserCheckboxBox::after {
@@ -285,7 +285,7 @@ export default function CoinTipModal({
         }
 
         .tipUserCheckboxInput:focus-visible + .tipUserCheckboxBox {
-          outline: 2px solid #ff69b0;
+          outline: 2px solid #DDD2F1;
           outline-offset: 2px;
         }
 
@@ -312,10 +312,10 @@ export default function CoinTipModal({
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          border: 1px solid rgba(255, 79, 163, .4);
+          border: 1px solid rgba(128, 74, 255, .4);
           border-radius: 8px;
-          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
-          box-shadow: 0 2px 8px rgba(255, 79, 163, .2);
+          background: linear-gradient(135deg, #DDD2F1, #804AFF);
+          box-shadow: none;
           color: #fff;
           font-size: 14.4px;
           font-weight: 600;
@@ -326,7 +326,7 @@ export default function CoinTipModal({
         }
 
         .tipUserButton:hover:not(:disabled) {
-          background: linear-gradient(135deg, #ff4fa3, #f43f8f);
+          background: linear-gradient(135deg, #DDD2F1, #804AFF);
           opacity: .95;
         }
 
@@ -335,7 +335,7 @@ export default function CoinTipModal({
         }
 
         .tipUserButton:focus-visible {
-          outline: 2px solid #ff69b0;
+          outline: 2px solid #DDD2F1;
           outline-offset: 2px;
         }
 

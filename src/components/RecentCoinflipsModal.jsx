@@ -134,23 +134,23 @@ export const HISTORY_STYLES = `
   .history-modal-body:has(.history-state) { height: 400px; flex: 0 0 400px; }
   .history-list { display: flex; flex-direction: column; gap: 8px; }
   .history-state { display: flex; min-height: 360px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #a2a7b2; font-size: 14px; font-weight: 600; }
-  .history-empty { border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: #14171e; }
-  .history-empty-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; color: #ff4fa3; background: rgba(255,79,163,.09); }
+  .history-empty { border: 1px solid rgba(255,255,255,.06); border-radius: 10px; background: #25263B; }
+  .history-empty-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; color: #804AFF; background: rgba(128,74,255,.09); }
   .history-empty-icon svg { width: 17px; height: 17px; }
   .history-loading-copy { color: #858c99; font-size: 13px; font-weight: 400; }
-  .history-game-card { display: flex; width: 100%; min-height: 96px; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; background: #191c24; box-shadow: 0 8px 24px rgba(0,0,0,.14); animation: historyRowIn .45s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--history-row-index) * 35ms); }
+  .history-game-card { display: flex; width: 100%; min-height: 96px; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; background: #2F3049; box-shadow: none; animation: historyRowIn .45s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--history-row-index) * 35ms); }
   .history-game-players { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 12px; }
   .history-player { position: relative; display: block; width: 58px; height: 58px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
   .history-player:disabled { cursor: default; }
-  .history-player-avatar { display: block; width: 58px; height: 58px; border: 2px solid #ff4fa3; border-radius: 50%; background: #111319; object-fit: cover; }
-  .history-player.side-tails .history-player-avatar { border-color: #1f6fff; }
+  .history-player-avatar { display: block; width: 58px; height: 58px; border: 2px solid #804AFF; border-radius: 50%; background: #202134; object-fit: cover; }
+  .history-player.side-tails .history-player-avatar { border-color: #DDD2F1; }
   .history-player.is-loser { opacity: .42; filter: saturate(.65) brightness(.78); }
   .history-player-coin { position: absolute; top: -7px; right: -7px; width: 28px; height: 28px; object-fit: contain; }
   .history-game-vs { color: #717784; font-size: 11px; font-weight: 700; }
   .history-game-items { display: flex; width: 220px; min-width: 0; flex: 0 0 220px; align-items: center; justify-content: flex-start; gap: 0; padding: 4px 0 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .history-game-items::-webkit-scrollbar { display: none; }
   .history-item + .history-item { margin-left: -18px; }
-  .history-item { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; overflow: visible; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #12151c; transition: border-color .15s ease; }
+  .history-item { position: relative; display: flex; width: 64px; height: 64px; flex: 0 0 64px; align-items: center; justify-content: center; overflow: visible; border: 1px solid rgba(255,255,255,.05); border-radius: 50%; background: #202134; transition: border-color .15s ease; }
   .history-item:hover { border-color: rgba(255,255,255,.12); }
   .history-item img { display: block; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; pointer-events: none; }
   .history-item img.is-gem { width: 78%; height: 78%; object-fit: contain; }
@@ -162,11 +162,11 @@ export const HISTORY_STYLES = `
   .history-game-total svg { width: 1em; height: 1em; }
   .history-game-range { display: block; margin-top: 4px; color: #777e8d; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .history-game-actions { display: flex; min-width: 42px; flex: 0 0 42px; align-items: center; justify-content: flex-start; }
-  .history-view-button { display: flex; width: 42px; min-width: 42px; height: 42px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; color: #f1f2f5; background: #2b303c; cursor: pointer; }
-  .history-view-button:hover { background: #343a47; } .history-view-button:active { background: #252a34; }
+  .history-view-button { display: flex; width: 42px; min-width: 42px; height: 42px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; color: #DDD2F1; background: #3C3C59; cursor: pointer; transition: color .15s ease, background-color .15s ease; }
+  .history-view-button:hover { color: #fff; background: #4D4A6B; } .history-view-button:active { background: #444261; }
   .history-view-button svg { width: 1em; height: 1em; }
   .history-pagination { display: flex; align-items: center; justify-content: center; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
-  .history-pagination button { display: flex; width: 34px; min-width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 7px; color: #9aa0ac; background: #242833; cursor: pointer; }
+  .history-pagination button { display: flex; width: 34px; min-width: 34px; height: 34px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 7px; color: #9aa0ac; background: #444261; cursor: pointer; }
   .history-pagination button:hover { color: #c1c6d0; background: #2b303b; } .history-pagination button:disabled { cursor: not-allowed; opacity: .4; }
   .history-pagination button svg { width: 10px; height: 10px; }
   .history-pagination > span { min-width: 92px; color: #a1a6b2; font-size: 12px; font-weight: 600; text-align: center; }

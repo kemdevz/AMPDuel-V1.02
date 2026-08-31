@@ -1,5 +1,5 @@
 ﻿
-# AMPDuel
+# BloxDice
 
 ## PS99 Bot setup
 

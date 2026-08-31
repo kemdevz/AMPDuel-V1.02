@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Coinflip from './pages/Coinflip'
 import Mines from './pages/Mines'
 import { useAuth } from './store/auth'
+import NotificationCenter from './components/Notifications'
 
 function AppRoutes({ onInitialReady, onInitialWalletReady }) {
   const pathname = usePathname()
@@ -47,11 +48,12 @@ export default function App() {
           onInitialWalletReady={handleInitialWalletReady}
         />
       </BrowserRouter>
+      <NotificationCenter />
       {(loading || !initialPageReady || !initialWalletReady) && (
-        <div className="loading-screen" role="status" aria-label="Loading AMPDUEL">
+        <div className="loading-screen" role="status" aria-label="Loading BloxDice">
           <div className="loading-screen-content">
             <img
-              src="/Logo.svg"
+              src="/bloxdice-logo.png"
               alt=""
               aria-hidden="true"
               className="loading-screen-logo"
